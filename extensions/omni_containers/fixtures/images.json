@@ -1,0 +1,25 @@
+[
+  {
+    "Id": "sha256:ec3f0931a6e6b6855d76b2d7b0be30e81860baccd891b2e243280bf1cd8ad710",
+    "ParentId": "",
+    "RepoTags": [
+      "example:1.0",
+      "example:latest",
+      "example:stable",
+      "internal.registry.example.com:5000/example:1.0"
+    ],
+    "RepoDigests": [
+      "example@sha256:afcc7f1ac1b49db317a7196c902e61c6c3c4607d63599ee1a82d702d249a0ccb",
+      "internal.registry.example.com:5000/example@sha256:b69959407d21e8a062e0416bf13405bb2b71ed7a84dde4158ebafacfa06f5578"
+    ],
+    "Created": "1644009612",
+    "Size": 172064416,
+    "SharedSize": 1239828,
+    "VirtualSize": 172064416,
+    "Labels": {
+      "com.example.some-label": "some-value",
+      "com.example.some-other-label": "some-other-value"
+    },
+    "Containers": 2
+  }
+]

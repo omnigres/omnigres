@@ -1,0 +1,31 @@
+-- API: PRIVATE
+CREATE FUNCTION docker_images_json()
+    RETURNS jsonb
+    AS 'MODULE_PATHNAME', 'docker_images_json'
+    LANGUAGE C;
+
+COMMENT ON FUNCTION docker_images_json() IS 'Private API';
+
+-- API: PUBLIC
+CREATE VIEW docker_images AS (
+     select "Id" AS id, "Size" AS "size", "Labels" AS "labels", to_timestamp("Created") AS created_at,
+            "ParentId" AS parent_id, "RepoTags" AS repo_tags, "Containers" AS containers,
+            "SharedSize" AS shared_size, "RepoDigests" AS repo_digests, "VirtualSize" AS virtual_size FROM
+            jsonb_to_recordset(jsonb_strip_nulls(omni_containers.docker_images_json())) AS
+              images("Id" text, "Size" int8, "Labels" jsonb, "Created" int8, "ParentId" text, "RepoTags" text[],
+                     "Containers" int, "SharedSize" int, "RepoDigests" text[], "VirtualSize" jsonb)
+);
+
+
+-- API: PUBLIC
+CREATE FUNCTION docker_container_create(
+  image text,
+  cmd text DEFAULT NULL,
+  attach text DEFAULT 'db.omni',
+  start bool DEFAULT true,
+  wait bool DEFAULT false,
+  pull bool DEFAULT false
+)
+RETURNS text
+AS 'MODULE_PATHNAME', 'docker_container_create'
+    LANGUAGE C;

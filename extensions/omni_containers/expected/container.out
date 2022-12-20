@@ -1,0 +1,26 @@
+-- Creating container
+SELECT count(*) FROM pg_catalog.pg_tables WHERE tablename = 'container_test';
+ count 
+-------
+     0
+(1 row)
+
+SET client_min_messages TO WARNING;
+SELECT true FROM omni_containers.docker_container_create('postgres', cmd => $$psql -c 'CREATE TABLE container_test ();'$$,
+                                                      wait => true, pull => true);
+ ?column? 
+----------
+ t
+(1 row)
+
+SET client_min_messages TO NOTICE;
+SELECT count(*) FROM pg_catalog.pg_tables WHERE tablename = 'container_test';
+ count 
+-------
+     1
+(1 row)
+
+-- Creating a container that can't be found
+SELECT true FROM omni_containers.docker_container_create('cannotbefound');
+ERROR:  Docker image not found
+DETAIL:  cannotbefound
