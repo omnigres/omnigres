@@ -377,7 +377,7 @@ $<$<NOT:$<BOOL:${_ext_RELOCATABLE}>>:#>relocatable = ${_ext_RELOCATABLE}
         if(PG_REGRESS)
             list(JOIN _ext_REGRESS " " _ext_REGRESS_ARGS)
             file(GENERATE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/test_${PROJECT_NAME}
-                    CONTENT "#! /usr/bin/env bash
+                CONTENT "#! /usr/bin/env bash
 # Pick random port
 while true
 do
@@ -388,12 +388,16 @@ do
         break;
     fi
 done
+echo local all all trust > ${CMAKE_BINARY_DIR}/pg_hba.conf
+echo host all all all trust >> ${CMAKE_BINARY_DIR}/pg_hba.conf
+echo hba_file=\\\'${CMAKE_BINARY_DIR}/pg_hba.conf\\\' > ${CMAKE_BINARY_DIR}/postgresql.conf
 EXTENSION_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR} \
 ${PG_REGRESS} --temp-instance=${CMAKE_BINARY_DIR}/tmp_check --inputdir=${CMAKE_CURRENT_SOURCE_DIR} \
---outputdir=${CMAKE_CURRENT_BINARY_DIR} --load-extension=${NAME} --host=127.0.0.1 --port=$PORT ${_ext_REGRESS_ARGS}
+--temp-config=${CMAKE_BINARY_DIR}/postgresql.conf \
+--outputdir=${CMAKE_CURRENT_BINARY_DIR} --load-extension=${NAME} --host=* --port=$PORT ${_ext_REGRESS_ARGS}
 "
-                    FILE_PERMISSIONS OWNER_EXECUTE OWNER_READ OWNER_WRITE
-                    )
+                FILE_PERMISSIONS OWNER_EXECUTE OWNER_READ OWNER_WRITE
+            )
             add_test(
                     NAME ${NAME}
                     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
@@ -427,7 +431,8 @@ export EXTENSION_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"
 rm -rf \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\"
 ${INITDB} -D \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" --no-clean --no-sync
 export SOCKDIR=$(mktemp -d)
-${PG_CTL} start -D \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" -o \"-c port=$PGPORT\" -o -F -o -k -o \"$SOCKDIR\"
+echo host all all all trust >>  \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}/pg_hba.conf\"
+${PG_CTL} start -D \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" -o \"-c listen_addresses=* -c port=$PGPORT\" -o -F -o -k -o \"$SOCKDIR\"
 ${CREATEDB} -h \"$SOCKDIR\" ${NAME}
 ${PSQL} -h \"$SOCKDIR\" ${NAME}
 ${PG_CTL} stop -D  \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" -m smart
