@@ -19,7 +19,7 @@ Database-modeled application logic via **reactive** queries
 
 ## Try it out
 
-To build and run Omnigres, you would current need a recent C compiler, OpenSSL and cmake:
+To build and run Omnigres, you would currently need a recent C compiler, OpenSSL and cmake:
 
 ```shell
 mkdir -p build && cd build
