@@ -255,7 +255,12 @@ Datum docker_container_create(PG_FUNCTION_ARGS) {
   yyjson_doc *response = yyjson_read_opts(
       buf.data, buf.size, YYJSON_READ_NOFLAG, &gluepg_yyjson_allocator, NULL);
   yyjson_val *root = yyjson_doc_get_root(response);
+
+  // Switch to old context temporarily to allocate `id_text`
+  MemoryContextSwitchTo(old_context);
   const char *id = yyjson_get_str(yyjson_obj_get(root, "Id"));
+  text *id_text = cstring_to_text(id);
+  MemoryContextSwitchTo(context);
 
   if (start) {
     char *url = psprintf("http://v1.41/containers/%s/start", id);
@@ -281,6 +286,5 @@ Datum docker_container_create(PG_FUNCTION_ARGS) {
 
   MemoryContextSwitchTo(old_context);
   MemoryContextDelete(context);
-  text *id_text = cstring_to_text(id);
   PG_RETURN_TEXT_P(id_text);
 }
