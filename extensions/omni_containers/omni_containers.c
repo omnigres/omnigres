@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 // clang-format off
 #include <postgres.h>
@@ -65,6 +66,21 @@ Datum docker_images_json(PG_FUNCTION_ARGS) {
   }
 }
 
+char *normalize_docker_image_name(char *image) {
+  char *first_slash = strchr(image, '/');
+  char *last_slash = strrchr(image, '/');
+  if (first_slash == NULL) {
+    // No slashes, it's a library
+    return psprintf("docker.io/library/%s", image);
+  }
+  if (first_slash == last_slash) {
+    // One slash, it's on docker.io
+    return psprintf("docker.io/%s", image);
+  }
+  // More than one slash, it's a normalized URl
+  return image;
+}
+
 PG_FUNCTION_INFO_V1(docker_container_create);
 
 Datum docker_container_create(PG_FUNCTION_ARGS) {
@@ -75,6 +91,7 @@ Datum docker_container_create(PG_FUNCTION_ARGS) {
   MemoryContext old_context = MemoryContextSwitchTo(context);
   // Docker image
   char *image = text_to_cstring(PG_GETARG_TEXT_PP(0));
+  char *normalized_image = normalize_docker_image_name(image);
 
   // Command (if not null)
   char *cmd = NULL;
@@ -118,7 +135,7 @@ Datum docker_container_create(PG_FUNCTION_ARGS) {
   yyjson_mut_doc *request = yyjson_mut_doc_new(&gluepg_yyjson_allocator);
   yyjson_mut_val *obj = yyjson_mut_obj(request);
   yyjson_mut_doc_set_root(request, obj);
-  yyjson_mut_obj_add_str(request, obj, "Image", image);
+  yyjson_mut_obj_add_str(request, obj, "Image", normalized_image);
   yyjson_mut_val *env = yyjson_mut_arr(request);
   yyjson_mut_val *host_config = yyjson_mut_obj(request);
   yyjson_mut_val *extra_hosts = yyjson_mut_arr(request);
@@ -193,7 +210,7 @@ Datum docker_container_create(PG_FUNCTION_ARGS) {
       if (pull && !attempted_to_pull) {
         // Try to pull the image if allowed to
         ereport(NOTICE, errmsg("Pulling image %s", image));
-        char *image_escaped = curl_easy_escape(curl, image, 0);
+        char *image_escaped = curl_easy_escape(curl, normalized_image, 0);
         char *url =
             psprintf("http://v1.41/images/create?fromImage=%s", image_escaped);
         curl_easy_setopt(curl, CURLOPT_URL, url);
