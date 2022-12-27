@@ -283,11 +283,7 @@ Datum docker_container_create(PG_FUNCTION_ARGS) {
   yyjson_doc *response = read_last_json(&buf);
   yyjson_val *root = yyjson_doc_get_root(response);
 
-  // Switch to old context temporarily to allocate `id_text`
-  MemoryContextSwitchTo(old_context);
   const char *id = yyjson_get_str(yyjson_obj_get(root, "Id"));
-  text *id_text = cstring_to_text(id);
-  MemoryContextSwitchTo(context);
 
   if (start) {
     char *url = psprintf("http://v1.41/containers/%s/start", id);
@@ -312,6 +308,10 @@ Datum docker_container_create(PG_FUNCTION_ARGS) {
   curl_easy_cleanup(curl);
 
   MemoryContextSwitchTo(old_context);
+  // Allocate `id_text` in the old context as we need to return it,
+  // while it is still live (before the deletion of the context used in the
+  // function)
+  text *id_text = cstring_to_text(id);
   MemoryContextDelete(context);
   PG_RETURN_TEXT_P(id_text);
 }
