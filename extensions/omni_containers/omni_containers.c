@@ -39,6 +39,7 @@ CURL *init_curl() {
 PG_FUNCTION_INFO_V1(docker_images_json);
 
 Datum docker_images_json(PG_FUNCTION_ARGS) {
+  gluepg_curl_init();
 
 #ifdef DEBUG
   if (test_fixtures) {
@@ -84,6 +85,7 @@ char *normalize_docker_image_name(char *image) {
 PG_FUNCTION_INFO_V1(docker_container_create);
 
 Datum docker_container_create(PG_FUNCTION_ARGS) {
+  gluepg_curl_init();
   // Create a new memory context to avoid over-complicating
   // the code with releasing memory. Release it at once instead.
   MemoryContext context = AllocSetContextCreate(

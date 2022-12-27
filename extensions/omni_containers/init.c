@@ -18,5 +18,4 @@ void _PG_init() {
                              &test_fixtures, NULL, PGC_USERSET, 0, NULL, NULL,
                              NULL);
 #endif
-  gluepg_curl_init();
 }

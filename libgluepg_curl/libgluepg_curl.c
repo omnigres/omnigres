@@ -23,9 +23,14 @@ void *gluepg_curl_pgrealloc(void *ptr, uintptr_t size) {
   }
 }
 
+static bool curl_initialized = false;
+
 void gluepg_curl_init() {
-  curl_global_init_mem(CURL_GLOBAL_DEFAULT, palloc, gluepg_curl_pgfree,
-                       gluepg_curl_pgrealloc, pstrdup, gluepg_curl_pcalloc);
+  if (!curl_initialized) {
+    curl_global_init_mem(CURL_GLOBAL_DEFAULT, palloc, gluepg_curl_pgfree,
+                         gluepg_curl_pgrealloc, pstrdup, gluepg_curl_pcalloc);
+    curl_initialized = true;
+  }
 }
 
 void gluepg_curl_buffer_init(gluepg_curl_buffer *buf) {
