@@ -29,6 +29,7 @@
 #include <utils/builtins.h>
 #include <utils/fmgrprotos.h>
 #include <utils/guc.h>
+#include <utils/jsonb.h>
 #include <utils/timestamp.h>
 
 #include <libgluepg_curl.h>
@@ -177,18 +178,45 @@ Datum docker_container_create(PG_FUNCTION_ARGS) {
     pull = PG_GETARG_BOOL(5);
   }
 
+  // Options object to pass extra options
+  yyjson_val *options = NULL;
+  if (!PG_ARGISNULL(6)) {
+    Jsonb *jsonb = PG_GETARG_JSONB_P(6);
+    char *json = JsonbToCString(NULL, &jsonb->root, VARSIZE(jsonb));
+    yyjson_doc *doc = yyjson_read_opts(json, strlen(json), YYJSON_READ_NOFLAG,
+                                       &gluepg_yyjson_allocator, NULL);
+    if (doc) {
+      options = yyjson_doc_get_root(doc);
+    }
+  }
+
   // Prepare container creation request
   // https://docs.docker.com/engine/api/v1.41/#tag/Container/operation/ContainerCreate
   yyjson_mut_doc *request = yyjson_mut_doc_new(&gluepg_yyjson_allocator);
   yyjson_mut_val *obj = yyjson_mut_obj(request);
+
+  // Set options, if any
+  if (options) {
+    obj = yyjson_val_mut_copy(request, options);
+  }
+
   yyjson_mut_doc_set_root(request, obj);
   yyjson_mut_obj_add_str(request, obj, "Image", normalized_image);
-  yyjson_mut_val *env = yyjson_mut_arr(request);
-  yyjson_mut_val *host_config = yyjson_mut_obj(request);
-  yyjson_mut_val *extra_hosts = yyjson_mut_arr(request);
-  yyjson_mut_obj_add_val(request, host_config, "ExtraHosts", extra_hosts);
-  yyjson_mut_obj_add_val(request, obj, "Env", env);
-  yyjson_mut_obj_add_val(request, obj, "HostConfig", host_config);
+  yyjson_mut_val *env = yyjson_mut_obj_get(obj, "Env");
+  if (!env) {
+    env = yyjson_mut_arr(request);
+    yyjson_mut_obj_add_val(request, obj, "Env", env);
+  }
+  yyjson_mut_val *host_config = yyjson_mut_obj_get(obj, "HostConfig");
+  if (!host_config) {
+    host_config = yyjson_mut_obj(request);
+    yyjson_mut_obj_add_val(request, obj, "HostConfig", host_config);
+  }
+  yyjson_mut_val *extra_hosts = yyjson_mut_obj_get(obj, "ExtraHosts");
+  if (!extra_hosts) {
+    extra_hosts = yyjson_mut_arr(request);
+    yyjson_mut_obj_add_val(request, host_config, "ExtraHosts", extra_hosts);
+  }
 
   if (attach) {
     yyjson_mut_arr_add_str(request, extra_hosts, attach);

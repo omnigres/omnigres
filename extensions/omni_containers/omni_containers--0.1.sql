@@ -16,6 +16,10 @@ CREATE VIEW docker_images AS (
                      "Containers" int, "SharedSize" int, "RepoDigests" text[], "VirtualSize" jsonb)
 );
 
+CREATE TYPE docker_container_environment_variable AS (
+  key text,
+  value text
+);
 
 -- API: PUBLIC
 CREATE FUNCTION docker_container_create(
@@ -24,8 +28,8 @@ CREATE FUNCTION docker_container_create(
   attach text DEFAULT 'db.omni',
   start bool DEFAULT true,
   wait bool DEFAULT false,
-  pull bool DEFAULT false
-)
+  pull bool DEFAULT false,
+  options jsonb DEFAULT '{}')
 RETURNS text
 AS 'MODULE_PATHNAME', 'docker_container_create'
     LANGUAGE C;
@@ -44,7 +48,8 @@ CREATE FUNCTION docker_container_logs(
   since timestamp DEFAULT NULL,
   until timestamp DEFAULT NULL,
   timestamps bool DEFAULT false,
-  tail int DEFAULT NULL)
+  tail int DEFAULT NULL
+  )
 RETURNS text
 AS 'MODULE_PATHNAME', 'docker_container_logs'
     LANGUAGE C;
