@@ -21,19 +21,47 @@
 
 PG_MODULE_MAGIC;
 
-const char *get_docker_error(gluepg_curl_buffer *buf) {
-  yyjson_doc *response = yyjson_read_opts(
-      buf->data, buf->size, YYJSON_READ_NOFLAG, &gluepg_yyjson_allocator, NULL);
-  yyjson_val *root = yyjson_doc_get_root(response);
-  const char *message = yyjson_get_str(yyjson_obj_get(root, "message"));
-  return message == NULL ? buf->data : message;
-}
-
 CURL *init_curl() {
   CURL *curl = curl_easy_init();
   curl_easy_setopt(curl, CURLOPT_UNIX_SOCKET_PATH, "/var/run/docker.sock");
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, gluepg_curl_buffer_write);
   return curl;
+}
+
+/**
+ * @brief Docker may send multiple progress JSONs, return the last one
+ *
+ * @param buf Docker response
+ * @return yyjson_doc* last JSON
+ */
+static yyjson_doc *read_last_json(gluepg_curl_buffer *buf) {
+  char *input = buf->data;
+  uintptr_t size = buf->size;
+  yyjson_doc *doc;
+  while (true) {
+    yyjson_doc *attempted_doc =
+        yyjson_read_opts(input, size, YYJSON_READ_STOP_WHEN_DONE,
+                         &gluepg_yyjson_allocator, NULL);
+    if (!attempted_doc) {
+      return doc;
+    }
+    doc = attempted_doc;
+    input += yyjson_doc_get_read_size(doc);
+    size -= yyjson_doc_get_read_size(doc);
+  }
+}
+
+/**
+ * @brief Get Docker error message
+ *
+ * @param buf response
+ * @return const char* error message
+ */
+static const char *get_docker_error(gluepg_curl_buffer *buf) {
+  yyjson_doc *response = read_last_json(buf);
+  yyjson_val *root = yyjson_doc_get_root(response);
+  const char *message = yyjson_get_str(yyjson_obj_get(root, "message"));
+  return message == NULL ? buf->data : message;
 }
 
 PG_FUNCTION_INFO_V1(docker_images_json);
@@ -67,7 +95,7 @@ Datum docker_images_json(PG_FUNCTION_ARGS) {
   }
 }
 
-char *normalize_docker_image_name(char *image) {
+static char *normalize_docker_image_name(char *image) {
   char *first_slash = strchr(image, '/');
   char *last_slash = strrchr(image, '/');
   if (first_slash == NULL) {
@@ -252,8 +280,7 @@ Datum docker_container_create(PG_FUNCTION_ARGS) {
     }
   } while (retry_creating);
 
-  yyjson_doc *response = yyjson_read_opts(
-      buf.data, buf.size, YYJSON_READ_NOFLAG, &gluepg_yyjson_allocator, NULL);
+  yyjson_doc *response = read_last_json(&buf);
   yyjson_val *root = yyjson_doc_get_root(response);
 
   // Switch to old context temporarily to allocate `id_text`
