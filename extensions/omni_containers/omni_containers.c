@@ -2,6 +2,22 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef LITTLE_ENDIAN
+#if HAVE_BYTESWAP_H
+#include <byteswap.h>
+#else
+#define bswap_16(value) ((((value)&0xff) << 8) | ((value) >> 8))
+
+#define bswap_32(value)                                                        \
+  (((uint32_t)bswap_16((uint16_t)((value)&0xffff)) << 16) |                    \
+   (uint32_t)bswap_16((uint16_t)((value) >> 16)))
+
+#define bswap_64(value)                                                        \
+  (((uint64_t)bswap_32((uint32_t)((value)&0xffffffff)) << 32) |                \
+   (uint64_t)bswap_32((uint32_t)((value) >> 32)))
+#endif
+#endif
+
 // clang-format off
 #include <postgres.h>
 #include <fmgr.h>
@@ -13,6 +29,7 @@
 #include <utils/builtins.h>
 #include <utils/fmgrprotos.h>
 #include <utils/guc.h>
+#include <utils/timestamp.h>
 
 #include <libgluepg_curl.h>
 #include <libgluepg_yyjson.h>
@@ -345,4 +362,173 @@ Datum docker_container_create(PG_FUNCTION_ARGS) {
   text *id_text = cstring_to_text(id);
   MemoryContextDelete(context);
   PG_RETURN_TEXT_P(id_text);
+}
+
+PG_FUNCTION_INFO_V1(docker_container_inspect);
+
+Datum docker_container_inspect(PG_FUNCTION_ARGS) {
+  gluepg_curl_init();
+  // Create a new memory context to avoid over-complicating
+  // the code with releasing memory. Release it at once instead.
+  MemoryContext context = AllocSetContextCreate(
+      CurrentMemoryContext, "docker_container_inspect", ALLOCSET_DEFAULT_SIZES);
+  MemoryContext old_context = MemoryContextSwitchTo(context);
+
+  // Container ID
+  char *id = text_to_cstring(PG_GETARG_TEXT_PP(0));
+
+  CURL *curl = init_curl();
+
+  gluepg_curl_buffer buf;
+  gluepg_curl_buffer_init(&buf);
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA, &buf);
+
+  curl_easy_setopt(curl, CURLOPT_URL,
+                   psprintf("http://v1.41/containers/%s/json", id));
+  curl_easy_perform(curl);
+
+  long http_code;
+  curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+
+  // How did it go?
+  switch (http_code) {
+  // Got it
+  case 200:
+    // We're done
+    break;
+  // Error
+  default:
+    ereport(
+        ERROR, errmsg("Can't inspect the container"),
+        errdetail("Error code %ld: %s", http_code,
+                  MemoryContextStrdup(old_context, get_docker_error(&buf))));
+  }
+  curl_easy_cleanup(curl);
+
+  MemoryContextSwitchTo(old_context);
+  // Allocate the result in the old context as we need to return it,
+  // while the data we use is still live (before the deletion of the context
+  // used in the function)
+  Datum result = DirectFunctionCall1(jsonb_in, CStringGetDatum(buf.data));
+  MemoryContextDelete(context);
+  return result;
+}
+
+text *docker_stream_to_text(gluepg_curl_buffer *buf) {
+  // The actual output will be smaller, but this is the absolute
+  // upper bound and we don't want to constantly re-allocate it to grow
+  char *output = palloc0(buf->size);
+  char *current = buf->data;
+  long i = 0;
+  // If there's any stream data at all
+  if (buf->size >= 8) {
+    // Keep reading frames
+    while (true) {
+      uint32_t sz = *((uint32_t *)(current + 4));
+#ifdef LITTLE_ENDIAN
+      sz = bswap_32(sz);
+#endif
+      memcpy(output + i, current + 8, sz);
+      i += sz;
+      current += 8 + sz;
+      // until we run out of data
+      if (current - buf->data == buf->size) {
+        break;
+      }
+    }
+  }
+
+  return cstring_to_text_with_len(output, i);
+}
+
+PG_FUNCTION_INFO_V1(docker_container_logs);
+
+Datum docker_container_logs(PG_FUNCTION_ARGS) {
+  gluepg_curl_init();
+  // Create a new memory context to avoid over-complicating
+  // the code with releasing memory. Release it at once instead.
+  MemoryContext context = AllocSetContextCreate(
+      CurrentMemoryContext, "docker_container_logs", ALLOCSET_DEFAULT_SIZES);
+  MemoryContext old_context = MemoryContextSwitchTo(context);
+
+  // Container ID
+  char *id = text_to_cstring(PG_GETARG_TEXT_PP(0));
+
+  // Include stdout
+  bool stdout = false;
+  if (!PG_ARGISNULL(1)) {
+    stdout = PG_GETARG_BOOL(1);
+  }
+
+  // Include stderr
+  bool stderr = false;
+  if (!PG_ARGISNULL(2)) {
+    stdout = PG_GETARG_BOOL(2);
+  }
+
+  Timestamp epoch = SetEpochTimestamp();
+
+  long since = 0;
+  if (!PG_ARGISNULL(3)) {
+    Timestamp ts = PG_GETARG_TIMESTAMP(3);
+    since = (ts - epoch) / 1000000;
+  }
+
+  long until = 0;
+  if (!PG_ARGISNULL(4)) {
+    Timestamp ts = PG_GETARG_TIMESTAMP(4);
+    until = (ts - epoch) / 1000000;
+  }
+
+  bool timestamps = false;
+  if (!PG_ARGISNULL(5)) {
+    timestamps = PG_GETARG_BOOL(5);
+  }
+
+  int tail = -1;
+  if (!PG_ARGISNULL(6)) {
+    tail = PG_GETARG_INT32(tail);
+  }
+
+  CURL *curl = init_curl();
+
+  gluepg_curl_buffer buf;
+  gluepg_curl_buffer_init(&buf);
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA, &buf);
+
+  curl_easy_setopt(
+      curl, CURLOPT_URL,
+      psprintf(
+          "http://v1.41/containers/%s/"
+          "logs?stdout=%s&stderr=%s&since=%ld&until=%ld&timestamps=%s&tail=%s",
+          id, stdout ? "true" : "false", stderr ? "true" : "false", since,
+          until, timestamps ? "true" : "false",
+          tail == -1 ? "all" : psprintf("%d", tail)));
+  curl_easy_perform(curl);
+
+  long http_code;
+  curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+
+  // How did it go?
+  switch (http_code) {
+  // Created
+  case 200:
+    // We're done
+    break;
+  // Error
+  default:
+    ereport(
+        ERROR, errmsg("Can't get logs from the container"),
+        errdetail("Error code %ld: %s", http_code,
+                  MemoryContextStrdup(old_context, get_docker_error(&buf))));
+  }
+  curl_easy_cleanup(curl);
+
+  MemoryContextSwitchTo(old_context);
+  // Allocate the result in the old context as we need to return it,
+  // while the data we use is still live (before the deletion of the context
+  // used in the function)
+  text *logs = docker_stream_to_text(&buf);
+  MemoryContextDelete(context);
+  PG_RETURN_TEXT_P(logs);
 }

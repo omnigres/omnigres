@@ -6,11 +6,15 @@ SELECT count(*) FROM pg_catalog.pg_tables WHERE tablename = 'container_test';
 (1 row)
 
 SET client_min_messages TO WARNING;
-SELECT true FROM omni_containers.docker_container_create('ghcr.io/yrashk/psql', cmd => $$psql -c 'CREATE TABLE container_test ();'$$,
-                                                      wait => true, pull => true);
- ?column? 
-----------
- t
+WITH container AS (SELECT * FROM omni_containers.docker_container_create('ghcr.io/yrashk/psql', cmd => $$psql -c 'CREATE TABLE container_test ();'$$,
+                                                      wait => true, pull => true) AS id)
+SELECT omni_containers.docker_container_inspect(id)->'State'->'ExitCode' AS exit_code,
+       omni_containers.docker_container_logs(id) AS logs
+       FROM container;
+ exit_code |     logs     
+-----------+--------------
+ 0         | CREATE TABLE+
+           | 
 (1 row)
 
 SET client_min_messages TO NOTICE;

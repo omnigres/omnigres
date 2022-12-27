@@ -29,3 +29,22 @@ CREATE FUNCTION docker_container_create(
 RETURNS text
 AS 'MODULE_PATHNAME', 'docker_container_create'
     LANGUAGE C;
+
+-- API: PUBLIC
+CREATE FUNCTION docker_container_inspect(id text)
+RETURNS jsonb
+AS 'MODULE_PATHNAME', 'docker_container_inspect'
+    LANGUAGE C;
+
+-- API: PUBLIC
+CREATE FUNCTION docker_container_logs(
+  id text,
+  stdout bool DEFAULT true,
+  stderr bool DEFAULT true,
+  since timestamp DEFAULT NULL,
+  until timestamp DEFAULT NULL,
+  timestamps bool DEFAULT false,
+  tail int DEFAULT NULL)
+RETURNS text
+AS 'MODULE_PATHNAME', 'docker_container_logs'
+    LANGUAGE C;
