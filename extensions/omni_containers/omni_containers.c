@@ -271,12 +271,11 @@ Datum docker_container_create(PG_FUNCTION_ARGS) {
       }
       break;
       // Other error
-    default: {
-      const char *message = get_docker_error(&buf);
-      ereport(ERROR, errmsg("Can't create the container"),
-              errdetail("Error code %ld: %s", http_code,
-                        MemoryContextStrdup(old_context, message)));
-    }
+    default:
+      ereport(
+          ERROR, errmsg("Can't create the container"),
+          errdetail("Error code %ld: %s", http_code,
+                    MemoryContextStrdup(old_context, get_docker_error(&buf))));
     }
   } while (retry_creating);
 
@@ -293,6 +292,22 @@ Datum docker_container_create(PG_FUNCTION_ARGS) {
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, "");
 
     curl_easy_perform(curl);
+
+    long http_code;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+
+    // How did it go?
+    switch (http_code) {
+    // Created
+    case 204:
+      // We're done
+      break;
+    default:
+      ereport(
+          ERROR, errmsg("Can't start the container"),
+          errdetail("Error code %ld: %s", http_code,
+                    MemoryContextStrdup(old_context, get_docker_error(&buf))));
+    }
   }
 
   if (wait) {
@@ -303,6 +318,22 @@ Datum docker_container_create(PG_FUNCTION_ARGS) {
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, "");
 
     curl_easy_perform(curl);
+
+    long http_code;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+
+    // How did it go?
+    switch (http_code) {
+    // Created
+    case 200:
+      // We're done
+      break;
+    default:
+      ereport(
+          ERROR, errmsg("Can't wait for the container"),
+          errdetail("Error code %ld: %s", http_code,
+                    MemoryContextStrdup(old_context, get_docker_error(&buf))));
+    }
   }
 
   curl_easy_cleanup(curl);
