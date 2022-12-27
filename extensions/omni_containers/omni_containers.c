@@ -178,7 +178,6 @@ Datum docker_container_create(PG_FUNCTION_ARGS) {
 
   char *json = yyjson_mut_write_opts(request, YYJSON_WRITE_NOFLAG,
                                      &gluepg_yyjson_allocator, NULL, NULL);
-  yyjson_mut_doc_free(request);
 
   CURL *curl = init_curl();
   curl_easy_setopt(curl, CURLOPT_POST, 1L);
