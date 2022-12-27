@@ -84,7 +84,7 @@ if(NOT EXISTS "${PGDIR_VERSION}/build/bin/postgres")
     message(STATUS "Downloading PostgreSQL ${PGVER}")
     file(DOWNLOAD "${PGURL_${PGVER_ALIAS}}" "${PGDIR}/postgresql-${PGVER_ALIAS}.tar.bz2" SHOW_PROGRESS)
     message(STATUS "Extracting PostgreSQL ${PGVER}")
-    file(ARCHIVE_EXTRACT INPUT "${PGDIR}/postgresql-${PGVER}.tar.bz2" DESTINATION ${PGDIR_VERSION})
+    file(ARCHIVE_EXTRACT INPUT "${PGDIR}/postgresql-${PGVER_ALIAS}.tar.bz2" DESTINATION ${PGDIR_VERSION})
     execute_process(
             COMMAND ./configure --enable-debug --prefix "${PGDIR_VERSION}/build"
             WORKING_DIRECTORY "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}")
