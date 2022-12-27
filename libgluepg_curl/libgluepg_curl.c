@@ -1,5 +1,8 @@
-__int128 i;
+// clang-format off
 #include <postgres.h>
+#include <miscadmin.h>
+// clang-format on
+
 #include <stddef.h>
 #include <utils/memutils.h>
 
@@ -42,6 +45,7 @@ void gluepg_curl_buffer_reset(gluepg_curl_buffer *buf) { buf->size = 0; }
 
 size_t gluepg_curl_buffer_write(void *data, size_t size, size_t nmemb,
                                        void *buffer) {
+  CHECK_FOR_INTERRUPTS();
   size_t realsize = size * nmemb;
   gluepg_curl_buffer *mem = (gluepg_curl_buffer *)buffer;
 
