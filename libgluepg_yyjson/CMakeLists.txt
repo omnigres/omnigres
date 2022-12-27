@@ -11,6 +11,7 @@ find_package(PostgreSQL REQUIRED)
 find_package(Yyjson REQUIRED)
 
 add_library(libgluepg_yyjson STATIC libgluepg_yyjson.c)
+set_property(TARGET libgluepg_yyjson PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_include_directories(libgluepg_yyjson
         PRIVATE ${PostgreSQL_SERVER_INCLUDE_DIRS} "${yyjson_BINARY_DIR}/src"
         PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
