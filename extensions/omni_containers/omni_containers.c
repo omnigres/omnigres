@@ -188,9 +188,10 @@ Datum docker_container_create(PG_FUNCTION_ARGS) {
   gluepg_curl_buffer_init(&buf);
   curl_easy_setopt(curl, CURLOPT_WRITEDATA, &buf);
 
-  bool retry_creating = false;
+  bool retry_creating;
   bool attempted_to_pull = false;
   do {
+    retry_creating = false;
     // Attempt to create the container
     curl_easy_setopt(curl, CURLOPT_URL, "http://v1.41/containers/create");
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, json);
