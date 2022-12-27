@@ -237,7 +237,7 @@ Datum docker_container_create(PG_FUNCTION_ARGS) {
                             MemoryContextStrdup(old_context, message)));
         }
       } else {
-        // Attempt, wasn't found
+        // Attempted, wasn't found
         ereport(ERROR, errmsg("Docker image not found"),
                 errdetail("%s", image));
       }
