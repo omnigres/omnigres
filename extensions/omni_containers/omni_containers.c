@@ -87,30 +87,14 @@ PG_FUNCTION_INFO_V1(docker_images_json);
 Datum docker_images_json(PG_FUNCTION_ARGS) {
   gluepg_curl_init();
 
-#ifdef DEBUG
-  if (test_fixtures) {
-    char *filename = psprintf("%s/%s/images.json",
-                              getenv("EXTENSION_SOURCE_DIR"), test_fixtures);
-    FILE *f = fopen(filename, "r");
-    fseek(f, 0, SEEK_END);
-    long file_size = ftell(f);
-    rewind(f);
-    char *content = palloc0(file_size + 1);
-    fread(content, file_size, 1, f);
-    fclose(f);
-    return DirectFunctionCall1(jsonb_in, CStringGetDatum(content));
-  } else
-#endif
-  {
-    CURL *curl = init_curl();
-    gluepg_curl_buffer buf;
-    gluepg_curl_buffer_init(&buf);
-    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &buf);
-    curl_easy_setopt(curl, CURLOPT_URL, "http://v1.41/images/json");
-    curl_easy_perform(curl);
-    curl_easy_cleanup(curl);
-    return DirectFunctionCall1(jsonb_in, CStringGetDatum(buf.data));
-  }
+  CURL *curl = init_curl();
+  gluepg_curl_buffer buf;
+  gluepg_curl_buffer_init(&buf);
+  curl_easy_setopt(curl, CURLOPT_WRITEDATA, &buf);
+  curl_easy_setopt(curl, CURLOPT_URL, "http://v1.41/images/json");
+  curl_easy_perform(curl);
+  curl_easy_cleanup(curl);
+  return DirectFunctionCall1(jsonb_in, CStringGetDatum(buf.data));
 }
 
 static char *normalize_docker_image_name(char *image) {
