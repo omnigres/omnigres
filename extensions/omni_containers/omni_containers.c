@@ -34,6 +34,7 @@
 
 #include <libgluepg_curl.h>
 #include <libgluepg_yyjson.h>
+#include <libpgext.h>
 
 #include "omni_containers.h"
 
@@ -116,11 +117,7 @@ PG_FUNCTION_INFO_V1(docker_container_create);
 
 Datum docker_container_create(PG_FUNCTION_ARGS) {
   gluepg_curl_init();
-  // Create a new memory context to avoid over-complicating
-  // the code with releasing memory. Release it at once instead.
-  MemoryContext context = AllocSetContextCreate(
-      CurrentMemoryContext, "docker_container_create", ALLOCSET_DEFAULT_SIZES);
-  MemoryContext old_context = MemoryContextSwitchTo(context);
+  WITH_MEMCXT();
   // Docker image
   char *image = text_to_cstring(PG_GETARG_TEXT_PP(0));
   char *normalized_image = normalize_docker_image_name(image);
@@ -291,7 +288,7 @@ Datum docker_container_create(PG_FUNCTION_ARGS) {
           const char *message = get_docker_error(&buf);
           ereport(ERROR, errmsg("Failed to pull image %s", image),
                   errdetail("Code %ld: %s", http_code,
-                            MemoryContextStrdup(old_context, message)));
+                            MemoryContextStrdup(old_memory_context, message)));
         }
       } else {
         // Attempted, wasn't found
@@ -301,10 +298,10 @@ Datum docker_container_create(PG_FUNCTION_ARGS) {
       break;
       // Other error
     default:
-      ereport(
-          ERROR, errmsg("Can't create the container"),
-          errdetail("Error code %ld: %s", http_code,
-                    MemoryContextStrdup(old_context, get_docker_error(&buf))));
+      ereport(ERROR, errmsg("Can't create the container"),
+              errdetail("Error code %ld: %s", http_code,
+                        MemoryContextStrdup(old_memory_context,
+                                            get_docker_error(&buf))));
     }
   } while (retry_creating);
 
@@ -332,10 +329,10 @@ Datum docker_container_create(PG_FUNCTION_ARGS) {
       // We're done
       break;
     default:
-      ereport(
-          ERROR, errmsg("Can't start the container"),
-          errdetail("Error code %ld: %s", http_code,
-                    MemoryContextStrdup(old_context, get_docker_error(&buf))));
+      ereport(ERROR, errmsg("Can't start the container"),
+              errdetail("Error code %ld: %s", http_code,
+                        MemoryContextStrdup(old_memory_context,
+                                            get_docker_error(&buf))));
     }
   }
 
@@ -358,21 +355,18 @@ Datum docker_container_create(PG_FUNCTION_ARGS) {
       // We're done
       break;
     default:
-      ereport(
-          ERROR, errmsg("Can't wait for the container"),
-          errdetail("Error code %ld: %s", http_code,
-                    MemoryContextStrdup(old_context, get_docker_error(&buf))));
+      ereport(ERROR, errmsg("Can't wait for the container"),
+              errdetail("Error code %ld: %s", http_code,
+                        MemoryContextStrdup(old_memory_context,
+                                            get_docker_error(&buf))));
     }
   }
 
   curl_easy_cleanup(curl);
 
-  MemoryContextSwitchTo(old_context);
-  // Allocate `id_text` in the old context as we need to return it,
-  // while it is still live (before the deletion of the context used in the
-  // function)
+  WITH_MEMCXT_FINALLY();
   text *id_text = cstring_to_text(id);
-  MemoryContextDelete(context);
+  END_WITH_MEMCXT();
   PG_RETURN_TEXT_P(id_text);
 }
 
@@ -380,11 +374,7 @@ PG_FUNCTION_INFO_V1(docker_container_inspect);
 
 Datum docker_container_inspect(PG_FUNCTION_ARGS) {
   gluepg_curl_init();
-  // Create a new memory context to avoid over-complicating
-  // the code with releasing memory. Release it at once instead.
-  MemoryContext context = AllocSetContextCreate(
-      CurrentMemoryContext, "docker_container_inspect", ALLOCSET_DEFAULT_SIZES);
-  MemoryContext old_context = MemoryContextSwitchTo(context);
+  WITH_MEMCXT();
 
   // Container ID
   char *id = text_to_cstring(PG_GETARG_TEXT_PP(0));
@@ -410,19 +400,16 @@ Datum docker_container_inspect(PG_FUNCTION_ARGS) {
     break;
   // Error
   default:
-    ereport(
-        ERROR, errmsg("Can't inspect the container"),
-        errdetail("Error code %ld: %s", http_code,
-                  MemoryContextStrdup(old_context, get_docker_error(&buf))));
+    ereport(ERROR, errmsg("Can't inspect the container"),
+            errdetail("Error code %ld: %s", http_code,
+                      MemoryContextStrdup(old_memory_context,
+                                          get_docker_error(&buf))));
   }
   curl_easy_cleanup(curl);
 
-  MemoryContextSwitchTo(old_context);
-  // Allocate the result in the old context as we need to return it,
-  // while the data we use is still live (before the deletion of the context
-  // used in the function)
+  WITH_MEMCXT_FINALLY();
   Datum result = DirectFunctionCall1(jsonb_in, CStringGetDatum(buf.data));
-  MemoryContextDelete(context);
+  END_WITH_MEMCXT();
   return result;
 }
 
@@ -457,11 +444,7 @@ PG_FUNCTION_INFO_V1(docker_container_logs);
 
 Datum docker_container_logs(PG_FUNCTION_ARGS) {
   gluepg_curl_init();
-  // Create a new memory context to avoid over-complicating
-  // the code with releasing memory. Release it at once instead.
-  MemoryContext context = AllocSetContextCreate(
-      CurrentMemoryContext, "docker_container_logs", ALLOCSET_DEFAULT_SIZES);
-  MemoryContext old_context = MemoryContextSwitchTo(context);
+  WITH_MEMCXT();
 
   // Container ID
   char *id = text_to_cstring(PG_GETARG_TEXT_PP(0));
@@ -529,18 +512,15 @@ Datum docker_container_logs(PG_FUNCTION_ARGS) {
     break;
   // Error
   default:
-    ereport(
-        ERROR, errmsg("Can't get logs from the container"),
-        errdetail("Error code %ld: %s", http_code,
-                  MemoryContextStrdup(old_context, get_docker_error(&buf))));
+    ereport(ERROR, errmsg("Can't get logs from the container"),
+            errdetail("Error code %ld: %s", http_code,
+                      MemoryContextStrdup(old_memory_context,
+                                          get_docker_error(&buf))));
   }
   curl_easy_cleanup(curl);
 
-  MemoryContextSwitchTo(old_context);
-  // Allocate the result in the old context as we need to return it,
-  // while the data we use is still live (before the deletion of the context
-  // used in the function)
+  WITH_MEMCXT_FINALLY();
   text *logs = docker_stream_to_text(&buf);
-  MemoryContextDelete(context);
+  END_WITH_MEMCXT();
   PG_RETURN_TEXT_P(logs);
 }
