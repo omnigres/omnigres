@@ -38,22 +38,24 @@ function(add_framac)
             add_custom_target(framac)
         endif()
 
-        get_target_property(_include_directories ${FRAMAC_TARGET} INCLUDE_DIRECTORIES)
-
-        foreach(_include_directory ${_include_directories})
-            string(APPEND cpp_extra_args " -I ${_include_directory} ")
-        endforeach()
-
         foreach(_cflags ${FRAMAC_CFLAGS})
             string(APPEND cpp_extra_args ${_cflags})
         endforeach()
 
-        # FIXME: this is a hack until we figure out how to get all include directories
-        # for all dependencies of the target (because we'll need this anyway)
-        get_target_property(_libpgext_include_directories libpgext INCLUDE_DIRECTORIES)
+        get_target_property(_targets ${FRAMAC_TARGET} LINK_LIBRARIES)
+        list(APPEND _targets ${FRAMAC_TARGET})
 
-        foreach(include_dir ${_libpgext_include_directories})
-            string(APPEND cpp_extra_args " -I ${include_dir}")
+        foreach(target ${_targets})
+            get_target_property(_include_directories ${target} INCLUDE_DIRECTORIES)
+            get_target_property(_interface_include_directories ${target} INTERFACE_INCLUDE_DIRECTORIES)
+
+            foreach(_include_directory ${_include_directories})
+                string(APPEND cpp_extra_args " -I ${_include_directory} ")
+            endforeach()
+
+            foreach(_include_directory ${_interface_include_directories})
+                string(APPEND cpp_extra_args " -I ${_include_directory} ")
+            endforeach()
         endforeach()
 
         get_target_property(_sources ${FRAMAC_TARGET} SOURCES)
