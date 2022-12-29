@@ -22,4 +22,4 @@ add_postgresql_extension(
         REGRESS images container)
 
 target_compile_definitions(omni_containers PUBLIC ${CMAKE_C_BYTE_ORDER})
-target_link_libraries(omni_containers PRIVATE libgluepg_curl libgluepg_yyjson libpgext)
+target_link_libraries(omni_containers PRIVATE libgluepg_curl libgluepg_yyjson libpgaug)

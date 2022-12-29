@@ -34,7 +34,7 @@
 
 #include <libgluepg_curl.h>
 #include <libgluepg_yyjson.h>
-#include <libpgext.h>
+#include <libpgaug.h>
 
 #include "omni_containers.h"
 
