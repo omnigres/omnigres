@@ -444,11 +444,12 @@ ${PG_CTL} stop -D  \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" -m smart
                 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/psql_${PROJECT_NAME})
         add_dependencies(psql_${PROJECT_NAME} deploy_${NAME})
     endif()
+
+    if(PG_REGRESS)
+        # We add a custom target to get output when there is a failure.
+        add_custom_target(
+            test_verbose_${NAME} COMMAND ${CMAKE_CTEST_COMMAND} --force-new-ctest-process
+            --verbose --output-on-failure)
+    endif()
 endfunction()
 
-if(PG_REGRESS)
-    # We add a custom target to get output when there is a failure.
-    add_custom_target(
-            test_verbose_${PROJECT_NAME} COMMAND ${CMAKE_CTEST_COMMAND} --force-new-ctest-process
-            --verbose --output-on-failure)
-endif()
