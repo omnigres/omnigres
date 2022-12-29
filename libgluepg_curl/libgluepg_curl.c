@@ -6,7 +6,7 @@
 #include <stddef.h>
 #include <utils/memutils.h>
 
-#include <libpgext/framac.h>
+#include <libpgaug/framac.h>
 
 #include "libgluepg_curl.h"
 

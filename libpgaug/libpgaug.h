@@ -1,5 +1,5 @@
-#ifndef LIBPGEXT_H
-#define LIBPGEXT_H
+#ifndef libpgaug_H
+#define libpgaug_H
 
 #include <postgres.h>
 #include <utils/memutils.h>
@@ -47,4 +47,4 @@
   }                                                                            \
   MemoryContextDelete(memory_context)
 
-#endif // LIBPGEXT_H
+#endif // libpgaug_H
