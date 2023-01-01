@@ -9,3 +9,5 @@ if(APPLE)
         message(FATAL_ERROR "No OpenSSL found, use homebrew to install one")
     endif()
 endif()
+
+set(OPENSSL_USE_STATIC_LIBS ON)
