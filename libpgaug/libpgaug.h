@@ -1,5 +1,5 @@
-#ifndef libpgaug_H
-#define libpgaug_H
+#ifndef LIBPGAUG_H
+#define LIBPGAUG_H
 
 #include <postgres.h>
 #include <utils/memutils.h>
@@ -7,44 +7,48 @@
 #define _PGEXT_PPCAT_(A, B) A##B
 #define _PGEXT_STRINGIZE(A) #A
 
-/**
- * @brief Starts a temporary memory context
- *
- * Exposes `memory_context` for the current context and `old_memory_context`
- * for the one prior to the start of the context.
- *
- * Must be matched with optional `#WITH_MEMCXT_FINALLY` and mandatory
- * `#WITH_MEMCXT`.
- *
- */
-// Note: we're not using __file__ because it's not a constant, therefore
-// we have to use something else, in this case, it's a file:line
-#define WITH_MEMCXT()                                                          \
-  MemoryContext memory_context = AllocSetContextCreate(                        \
-      CurrentMemoryContext,                                                    \
-      _PGEXT_STRINGIZE(_PGEXT_PPCAT(__FILE__, __LINE__)),                      \
-      ALLOCSET_DEFAULT_SIZES);                                                 \
-  MemoryContext old_memory_context = MemoryContextSwitchTo(memory_context)
+struct __with_temp_memcxt {
+  MemoryContext new;
+  MemoryContext old;
+  enum { _memcxt_EXECUTE = 0, _memcxt_SWITCH = 1, _memcxt_DONE = 2 } __phase;
+} __with_temp_memcxt;
+
+void __with_temp_memcxt_cleanup(struct __with_temp_memcxt *s) {
+  if (CurrentMemoryContext == s->new) {
+    CurrentMemoryContext = s->old;
+  }
+  MemoryContextDelete(s->new);
+}
 
 /**
- * @brief Switches to the old memory context before `#END_WITH_MEMCXT`
+ * @brief Defines a scoped temporary memory context
  *
- * Can be used to allocate in the old context before the new one is deleted.
+ * Exposes `memory_context.new` for the newly created context and
+ * `memory_context.old` for the one prior to the start of the context.
  *
- */
-#define WITH_MEMCXT_FINALLY() MemoryContextSwitchTo(old_memory_context)
-
-/**
- * @brief Ends temporary memory context
- *
- * Switches to the old memory context (if not already) and deletes the temporary
- * memory context.
+ * The code that follows this macro is the code to be executed, and it can be
+ * optionally appended with `MEMCXT_FINALIZE` branch to run code when the
+ * switched back to the old context but before the deletion of the new context.
  *
  */
-#define END_WITH_MEMCXT()                                                      \
-  if (CurrentMemoryContext == memory_context) {                                \
-    MemoryContextSwitchTo(old_memory_context);                                 \
-  }                                                                            \
-  MemoryContextDelete(memory_context)
+// Note: we're not using __func__ because it's not a constant, therefore
+// we have to use something else, in this case, it's a file:line.
+// That's also better if there's more than one use of this macro in the same
+// function.
+#define WITH_TEMP_MEMCXT                                                       \
+  for (__attribute__((                                                         \
+           cleanup(__with_temp_memcxt_cleanup))) struct __with_temp_memcxt     \
+           memory_context = {.new = AllocSetContextCreate(                     \
+                                 CurrentMemoryContext,                         \
+                                 _PGEXT_STRINGIZE(                             \
+                                     _PGEXT_PPCAT(__FILE__, __LINE__)),        \
+                                 ALLOCSET_DEFAULT_SIZES),                      \
+                            .old = MemoryContextSwitchTo(memory_context.new),  \
+                            .__phase = _memcxt_EXECUTE};                       \
+       memory_context.__phase <= _memcxt_DONE; memory_context.__phase++)       \
+    if (memory_context.__phase == _memcxt_SWITCH) {                            \
+      MemoryContextSwitchTo(memory_context.old);                               \
+    } else if (memory_context.__phase == _memcxt_EXECUTE)
 
-#endif // libpgaug_H
+#define MEMCXT_FINALIZE else if (memory_context.__phase == _memcxt_DONE)
+#endif // LIBPGAUG_H

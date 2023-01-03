@@ -1,11 +1,24 @@
 cmake_minimum_required(VERSION 3.25.1)
 project(libpgaug)
 
+add_subdirectory(libpgaug_test)
+
 include(CTest)
 
 list(PREPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/../cmake)
 
 enable_testing()
+
+try_compile(HAVE_ATTRIBUTE_CLEANUP SOURCE_FROM_CONTENT attribute_cleanup.c [=[
+void cleanup(int *i) {}
+int main() {
+__attribute__((cleanup(cleanup))) int i = 0;
+}
+]=])
+
+if(NOT ${HAVE_ATTRIBUTE_CLEANUP})
+        message(SEND_ERROR "libpgaug requires __attribute__((cleanup)) support")
+endif()
 
 find_package(PostgreSQL REQUIRED)
 
