@@ -28,3 +28,12 @@ make psql_<COMPONENT_NAME> # for example, `psql_omni_containers`
 ```
 
 Beware: this is currently more of a prototype and a lot is missing!
+
+## Hacking
+
+### Running tests
+
+```shell
+# in the build directory
+CTEST_PARALLEL_LEVEL=$(nproc) make deploy test
+```

@@ -54,7 +54,7 @@ jobs:
 
     - name: Test
       working-directory: ${{github.workspace}}/build
-      run: ctest -timeout 1000 --force-new-ctest-process --verbose --output-on-failure -C ${{env.BUILD_TYPE}}
+      run: ctest -timeout 1000 --force-new-ctest-process --verbose --output-on-failure -j $(nproc) -C ${{env.BUILD_TYPE}}
 
     - uses: actions/upload-artifact@v3
       if: failure()
