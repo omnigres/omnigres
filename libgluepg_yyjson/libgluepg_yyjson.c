@@ -3,9 +3,7 @@
 
 #include "libgluepg_yyjson.h"
 
-static void *yyjson_malloc(__attribute__((unused)) void *ctx, size_t size) {
-  return palloc(size);
-}
+static void *yyjson_malloc(__attribute__((unused)) void *ctx, size_t size) { return palloc(size); }
 
 static void pgfree(void *ptr) {
   if (ptr != NULL && GetMemoryChunkContext(ptr) != NULL) {
@@ -21,8 +19,7 @@ static void *pgrealloc(void *ptr, unsigned long size) {
   }
 }
 
-static void *yyjson_realloc(__attribute__((unused)) void *ctx, void *ptr,
-                            size_t size) {
+static void *yyjson_realloc(__attribute__((unused)) void *ctx, void *ptr, size_t size) {
   return pgrealloc(ptr, size);
 }
 

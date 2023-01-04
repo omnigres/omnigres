@@ -10,9 +10,7 @@
 
 #include "libgluepg_curl.h"
 
-void *gluepg_curl_pcalloc(uintptr_t num, uintptr_t count) {
-  return palloc0(num * count);
-}
+void *gluepg_curl_pcalloc(uintptr_t num, uintptr_t count) { return palloc0(num * count); }
 
 void gluepg_curl_pgfree(void *ptr) {
   if (ptr != NULL && GetMemoryChunkContext(ptr) != NULL) {
@@ -32,8 +30,8 @@ static bool curl_initialized = false;
 
 void gluepg_curl_init() {
   if (!curl_initialized) {
-    curl_global_init_mem(CURL_GLOBAL_DEFAULT, palloc, gluepg_curl_pgfree,
-                         gluepg_curl_pgrealloc, pstrdup, gluepg_curl_pcalloc);
+    curl_global_init_mem(CURL_GLOBAL_DEFAULT, palloc, gluepg_curl_pgfree, gluepg_curl_pgrealloc,
+                         pstrdup, gluepg_curl_pcalloc);
     curl_initialized = true;
   }
 }
@@ -64,9 +62,8 @@ void gluepg_curl_buffer_reset(gluepg_curl_buffer *buf) { buf->size = 0; }
    complete behaviors;
    disjoint behaviors;
   */
-static inline size_t
-gluepg_curl_buffer_write_impl(char *restrict data, size_t size, size_t nmemb,
-                              gluepg_curl_buffer *restrict mem) {
+static inline size_t gluepg_curl_buffer_write_impl(char *restrict data, size_t size, size_t nmemb,
+                                                   gluepg_curl_buffer *restrict mem) {
 #ifndef __FRAMAC__
   CHECK_FOR_INTERRUPTS();
 #endif
@@ -85,8 +82,6 @@ gluepg_curl_buffer_write_impl(char *restrict data, size_t size, size_t nmemb,
   return realsize;
 }
 
-size_t gluepg_curl_buffer_write(void *data, size_t size, size_t nmemb,
-                                void *buffer) {
-  return gluepg_curl_buffer_write_impl((char *)data, size, nmemb,
-                                       (gluepg_curl_buffer *)buffer);
+size_t gluepg_curl_buffer_write(void *data, size_t size, size_t nmemb, void *buffer) {
+  return gluepg_curl_buffer_write_impl((char *)data, size, nmemb, (gluepg_curl_buffer *)buffer);
 }

@@ -8,12 +8,12 @@
 #else
 #define bswap_16(value) ((((value)&0xff) << 8) | ((value) >> 8))
 
-#define bswap_32(value)                                                        \
-  (((uint32_t)bswap_16((uint16_t)((value)&0xffff)) << 16) |                    \
+#define bswap_32(value)                                                                            \
+  (((uint32_t)bswap_16((uint16_t)((value)&0xffff)) << 16) |                                        \
    (uint32_t)bswap_16((uint16_t)((value) >> 16)))
 
-#define bswap_64(value)                                                        \
-  (((uint64_t)bswap_32((uint32_t)((value)&0xffffffff)) << 32) |                \
+#define bswap_64(value)                                                                            \
+  (((uint64_t)bswap_32((uint32_t)((value)&0xffffffff)) << 32) |                                    \
    (uint64_t)bswap_32((uint32_t)((value) >> 32)))
 #endif
 #endif
@@ -59,8 +59,7 @@ static yyjson_doc *read_last_json(gluepg_curl_buffer *buf) {
   yyjson_doc *doc;
   while (true) {
     yyjson_doc *attempted_doc =
-        yyjson_read_opts(input, size, YYJSON_READ_STOP_WHEN_DONE,
-                         &gluepg_yyjson_allocator, NULL);
+        yyjson_read_opts(input, size, YYJSON_READ_STOP_WHEN_DONE, &gluepg_yyjson_allocator, NULL);
     if (!attempted_doc) {
       return doc;
     }
@@ -167,8 +166,8 @@ Datum docker_container_create(PG_FUNCTION_ARGS) {
     if (!PG_ARGISNULL(6)) {
       Jsonb *jsonb = PG_GETARG_JSONB_P(6);
       char *json = JsonbToCString(NULL, &jsonb->root, VARSIZE(jsonb));
-      yyjson_doc *doc = yyjson_read_opts(json, strlen(json), YYJSON_READ_NOFLAG,
-                                         &gluepg_yyjson_allocator, NULL);
+      yyjson_doc *doc =
+          yyjson_read_opts(json, strlen(json), YYJSON_READ_NOFLAG, &gluepg_yyjson_allocator, NULL);
       if (doc) {
         options = yyjson_doc_get_root(doc);
       }
@@ -233,8 +232,8 @@ Datum docker_container_create(PG_FUNCTION_ARGS) {
       yyjson_mut_obj_add_val(request, obj, "Cmd", cmd_arr);
     }
 
-    char *json = yyjson_mut_write_opts(request, YYJSON_WRITE_NOFLAG,
-                                       &gluepg_yyjson_allocator, NULL, NULL);
+    char *json =
+        yyjson_mut_write_opts(request, YYJSON_WRITE_NOFLAG, &gluepg_yyjson_allocator, NULL, NULL);
 
     CURL *curl = init_curl();
     curl_easy_setopt(curl, CURLOPT_POST, 1L);
@@ -270,8 +269,7 @@ Datum docker_container_create(PG_FUNCTION_ARGS) {
           // Try to pull the image if allowed to
           ereport(NOTICE, errmsg("Pulling image %s", image));
           char *image_escaped = curl_easy_escape(curl, normalized_image, 0);
-          char *url = psprintf("http://v1.41/images/create?fromImage=%s",
-                               image_escaped);
+          char *url = psprintf("http://v1.41/images/create?fromImage=%s", image_escaped);
           curl_easy_setopt(curl, CURLOPT_URL, url);
           curl_easy_setopt(curl, CURLOPT_POSTFIELDS, NULL);
           gluepg_curl_buffer_reset(&buf);
@@ -289,23 +287,20 @@ Datum docker_container_create(PG_FUNCTION_ARGS) {
             retry_creating = true;
           } else {
             const char *message = get_docker_error(&buf);
-            ereport(
-                ERROR, errmsg("Failed to pull image %s", image),
-                errdetail("Code %ld: %s", http_code,
-                          MemoryContextStrdup(memory_context.old, message)));
+            ereport(ERROR, errmsg("Failed to pull image %s", image),
+                    errdetail("Code %ld: %s", http_code,
+                              MemoryContextStrdup(memory_context.old, message)));
           }
         } else {
           // Attempted, wasn't found
-          ereport(ERROR, errmsg("Docker image not found"),
-                  errdetail("%s", image));
+          ereport(ERROR, errmsg("Docker image not found"), errdetail("%s", image));
         }
         break;
         // Other error
       default:
         ereport(ERROR, errmsg("Can't create the container"),
                 errdetail("Error code %ld: %s", http_code,
-                          MemoryContextStrdup(memory_context.old,
-                                              get_docker_error(&buf))));
+                          MemoryContextStrdup(memory_context.old, get_docker_error(&buf))));
       }
     } while (retry_creating);
 
@@ -335,8 +330,7 @@ Datum docker_container_create(PG_FUNCTION_ARGS) {
       default:
         ereport(ERROR, errmsg("Can't start the container"),
                 errdetail("Error code %ld: %s", http_code,
-                          MemoryContextStrdup(memory_context.old,
-                                              get_docker_error(&buf))));
+                          MemoryContextStrdup(memory_context.old, get_docker_error(&buf))));
       }
     }
 
@@ -361,8 +355,7 @@ Datum docker_container_create(PG_FUNCTION_ARGS) {
       default:
         ereport(ERROR, errmsg("Can't wait for the container"),
                 errdetail("Error code %ld: %s", http_code,
-                          MemoryContextStrdup(memory_context.old,
-                                              get_docker_error(&buf))));
+                          MemoryContextStrdup(memory_context.old, get_docker_error(&buf))));
       }
     }
 
@@ -391,8 +384,7 @@ Datum docker_container_inspect(PG_FUNCTION_ARGS) {
     gluepg_curl_buffer_init(&buf);
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &buf);
 
-    curl_easy_setopt(curl, CURLOPT_URL,
-                     psprintf("http://v1.41/containers/%s/json", id));
+    curl_easy_setopt(curl, CURLOPT_URL, psprintf("http://v1.41/containers/%s/json", id));
     curl_easy_perform(curl);
 
     long http_code;
@@ -408,14 +400,11 @@ Datum docker_container_inspect(PG_FUNCTION_ARGS) {
     default:
       ereport(ERROR, errmsg("Can't inspect the container"),
               errdetail("Error code %ld: %s", http_code,
-                        MemoryContextStrdup(memory_context.old,
-                                            get_docker_error(&buf))));
+                        MemoryContextStrdup(memory_context.old, get_docker_error(&buf))));
     }
     curl_easy_cleanup(curl);
   }
-  MEMCXT_FINALIZE {
-    result = DirectFunctionCall1(jsonb_in, CStringGetDatum(buf.data));
-  }
+  MEMCXT_FINALIZE { result = DirectFunctionCall1(jsonb_in, CStringGetDatum(buf.data)); }
 
   return result;
 }
@@ -503,9 +492,8 @@ Datum docker_container_logs(PG_FUNCTION_ARGS) {
                      psprintf("http://v1.41/containers/%s/"
                               "logs?stdout=%s&stderr=%s&since=%ld&until=%ld&"
                               "timestamps=%s&tail=%s",
-                              id, stdout ? "true" : "false",
-                              stderr ? "true" : "false", since, until,
-                              timestamps ? "true" : "false",
+                              id, stdout ? "true" : "false", stderr ? "true" : "false", since,
+                              until, timestamps ? "true" : "false",
                               tail == -1 ? "all" : psprintf("%d", tail)));
     curl_easy_perform(curl);
 
@@ -522,8 +510,7 @@ Datum docker_container_logs(PG_FUNCTION_ARGS) {
     default:
       ereport(ERROR, errmsg("Can't get logs from the container"),
               errdetail("Error code %ld: %s", http_code,
-                        MemoryContextStrdup(memory_context.old,
-                                            get_docker_error(&buf))));
+                        MemoryContextStrdup(memory_context.old, get_docker_error(&buf))));
     }
     curl_easy_cleanup(curl);
   }
