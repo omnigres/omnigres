@@ -388,13 +388,14 @@ do
         break;
     fi
 done
-echo local all all trust > ${CMAKE_BINARY_DIR}/pg_hba.conf
-echo host all all all trust >> ${CMAKE_BINARY_DIR}/pg_hba.conf
-echo hba_file=\\\'${CMAKE_BINARY_DIR}/pg_hba.conf\\\' > ${CMAKE_BINARY_DIR}/postgresql.conf
+export tmpdir=$(mktemp -d)
+echo local all all trust > \"$tmpdir/pg_hba.conf\"
+echo host all all all trust >> \"$tmpdir/pg_hba.conf\"
+echo hba_file=\\\'$tmpdir/pg_hba.conf\\\' > \"$tmpdir/postgresql.conf\"
 EXTENSION_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR} \
-${PG_REGRESS} --temp-instance=${CMAKE_BINARY_DIR}/tmp_check --inputdir=${CMAKE_CURRENT_SOURCE_DIR} \
---temp-config=${CMAKE_BINARY_DIR}/postgresql.conf \
---outputdir=${CMAKE_CURRENT_BINARY_DIR} --load-extension=${NAME} --host=0.0.0.0 --port=$PORT ${_ext_REGRESS_ARGS}
+${PG_REGRESS} --temp-instance=\"$tmpdir/instance\" --inputdir=${CMAKE_CURRENT_SOURCE_DIR} \
+--temp-config=\"$tmpdir/postgresql.conf\" \
+--outputdir=\"$tmpdir\" --load-extension=${NAME} --host=0.0.0.0 --port=$PORT ${_ext_REGRESS_ARGS}
 "
                 FILE_PERMISSIONS OWNER_EXECUTE OWNER_READ OWNER_WRITE
             )
