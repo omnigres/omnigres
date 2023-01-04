@@ -37,15 +37,15 @@ jobs:
     - uses: actions/cache@v3
       with:
         path: .pg
-        key: ${{ matrix.os }}-pg-${{ matrix.pgver }}
+        key: ${{ matrix.os }}-pg-${{ matrix.pgver }}_V1
 
     - name: Configure
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
       run: PGVER=${{ matrix.pgver }} cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
 
-    - name: Build and deploy
-      run: cmake --build ${{github.workspace}}/build --parallel --config ${{env.BUILD_TYPE}} -t deploy
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build --parallel --config ${{env.BUILD_TYPE}}
 
     - name: Cache Docker images
       uses: ScribeMD/docker-cache@0.2.6

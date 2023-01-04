@@ -60,13 +60,15 @@ endif()
 
 # If the version is not known, try resolving the alias
 set(PGVER_ALIAS_15 15.1)
+
 if("${PGURL_${PGVER}}" STREQUAL "")
     set(PGVER_ALIAS "${PGVER_ALIAS_${PGVER}}")
+
     # If it still can't be resolved, fail
     if("${PGURL_${PGVER_ALIAS}}" EQUAL "")
         message(FATAL_ERROR "Can't resolve PostgreSQL version ${PGVER}")
     else()
-        if (NOT _POSTGRESQL_ANNOUNCED)
+        if(NOT _POSTGRESQL_ANNOUNCED)
             message(STATUS "Resolved PostgreSQL version alias ${PGVER} to ${PGVER_ALIAS}")
         endif()
     endif()
@@ -76,6 +78,7 @@ endif()
 
 # This is where we manage all PostgreSQL installations
 set(PGDIR "${CMAKE_CURRENT_LIST_DIR}/../.pg")
+
 # This is where we manage selected PostgreSQL version's installations
 set(PGDIR_VERSION "${PGDIR}/${PGVER_ALIAS}")
 
@@ -86,21 +89,34 @@ if(NOT EXISTS "${PGDIR_VERSION}/build/bin/postgres")
     message(STATUS "Extracting PostgreSQL ${PGVER}")
     file(ARCHIVE_EXTRACT INPUT "${PGDIR}/postgresql-${PGVER_ALIAS}.tar.bz2" DESTINATION ${PGDIR_VERSION})
     execute_process(
-            COMMAND ./configure --enable-debug --prefix "${PGDIR_VERSION}/build"
-            WORKING_DIRECTORY "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}")
+        COMMAND ./configure --enable-debug --prefix "${PGDIR_VERSION}/build"
+        WORKING_DIRECTORY "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}")
+
+    # Replace PGSHAREDIR with `PGSHAREDIR` environment variable so that we don't need to deploy extensions
+    # between different builds into the same Postgres
     execute_process(
-            COMMAND make install
-            WORKING_DIRECTORY "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}")
+        COMMAND make pg_config_paths.h
+        WORKING_DIRECTORY "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}/src/port")
+    file(READ "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}/src/port/pg_config_paths.h" FILE_CONTENTS)
+    string(APPEND FILE_CONTENTS "
+#undef PGSHAREDIR
+#define PGSHAREDIR (getenv(\"PGSHAREDIR\") ? (const char *)getenv(\"PGSHAREDIR\") : \"${PGDIR_VERSION}/build/share/postgresql\")
+")
+    file(WRITE "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}/src/port/pg_config_paths.h" ${FILE_CONTENTS})
+
+    execute_process(
+        COMMAND make install
+        WORKING_DIRECTORY "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}")
 endif()
 
 set(PostgreSQL_ROOT "${PGDIR_VERSION}/build")
 
 find_program(
-        PG_CONFIG pg_config
-        PATHS ${PostgreSQL_ROOT}
-        REQUIRED
-        NO_DEFAULT_PATH
-        PATH_SUFFIXES bin)
+    PG_CONFIG pg_config
+    PATHS ${PostgreSQL_ROOT}
+    REQUIRED
+    NO_DEFAULT_PATH
+    PATH_SUFFIXES bin)
 
 if(NOT PG_CONFIG)
     message(FATAL_ERROR "Could not find pg_config")
@@ -108,13 +124,12 @@ else()
     set(PostgreSQL_FOUND TRUE)
 endif()
 
-
 if(PostgreSQL_FOUND)
     macro(PG_CONFIG VAR OPT)
         execute_process(
-                COMMAND ${PG_CONFIG} ${OPT}
-                OUTPUT_VARIABLE ${VAR}
-                OUTPUT_STRIP_TRAILING_WHITESPACE)
+            COMMAND ${PG_CONFIG} ${OPT}
+            OUTPUT_VARIABLE ${VAR}
+            OUTPUT_STRIP_TRAILING_WHITESPACE)
     endmacro()
 
     pg_config(_pg_bindir --bindir)
@@ -137,109 +152,109 @@ if(PostgreSQL_FOUND)
     set(_server_lib_dirs ${_pg_libdir} ${_pg_pkglibdir})
     set(_server_inc_dirs ${_pg_pkgincludedir} ${_pg_includedir_server})
     string(REPLACE ";" " " _shared_link_options
-            "${_pg_ldflags};${_pg_ldflags_sl}")
+        "${_pg_ldflags};${_pg_ldflags_sl}")
     set(_link_options ${_pg_ldflags})
+
     if(_pg_ldflags_ex)
         list(APPEND _link_options ${_pg_ldflags_ex})
     endif()
 
     set(PostgreSQL_INCLUDE_DIRS
-            "${_pg_includedir}"
-            CACHE PATH
-            "Top-level directory containing the PostgreSQL include directories."
-            )
+        "${_pg_includedir}"
+        CACHE PATH
+        "Top-level directory containing the PostgreSQL include directories."
+    )
     set(PostgreSQL_EXTENSION_DIR
-            "${_pg_sharedir}/extension"
-            CACHE PATH "Directory containing extension SQL and control files")
+        "${_pg_sharedir}/extension"
+        CACHE PATH "Directory containing extension SQL and control files")
     set(PostgreSQL_SERVER_INCLUDE_DIRS
-            "${_server_inc_dirs}"
-            CACHE PATH "PostgreSQL include directories for server include files.")
+        "${_server_inc_dirs}"
+        CACHE PATH "PostgreSQL include directories for server include files.")
     set(PostgreSQL_LIBRARY_DIRS
-            "${_pg_libdir}"
-            CACHE PATH "library directory for PostgreSQL")
+        "${_pg_libdir}"
+        CACHE PATH "library directory for PostgreSQL")
     set(PostgreSQL_LIBRARIES
-            "${_pg_libs}"
-            CACHE PATH "Libraries for PostgreSQL")
+        "${_pg_libs}"
+        CACHE PATH "Libraries for PostgreSQL")
     set(PostgreSQL_SHARED_LINK_OPTIONS
-            "${_shared_link_options}"
-            CACHE STRING "PostgreSQL linker options for shared libraries.")
+        "${_shared_link_options}"
+        CACHE STRING "PostgreSQL linker options for shared libraries.")
     set(PostgreSQL_LINK_OPTIONS
-            "${_pg_ldflags},${_pg_ldflags_ex}"
-            CACHE STRING "PostgreSQL linker options for executables.")
+        "${_pg_ldflags},${_pg_ldflags_ex}"
+        CACHE STRING "PostgreSQL linker options for executables.")
     set(PostgreSQL_SERVER_LIBRARY_DIRS
-            "${_server_lib_dirs}"
-            CACHE PATH "PostgreSQL server library directories.")
+        "${_server_lib_dirs}"
+        CACHE PATH "PostgreSQL server library directories.")
     set(PostgreSQL_VERSION_STRING
-            "${_pg_version}"
-            CACHE STRING "PostgreSQL version string")
+        "${_pg_version}"
+        CACHE STRING "PostgreSQL version string")
     set(PostgreSQL_PACKAGE_LIBRARY_DIR
-            "${_pg_pkglibdir}"
-            CACHE STRING "PostgreSQL package library directory")
+        "${_pg_pkglibdir}"
+        CACHE STRING "PostgreSQL package library directory")
 
     find_program(
-            PG_BINARY postgres
-            PATHS ${PostgreSQL_ROOT_DIRECTORIES}
-            HINTS ${_pg_bindir}
-            PATH_SUFFIXES bin)
+        PG_BINARY postgres
+        PATHS ${PostgreSQL_ROOT_DIRECTORIES}
+        HINTS ${_pg_bindir}
+        PATH_SUFFIXES bin)
 
     if(NOT PG_BINARY)
         message(FATAL_ERROR "Could not find postgres binary")
     endif()
 
-
     find_program(PG_REGRESS pg_regress HINT
-            ${PostgreSQL_PACKAGE_LIBRARY_DIR}/pgxs/src/test/regress)
+        ${PostgreSQL_PACKAGE_LIBRARY_DIR}/pgxs/src/test/regress)
+
     if(NOT PG_REGRESS)
         message(WARNING "Could not find pg_regress, tests not executed")
     endif()
 
     find_program(
-            INITDB initdb
-            PATHS ${PostgreSQL_ROOT_DIRECTORIES}
-            HINTS ${_pg_bindir}
-            PATH_SUFFIXES bin)
+        INITDB initdb
+        PATHS ${PostgreSQL_ROOT_DIRECTORIES}
+        HINTS ${_pg_bindir}
+        PATH_SUFFIXES bin)
 
     if(NOT INITDB)
         message(WARNING "Could not find initdb, psql_${NAME} will not be available")
     endif()
 
     find_program(
-            CREATEDB createdb
-            PATHS ${PostgreSQL_ROOT_DIRECTORIES}
-            HINTS ${_pg_bindir}
-            PATH_SUFFIXES bin)
+        CREATEDB createdb
+        PATHS ${PostgreSQL_ROOT_DIRECTORIES}
+        HINTS ${_pg_bindir}
+        PATH_SUFFIXES bin)
 
     if(NOT CREATEDB)
         message(WARNING "Could not find createdb, psql_${NAME} will not be available")
     endif()
 
     find_program(
-            PSQL psql
-            PATHS ${PostgreSQL_ROOT_DIRECTORIES}
-            HINTS ${_pg_bindir}
-            PATH_SUFFIXES bin)
+        PSQL psql
+        PATHS ${PostgreSQL_ROOT_DIRECTORIES}
+        HINTS ${_pg_bindir}
+        PATH_SUFFIXES bin)
 
     if(NOT PSQL)
         message(WARNING "Could not find psql, psql_${NAME} will not be available")
     endif()
 
     find_program(
-            PG_CTL pg_ctl
-            PATHS ${PostgreSQL_ROOT_DIRECTORIES}
-            HINTS ${_pg_bindir}
-            PATH_SUFFIXES bin)
+        PG_CTL pg_ctl
+        PATHS ${PostgreSQL_ROOT_DIRECTORIES}
+        HINTS ${_pg_bindir}
+        PATH_SUFFIXES bin)
 
     if(NOT PG_CTL)
         message(WARNING "Could not find pg_ctl, psql_${NAME} will not be available")
     endif()
 
-
-    if (NOT _POSTGRESQL_ANNOUNCED)
+    if(NOT _POSTGRESQL_ANNOUNCED)
         message(STATUS "Found postgres binary at ${PG_BINARY}")
         message(STATUS "PostgreSQL version ${PostgreSQL_VERSION_STRING} found")
         message(
-                STATUS
-                "PostgreSQL package library directory: ${PostgreSQL_PACKAGE_LIBRARY_DIR}")
+            STATUS
+            "PostgreSQL package library directory: ${PostgreSQL_PACKAGE_LIBRARY_DIR}")
         message(STATUS "PostgreSQL libraries: ${PostgreSQL_LIBRARIES}")
         message(STATUS "PostgreSQL extension directory: ${PostgreSQL_EXTENSION_DIR}")
         message(STATUS "PostgreSQL linker options: ${PostgreSQL_LINK_OPTIONS}")
@@ -275,10 +290,8 @@ endif()
 #
 # Defines the following targets:
 #
-# deploy      Deploys known all extensions to PostgreSQL
-# deploy_NAME Deploys built extension to PostgreSQL (and adds it to `deploy` target)
-# psql_NAME   Deploys built extensions ot PostgreSQL, starts it in a fresh database and connects with psql
-#             (port assigned randomly)
+# psql_NAME   Start extension it in a fresh database and connects with psql
+# (port assigned randomly)
 #
 # NAME_update_results Updates pg_regress test expectations to match results
 # test_verbose_NAME Runs tests verbosely
@@ -302,21 +315,30 @@ function(add_postgresql_extension NAME)
     target_compile_definitions(${NAME} PUBLIC "$<$<NOT:$<STREQUAL:${CMAKE_BUILD_TYPE},Release>>:DEBUG>")
 
     set(_link_flags "${PostgreSQL_SHARED_LINK_OPTIONS}")
+
     foreach(_dir ${PostgreSQL_SERVER_LIBRARY_DIRS})
         set(_link_flags "${_link_flags} -L${_dir}")
     endforeach()
 
+    set(_share_dir "${CMAKE_BINARY_DIR}/pg-share")
+    file(COPY "${_pg_sharedir}/" DESTINATION ${_share_dir})
+    set(_ext_dir "${_share_dir}/extension")
+    file(MAKE_DIRECTORY ${_ext_dir})
+
     # Collect and build script files to install
     set(_script_files)
+
     foreach(_script_file ${_ext_SCRIPTS})
-        list(APPEND _script_files ${CMAKE_CURRENT_SOURCE_DIR}/${_script_file})
+        file(CREATE_LINK "${CMAKE_CURRENT_SOURCE_DIR}/${_script_file}" "${_ext_dir}/${_script_file}")
+        list(APPEND _script_files ${_ext_dir}/${_script_file})
     endforeach()
+
     foreach(_template ${_ext_SCRIPT_TEMPLATES})
         string(REGEX REPLACE "\.in$" "" _script ${_template})
         configure_file(${_template} ${_script} @ONLY)
-        list(APPEND _script_files ${CMAKE_CURRENT_BINARY_DIR}/${_script})
+        list(APPEND _script_files ${_ext_dir}/${_script})
         message(
-                STATUS "Building script file ${_script} from template file ${_template}")
+            STATUS "Building script file ${_script} from template file ${_template}")
     endforeach()
 
     if(APPLE)
@@ -324,25 +346,25 @@ function(add_postgresql_extension NAME)
     endif()
 
     set_target_properties(
-            ${NAME}
-            PROPERTIES PREFIX ""
-            LINK_FLAGS "${_link_flags}"
-            POSITION_INDEPENDENT_CODE ON)
+        ${NAME}
+        PROPERTIES PREFIX ""
+        LINK_FLAGS "${_link_flags}"
+        POSITION_INDEPENDENT_CODE ON)
 
     target_include_directories(
-            ${NAME}
-            PRIVATE ${PostgreSQL_SERVER_INCLUDE_DIRS}
-            PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+        ${NAME}
+        PRIVATE ${PostgreSQL_SERVER_INCLUDE_DIRS}
+        PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
     # Generate control file at build time (which is when GENERATE evaluate the
     # contents). We do not know the target file name until then.
-    set(_control_file "${CMAKE_CURRENT_BINARY_DIR}/${NAME}.control")
+    set(_control_file "${_ext_dir}/${NAME}.control")
     file(
-            GENERATE
-            OUTPUT ${_control_file}
-            CONTENT
-"default_version = '${_ext_VERSION}'
-module_pathname = '$libdir/$<TARGET_FILE_NAME:${NAME}>'
+        GENERATE
+        OUTPUT ${_control_file}
+        CONTENT
+        "default_version = '${_ext_VERSION}'
+module_pathname = '${CMAKE_CURRENT_BINARY_DIR}/${NAME}.so'
 $<$<NOT:$<BOOL:${_ext_COMMENT}>>:#>comment = '${_ext_COMMENT}'
 $<$<NOT:$<BOOL:${_ext_ENCODING}>>:#>encoding = '${_ext_ENCODING}'
 $<$<NOT:$<BOOL:${_ext_REQUIRES}>>:#>requires = '$<JOIN:${_ext_REQUIRES},$<COMMA>>'
@@ -350,26 +372,17 @@ $<$<NOT:$<BOOL:${_ext_SCHEMA}>>:#>schema = ${_ext_SCHEMA}
 $<$<NOT:$<BOOL:${_ext_RELOCATABLE}>>:#>relocatable = ${_ext_RELOCATABLE}
 ")
 
-    if(NOT TARGET deploy)
-        add_custom_target(deploy)
-    endif()
-    add_custom_target(deploy_${NAME}
-            COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/${NAME}.so ${PostgreSQL_PACKAGE_LIBRARY_DIR}
-            COMMAND ${CMAKE_COMMAND} -E copy ${_control_file} ${PostgreSQL_EXTENSION_DIR}
-            COMMAND ${CMAKE_COMMAND} -E copy ${_script_files} ${PostgreSQL_EXTENSION_DIR}
-            )
-    add_dependencies(deploy_${NAME} ${NAME})
-    add_dependencies(deploy deploy_${NAME})
-
     if(_ext_REGRESS)
         foreach(_test ${_ext_REGRESS})
             set(_sql_file "${CMAKE_CURRENT_SOURCE_DIR}/sql/${_test}.sql")
             set(_out_file "${CMAKE_CURRENT_SOURCE_DIR}/expected/${_test}.out")
+
             if(NOT EXISTS "${_sql_file}")
                 message(FATAL_ERROR "Test file '${_sql_file}' does not exist!")
             endif()
+
             if(NOT EXISTS "${_out_file}")
-                file(WRITE "${_out_file}" )
+                file(WRITE "${_out_file}")
                 message(STATUS "Created empty file ${_out_file}")
             endif()
         endforeach()
@@ -392,6 +405,7 @@ export tmpdir=$(mktemp -d)
 echo local all all trust > \"$tmpdir/pg_hba.conf\"
 echo host all all all trust >> \"$tmpdir/pg_hba.conf\"
 echo hba_file=\\\'$tmpdir/pg_hba.conf\\\' > \"$tmpdir/postgresql.conf\"
+PGSHAREDIR=${_share_dir} \
 EXTENSION_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR} \
 ${PG_REGRESS} --temp-instance=\"$tmpdir/instance\" --inputdir=${CMAKE_CURRENT_SOURCE_DIR} \
 --temp-config=\"$tmpdir/postgresql.conf\" \
@@ -400,19 +414,18 @@ ${PG_REGRESS} --temp-instance=\"$tmpdir/instance\" --inputdir=${CMAKE_CURRENT_SO
                 FILE_PERMISSIONS OWNER_EXECUTE OWNER_READ OWNER_WRITE
             )
             add_test(
-                    NAME ${NAME}
-                    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-                    COMMAND ${CMAKE_CURRENT_BINARY_DIR}/test_${PROJECT_NAME}
-                    )
+                NAME ${NAME}
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                COMMAND ${CMAKE_CURRENT_BINARY_DIR}/test_${PROJECT_NAME}
+            )
         endif()
 
         add_custom_target(
-                ${NAME}_update_results
-                COMMAND
-                ${CMAKE_COMMAND} -E copy_if_different
-                ${CMAKE_CURRENT_BINARY_DIR}/results/*.out
-                ${CMAKE_CURRENT_SOURCE_DIR}/expected)
-        add_dependencies(${NAME}_update_results deploy_${NAME})
+            ${NAME}_update_results
+            COMMAND
+            ${CMAKE_COMMAND} -E copy_if_different
+            ${CMAKE_CURRENT_BINARY_DIR}/results/*.out
+            ${CMAKE_CURRENT_SOURCE_DIR}/expected)
     endif()
 
     if(INITDB AND CREATEDB AND PSQL AND PG_CTL)
@@ -433,6 +446,7 @@ rm -rf \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\"
 ${INITDB} -D \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" --no-clean --no-sync
 export SOCKDIR=$(mktemp -d)
 echo host all all all trust >>  \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}/pg_hba.conf\"
+PGSHAREDIR=${_share_dir} \
 ${PG_CTL} start -D \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" -o \"-c listen_addresses=* -c port=$PGPORT\" -o -F -o -k -o \"$SOCKDIR\"
 ${CREATEDB} -h \"$SOCKDIR\" ${NAME}
 ${PSQL} -h \"$SOCKDIR\" ${NAME}
@@ -440,10 +454,10 @@ ${PG_CTL} stop -D  \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" -m smart
 "
             FILE_PERMISSIONS OWNER_EXECUTE OWNER_READ OWNER_WRITE
         )
-        add_custom_target(psql_${PROJECT_NAME}
-                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-                COMMAND ${CMAKE_CURRENT_BINARY_DIR}/psql_${PROJECT_NAME})
-        add_dependencies(psql_${PROJECT_NAME} deploy_${NAME})
+        add_custom_target(psql_${NAME}
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            COMMAND ${CMAKE_CURRENT_BINARY_DIR}/psql_${NAME})
+        add_dependencies(psql_${NAME} ${NAME})
     endif()
 
     if(PG_REGRESS)
@@ -453,4 +467,3 @@ ${PG_CTL} stop -D  \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" -m smart
             --verbose --output-on-failure)
     endif()
 endfunction()
-

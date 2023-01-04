@@ -35,5 +35,5 @@ Beware: this is currently more of a prototype and a lot is missing!
 
 ```shell
 # in the build directory
-CTEST_PARALLEL_LEVEL=$(nproc) make deploy test
+CTEST_PARALLEL_LEVEL=$(nproc) make -j $(nproc) all test
 ```
