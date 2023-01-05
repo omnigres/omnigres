@@ -40,9 +40,21 @@
 
 PG_MODULE_MAGIC;
 
+#define DEFAULT_SOCK "/var/run/docker.sock"
+
 CURL *init_curl() {
   CURL *curl = curl_easy_init();
-  curl_easy_setopt(curl, CURLOPT_UNIX_SOCKET_PATH, "/var/run/docker.sock");
+  char *sock = DEFAULT_SOCK;
+  bool is_unix_sock = true;
+  if (getenv("DOCKER_HOST")) {
+    sock = getenv("DOCKER_HOST");
+    if (strncmp(sock, "unix://", strlen("unix://")) == 0) {
+      sock = sock + strlen("unix://");
+    } else {
+      is_unix_sock = false;
+    }
+  }
+  curl_easy_setopt(curl, is_unix_sock ? CURLOPT_UNIX_SOCKET_PATH : CURLOPT_URL, sock);
   curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, gluepg_curl_buffer_write);
   return curl;
 }
@@ -140,7 +152,8 @@ Datum docker_container_create(PG_FUNCTION_ARGS) {
       host_alias = text_to_cstring(attach_text);
       // This will alias docker's host (where PostgreSQL is) to `attach`
       // argument's value.
-      attach = psprintf("%s:host-gateway", host_alias);
+      attach = psprintf("%s:%s", host_alias,
+                        getenv("DOCKER_HOST_IP") ? getenv("DOCKER_HOST_IP") : "host-gateway");
     }
 
     // Should it be started?
