@@ -409,7 +409,7 @@ PGSHAREDIR=${_share_dir} \
 EXTENSION_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR} \
 ${PG_REGRESS} --temp-instance=\"$tmpdir/instance\" --inputdir=${CMAKE_CURRENT_SOURCE_DIR} \
 --temp-config=\"$tmpdir/postgresql.conf\" \
---outputdir=\"$tmpdir\" --load-extension=${NAME} --host=0.0.0.0 --port=$PORT ${_ext_REGRESS_ARGS}
+--outputdir=\"${CMAKE_CURRENT_BINARY_DIR}\" --load-extension=${NAME} --host=0.0.0.0 --port=$PORT ${_ext_REGRESS_ARGS}
 "
                 FILE_PERMISSIONS OWNER_EXECUTE OWNER_READ OWNER_WRITE
             )
