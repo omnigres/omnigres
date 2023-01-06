@@ -77,7 +77,7 @@ else()
 endif()
 
 # This is where we manage all PostgreSQL installations
-set(PGDIR "${CMAKE_CURRENT_LIST_DIR}/../.pg")
+set(PGDIR "${CMAKE_CURRENT_LIST_DIR}/../.pg/${CMAKE_HOST_SYSTEM_NAME}")
 
 # This is where we manage selected PostgreSQL version's installations
 set(PGDIR_VERSION "${PGDIR}/${PGVER_ALIAS}")
@@ -321,7 +321,7 @@ function(add_postgresql_extension NAME)
     endforeach()
 
     set(_share_dir "${CMAKE_BINARY_DIR}/pg-share")
-    file(COPY "${_pg_sharedir}/" DESTINATION ${_share_dir})
+    file(COPY "${_pg_sharedir}/" DESTINATION "${_share_dir}")
     set(_ext_dir "${_share_dir}/extension")
     file(MAKE_DIRECTORY ${_ext_dir})
 

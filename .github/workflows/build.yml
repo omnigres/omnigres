@@ -37,7 +37,7 @@ jobs:
     - uses: actions/cache@v3
       with:
         path: .pg
-        key: ${{ matrix.os }}-pg-${{ matrix.pgver }}_V1
+        key: ${{ matrix.os }}-pg-${{ matrix.pgver }}_V1.1
 
     - name: Configure
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
