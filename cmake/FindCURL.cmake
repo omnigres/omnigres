@@ -1,3 +1,5 @@
+list(PREPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR})
+
 include(CPM)
 include(OpenSSL)
 
