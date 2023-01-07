@@ -1,5 +1,7 @@
 # Omnigres
 
+[![Discord Chat](https://img.shields.io/discord/1060568981725003789?label=Discord)][Discord]
+
 Omnigres makes PostgreSQL a complete application platform. You can deploy a single database instance and it can host your entire application, scaling as needed.
 
 * Running application logic **inside** or **next to** the database instance
@@ -37,3 +39,5 @@ Beware: this is currently more of a prototype and a lot is missing!
 # in the build directory
 CTEST_PARALLEL_LEVEL=$(nproc) make -j $(nproc) all test
 ```
+
+[Discord]: https://discord.gg/Jghrq588qS
