@@ -41,7 +41,7 @@ jobs:
         brew install openssl@3
 
     - name: Setup Docker on macOS using Colima, Lima-VM, and Homebrew.
-      uses: omnigres/setup-docker-macos-action@e1110b0c2b6752fb773fc71b529fc0a63313ec04
+      uses: douglascamata/setup-docker-macos-action@v1-alpha
       if: matrix.os == 'macos-12' # No need to check on Linux, it's there
 
     - name: Configure Docker host on macOS
