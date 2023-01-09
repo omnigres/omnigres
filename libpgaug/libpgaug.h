@@ -4,6 +4,11 @@
 #include <postgres.h>
 #include <utils/memutils.h>
 
+void *pgaug_alloc(size_t size);
+void *pgaug_calloc(uintptr_t num, uintptr_t count);
+void pgaug_free(void *ptr);
+void *pgaug_realloc(void *ptr, uintptr_t size);
+
 #define _PGEXT_PPCAT_(A, B) A##B
 #define _PGEXT_STRINGIZE(A) #A
 
@@ -11,14 +16,9 @@ struct __with_temp_memcxt {
   MemoryContext new;
   MemoryContext old;
   enum { _memcxt_EXECUTE = 0, _memcxt_SWITCH = 1, _memcxt_DONE = 2 } __phase;
-} __with_temp_memcxt;
+};
 
-void __with_temp_memcxt_cleanup(struct __with_temp_memcxt *s) {
-  if (CurrentMemoryContext == s->new) {
-    CurrentMemoryContext = s->old;
-  }
-  MemoryContextDelete(s->new);
-}
+void __with_temp_memcxt_cleanup(struct __with_temp_memcxt *s);
 
 /**
  * @brief Defines a scoped temporary memory context

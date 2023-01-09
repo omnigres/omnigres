@@ -8,4 +8,6 @@
 
 #include "omni_containers.h"
 
-void _PG_init() {}
+DYNPGEXT_MAGIC;
+
+void _Dynpgext_init(const dynpgext_handle *handle) {}

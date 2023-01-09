@@ -287,6 +287,8 @@ endif()
 #
 # RELOCATABLE Is extension relocatable
 #
+# SHARED_PRELOAD Is this a shared preload extension
+#
 #
 # Defines the following targets:
 #
@@ -296,7 +298,7 @@ endif()
 # NAME_update_results Updates pg_regress test expectations to match results
 # test_verbose_NAME Runs tests verbosely
 function(add_postgresql_extension NAME)
-    set(_optional)
+    set(_optional SHARED_PRELOAD)
     set(_single VERSION ENCODING SCHEMA RELOCATABLE)
     set(_multi SOURCES SCRIPTS SCRIPT_TEMPLATES REQUIRES REGRESS)
     cmake_parse_arguments(_ext "${_optional}" "${_single}" "${_multi}" ${ARGN})
@@ -311,6 +313,19 @@ function(add_postgresql_extension NAME)
     # expect the user to be able to add target properties after creating the
     # extension.
     add_library(${NAME} MODULE ${_ext_SOURCES})
+
+    # Proactively support dynpgext so that its caching late bound calls most efficiently
+    # on macOS
+    if(APPLE)
+        file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/dynpgext.c" [=[
+#undef DYNPGEXT_SUPPLEMENTARY
+#define DYNPGEXT_MAIN
+#include <dynpgext.h>
+    ]=])
+        target_sources(${NAME} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/dynpgext.c")
+        target_link_libraries(${NAME} dynpgext)
+        target_compile_definitions(${NAME} PUBLIC DYNPGEXT_SUPPLEMENTARY)
+    endif()
 
     target_compile_definitions(${NAME} PUBLIC "$<$<NOT:$<STREQUAL:${CMAKE_BUILD_TYPE},Release>>:DEBUG>")
 
@@ -342,12 +357,14 @@ function(add_postgresql_extension NAME)
     endforeach()
 
     if(APPLE)
-        set(_link_flags "${_link_flags} -bundle_loader ${PG_BINARY}")
+        set(_link_flags "${_link_flags} -bundle -bundle_loader ${PG_BINARY}")
     endif()
 
     set_target_properties(
         ${NAME}
-        PROPERTIES PREFIX ""
+        PROPERTIES
+        PREFIX ""
+        SUFFIX "--${_ext_VERSION}.so"
         LINK_FLAGS "${_link_flags}"
         POSITION_INDEPENDENT_CODE ON)
 
@@ -358,18 +375,24 @@ function(add_postgresql_extension NAME)
 
     # Generate control file at build time (which is when GENERATE evaluate the
     # contents). We do not know the target file name until then.
-    set(_control_file "${_ext_dir}/${NAME}.control")
+    set(_control_file "${_ext_dir}/${NAME}--${_ext_VERSION}.control")
     file(
         GENERATE
         OUTPUT ${_control_file}
         CONTENT
-        "default_version = '${_ext_VERSION}'
-module_pathname = '${CMAKE_CURRENT_BINARY_DIR}/${NAME}.so'
+        "module_pathname = '${CMAKE_CURRENT_BINARY_DIR}/$<TARGET_FILE_NAME:${NAME}>'
 $<$<NOT:$<BOOL:${_ext_COMMENT}>>:#>comment = '${_ext_COMMENT}'
 $<$<NOT:$<BOOL:${_ext_ENCODING}>>:#>encoding = '${_ext_ENCODING}'
 $<$<NOT:$<BOOL:${_ext_REQUIRES}>>:#>requires = '$<JOIN:${_ext_REQUIRES},$<COMMA>>'
 $<$<NOT:$<BOOL:${_ext_SCHEMA}>>:#>schema = ${_ext_SCHEMA}
 $<$<NOT:$<BOOL:${_ext_RELOCATABLE}>>:#>relocatable = ${_ext_RELOCATABLE}
+")
+    set(_default_control_file "${_ext_dir}/${NAME}.control")
+    file(
+        GENERATE
+        OUTPUT ${_default_control_file}
+        CONTENT
+        "default_version = '${_ext_VERSION}'
 ")
 
     if(_ext_REGRESS)
@@ -388,8 +411,19 @@ $<$<NOT:$<BOOL:${_ext_RELOCATABLE}>>:#>relocatable = ${_ext_RELOCATABLE}
         endforeach()
 
         if(PG_REGRESS)
+            set(_loadextensions)
+            set(_extra_config)
+
+            foreach(req ${_ext_REQUIRES})
+                string(APPEND _loadextensions "--load-extension=${req} ")
+
+                if(req STREQUAL "omni_ext")
+                    set(_extra_config "shared_preload_libraries=\\\'$<TARGET_FILE:omni_ext>\\\'")
+                endif()
+            endforeach()
+
             list(JOIN _ext_REGRESS " " _ext_REGRESS_ARGS)
-            file(GENERATE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/test_${PROJECT_NAME}
+            file(GENERATE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/test_${NAME}
                 CONTENT "#! /usr/bin/env bash
 # Pick random port
 while true
@@ -405,18 +439,23 @@ export tmpdir=$(mktemp -d)
 echo local all all trust > \"$tmpdir/pg_hba.conf\"
 echo host all all all trust >> \"$tmpdir/pg_hba.conf\"
 echo hba_file=\\\'$tmpdir/pg_hba.conf\\\' > \"$tmpdir/postgresql.conf\"
+$<IF:$<BOOL:${_ext_SHARED_PRELOAD}>,echo shared_preload_libraries='${CMAKE_CURRENT_BINARY_DIR}/$<TARGET_FILE_NAME:${NAME}>',echo> >> $tmpdir/postgresql.conf
+echo ${_extra_config} >> $tmpdir/postgresql.conf
+echo max_worker_processes = 64 >> $tmpdir/postgresql.conf
 PGSHAREDIR=${_share_dir} \
 EXTENSION_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR} \
 ${PG_REGRESS} --temp-instance=\"$tmpdir/instance\" --inputdir=${CMAKE_CURRENT_SOURCE_DIR} \
 --temp-config=\"$tmpdir/postgresql.conf\" \
---outputdir=\"${CMAKE_CURRENT_BINARY_DIR}\" --load-extension=${NAME} --host=0.0.0.0 --port=$PORT ${_ext_REGRESS_ARGS}
+--outputdir=\"${CMAKE_CURRENT_BINARY_DIR}/${NAME}\" \
+${_loadextensions} \
+--load-extension=${NAME} --host=0.0.0.0 --port=$PORT ${_ext_REGRESS_ARGS}
 "
                 FILE_PERMISSIONS OWNER_EXECUTE OWNER_READ OWNER_WRITE
             )
             add_test(
                 NAME ${NAME}
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-                COMMAND ${CMAKE_CURRENT_BINARY_DIR}/test_${PROJECT_NAME}
+                COMMAND ${CMAKE_CURRENT_BINARY_DIR}/test_${NAME}
             )
         endif()
 
@@ -424,12 +463,12 @@ ${PG_REGRESS} --temp-instance=\"$tmpdir/instance\" --inputdir=${CMAKE_CURRENT_SO
             ${NAME}_update_results
             COMMAND
             ${CMAKE_COMMAND} -E copy_if_different
-            ${CMAKE_CURRENT_BINARY_DIR}/results/*.out
+            ${CMAKE_CURRENT_BINARY_DIR}/${NAME}/results/*.out
             ${CMAKE_CURRENT_SOURCE_DIR}/expected)
     endif()
 
     if(INITDB AND CREATEDB AND PSQL AND PG_CTL)
-        file(GENERATE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/psql_${PROJECT_NAME}
+        file(GENERATE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/psql_${NAME}
             CONTENT "#! /usr/bin/env bash
 # Pick random port
 while true
@@ -447,7 +486,9 @@ ${INITDB} -D \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" --no-clean --no-sync
 export SOCKDIR=$(mktemp -d)
 echo host all all all trust >>  \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}/pg_hba.conf\"
 PGSHAREDIR=${_share_dir} \
-${PG_CTL} start -D \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" -o \"-c listen_addresses=* -c port=$PGPORT\" -o -F -o -k -o \"$SOCKDIR\"
+${PG_CTL} start -D \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" \
+-o \"-c max_worker_processes=64 -c listen_addresses=* -c port=$PGPORT $<IF:$<BOOL:${_ext_SHARED_PRELOAD}>,-c shared_preload_libraries='$<TARGET_FILE:${NAME}>$<COMMA>$<TARGET_FILE:omni_ext>',-c shared_preload_libraries='$<TARGET_FILE:omni_ext>'>\" \
+-o -F -o -k -o \"$SOCKDIR\"
 ${CREATEDB} -h \"$SOCKDIR\" ${NAME}
 ${PSQL} -h \"$SOCKDIR\" ${NAME}
 ${PG_CTL} stop -D  \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" -m smart
