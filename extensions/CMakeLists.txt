@@ -5,4 +5,5 @@ list(PREPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/../cmake)
 
 enable_testing()
 
+add_subdirectory(omni_ext)
 add_subdirectory(omni_containers)

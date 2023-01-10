@@ -6,32 +6,17 @@
 #include <stddef.h>
 #include <utils/memutils.h>
 
+#include <libpgaug.h>
 #include <libpgaug/framac.h>
 
 #include "libgluepg_curl.h"
-
-void *gluepg_curl_pcalloc(uintptr_t num, uintptr_t count) { return palloc0(num * count); }
-
-void gluepg_curl_pgfree(void *ptr) {
-  if (ptr != NULL && GetMemoryChunkContext(ptr) != NULL) {
-    pfree(ptr);
-  }
-}
-
-void *gluepg_curl_pgrealloc(void *ptr, uintptr_t size) {
-  if (ptr != NULL) {
-    return repalloc(ptr, size);
-  } else {
-    return palloc(size);
-  }
-}
 
 static bool curl_initialized = false;
 
 void gluepg_curl_init() {
   if (!curl_initialized) {
-    curl_global_init_mem(CURL_GLOBAL_DEFAULT, palloc, gluepg_curl_pgfree, gluepg_curl_pgrealloc,
-                         pstrdup, gluepg_curl_pcalloc);
+    curl_global_init_mem(CURL_GLOBAL_DEFAULT, pgaug_alloc, pgaug_free,
+                         pgaug_realloc, pstrdup, pgaug_calloc);
     curl_initialized = true;
   }
 }
