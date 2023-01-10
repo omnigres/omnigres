@@ -36,6 +36,10 @@ jobs:
 
     - name: Install OpenSSL
       if: matrix.os == 'macos-12'
+      env:
+        HOMEBREW_NO_AUTO_UPDATE: "1"
+        HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: "1"
+        HOMEBREW_NO_INSTALL_CLEANUP: "1"
       run: |
         brew update
         brew install openssl@3
