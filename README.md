@@ -1,4 +1,5 @@
-# Omnigres
+![Omnigres](header_logo.svg)
+---
 
 [![Discord Chat](https://img.shields.io/discord/1060568981725003789?label=Discord)][Discord]
 
