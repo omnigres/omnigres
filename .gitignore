@@ -6,3 +6,4 @@ cmake-build-debug
 .vscode
 log
 results
+.DS_Store
