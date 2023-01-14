@@ -1,0 +1,32 @@
+watch:
+  - .
+repo_url: https://github.com/omnigres/omnigres
+repo_name: omnigres/omnigres
+
+theme:
+  name: material
+  palette:
+    scheme: default
+    primary: white
+  logo: 'data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48c3ZnIGlkPSJMYXllcl8yIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNTggMTU4Ij48ZGVmcz48c3R5bGU+LmNscy0xe2ZpbGw6bm9uZTtzdHJva2U6IzNmYTlmNTtzdHJva2UtbWl0ZXJsaW1pdDoxMDtzdHJva2Utd2lkdGg6MjBweDt9PC9zdHlsZT48L2RlZnM+PGcgaWQ9IkxheWVyXzEtMiI+PGNpcmNsZSBjbGFzcz0iY2xzLTEiIGN4PSI3OSIgY3k9Ijc5IiByPSI2OSIvPjwvZz48L3N2Zz4='
+  features:
+    - content.code.copy
+    - navigation.instant
+    - navigation.tracking
+    - navigation.expand
+    - navigation.top
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+  - monorepo
+  - mermaid2
+  - awesome-pages

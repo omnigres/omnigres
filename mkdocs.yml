@@ -1,0 +1,8 @@
+INHERIT: mkdocs.base.yml
+
+site_name: Omnigres documentation
+
+nav:
+  - Intro: 'index.md'
+  - Dynpgext: '!include ./dynpgext/mkdocs.yml'
+  - Extensions: '*include ./extensions/*/mkdocs.yml'
