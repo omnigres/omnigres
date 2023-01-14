@@ -18,7 +18,7 @@ add_postgresql_extension(
         SCRIPTS omni_ext_test--0.1.sql
         SOURCES omni_ext_test.c
         REQUIRES omni_ext
-        REGRESS load re_load load_version shmem)
+        REGRESS load re_load load_version shmem global_bgworker database_local_bgworker)
 
 add_postgresql_extension(
         omni_ext_test_no_preload

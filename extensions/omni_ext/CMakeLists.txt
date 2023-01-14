@@ -11,11 +11,14 @@ enable_testing()
 find_package(PostgreSQL REQUIRED)
 find_package(STC REQUIRED)
 
-set(_cmake_required_definitions ${CMAKE_REQUIRED_DEFINITIONS})
-set(CMAKE_REQUIRED_DEFINITIONS -D_GNU_SOURCE)
-check_symbol_exists(strverscmp "string.h" HAVE_STRVERSCMP)
-check_symbol_exists(dladdr "dlfcn.h" HAVE_DLADDR)
-set(CMAKE_REQUIRED_DEFINITIONS ${_cmake_required_definitions})
+function(check_symbols)
+        set(CMAKE_REQUIRED_DEFINITIONS -D_GNU_SOURCE)
+        check_symbol_exists(strverscmp "string.h" HAVE_STRVERSCMP)
+        set(CMAKE_REQUIRED_LIBRARIES dl)
+        check_symbol_exists(dladdr "dlfcn.h" HAVE_DLADDR)
+endfunction()
+
+check_symbols()
 
 add_postgresql_extension(
         omni_ext
@@ -23,7 +26,7 @@ add_postgresql_extension(
         SCHEMA omni_ext
         RELOCATABLE false
         SCRIPTS omni_ext--0.1.sql
-        SOURCES omni_ext.c control_file.c init.c workers.c db.c strverscmp.c
+        SOURCES omni_ext.c control_file.c init.c workers.c strverscmp.c
         SHARED_PRELOAD ON)
 
 set_property(TARGET omni_ext PROPERTY C_STANDARD 11)

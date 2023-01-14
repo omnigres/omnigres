@@ -79,7 +79,7 @@ bool _Dynpgext_eager_preload();
  * worker will be started.
  *
  */
-#define DYNPGEXT_SCOPE_DATABASE_LOCAL 0b000000001
+#define DYNPGEXT_SCOPE_DATABASE_LOCAL 0b00000001
 /**
  * @brief Default allocation flags
  *

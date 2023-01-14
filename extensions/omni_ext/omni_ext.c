@@ -30,12 +30,56 @@
 #include <libgluepg_stc/sview.h>
 
 #include "control_file.h"
-#include "db.h"
 #include "omni_ext.h"
 #include "strverscmp.h"
 
+static const char *find_absolute_library_path(const char *filename) {
+  const char *result = filename;
+#ifdef __linux__
+  // Not a great solution, but not aware of anything else yet.
+  // This code below reads /proc/self/maps and finds the path to the
+  // library by matching the base addrsss of omni_ext shared library.
+
+  FILE *f = fopen("/proc/self/maps", "r");
+  if (NULL == f) {
+    return result;
+  }
+
+  // Get the base address of omni_ext shared library
+  Dl_info info;
+  dladdr(get_library_name, &info);
+
+#define BUFFER_SIZE 512
+  char buffer[BUFFER_SIZE] = {0};
+  // We can keep this name around forever as it'll be used to create handles
+  char *path = MemoryContextAlloc(TopMemoryContext, BUFFER_SIZE);
+
+  while (fgets(buffer, BUFFER_SIZE, f)) {
+    uintptr_t base;
+    if (sscanf(buffer, "%lx-%*x %*s %*s %*s %*s %s", &base, path) == 2) {
+      if (base == (uintptr_t)info.dli_fbase) {
+        result = path;
+        goto done;
+      }
+    }
+  }
+#undef BUFFER_SIZE
+done:
+  fclose(f);
+#endif
+  return result;
+}
+
+/**
+ * @brief Get path to omni_ext's library shared object
+ *
+ * This is to be primarily used by omni_ext's workers.
+ *
+ * @return const char*
+ */
 const char *get_library_name() {
   static const char *library_name = NULL;
+  // If we have already determined the name, return it
   if (library_name) {
     return library_name;
   }
@@ -43,6 +87,11 @@ const char *get_library_name() {
   Dl_info info;
   dladdr(get_library_name, &info);
   library_name = info.dli_fname;
+  if (index(library_name, '/') == NULL) {
+    // Not a full path, try to determine it. On some systems it will be a full path, on some it
+    // won't.
+    library_name = find_absolute_library_path(library_name);
+  }
 #else
   library_name = EXT_LIBRARY_NAME;
 #endif
