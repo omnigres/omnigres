@@ -445,6 +445,7 @@ echo max_worker_processes = 64 >> $tmpdir/postgresql.conf
 PGSHAREDIR=${_share_dir} \
 EXTENSION_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR} \
 ${PG_REGRESS} --temp-instance=\"$tmpdir/instance\" --inputdir=${CMAKE_CURRENT_SOURCE_DIR} \
+--dbname=\"${NAME}\" \
 --temp-config=\"$tmpdir/postgresql.conf\" \
 --outputdir=\"${CMAKE_CURRENT_BINARY_DIR}/${NAME}\" \
 ${_loadextensions} \

@@ -281,7 +281,7 @@ void load_control_file(const char *control_path, void *data) {
                     dynpgext_handle *handle = palloc(sizeof(dynpgext_handle));
                     handle->name = pstrdup(control_file.ext_name);
                     handle->version = pstrdup(control_file.ext_version);
-                    handle->library_name = pstrdup(basename(control_file.module_pathname));
+                    handle->library_name = pstrdup(control_file.module_pathname);
                     if (config) {
                       handle->allocate_shmem = config->allocate_shmem;
                       handle->register_bgworker = config->register_bgworker_function;
