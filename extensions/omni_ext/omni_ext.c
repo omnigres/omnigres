@@ -38,7 +38,7 @@ static const char *find_absolute_library_path(const char *filename) {
 #ifdef __linux__
   // Not a great solution, but not aware of anything else yet.
   // This code below reads /proc/self/maps and finds the path to the
-  // library by matching the base addrsss of omni_ext shared library.
+  // library by matching the base address of omni_ext shared library.
 
   FILE *f = fopen("/proc/self/maps", "r");
   if (NULL == f) {
