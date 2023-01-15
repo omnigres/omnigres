@@ -49,22 +49,19 @@ static const char *find_absolute_library_path(const char *filename) {
   Dl_info info;
   dladdr(get_library_name, &info);
 
-#define BUFFER_SIZE 512
-  char buffer[BUFFER_SIZE] = {0};
   // We can keep this name around forever as it'll be used to create handles
-  char *path = MemoryContextAlloc(TopMemoryContext, BUFFER_SIZE);
+  char *path = MemoryContextAllocZero(TopMemoryContext, NAME_MAX + 1);
+  char *format = psprintf("%%lx-%%*x %%*s %%*s %%*s %%*s %%%d[^\n]", NAME_MAX);
 
-  while (fgets(buffer, BUFFER_SIZE, f)) {
-    uintptr_t base;
-    if (sscanf(buffer, "%lx-%*x %*s %*s %*s %*s %s", &base, path) == 2) {
-      if (base == (uintptr_t)info.dli_fbase) {
-        result = path;
-        goto done;
-      }
+  uintptr_t base;
+  while (fscanf(f, (const char *)format, &base, path) >= 1) {
+    if (base == (uintptr_t)info.dli_fbase) {
+      result = path;
+      goto done;
     }
   }
-#undef BUFFER_SIZE
 done:
+  pfree(format);
   fclose(f);
 #endif
   return result;
