@@ -7,3 +7,4 @@ cmake-build-debug
 log
 results
 .DS_Store
+.docs-virtualenv

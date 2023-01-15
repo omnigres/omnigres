@@ -21,7 +21,7 @@ if(DOXYGEN_FOUND)
     set(DOXYGEN_OUTPUT_FOR_C YES)
     set(DOXYGEN_MARKDOWN_SUPPORT YES)
     set(DOXYGEN_AUTOLINK_SUPPORT YES)
-    set(DOXYGEN_USE_MDFILE_AS_MAINPAGE README.md)
+    set(DOXYGEN_USE_MDFILE_AS_MAINPAGE docs/index.md)
 
     # TODO: add other doxygen-awesome extensions
     set(DOXYGEN_HTML_EXTRA_STYLESHEET ${CMAKE_CURRENT_SOURCE_DIR}/../.doxygen/doxygen-awesome.css)
