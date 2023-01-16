@@ -183,7 +183,13 @@ void shmem_hook() {
   LWLockRelease(AddinShmemInitLock);
 }
 
+static bool _dynpgext_loader_present = true;
+
 void _PG_init() {
+  DefineCustomBoolVariable("dynpgext.loader_present",
+                           "Flag indicating presence of a Dynpgext loader", NULL,
+                           &_dynpgext_loader_present, true, PGC_BACKEND, 0, NULL, NULL, NULL);
+
   DefineCustomIntVariable("omni_ext.shmem_size",
                           "Pre-allocated shared memory size, rounded to megabytes", NULL,
                           &shmem_size, 16, 0, MAX_KILOBYTES, PGC_POSTMASTER,
