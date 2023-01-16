@@ -1,0 +1,10 @@
+-- There should be no loader
+SHOW dynpgext.loader_present;
+ERROR:  unrecognized configuration parameter "dynpgext.loader_present"
+-- And dynpgext should indicate the same
+SELECT loader_present();
+ loader_present 
+----------------
+ f
+(1 row)
+

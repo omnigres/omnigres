@@ -10,6 +10,8 @@
 #include <postmaster/bgworker.h>
 // clang-format on
 
+#include <utils/guc.h>
+
 /**
  * @private
  * @brief Magic structure for compatibility checks
@@ -233,5 +235,24 @@ __attribute__((always_inline)) inline static void *dynpgext_lookup_shmem(const c
 #else
 extern void *dynpgext_lookup_shmem(const char *name);
 #endif
+
+/**
+ * @brief Tests if a Dynpgext loader is present
+ *
+ * This function can be used to handle extension initialization should a Dynpgext loader not be
+ * present. The functionality may be reduced but it can still be a functional extension.
+ *
+ * Loader must set `dynpgext.loader_present` to true to indicate its presence
+ *
+ * @return true if a loader present
+ * @return false if a loder is not present
+ */
+static bool dynpgext_loader_present() {
+  static bool is_dynpgext_loader_present = false;
+  DefineCustomBoolVariable(
+      "dynpgext.loader_present", "Flag indicating presence of a Dynpgext loader", NULL,
+      &is_dynpgext_loader_present, false, PGC_BACKEND, GUC_CUSTOM_PLACEHOLDER, NULL, NULL, NULL);
+  return is_dynpgext_loader_present;
+}
 
 #endif // DYNPGEXT_H
