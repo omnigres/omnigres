@@ -1,0 +1,59 @@
+{
+  "nodes": {
+    "cmake_nixpkgs": {
+      "locked": {
+        "lastModified": 1673444646,
+        "narHash": "sha256-KXqUmmkX952jwl/3FO8DWCsQBfOjB0ED4unYCVOOIAk=",
+        "owner": "yrashk",
+        "repo": "nixpkgs",
+        "rev": "3003a72d0e5d1105e963cc3375e7176c2a91d5b4",
+        "type": "github"
+      },
+      "original": {
+        "owner": "yrashk",
+        "ref": "cmake-3.25.1",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "flake-utils": {
+      "locked": {
+        "lastModified": 1667395993,
+        "narHash": "sha256-nuEHfE/LcWyuSWnS8t12N1wc105Qtau+/OdUAjtQ0rA=",
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "rev": "5aed5285a952e0b949eb3ba02c12fa4fcfef535f",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "type": "github"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1673800717,
+        "narHash": "sha256-SFHraUqLSu5cC6IxTprex/nTsI81ZQAtDvlBvGDWfnA=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "2f9fd351ec37f5d479556cd48be4ca340da59b8f",
+        "type": "github"
+      },
+      "original": {
+        "id": "nixpkgs",
+        "ref": "nixos-22.11",
+        "type": "indirect"
+      }
+    },
+    "root": {
+      "inputs": {
+        "cmake_nixpkgs": "cmake_nixpkgs",
+        "flake-utils": "flake-utils",
+        "nixpkgs": "nixpkgs"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}
