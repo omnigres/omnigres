@@ -105,7 +105,9 @@ if(NOT EXISTS "${PGDIR_VERSION}/build/bin/postgres")
     file(WRITE "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}/src/port/pg_config_paths.h" ${FILE_CONTENTS})
 
     execute_process(
-        COMMAND make install
+        # Ensure we always set SHELL to /bin/sh to be used in pg_regress. Otherwise it has been observed to
+        # degrade to `sh` (at least, on NixOS) and pg_regress fails to start anything
+        COMMAND make SHELL=/bin/sh install
         WORKING_DIRECTORY "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}")
 endif()
 

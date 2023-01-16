@@ -9,6 +9,9 @@ if(APPLE)
 
     message(STATUS "Found OpenSSL at ${OPENSSL_PREIX}")
     set(OPENSSL_ROOT_DIR ${OPENSSL_PREIX} CACHE INTERNAL "OpenSSL")
+elseif(UNIX)
+    find_package(PkgConfig)
+    pkg_check_modules(_OPENSSL openssl)
 endif()
 
 set(OPENSSL_USE_STATIC_LIBS ON)
