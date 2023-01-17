@@ -316,6 +316,8 @@ function(add_postgresql_extension NAME)
     # extension.
     add_library(${NAME} MODULE ${_ext_SOURCES})
 
+    set_target_properties(${NAME} PROPERTIES EXT_VERSION ${_ext_VERSION})
+
     # Proactively support dynpgext so that its caching late bound calls most efficiently
     # on macOS
     if(APPLE)
@@ -337,7 +339,7 @@ function(add_postgresql_extension NAME)
         set(_link_flags "${_link_flags} -L${_dir}")
     endforeach()
 
-    set(_share_dir "${CMAKE_BINARY_DIR}/pg-share")
+    set(_share_dir "${CMAKE_CURRENT_BINARY_DIR}/${NAME}/pg-share")
     file(COPY "${_pg_sharedir}/" DESTINATION "${_share_dir}")
     set(_ext_dir "${_share_dir}/extension")
     file(MAKE_DIRECTORY ${_ext_dir})
@@ -357,6 +359,8 @@ function(add_postgresql_extension NAME)
         message(
             STATUS "Building script file ${_script} from template file ${_template}")
     endforeach()
+
+    set_target_properties(${NAME} PROPERTIES EXT_SCRIPTS ${_script_files})
 
     if(APPLE)
         set(_link_flags "${_link_flags} -bundle -bundle_loader ${PG_BINARY}")
@@ -396,6 +400,12 @@ $<$<NOT:$<BOOL:${_ext_RELOCATABLE}>>:#>relocatable = ${_ext_RELOCATABLE}
         CONTENT
         "default_version = '${_ext_VERSION}'
 ")
+
+
+    set(_control_files)
+    list(APPEND _control_files ${_control_file})
+    list(APPEND _control_files ${_default_control_file})
+    set_target_properties(${NAME} PROPERTIES EXT_CONTROL_FILES "${_control_files}")
 
     if(_ext_REGRESS)
         foreach(_test ${_ext_REGRESS})
@@ -452,6 +462,7 @@ ${PG_REGRESS} --temp-instance=\"$tmpdir/instance\" --inputdir=${CMAKE_CURRENT_SO
 --outputdir=\"${CMAKE_CURRENT_BINARY_DIR}/${NAME}\" \
 ${_loadextensions} \
 --load-extension=${NAME} --host=0.0.0.0 --port=$PORT ${_ext_REGRESS_ARGS}
+rm -rf $(tmpdir)
 "
                 FILE_PERMISSIONS OWNER_EXECUTE OWNER_READ OWNER_WRITE
             )
