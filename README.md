@@ -2,7 +2,7 @@
 ---
 
 [![Discord Chat](https://img.shields.io/discord/1060568981725003789?label=Discord)][Discord]
-[![Telegram Group](https://img.shields.io/endpoint?color=neon&style=flat-square&url=https%3A%2F%2Ftg.sumanjay.workers.dev%2Fomnigres)](Telegram)
+[![Telegram Group](https://img.shields.io/endpoint?color=neon&style=flat-square&url=https%3A%2F%2Ftg.sumanjay.workers.dev%2Fomnigres)][Telegram]
 
 Omnigres makes PostgreSQL a complete application platform. You can deploy a single database instance and it can host your entire application, scaling as needed.
 
@@ -45,4 +45,4 @@ CTEST_PARALLEL_LEVEL=$(nproc) make -j $(nproc) all test
 ```
 
 [Discord]: https://discord.gg/Jghrq588qS
-[Telegram]: [https://telegram.dog/omnigres
+[Telegram]: https://telegram.dog/omnigres
