@@ -13,11 +13,15 @@
 #include <access/xact.h>
 #include <catalog/pg_database.h>
 #include <catalog/pg_extension.h>
+#if PG_MAJORVERSION_NUM >= 13
 #include <common/hashfn.h>
+#endif
 #include <miscadmin.h>
 #include <port.h>
 #include <postmaster/bgworker.h>
+#if PG_MAJORVERSION_NUM >= 13
 #include <postmaster/interrupt.h>
+#endif
 #include <storage/fd.h>
 #include <storage/ipc.h>
 #include <storage/latch.h>
@@ -29,7 +33,12 @@
 #include <utils/guc.h>
 #include <utils/hsearch.h>
 #include <utils/rel.h>
+
+#if PG_MAJORVERSION_NUM >= 14
 #include <utils/wait_event.h>
+#else
+#include <pgstat.h>
+#endif
 
 #include <libpgaug.h>
 
@@ -52,7 +61,6 @@ typedef struct {
 void master_worker(Datum main_arg) {
   BackgroundWorkerInitializeConnection(NULL, NULL, 0);
 
-  pqsignal(SIGHUP, SignalHandlerForConfigReload);
   pqsignal(SIGTERM, die);
 
   BackgroundWorkerUnblockSignals();
@@ -131,7 +139,6 @@ void database_worker(Datum db_oid) {
   ensure_dsa_attached();
   BackgroundWorkerInitializeConnectionByOid(db_oid, InvalidOid, 0);
 
-  pqsignal(SIGHUP, SignalHandlerForConfigReload);
   pqsignal(SIGTERM, die);
 
   BackgroundWorkerUnblockSignals();

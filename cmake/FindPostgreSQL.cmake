@@ -51,8 +51,6 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-set(PGURL_15.1 https://ftp.postgresql.org/pub/source/v15.1/postgresql-15.1.tar.bz2)
-
 # Use latest known version if PGVER is not set
 if(NOT PGVER)
     set(PGVER 15)
@@ -60,20 +58,23 @@ endif()
 
 # If the version is not known, try resolving the alias
 set(PGVER_ALIAS_15 15.1)
+set(PGVER_ALIAS_14 14.6)
+set(PGVER_ALIAS_13 13.9)
+set(PGVER_ALIAS_12 12.13)
 
-if("${PGURL_${PGVER}}" STREQUAL "")
+if("${PGVER}" MATCHES "[0-9]+.[0-9]+")
+    set(PGVER_ALIAS "${PGVER}")
+else()
     set(PGVER_ALIAS "${PGVER_ALIAS_${PGVER}}")
 
     # If it still can't be resolved, fail
-    if("${PGURL_${PGVER_ALIAS}}" EQUAL "")
-        message(FATAL_ERROR "Can't resolve PostgreSQL version ${PGVER}")
-    else()
-        if(NOT _POSTGRESQL_ANNOUNCED)
+    if("${PGVER_ALIAS}" MATCHES "[0-9]+.[0-9]+")
+        if(NOT _POSTGRESQL_ANNOUNCED_${PGVER_ALIAS})
             message(STATUS "Resolved PostgreSQL version alias ${PGVER} to ${PGVER_ALIAS}")
         endif()
+    else()
+        message(FATAL_ERROR "Can't resolve PostgreSQL version ${PGVER}")
     endif()
-else()
-    set(PGVER_ALIAS "${PGVER}")
 endif()
 
 # This is where we manage all PostgreSQL installations
@@ -85,7 +86,7 @@ set(PGDIR_VERSION "${PGDIR}/${PGVER_ALIAS}")
 if(NOT EXISTS "${PGDIR_VERSION}/build/bin/postgres")
     file(MAKE_DIRECTORY ${PGDIR})
     message(STATUS "Downloading PostgreSQL ${PGVER}")
-    file(DOWNLOAD "${PGURL_${PGVER_ALIAS}}" "${PGDIR}/postgresql-${PGVER_ALIAS}.tar.bz2" SHOW_PROGRESS)
+    file(DOWNLOAD "https://ftp.postgresql.org/pub/source/v${PGVER_ALIAS}/postgresql-${PGVER_ALIAS}.tar.bz2" "${PGDIR}/postgresql-${PGVER_ALIAS}.tar.bz2" SHOW_PROGRESS)
     message(STATUS "Extracting PostgreSQL ${PGVER}")
     file(ARCHIVE_EXTRACT INPUT "${PGDIR}/postgresql-${PGVER_ALIAS}.tar.bz2" DESTINATION ${PGDIR_VERSION})
     execute_process(
@@ -105,6 +106,7 @@ if(NOT EXISTS "${PGDIR_VERSION}/build/bin/postgres")
     file(WRITE "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}/src/port/pg_config_paths.h" ${FILE_CONTENTS})
 
     execute_process(
+
         # Ensure we always set SHELL to /bin/sh to be used in pg_regress. Otherwise it has been observed to
         # degrade to `sh` (at least, on NixOS) and pg_regress fails to start anything
         COMMAND make SHELL=/bin/sh install
@@ -251,7 +253,7 @@ if(PostgreSQL_FOUND)
         message(WARNING "Could not find pg_ctl, psql_${NAME} will not be available")
     endif()
 
-    if(NOT _POSTGRESQL_ANNOUNCED)
+    if(NOT _POSTGRESQL_ANNOUNCED_${PGVER_ALIAS})
         message(STATUS "Found postgres binary at ${PG_BINARY}")
         message(STATUS "PostgreSQL version ${PostgreSQL_VERSION_STRING} found")
         message(
@@ -262,7 +264,7 @@ if(PostgreSQL_FOUND)
         message(STATUS "PostgreSQL linker options: ${PostgreSQL_LINK_OPTIONS}")
         message(
             STATUS "PostgreSQL shared linker options: ${PostgreSQL_SHARED_LINK_OPTIONS}")
-        set(_POSTGRESQL_ANNOUNCED ON CACHE INTERNAL "PostgreSQL was announced")
+        set(_POSTGRESQL_ANNOUNCED_${PGVER_ALIAS} ON CACHE INTERNAL "PostgreSQL was announced")
     endif()
 endif()
 

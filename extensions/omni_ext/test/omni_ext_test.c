@@ -6,6 +6,10 @@
 #include <fmgr.h>
 // clang-format on
 
+#include <access/xact.h>
+#if PG_MAJORVERSION_NUM < 13
+#include <catalog/pg_type.h>
+#endif
 #include <executor/spi.h>
 #include <utils/snapmgr.h>
 #include <utils/timestamp.h>
@@ -54,9 +58,9 @@ Datum wait_for_table(PG_FUNCTION_ARGS) {
     int res =
         SPI_execute_with_args("SELECT table_name FROM information_schema.tables "
                               "WHERE table_name = $1",
-                              1, (Oid[1]){TEXTOID}, (Datum[1]){PG_GETARG_DATUM(0)}, " ", false, 0);
+                              1, (Oid[1]){TEXTOID}, (Datum[1]){PG_GETARG_DATUM(0)}, " ", false, 1);
     if (res == SPI_OK_SELECT) {
-      if (SPI_tuptable->numvals == 1) {
+      if (SPI_processed == 1) {
         found = true;
         break;
       }
