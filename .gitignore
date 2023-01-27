@@ -1,5 +1,6 @@
 .pg
 build
+.b-*
 build-linux
 cmake-build-debug
 .idea
