@@ -21,6 +21,10 @@
 #include "control_file.h"
 #include "omni_ext.h"
 
+#ifndef DLSUFFIX
+#define DLSUFFIX ".so"
+#endif
+
 #define MAX_EXTKEYSIZE 1024
 
 /**

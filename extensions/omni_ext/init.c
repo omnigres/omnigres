@@ -41,9 +41,11 @@ static shmem_startup_hook_type saved_shmem_startup_hook;
  *
  */
 void shmem_request() {
+#if PG_MAJORVERSION_NUM >= 15
   if (saved_shmem_request_hook) {
     saved_shmem_request_hook();
   }
+#endif
 
   // Allocate what Dynpgext extensions have requested
   c_FOREACH(req, cdeq_allocation_request, allocation_requests) {
@@ -193,7 +195,12 @@ void _PG_init() {
   DefineCustomIntVariable("omni_ext.shmem_size",
                           "Pre-allocated shared memory size, rounded to megabytes", NULL,
                           &shmem_size, 16, 0, MAX_KILOBYTES, PGC_POSTMASTER,
-                          GUC_UNIT_MB | GUC_RUNTIME_COMPUTED, NULL, NULL, NULL);
+                          GUC_UNIT_MB
+#if PG_MAJORVERSION_NUM >= 15
+                              | GUC_RUNTIME_COMPUTED
+#endif
+                          ,
+                          NULL, NULL, NULL);
 
   DefineCustomIntVariable("omni_ext.max_databases",
                           "Maximum number of databases to be used in database-local allocations",
