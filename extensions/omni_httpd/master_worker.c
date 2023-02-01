@@ -254,7 +254,9 @@ void master_worker(Datum db_oid) {
     // Get listeners
     while (worker_reload) {
       worker_reload = false;
-      if (SPI_execute("SELECT addr, port FROM omni_httpd.listeners", false, 0) == SPI_OK_SELECT) {
+      if (SPI_execute("SELECT listen.addr, listen.port FROM omni_httpd.listeners, "
+                      "unnest(omni_httpd.listeners.listen) AS listen",
+                      false, 0) == SPI_OK_SELECT) {
         TupleDesc tupdesc = SPI_tuptable->tupdesc;
         SPITupleTable *tuptable = SPI_tuptable;
         cset_port ports = cset_port_init();

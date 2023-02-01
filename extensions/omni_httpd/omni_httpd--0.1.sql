@@ -36,10 +36,14 @@ CREATE FUNCTION http_response(
 
 CREATE DOMAIN port integer CHECK (VALUE > 0 AND VALUE <= 65535);
 
+CREATE TYPE listenaddress AS (
+    addr inet,
+    port port
+);
+
 CREATE TABLE listeners (
     id integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-    port port NOT NULL DEFAULT 80,
-    addr inet NOT NULL DEFAULT '127.0.0.1',
+    listen listenaddress[] NOT NULL DEFAULT array[ROW('127.0.0.1', 80)::listenaddress],
     query text
 );
 

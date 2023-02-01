@@ -6,7 +6,7 @@ CREATE TABLE users (
 
 INSERT INTO users (handle, name) VALUES ('johndoe', 'John');
 
-INSERT INTO omni_httpd.listeners (port, query) VALUES (9000, $$
+INSERT INTO omni_httpd.listeners (listen, query) VALUES (array[row('127.0.0.1', 9000)::omni_httpd.listenaddress], $$
 SELECT omni_httpd.http_response(headers => array[omni_httpd.http_header('content-type', 'text/html')], body => 'Hello, <b>' || users.name || '</b>!'), 1 AS priority
        FROM request
        INNER JOIN users ON string_to_array(request.path,'/', '') = array[NULL, 'users', users.handle]
@@ -34,8 +34,12 @@ $$);
 
 -- Try changing configuration
 
-UPDATE omni_httpd.listeners SET port = 9001;
+UPDATE omni_httpd.listeners SET listen = array[row('127.0.0.1', 9001)::omni_httpd.listenaddress,
+                                               row('127.0.0.1', 9002)::omni_httpd.listenaddress
+];
 
 \! curl --retry-connrefused --retry 10  --retry-max-time 10 --silent -w '\n%{response_code}\nContent-Type: %header{content-type}\n\n' http://localhost:9001/test?q=1
+
+\! curl --retry-connrefused --retry 10  --retry-max-time 10 --silent -w '\n%{response_code}\nContent-Type: %header{content-type}\n\n' http://localhost:9002/test?q=1
 
 \! curl --silent -w '\n%{exitcode}' http://localhost:9000/test?q=1
