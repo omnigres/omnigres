@@ -281,6 +281,8 @@ endif()
 #
 # REQUIRES List of extensions that are required by this extension.
 #
+# TESTS_REQUIRE List of extensions that are required by tests.
+#
 # SCRIPTS Script files.
 #
 # SCRIPT_TEMPLATES Template script files.
@@ -304,7 +306,7 @@ endif()
 function(add_postgresql_extension NAME)
     set(_optional SHARED_PRELOAD)
     set(_single VERSION ENCODING SCHEMA RELOCATABLE)
-    set(_multi SOURCES SCRIPTS SCRIPT_TEMPLATES REQUIRES REGRESS)
+    set(_multi SOURCES SCRIPTS SCRIPT_TEMPLATES REQUIRES TESTS_REQUIRE REGRESS)
     cmake_parse_arguments(_ext "${_optional}" "${_single}" "${_multi}" ${ARGN})
 
     if(NOT _ext_VERSION)
@@ -332,6 +334,8 @@ function(add_postgresql_extension NAME)
     endif()
 
     target_compile_definitions(${NAME} PUBLIC "$<$<NOT:$<STREQUAL:${CMAKE_BUILD_TYPE},Release>>:DEBUG>")
+    target_compile_definitions(${NAME} PUBLIC "EXT_VERSION=\"${_ext_VERSION}\"")
+    target_compile_definitions(${NAME} PUBLIC "EXT_SCHEMA=\"${_ext_SCHEMA}\"")
 
     set(_link_flags "${PostgreSQL_SHARED_LINK_OPTIONS}")
 
@@ -418,7 +422,13 @@ $<$<NOT:$<BOOL:${_ext_RELOCATABLE}>>:#>relocatable = ${_ext_RELOCATABLE}
             set(_loadextensions)
             set(_extra_config)
 
-            foreach(req ${_ext_REQUIRES})
+            foreach(requirement ${_ext_REQUIRES})
+                list(APPEND _ext_TESTS_REQUIRE ${requirement})
+            endforeach()
+
+            list(REMOVE_DUPLICATES _ext_TESTS_REQUIRE)
+
+            foreach(req ${_ext_TESTS_REQUIRE})
                 string(APPEND _loadextensions "--load-extension=${req} ")
 
                 if(req STREQUAL "omni_ext")

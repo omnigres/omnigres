@@ -14,7 +14,7 @@ jobs:
   build:
     strategy:
       matrix:
-        pgver: [15, 14, 13, 12]
+        pgver: [15, 14, 13]
         os: [ubuntu-latest, macos-12]
         exclude:
           - os: macos-12
@@ -43,6 +43,13 @@ jobs:
       run: |
         brew update
         brew install openssl@3
+
+    - name: Install recent curl on Linux
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        wget --retry-on-http-error=42 --retry-connrefused -c https://github.com/moparisthebest/static-curl/releases/download/v7.87.0/curl-amd64
+        chmod +x curl-amd64
+        mv curl-amd64 curl
 
     - name: Setup Docker on macOS using Colima, Lima-VM, and Homebrew.
       uses: douglascamata/setup-docker-macos-action@v1-alpha
@@ -74,7 +81,7 @@ jobs:
 
     - name: Test
       working-directory: ${{github.workspace}}/build
-      run: ctest -timeout 1000 --force-new-ctest-process --verbose --output-on-failure -j $(nproc) -C ${{env.BUILD_TYPE}}
+      run: env PATH=${{github.workspace}}:$PATH ctest -timeout 1000 --force-new-ctest-process --verbose --output-on-failure -j $(nproc) -C ${{env.BUILD_TYPE}}
 
     - uses: actions/upload-artifact@v3
       if: failure()
