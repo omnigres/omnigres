@@ -32,6 +32,7 @@ if(DOXYGEN_FOUND)
 
     if(NOT TARGET doxygen)
         add_custom_target(doxygen)
-        add_dependencies(doxygen doxygen_dynpgext)
     endif()
+
+    add_dependencies(doxygen doxygen_dynpgext)
 endif()

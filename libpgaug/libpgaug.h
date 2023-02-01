@@ -51,4 +51,41 @@ void __with_temp_memcxt_cleanup(struct __with_temp_memcxt *s);
     } else if (memory_context.__phase == _memcxt_EXECUTE)
 
 #define MEMCXT_FINALIZE else if (memory_context.__phase == _memcxt_DONE)
+
+/**
+ * @brief Defines <name>_oid() function that returns the OID of type <name>
+ *
+ * It also defines <name>_array_oid() function that returns the OID of the array of the type.
+ *
+ * It is resolved against the schema of the current extension being compiled.
+ * The result is cached (as can be implied from the name of the macro)
+ *
+ */
+#define CACHED_OID(name)                                                                           \
+  static Oid oid_##name = InvalidOid;                                                              \
+  static Oid oid_array_##name = InvalidOid;                                                        \
+  Oid name##_oid() {                                                                               \
+    if (oid_##name == InvalidOid) {                                                                \
+      SPI_connect();                                                                               \
+      if (SPI_exec("SELECT NULL::" EXT_SCHEMA "." _PGEXT_STRINGIZE(name), 0) == SPI_OK_SELECT) {   \
+        TupleDesc tupdesc = SPI_tuptable->tupdesc;                                                 \
+        oid_##name = tupdesc->attrs[0].atttypid;                                                   \
+      }                                                                                            \
+      SPI_finish();                                                                                \
+    }                                                                                              \
+    return oid_##name;                                                                             \
+  }                                                                                                \
+  Oid name##_array_oid() {                                                                         \
+    if (oid_array_##name == InvalidOid) {                                                          \
+      SPI_connect();                                                                               \
+      if (SPI_exec("SELECT array[]::" EXT_SCHEMA "." _PGEXT_STRINGIZE(name) "[]", 0) ==            \
+          SPI_OK_SELECT) {                                                                         \
+        TupleDesc tupdesc = SPI_tuptable->tupdesc;                                                 \
+        oid_array_##name = tupdesc->attrs[0].atttypid;                                             \
+      }                                                                                            \
+      SPI_finish();                                                                                \
+    }                                                                                              \
+    return oid_array_##name;                                                                       \
+  }
+
 #endif // LIBPGAUG_H

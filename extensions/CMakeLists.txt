@@ -7,3 +7,4 @@ enable_testing()
 
 add_subdirectory(omni_ext)
 add_subdirectory(omni_containers)
+add_subdirectory(omni_httpd)

@@ -21,6 +21,7 @@ Omnigres makes PostgreSQL a complete application platform. You can deploy a sing
 
 * [omni_containers](extensions/omni_containers/README.md)
 * [omni_ext](extensions/omni_ext/README.md)
+* [omni_httpd](extensions/omni_httpd/README.md)
 * [Dynpgext interface](dynpgext/README.md)
 
 ## Try it out

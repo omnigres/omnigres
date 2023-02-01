@@ -1,4 +1,4 @@
-PGVERS=15 14 13 12
+PGVERS=15 14 13
 ROOT_DIR=$(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 
 test: $(PGVERS)
