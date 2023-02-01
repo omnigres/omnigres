@@ -543,7 +543,9 @@ void http_worker(Datum db_oid) {
 
     SPI_connect();
 
-    int ret = SPI_execute("SELECT addr, port, query FROM omni_httpd.listeners", false, 0);
+    int ret = SPI_execute("SELECT listen.addr, listen.port, query FROM omni_httpd.listeners, "
+                          "unnest(omni_httpd.listeners.listen) AS listen",
+                          false, 0);
     if (ret == SPI_OK_SELECT) {
       TupleDesc tupdesc = SPI_tuptable->tupdesc;
       SPITupleTable *tuptable = SPI_tuptable;
