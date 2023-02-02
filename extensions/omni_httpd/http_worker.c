@@ -611,46 +611,55 @@ void http_worker(Datum db_oid) {
             // Found matching socket
             char *query_string = text_to_cstring(DatumGetTextPP(query));
             MemoryContext memory_context = CurrentMemoryContext;
-            PG_TRY();
-            {
-              SPIPlanPtr plan = SPI_prepare(
-                  psprintf(
-                      // clang-format off
-                      "WITH request AS (SELECT $" REQUEST_PLAN_PARAM(REQUEST_PLAN_PATH) " AS path, "
+            char *request_cte = psprintf(
+                // clang-format off
+                      "SELECT $" REQUEST_PLAN_PARAM(REQUEST_PLAN_PATH) " AS path, "
                        "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_METHOD) "::text::omni_httpd.http_method AS method, "
                        "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_QUERY_STRING) " AS query_string, "
                        "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_BODY) " AS body, "
                        "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_HEADERS) " AS headers "
-                       ") SELECT * FROM "
-                       "(%s) query",
-                      // clang-format on
-                      query_string),
-                  REQUEST_PLAN_PARAMS,
-                  (Oid[REQUEST_PLAN_PARAMS]){
-                      [REQUEST_PLAN_METHOD] = TEXTOID,
-                      [REQUEST_PLAN_PATH] = TEXTOID,
-                      [REQUEST_PLAN_QUERY_STRING] = TEXTOID,
-                      [REQUEST_PLAN_BODY] = BYTEAOID,
-                      [REQUEST_PLAN_HEADERS] = http_header_array_oid(),
-                  });
-              pfree(query_string);
+                // clang-format on
+            );
+            int prep_ret = SPI_execute_with_args(
+                "SELECT omni_sql.add_cte($1::text::omni_sql.statement, 'request', "
+                "$2::text::omni_sql.statement, prepend => true)",
+                2, (Oid[2]){CSTRINGOID, CSTRINGOID},
+                (Datum[2]){CStringGetDatum(query_string), CStringGetDatum(request_cte)}, "  ",
+                false, 1);
+            if (prep_ret != SPI_OK_SELECT) {
+              ereport(WARNING, errmsg("Can't prepare SQL for: %s", query_string));
+            } else {
+              char *query = SPI_getvalue(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1);
+              PG_TRY();
+              {
+                SPIPlanPtr plan = SPI_prepare(query, REQUEST_PLAN_PARAMS,
+                                              (Oid[REQUEST_PLAN_PARAMS]){
+                                                  [REQUEST_PLAN_METHOD] = TEXTOID,
+                                                  [REQUEST_PLAN_PATH] = TEXTOID,
+                                                  [REQUEST_PLAN_QUERY_STRING] = TEXTOID,
+                                                  [REQUEST_PLAN_BODY] = BYTEAOID,
+                                                  [REQUEST_PLAN_HEADERS] = http_header_array_oid(),
+                                              });
+                pfree(query_string);
+                pfree(query);
 
-              // We have to keep the plan as we're going to disconnect from SPI
-              SPI_keepplan(plan);
-              iter.ref->plan = plan;
-            }
-            PG_CATCH();
-            {
-              MemoryContextSwitchTo(memory_context);
-              WITH_TEMP_MEMCXT {
-                ErrorData *error = CopyErrorData();
-                ereport(WARNING, errmsg("Error preparing query"),
-                        errdetail("%s: %s", error->message, error->detail));
+                // We have to keep the plan as we're going to disconnect from SPI
+                SPI_keepplan(plan);
+                iter.ref->plan = plan;
               }
+              PG_CATCH();
+              {
+                MemoryContextSwitchTo(memory_context);
+                WITH_TEMP_MEMCXT {
+                  ErrorData *error = CopyErrorData();
+                  ereport(WARNING, errmsg("Error preparing query"),
+                          errdetail("%s: %s", error->message, error->detail));
+                }
 
-              FlushErrorState();
+                FlushErrorState();
+              }
+              PG_END_TRY();
             }
-            PG_END_TRY();
           }
         }
       }
