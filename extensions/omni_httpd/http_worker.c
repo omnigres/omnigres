@@ -644,7 +644,6 @@ void http_worker(Datum db_oid) {
                                       [REQUEST_PLAN_BODY] = BYTEAOID,
                                       [REQUEST_PLAN_HEADERS] = http_header_array_oid(),
                                   });
-                  pfree(query);
 
                   // We have to keep the plan as we're going to disconnect from SPI
                   SPI_keepplan(plan);
@@ -655,13 +654,14 @@ void http_worker(Datum db_oid) {
                   MemoryContextSwitchTo(memory_context);
                   WITH_TEMP_MEMCXT {
                     ErrorData *error = CopyErrorData();
-                    ereport(WARNING, errmsg("Error preparing query"),
+                    ereport(WARNING, errmsg("Error preparing query %s", query),
                             errdetail("%s: %s", error->message, error->detail));
                   }
 
                   FlushErrorState();
                 }
                 PG_END_TRY();
+                pfree(query);
               } else {
                 ereport(WARNING, errmsg("Listener query is parameterized and is rejected:\n %s",
                                         query_string));
