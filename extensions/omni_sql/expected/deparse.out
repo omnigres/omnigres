@@ -1,6 +1,6 @@
-SELECT 'select * from t where v != 1'::omni_sql.statement;
-          statement           
+SELECT 'select * from t where v != 1';
+           ?column?           
 ------------------------------
- SELECT * FROM t WHERE v <> 1
+ select * from t where v != 1
 (1 row)
 
