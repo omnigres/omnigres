@@ -230,13 +230,20 @@ static int create_listener(int fd, listener_ctx *listener_ctx) {
  * @return int
  */
 static int handler(h2o_handler_t *self, h2o_req_t *req) {
+  listener_ctx *lctx = H2O_STRUCT_FROM_MEMBER(listener_ctx, context, req->conn->ctx);
+
+  SPIPlanPtr plan = lctx->plan;
+
+  if (plan == NULL) {
+    req->res.status = 500;
+    h2o_send_inline(req, H2O_STRLIT("Internal server error"));
+    return 0;
+  }
+
   SetCurrentStatementStartTimestamp();
   StartTransactionCommand();
   PushActiveSnapshot(GetTransactionSnapshot());
   SPI_connect();
-
-  listener_ctx *lctx = H2O_STRUCT_FROM_MEMBER(listener_ctx, context, req->conn->ctx);
-  SPIPlanPtr plan = lctx->plan;
 
   int ret;
 
@@ -310,10 +317,11 @@ static int handler(h2o_handler_t *self, h2o_req_t *req) {
     FlushErrorState();
 
     // Abort the transaction
+    SPI_finish();
     AbortCurrentTransaction();
     req->res.status = 500;
     h2o_send_inline(req, H2O_STRLIT("Internal server error"));
-    goto cleanup;
+    return 0;
   }
   PG_END_TRY();
   int proc = SPI_processed;
@@ -397,10 +405,10 @@ static int handler(h2o_handler_t *self, h2o_req_t *req) {
       h2o_send_inline(req, H2O_STRLIT("Internal server error"));
     }
   }
-cleanup:
   SPI_finish();
   PopActiveSnapshot();
   CommitTransactionCommand();
+
   return 0;
 }
 
@@ -498,13 +506,13 @@ void http_worker(Datum db_oid) {
         }
         if (iter.ref->plan != NULL) {
           SPI_freeplan(iter.ref->plan);
+          iter.ref->plan = NULL;
         }
         if (iter.ref->socket != NULL) {
           h2o_socket_t *socket = iter.ref->socket;
           h2o_socket_read_stop(socket);
           h2o_socket_export_t info;
           h2o_socket_export(socket, &info);
-          h2o_evloop_run(worker_event_loop, 0);
           close(info.fd);
         }
         h2o_context_dispose(&iter.ref->context);
@@ -646,8 +654,14 @@ void http_worker(Datum db_oid) {
                                   });
 
                   // We have to keep the plan as we're going to disconnect from SPI
-                  SPI_keepplan(plan);
-                  iter.ref->plan = plan;
+                  int keepret = SPI_keepplan(plan);
+                  if (keepret != 0) {
+                    ereport(WARNING,
+                            errmsg("Can't save plan: %s", SPI_result_code_string(keepret)));
+                    iter.ref->plan = NULL;
+                  } else {
+                    iter.ref->plan = plan;
+                  }
                 }
                 PG_CATCH();
                 {
