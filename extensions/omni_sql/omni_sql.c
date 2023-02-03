@@ -139,11 +139,12 @@ dispatch:
   }
 
   if (*with == NULL) {
-    WithClause new_with = {.type = T_WithClause,
-                           .location = -1,
-                           .recursive = recursive,
-                           .ctes = list_make1(&cte_node)};
-    *with = &new_with;
+    WithClause *new_with = palloc(sizeof(*new_with));
+    new_with->type = T_WithClause;
+    new_with->location = -1;
+    new_with->recursive = recursive;
+    new_with->ctes = list_make1(&cte_node);
+    *with = new_with;
   } else {
     List *ctes = (*with)->ctes;
     if (prepend) {
