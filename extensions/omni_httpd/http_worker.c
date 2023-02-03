@@ -622,44 +622,52 @@ void http_worker(Datum db_oid) {
             );
             int prep_ret = SPI_execute_with_args(
                 "SELECT omni_sql.add_cte($1::text::omni_sql.statement, 'request', "
-                "$2::text::omni_sql.statement, prepend => true)",
+                "$2::text::omni_sql.statement, prepend => true) WHERE NOT "
+                "omni_sql.is_parameterized($1::text::omni_sql.statement)",
                 2, (Oid[2]){CSTRINGOID, CSTRINGOID},
                 (Datum[2]){CStringGetDatum(query_string), CStringGetDatum(request_cte)}, "  ",
                 false, 1);
             if (prep_ret != SPI_OK_SELECT) {
               ereport(WARNING, errmsg("Can't prepare SQL for: %s", query_string));
             } else {
-              char *query = SPI_getvalue(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1);
-              PG_TRY();
-              {
-                SPIPlanPtr plan = SPI_prepare(query, REQUEST_PLAN_PARAMS,
-                                              (Oid[REQUEST_PLAN_PARAMS]){
-                                                  [REQUEST_PLAN_METHOD] = TEXTOID,
-                                                  [REQUEST_PLAN_PATH] = TEXTOID,
-                                                  [REQUEST_PLAN_QUERY_STRING] = TEXTOID,
-                                                  [REQUEST_PLAN_BODY] = BYTEAOID,
-                                                  [REQUEST_PLAN_HEADERS] = http_header_array_oid(),
-                                              });
-                pfree(query_string);
-                pfree(query);
+              if (SPI_processed == 1) {
 
-                // We have to keep the plan as we're going to disconnect from SPI
-                SPI_keepplan(plan);
-                iter.ref->plan = plan;
-              }
-              PG_CATCH();
-              {
-                MemoryContextSwitchTo(memory_context);
-                WITH_TEMP_MEMCXT {
-                  ErrorData *error = CopyErrorData();
-                  ereport(WARNING, errmsg("Error preparing query"),
-                          errdetail("%s: %s", error->message, error->detail));
+                char *query = SPI_getvalue(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1);
+                PG_TRY();
+                {
+                  SPIPlanPtr plan =
+                      SPI_prepare(query, REQUEST_PLAN_PARAMS,
+                                  (Oid[REQUEST_PLAN_PARAMS]){
+                                      [REQUEST_PLAN_METHOD] = TEXTOID,
+                                      [REQUEST_PLAN_PATH] = TEXTOID,
+                                      [REQUEST_PLAN_QUERY_STRING] = TEXTOID,
+                                      [REQUEST_PLAN_BODY] = BYTEAOID,
+                                      [REQUEST_PLAN_HEADERS] = http_header_array_oid(),
+                                  });
+                  pfree(query);
+
+                  // We have to keep the plan as we're going to disconnect from SPI
+                  SPI_keepplan(plan);
+                  iter.ref->plan = plan;
                 }
+                PG_CATCH();
+                {
+                  MemoryContextSwitchTo(memory_context);
+                  WITH_TEMP_MEMCXT {
+                    ErrorData *error = CopyErrorData();
+                    ereport(WARNING, errmsg("Error preparing query"),
+                            errdetail("%s: %s", error->message, error->detail));
+                  }
 
-                FlushErrorState();
+                  FlushErrorState();
+                }
+                PG_END_TRY();
+              } else {
+                ereport(WARNING, errmsg("Listener query is parameterized and is rejected:\n %s",
+                                        query_string));
               }
-              PG_END_TRY();
             }
+            pfree(query_string);
           }
         }
       }

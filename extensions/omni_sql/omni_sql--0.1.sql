@@ -18,3 +18,7 @@ CREATE FUNCTION add_cte(statement, name text, cte statement,
                         recursive bool DEFAULT false, prepend bool DEFAULT false) RETURNS statement
   AS 'MODULE_PATHNAME', 'add_cte'
   LANGUAGE C STRICT IMMUTABLE;
+
+CREATE FUNCTION is_parameterized(statement) RETURNS bool
+  AS 'MODULE_PATHNAME', 'is_parameterized'
+  LANGUAGE C STRICT IMMUTABLE;

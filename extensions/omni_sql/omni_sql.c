@@ -12,6 +12,8 @@
 #include <parser/parser.h>
 #include <utils/builtins.h>
 
+#include <nodes/nodeFuncs.h>
+
 #include "deparse.h"
 
 PG_MODULE_MAGIC;
@@ -154,4 +156,37 @@ dispatch:
   text *deparsed_statement = cstring_to_text(deparsed);
 
   PG_RETURN_TEXT_P(deparsed_statement);
+}
+
+PG_FUNCTION_INFO_V1(is_parameterized);
+
+static bool contains_param_walker(Node *node, bool *contains) {
+  if (node != NULL) {
+    if (nodeTag(node) == T_ParamRef) {
+      *contains = true;
+      return true;
+    } else {
+      return raw_expression_tree_walker(node, contains_param_walker, contains);
+    }
+  }
+  return false;
+}
+
+Datum is_parameterized(PG_FUNCTION_ARGS) {
+  if (PG_ARGISNULL(0)) {
+    ereport(ERROR, errmsg("statement can't be NULL"));
+  }
+  text *statement = PG_GETARG_TEXT_PP(0);
+  List *stmts = parse_statement(text_to_cstring(statement));
+
+  ListCell *stmt;
+  foreach (stmt, stmts) {
+    bool contains = false;
+    raw_expression_tree_walker(castNode(RawStmt, lfirst(stmt))->stmt, contains_param_walker,
+                               &contains);
+    if (contains) {
+      PG_RETURN_BOOL(true);
+    }
+  }
+  PG_RETURN_BOOL(false);
 }
