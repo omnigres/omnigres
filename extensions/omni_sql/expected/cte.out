@@ -1,0 +1,47 @@
+ -- Append
+SELECT omni_sql.add_cte(
+    omni_sql.add_cte('SELECT', 'a', 'SELECT 0'), 'b', 'SELECT 1');
+                   add_cte                    
+----------------------------------------------
+ WITH a AS (SELECT 0), b AS (SELECT 1) SELECT
+(1 row)
+
+-- Prepend
+SELECT omni_sql.add_cte(
+    omni_sql.add_cte('SELECT', 'a', 'SELECT 0'), 'b', 'SELECT 1', prepend => true);
+                   add_cte                    
+----------------------------------------------
+ WITH b AS (SELECT 1), a AS (SELECT 0) SELECT
+(1 row)
+
+ -- Recursive
+ SELECT omni_sql.add_cte('SELECT', 'a', 'SELECT 0', recursive => true);
+                add_cte                
+---------------------------------------
+ WITH RECURSIVE a AS (SELECT 0) SELECT
+(1 row)
+
+-- INSERT
+SELECT omni_sql.add_cte(
+    omni_sql.add_cte('INSERT INTO t VALUES (1)', 'a', 'SELECT 0'), 'b', 'SELECT 1');
+                            add_cte                             
+----------------------------------------------------------------
+ WITH a AS (SELECT 0), b AS (SELECT 1) INSERT INTO t VALUES (1)
+(1 row)
+
+-- UPDATE
+SELECT omni_sql.add_cte(
+    omni_sql.add_cte('UPDATE t SET a = 1', 'a', 'SELECT 0'), 'b', 'SELECT 1');
+                         add_cte                          
+----------------------------------------------------------
+ WITH a AS (SELECT 0), b AS (SELECT 1) UPDATE t SET a = 1
+(1 row)
+
+-- DELETE
+SELECT omni_sql.add_cte(
+    omni_sql.add_cte('DELETE FROM t', 'a', 'SELECT 0'), 'b', 'SELECT 1');
+                       add_cte                       
+-----------------------------------------------------
+ WITH a AS (SELECT 0), b AS (SELECT 1) DELETE FROM t
+(1 row)
+

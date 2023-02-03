@@ -1,0 +1,12 @@
+SELECT omni_sql.is_parameterized('SELECT 1');
+ is_parameterized 
+------------------
+ f
+(1 row)
+
+SELECT omni_sql.is_parameterized('SELECT $1');
+ is_parameterized 
+------------------
+ t
+(1 row)
+

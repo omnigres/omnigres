@@ -22,6 +22,7 @@ add_postgresql_extension(
         RELOCATABLE false
         SCRIPTS omni_httpd--0.1.sql
         SOURCES omni_httpd.c master_worker.c http_worker.c fd.c
+        REQUIRES omni_sql
         TESTS_REQUIRE omni_ext
         REGRESS http)
 

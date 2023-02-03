@@ -1,0 +1,6 @@
+SELECT 'select * from t where v != 1';
+           ?column?           
+------------------------------
+ select * from t where v != 1
+(1 row)
+
