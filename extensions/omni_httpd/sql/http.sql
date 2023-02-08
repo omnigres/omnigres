@@ -42,4 +42,11 @@ UPDATE omni_httpd.listeners SET listen = array[row('127.0.0.1', 9001)::omni_http
 
 \! curl --retry-connrefused --retry 10  --retry-max-time 10 --silent -w '\n%{response_code}\nContent-Type: %header{content-type}\n\n' http://localhost:9002/test?q=1
 
-\! curl --silent -w '\n%{exitcode}' http://localhost:9000/test?q=1
+\! curl --silent -w '%{exitcode}\n' http://localhost:9000/test?q=1
+
+INSERT INTO omni_httpd.listeners (listen, query) VALUES (array[row('127.0.0.1', 9001)::omni_httpd.listenaddress], $$
+SELECT omni_httpd.http_response(body => 'another port') FROM request
+$$);
+
+-- Ensure we serve correct query for a different listener
+\! curl --retry-connrefused --retry 10 --retry-max-time 10 --silent http://localhost:9001
