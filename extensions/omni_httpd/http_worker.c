@@ -531,16 +531,16 @@ void http_worker(Datum db_oid) {
       listener_ctx *lctx = clist_listener_contexts_push(&listener_contexts, c);
 
     try_create_listener:
-        if (create_listener(fd, lctx) == 0) {
-          h2o_context_init(&(lctx->context), worker_event_loop, &config);
-          lctx->accept_ctx.ctx = &lctx->context;
-        } else {
-          if (errno == EINTR) {
-            goto try_create_listener; // retry
-          }
-          int e = errno;
-          ereport(WARNING, errmsg("socket error: %s", strerror(e)));
+      if (create_listener(fd, lctx) == 0) {
+        h2o_context_init(&(lctx->context), worker_event_loop, &config);
+        lctx->accept_ctx.ctx = &lctx->context;
+      } else {
+        if (errno == EINTR) {
+          goto try_create_listener; // retry
         }
+        int e = errno;
+        ereport(WARNING, errmsg("socket error: %s", strerror(e)));
+      }
     }
 
     cvec_fd_drop(&fds);
@@ -567,23 +567,23 @@ void http_worker(Datum db_oid) {
         Datum query = SPI_getbinval(tuple, tupdesc, 3, &query_is_null);
 
         c_FOREACH(iter, clist_listener_contexts, listener_contexts) {
-            int fd = iter.ref->fd;
-            struct sockaddr_in sin;
-            socklen_t len = sizeof(sin);
-            struct sockaddr_in6 sin6;
-            socklen_t len6 = sizeof(sin6);
+          int fd = iter.ref->fd;
+          struct sockaddr_in sin;
+          socklen_t len = sizeof(sin);
+          struct sockaddr_in6 sin6;
+          socklen_t len6 = sizeof(sin6);
 
-            socklen_t socklen;
-            void *sockaddr;
+          socklen_t socklen;
+          void *sockaddr;
 
-            const char *fdaddr;
-            int port_no;
+          const char *fdaddr;
+          int port_no;
 
-            char _address[MAX_ADDRESS_SIZE];
-            char _address1[MAX_ADDRESS_SIZE];
+          char _address[MAX_ADDRESS_SIZE];
+          char _address1[MAX_ADDRESS_SIZE];
 
-            int family = 0;
-            if (getsockname(fd, (struct sockaddr *)&sin, &len) == 0) {
+          int family = 0;
+          if (getsockname(fd, (struct sockaddr *)&sin, &len) == 0) {
             family = sin.sin_family;
           }
 

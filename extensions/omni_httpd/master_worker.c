@@ -331,11 +331,11 @@ void master_worker(Datum db_oid) {
         DisownLatch(latch);
         return;
       }
-      }
-      HandleMainLoopInterrupts();
+    }
+    HandleMainLoopInterrupts();
 
-      // Start HTTP workers if they aren't already
-      if (!http_workers_started) {
+    // Start HTTP workers if they aren't already
+    if (!http_workers_started) {
       BackgroundWorker worker = {.bgw_name = "omni_httpd worker",
                                  .bgw_type = "omni_httpd worker",
                                  .bgw_function_name = "http_worker",
@@ -355,12 +355,12 @@ void master_worker(Datum db_oid) {
         }
         cvec_bgwhandle_push(&http_workers, handle);
       }
-        http_workers_started = true;
+      http_workers_started = true;
     }
 
     // Share the socket over a unix socket until terminated
     while (!shutdown_worker && !worker_reload && h2o_evloop_run(event_loop, INT32_MAX) == 0)
-        ;
+      ;
   }
   SPI_finish();
   AbortCurrentTransaction();
