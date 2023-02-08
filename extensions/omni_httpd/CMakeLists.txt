@@ -24,7 +24,7 @@ add_postgresql_extension(
         SOURCES omni_httpd.c master_worker.c http_worker.c fd.c
         REQUIRES omni_sql
         TESTS_REQUIRE omni_ext
-        REGRESS http)
+        REGRESS http role_name)
 
 target_link_libraries(omni_httpd libh2o-evloop libpgaug libgluepg_stc dynpgext metalang99)
 
