@@ -148,8 +148,7 @@ void shmem_hook() {
       allocation_request *request = req.ref;
       int flags = 0;
       int multiplier = 1;
-      if ((req.ref->flags & DYNPGEXT_SCOPE_DATABASE_LOCAL) ==
-          DYNPGEXT_SCOPE_DATABASE_LOCAL) {
+      if ((req.ref->flags & DYNPGEXT_SCOPE_DATABASE_LOCAL) == DYNPGEXT_SCOPE_DATABASE_LOCAL) {
         multiplier = max_databases;
       }
       size_t size = request->size * multiplier;
@@ -229,25 +228,25 @@ void _PG_init() {
 
     // Initialize
 #if PG_MAJORVERSION_NUM >= 15
-      saved_shmem_request_hook = shmem_request_hook;
-      shmem_request_hook = &shmem_request;
+    saved_shmem_request_hook = shmem_request_hook;
+    shmem_request_hook = &shmem_request;
 #else
-      shmem_request();
+    shmem_request();
 #endif
 
-      saved_shmem_startup_hook = shmem_startup_hook;
-      shmem_startup_hook = shmem_hook;
+    saved_shmem_startup_hook = shmem_startup_hook;
+    shmem_startup_hook = shmem_hook;
   }
 
-    BackgroundWorker master_worker = {.bgw_name = "omni_ext master",
-                                      .bgw_type = "omni_ext master",
-                                      .bgw_flags = BGWORKER_SHMEM_ACCESS |
-                                                   BGWORKER_BACKEND_DATABASE_CONNECTION,
-                                      .bgw_start_time = BgWorkerStart_RecoveryFinished,
-                                      .bgw_restart_time = 0,
-                                      .bgw_function_name = "master_worker",
-                                      .bgw_notify_pid = 0};
-    strncpy(master_worker.bgw_library_name, get_library_name(), BGW_MAXLEN);
-    RegisterBackgroundWorker(&master_worker);
-    MemoryContextSwitchTo(old_context);
+  BackgroundWorker master_worker = {.bgw_name = "omni_ext master",
+                                    .bgw_type = "omni_ext master",
+                                    .bgw_flags = BGWORKER_SHMEM_ACCESS |
+                                                 BGWORKER_BACKEND_DATABASE_CONNECTION,
+                                    .bgw_start_time = BgWorkerStart_RecoveryFinished,
+                                    .bgw_restart_time = 0,
+                                    .bgw_function_name = "master_worker",
+                                    .bgw_notify_pid = 0};
+  strncpy(master_worker.bgw_library_name, get_library_name(), BGW_MAXLEN);
+  RegisterBackgroundWorker(&master_worker);
+  MemoryContextSwitchTo(old_context);
 }

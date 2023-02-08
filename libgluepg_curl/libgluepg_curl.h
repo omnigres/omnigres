@@ -11,20 +11,18 @@
  * function information.
  *
  */
-#define CURL_Assert(call)                                                      \
-  {                                                                            \
-    CURLcode code = call;                                                      \
-    if (code != CURLE_OK)                                                      \
-      ereport(ERROR, errmsg("CURL error"),                                     \
-              errdetail("%s", curl_easy_strerror(code)));                      \
+#define CURL_Assert(call)                                                                          \
+  {                                                                                                \
+    CURLcode code = call;                                                                          \
+    if (code != CURLE_OK)                                                                          \
+      ereport(ERROR, errmsg("CURL error"), errdetail("%s", curl_easy_strerror(code)));             \
   }
 
 #undef curl_easy_setopt
 /**
  * Set CURL option, asserting correct return code
  */
-#define curl_easy_setopt(handle, opt, value)                                   \
-  CURL_Assert(curl_easy_setopt(handle, opt, value))
+#define curl_easy_setopt(handle, opt, value) CURL_Assert(curl_easy_setopt(handle, opt, value))
 
 /**
  * Perform CURL operation, asserting correct return code
@@ -45,7 +43,6 @@ typedef struct {
 void gluepg_curl_buffer_init(gluepg_curl_buffer *buf);
 void gluepg_curl_buffer_reset(gluepg_curl_buffer *buf);
 
-size_t gluepg_curl_buffer_write(void *data, size_t size, size_t nmemb,
-                                void *buffer);
+size_t gluepg_curl_buffer_write(void *data, size_t size, size_t nmemb, void *buffer);
 
 #endif // LIBGLUEPG_CURL_H

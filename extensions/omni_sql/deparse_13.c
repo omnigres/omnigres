@@ -35,7 +35,6 @@ POSSIBILITY OF SUCH DAMAGE.
 // clang-format off
 #include <postgres.h>
 #include <fmgr.h>
-// clang-format on
 
 #if PG_MAJORVERSION_NUM == 13
 
@@ -8907,3 +8906,4 @@ void omni_sql_deparseRawStmt(StringInfo str, RawStmt *raw_stmt) {
 }
 
 #endif // PG_MAJORVERSION_NUM == 13
+// clang-format on

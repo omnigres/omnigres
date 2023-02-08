@@ -15,8 +15,8 @@ static bool curl_initialized = false;
 
 void gluepg_curl_init() {
   if (!curl_initialized) {
-    curl_global_init_mem(CURL_GLOBAL_DEFAULT, pgaug_alloc, pgaug_free,
-                         pgaug_realloc, pstrdup, pgaug_calloc);
+    curl_global_init_mem(CURL_GLOBAL_DEFAULT, pgaug_alloc, pgaug_free, pgaug_realloc, pstrdup,
+                         pgaug_calloc);
     curl_initialized = true;
   }
 }

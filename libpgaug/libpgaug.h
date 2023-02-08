@@ -35,19 +35,17 @@ void __with_temp_memcxt_cleanup(struct __with_temp_memcxt *s);
 // we have to use something else, in this case, it's a file:line.
 // That's also better if there's more than one use of this macro in the same
 // function.
-#define WITH_TEMP_MEMCXT                                                       \
-  for (__attribute__((                                                         \
-           cleanup(__with_temp_memcxt_cleanup))) struct __with_temp_memcxt     \
-           memory_context = {.new = AllocSetContextCreate(                     \
-                                 CurrentMemoryContext,                         \
-                                 _PGEXT_STRINGIZE(                             \
-                                     _PGEXT_PPCAT(__FILE__, __LINE__)),        \
-                                 ALLOCSET_DEFAULT_SIZES),                      \
-                            .old = MemoryContextSwitchTo(memory_context.new),  \
-                            .__phase = _memcxt_EXECUTE};                       \
-       memory_context.__phase <= _memcxt_DONE; memory_context.__phase++)       \
-    if (memory_context.__phase == _memcxt_SWITCH) {                            \
-      MemoryContextSwitchTo(memory_context.old);                               \
+#define WITH_TEMP_MEMCXT                                                                           \
+  for (__attribute__((                                                                             \
+           cleanup(__with_temp_memcxt_cleanup))) struct __with_temp_memcxt memory_context =        \
+           {.new = AllocSetContextCreate(CurrentMemoryContext,                                     \
+                                         _PGEXT_STRINGIZE(_PGEXT_PPCAT(__FILE__, __LINE__)),       \
+                                         ALLOCSET_DEFAULT_SIZES),                                  \
+           .old = MemoryContextSwitchTo(memory_context.new),                                       \
+           .__phase = _memcxt_EXECUTE};                                                            \
+       memory_context.__phase <= _memcxt_DONE; memory_context.__phase++)                           \
+    if (memory_context.__phase == _memcxt_SWITCH) {                                                \
+      MemoryContextSwitchTo(memory_context.old);                                                   \
     } else if (memory_context.__phase == _memcxt_EXECUTE)
 
 #define MEMCXT_FINALIZE else if (memory_context.__phase == _memcxt_DONE)

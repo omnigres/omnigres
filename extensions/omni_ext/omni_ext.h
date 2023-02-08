@@ -73,8 +73,7 @@ typedef struct {
   size_t size;
 } allocation_request;
 
-int allocation_request_cmp(const allocation_request *left,
-                           const allocation_request *right);
+int allocation_request_cmp(const allocation_request *left, const allocation_request *right);
 
 #define i_val allocation_request
 #define i_tag allocation_request
