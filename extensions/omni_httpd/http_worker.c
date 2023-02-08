@@ -557,12 +557,15 @@ void http_worker(Datum db_oid) {
     if (ret == SPI_OK_SELECT) {
       TupleDesc tupdesc = SPI_tuptable->tupdesc;
       SPITupleTable *tuptable = SPI_tuptable;
-      for (int i = 0; i < SPI_processed; i++) {
+      for (int i = 0; i < tuptable->numvals; i++) {
         HeapTuple tuple = tuptable->vals[i];
         bool addr_is_null = false;
         Datum addr = SPI_getbinval(tuple, tupdesc, 1, &addr_is_null);
         bool port_is_null = false;
         Datum port = SPI_getbinval(tuple, tupdesc, 2, &port_is_null);
+
+        int port_no = DatumGetInt16(port);
+
         bool query_is_null = false;
         Datum query = SPI_getbinval(tuple, tupdesc, 3, &query_is_null);
 
@@ -577,7 +580,6 @@ void http_worker(Datum db_oid) {
           void *sockaddr;
 
           const char *fdaddr;
-          int port_no;
 
           char _address[MAX_ADDRESS_SIZE];
           char _address1[MAX_ADDRESS_SIZE];
@@ -597,12 +599,13 @@ void http_worker(Datum db_oid) {
             continue;
           }
 
+          int sock_port_no = 0;
           if (getsockname(fd, (struct sockaddr *)sockaddr, &len) == 0) {
             if (family == AF_INET) {
-              port_no = ntohs(sin.sin_port);
+              sock_port_no = ntohs(sin.sin_port);
               fdaddr = inet_ntop(AF_INET, &sin.sin_addr, _address, sizeof(_address));
             } else if (family == AF_INET6) {
-              port_no = ntohs(sin6.sin6_port);
+              sock_port_no = ntohs(sin6.sin6_port);
               fdaddr = inet_ntop(AF_INET6, &sin6.sin6_addr, _address, sizeof(_address));
             } else {
               continue;
@@ -615,7 +618,7 @@ void http_worker(Datum db_oid) {
           char *address = pg_inet_net_ntop(ip_family(inet_address), ip_addr(inet_address),
                                            ip_bits(inet_address), _address1, sizeof(_address1));
 
-          if (strncmp(address, fdaddr, strlen(address)) == 0) {
+          if (strncmp(address, fdaddr, strlen(address)) == 0 && port_no == sock_port_no) {
             // Found matching socket
             char *query_string = text_to_cstring(DatumGetTextPP(query));
             MemoryContext memory_context = CurrentMemoryContext;
