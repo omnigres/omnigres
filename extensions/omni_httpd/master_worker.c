@@ -6,6 +6,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <limits.h>
+#include <stdatomic.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -217,6 +218,8 @@ void master_worker(Datum db_oid) {
   latch = (Latch *)dynpgext_lookup_shmem(LATCH);
   OwnLatch(latch);
 
+  _Atomic uint64_t *worker_counter = (_Atomic uint64_t *)dynpgext_lookup_shmem(COUNTER);
+
   // Start the transaction
   SetCurrentStatementStartTimestamp();
   StartTransactionCommand();
@@ -332,6 +335,7 @@ void master_worker(Datum db_oid) {
         return;
       }
     }
+    atomic_fetch_add(worker_counter, 1);
     HandleMainLoopInterrupts();
 
     // Start HTTP workers if they aren't already

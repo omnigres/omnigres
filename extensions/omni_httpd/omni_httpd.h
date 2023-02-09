@@ -30,6 +30,13 @@ int create_listening_socket(sa_family_t family, in_port_t port, char *address);
  */
 static const char *LATCH = "omni_httpd:latch:" EXT_VERSION;
 
+/**
+ * @brief This counter is used to indicate the iteration of configuration change the worker has went
+ * through
+ *
+ */
+static const char *COUNTER = "omni_httpd:config_reload_counter:" EXT_VERSION;
+
 extern int num_http_workers;
 
 #endif //  OMNI_HTTPD_H

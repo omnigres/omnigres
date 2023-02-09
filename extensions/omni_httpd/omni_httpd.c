@@ -6,6 +6,7 @@
 #include <dirent.h>
 #include <errno.h>
 #include <limits.h>
+#include <stdatomic.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -70,12 +71,26 @@ int num_http_workers;
  */
 static void init_latch(Latch *latch, void *data) { InitSharedLatch(latch); }
 
+/**
+ * @brief Initializes allocated reload counter
+ *
+ * @param latch uninitialized latch
+ * @param data unused
+ */
+static void init_counter(uint64_t *counter, void *data) {
+  atomic_init((_Atomic uint64_t *)counter, 0);
+}
+
 void _Dynpgext_init(const dynpgext_handle *handle) {
   DefineCustomIntVariable("omni_httpd.http_workers", "Number of HTTP workers", NULL,
                           &num_http_workers, 10, 1, INT_MAX, PGC_SIGHUP, 0, NULL, NULL, NULL);
   // Allocates memory for the worker latch
   handle->allocate_shmem(handle, LATCH, sizeof(Latch), (void (*)(void *ptr, void *data))init_latch,
                          NULL, DYNPGEXT_SCOPE_DATABASE_LOCAL);
+  // Allocates memory for the worker counter
+  handle->allocate_shmem(handle, COUNTER, sizeof(uint64_t),
+                         (void (*)(void *ptr, void *data))init_counter, NULL,
+                         DYNPGEXT_SCOPE_DATABASE_LOCAL);
 
   // Prepares and registers the main background worker
   BackgroundWorker bgw = {.bgw_name = "omni_httpd",
@@ -102,9 +117,16 @@ Datum reload_configuration(PG_FUNCTION_ARGS) {
     PG_RETURN_BOOL(false);
   }
   pg_memory_barrier();
-  SetLatch(worker_latch);
-  if (worker_latch->owner_pid != 0) {
-    kill(worker_latch->owner_pid, SIGUSR2);
+  _Atomic uint64_t *worker_counter = (_Atomic uint64_t *)dynpgext_lookup_shmem(COUNTER);
+  uint64_t before_counter = atomic_fetch_add(worker_counter, 1);
+  uint64_t after_counter = 0;
+
+  while (after_counter <= before_counter) {
+    SetLatch(worker_latch);
+    if (worker_latch->owner_pid != 0) {
+      kill(worker_latch->owner_pid, SIGUSR2);
+    }
+    after_counter = atomic_load(worker_counter);
   }
   if (CALLED_AS_TRIGGER(fcinfo)) {
     return PointerGetDatum(((TriggerData *)(fcinfo->context))->tg_newtuple);

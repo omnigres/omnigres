@@ -26,6 +26,8 @@ add_postgresql_extension(
         TESTS_REQUIRE omni_ext
         REGRESS http)
 
+set_property(TARGET omni_httpd PROPERTY C_STANDARD 11)
+
 target_link_libraries(omni_httpd libh2o-evloop libpgaug libgluepg_stc dynpgext metalang99)
 
 # Disable full macro expansion backtraces for Metalang99.
