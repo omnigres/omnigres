@@ -26,6 +26,7 @@
 // clang-format on
 
 #include <access/xact.h>
+#include <catalog/pg_authid.h>
 #include <executor/spi.h>
 #include <funcapi.h>
 #include <miscadmin.h>
@@ -35,6 +36,7 @@
 #include <utils/builtins.h>
 #include <utils/inet.h>
 #include <utils/snapmgr.h>
+#include <utils/syscache.h>
 #include <utils/timestamp.h>
 #if PG_MAJORVERSION_NUM >= 13
 #include <postmaster/interrupt.h>
@@ -98,6 +100,16 @@ typedef struct {
    *
    */
   SPIPlanPtr plan;
+  /**
+   * @brief Listener's MemoryContext
+   *
+   */
+  MemoryContext memory_context;
+  /**
+   * @brief Role name
+   *
+   */
+  Name role_name;
   /**
    * @brief Associated socket
    *
@@ -245,8 +257,29 @@ static int handler(h2o_handler_t *self, h2o_req_t *req) {
   PushActiveSnapshot(GetTransactionSnapshot());
   SPI_connect();
 
+  bool succeeded = false;
+
   int ret;
 
+  // Stores a pointer to the last used role name (NULL initially) in this process
+  // to enable on-demand role switching.
+  static Name role_name;
+  if (role_name != lctx->role_name) {
+    role_name = lctx->role_name;
+    HeapTuple roleTup = SearchSysCache1(AUTHNAME, PointerGetDatum(role_name));
+    if (!HeapTupleIsValid(roleTup)) {
+      ereport(WARNING, errmsg("role \"%s\" does not exist", role_name->data));
+      req->res.status = 500;
+      h2o_send_inline(req, H2O_STRLIT("Internal server error"));
+      ReleaseSysCache(roleTup);
+      goto cleanup;
+    }
+    Form_pg_authid rform = (Form_pg_authid)GETSTRUCT(roleTup);
+    SetCurrentRoleId(rform->oid, rform->rolsuper);
+    ReleaseSysCache(roleTup);
+  }
+
+  // Execute listener's query
   MemoryContext memory_context = CurrentMemoryContext;
   PG_TRY();
   {
@@ -316,12 +349,9 @@ static int handler(h2o_handler_t *self, h2o_req_t *req) {
 
     FlushErrorState();
 
-    // Abort the transaction
-    SPI_finish();
-    AbortCurrentTransaction();
     req->res.status = 500;
     h2o_send_inline(req, H2O_STRLIT("Internal server error"));
-    return 0;
+    goto cleanup;
   }
   PG_END_TRY();
   int proc = SPI_processed;
@@ -394,20 +424,28 @@ static int handler(h2o_handler_t *self, h2o_req_t *req) {
     } else {
       h2o_send_inline(req, "", 0);
     }
+    succeeded = true;
   } else {
     if (ret == SPI_OK_SELECT) {
       // No result
       req->res.status = 204;
       h2o_send_inline(req, H2O_STRLIT(""));
+      succeeded = true;
     } else {
       req->res.status = 500;
       ereport(WARNING, errmsg("Error executing query: %s", SPI_result_code_string(ret)));
       h2o_send_inline(req, H2O_STRLIT("Internal server error"));
     }
   }
+
+cleanup:
   SPI_finish();
   PopActiveSnapshot();
-  CommitTransactionCommand();
+  if (succeeded) {
+    CommitTransactionCommand();
+  } else {
+    AbortCurrentTransaction();
+  }
 
   return 0;
 }
@@ -508,6 +546,10 @@ void http_worker(Datum db_oid) {
           SPI_freeplan(iter.ref->plan);
           iter.ref->plan = NULL;
         }
+        if (iter.ref->role_name != NULL) {
+          pfree(iter.ref->role_name);
+        }
+
         if (iter.ref->socket != NULL) {
           h2o_socket_t *socket = iter.ref->socket;
           h2o_socket_read_stop(socket);
@@ -516,6 +558,7 @@ void http_worker(Datum db_oid) {
           close(info.fd);
         }
         h2o_context_dispose(&iter.ref->context);
+        MemoryContextDelete(iter.ref->memory_context);
         iter = clist_listener_contexts_erase_at(&listener_contexts, iter);
       }
     }
@@ -526,6 +569,9 @@ void http_worker(Datum db_oid) {
       listener_ctx c = {.fd = fd,
                         .socket = NULL,
                         .plan = NULL,
+                        .memory_context =
+                            AllocSetContextCreate(TopMemoryContext, "omni_httpd_listener_context",
+                                                  ALLOCSET_DEFAULT_SIZES),
                         .accept_ctx = (h2o_accept_ctx_t){.hosts = config.hosts}};
 
       listener_ctx *lctx = clist_listener_contexts_push(&listener_contexts, c);
@@ -551,9 +597,10 @@ void http_worker(Datum db_oid) {
 
     SPI_connect();
 
-    int ret = SPI_execute("SELECT listen.addr, listen.port, query FROM omni_httpd.listeners, "
-                          "unnest(omni_httpd.listeners.listen) AS listen",
-                          false, 0);
+    int ret =
+        SPI_execute("SELECT listen.addr, listen.port, query, role_name FROM omni_httpd.listeners, "
+                    "unnest(omni_httpd.listeners.listen) AS listen",
+                    false, 0);
     if (ret == SPI_OK_SELECT) {
       TupleDesc tupdesc = SPI_tuptable->tupdesc;
       SPITupleTable *tuptable = SPI_tuptable;
@@ -568,6 +615,8 @@ void http_worker(Datum db_oid) {
 
         bool query_is_null = false;
         Datum query = SPI_getbinval(tuple, tupdesc, 3, &query_is_null);
+        bool role_name_is_null = false;
+        Datum role_name = SPI_getbinval(tuple, tupdesc, 4, &role_name_is_null);
 
         c_FOREACH(iter, clist_listener_contexts, listener_contexts) {
           int fd = iter.ref->fd;
@@ -655,6 +704,11 @@ void http_worker(Datum db_oid) {
                                       [REQUEST_PLAN_BODY] = BYTEAOID,
                                       [REQUEST_PLAN_HEADERS] = http_header_array_oid(),
                                   });
+
+                  // Get role name
+                  Name role = DatumGetName(role_name);
+                  iter.ref->role_name = MemoryContextAlloc(iter.ref->memory_context, sizeof(*role));
+                  memcpy(iter.ref->role_name, role, sizeof(*role));
 
                   // We have to keep the plan as we're going to disconnect from SPI
                   int keepret = SPI_keepplan(plan);

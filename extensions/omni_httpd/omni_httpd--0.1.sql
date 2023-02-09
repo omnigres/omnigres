@@ -44,7 +44,8 @@ CREATE TYPE listenaddress AS (
 CREATE TABLE listeners (
     id integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     listen listenaddress[] NOT NULL DEFAULT array[ROW('127.0.0.1', 80)::listenaddress],
-    query text
+    query text,
+    role_name name NOT NULL DEFAULT current_user CHECK (current_user = role_name)
 );
 
 CREATE FUNCTION reload_configuration_trigger() RETURNS trigger
