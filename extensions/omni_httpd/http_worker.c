@@ -315,10 +315,10 @@ static int handler(h2o_handler_t *self, h2o_req_t *req) {
               BlessTupleDesc(header_tupledesc);
 
               Datum *elems = (Datum *)palloc(sizeof(Datum) * req->headers.size);
-              bool *nulls = (bool *)palloc(sizeof(bool) * req->headers.size);
+              bool *header_nulls = (bool *)palloc(sizeof(bool) * req->headers.size);
               for (int i = 0; i < req->headers.size; i++) {
                 h2o_header_t header = req->headers.entries[i];
-                nulls[i] = 0;
+                header_nulls[i] = 0;
                 HeapTuple header_tuple =
                     heap_form_tuple(header_tupledesc,
                                     (Datum[3]){
@@ -332,8 +332,8 @@ static int handler(h2o_handler_t *self, h2o_req_t *req) {
                 elems[i] = HeapTupleGetDatum(header_tuple);
               }
               ArrayType *result =
-                  construct_md_array(elems, nulls, 1, (int[1]){req->headers.size}, (int[1]){1},
-                                     http_header_oid(), -1, false, TYPALIGN_DOUBLE);
+                  construct_md_array(elems, header_nulls, 1, (int[1]){req->headers.size},
+                                     (int[1]){1}, http_header_oid(), -1, false, TYPALIGN_DOUBLE);
               PointerGetDatum(result);
             })},
         nulls, false, 1);
