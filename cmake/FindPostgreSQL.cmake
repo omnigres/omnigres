@@ -109,7 +109,7 @@ if(NOT EXISTS "${PGDIR_VERSION}/build/bin/postgres")
 
         # Ensure we always set SHELL to /bin/sh to be used in pg_regress. Otherwise it has been observed to
         # degrade to `sh` (at least, on NixOS) and pg_regress fails to start anything
-        COMMAND make SHELL=/bin/sh install
+        COMMAND make SHELL=/bin/sh -j install
         WORKING_DIRECTORY "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}")
 endif()
 
