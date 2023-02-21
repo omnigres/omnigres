@@ -61,7 +61,7 @@ static int send_fds_with_buffer(int sock, cvec_fd *fds, void *buffer) {
 int send_fds(int sock, cvec_fd *fds) {
   FD_BUFFER(MAX_N_FDS) buffer;
 
-  Assert(cvec_size(fds) <= MAX_N_FDS);
+  Assert(cvec_fd_size(fds) <= MAX_N_FDS);
   return send_fds_with_buffer(sock, fds, &buffer);
 }
 

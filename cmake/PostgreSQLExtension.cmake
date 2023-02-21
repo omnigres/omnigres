@@ -117,6 +117,7 @@ function(add_postgresql_extension NAME)
     endif()
 
     target_compile_definitions(${NAME} PUBLIC "$<$<NOT:$<STREQUAL:${CMAKE_BUILD_TYPE},Release>>:DEBUG>")
+    target_compile_definitions(${NAME} PUBLIC "$<$<NOT:$<STREQUAL:${CMAKE_BUILD_TYPE},Release>>:USE_ASSERT_CHECKING>")
     target_compile_definitions(${NAME} PUBLIC "EXT_VERSION=\"${_ext_VERSION}\"")
     target_compile_definitions(${NAME} PUBLIC "EXT_SCHEMA=\"${_ext_SCHEMA}\"")
 
