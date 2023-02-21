@@ -67,10 +67,10 @@ void master_worker(Datum main_arg) {
 
   cmap_db databases = cmap_db_init();
 
-  StartTransactionCommand();
-
   while (true) {
     CHECK_FOR_INTERRUPTS();
+
+    StartTransactionCommand();
 
     Relation rel = table_open(DatabaseRelationId, AccessShareLock);
     TableScanDesc scan = table_beginscan_catalog(rel, 0, NULL);
@@ -119,11 +119,14 @@ void master_worker(Datum main_arg) {
     }
     table_close(rel, AccessShareLock);
 
+    // Ensure we're not getting a XID
+    Assert(GetCurrentTransactionIdIfAny() == InvalidTransactionId);
+    AbortCurrentTransaction();
+
     (void)WaitLatch(MyLatch, WL_LATCH_SET | WL_TIMEOUT | WL_EXIT_ON_PM_DEATH, 1000L,
                     PG_WAIT_EXTENSION);
     ResetLatch(MyLatch);
   }
-  AbortCurrentTransaction();
 
   cmap_db_drop(&databases);
 }
@@ -151,9 +154,9 @@ void database_worker(Datum db_oid) {
   // This stores locally initialized extensions
   cset_oid extensions = cset_oid_init();
 
-  StartTransactionCommand();
-
   while (true) {
+
+    StartTransactionCommand();
 
     Relation rel = table_open(ExtensionRelationId, AccessShareLock);
     TableScanDesc scan = table_beginscan_catalog(rel, 0, NULL);
@@ -263,14 +266,16 @@ void database_worker(Datum db_oid) {
     }
     table_close(rel, AccessShareLock);
 
+    // Ensure we're not getting a XID
+    Assert(GetCurrentTransactionIdIfAny() == InvalidTransactionId);
+    AbortCurrentTransaction();
+
     (void)WaitLatch(MyLatch, WL_LATCH_SET | WL_TIMEOUT | WL_EXIT_ON_PM_DEATH, 1000L,
                     PG_WAIT_EXTENSION);
     ResetLatch(MyLatch);
 
     CHECK_FOR_INTERRUPTS();
   }
-
-  AbortCurrentTransaction();
 
   cset_oid_drop(&extensions);
 }
