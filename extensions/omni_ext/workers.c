@@ -51,6 +51,8 @@
 
 typedef struct {
   BackgroundWorkerHandle *worker;
+  pid_t pid;
+  char dbname[NAMEDATALEN];
 } db_info;
 
 #define i_tag db
@@ -81,7 +83,8 @@ void master_worker(Datum main_arg) {
       Form_pg_database db = (Form_pg_database)GETSTRUCT(tup);
       if (db->datistemplate || !db->datallowconn)
         continue;
-      db_info dbi;
+      db_info dbi = {.pid = 0};
+      strncpy(dbi.dbname, db->datname.data, sizeof(dbi.dbname));
       cmap_db_result result = cmap_db_insert(&databases, db->oid, dbi);
       if (result.inserted) {
         BackgroundWorker worker = {.bgw_flags =
@@ -92,26 +95,12 @@ void master_worker(Datum main_arg) {
                                    .bgw_function_name = "database_worker",
                                    .bgw_notify_pid = MyProcPid};
         strncpy(worker.bgw_library_name, get_library_name(), BGW_MAXLEN);
-        char *name = MemoryContextStrdup(TopMemoryContext,
-                                         psprintf("omni_ext worker (%s)", db->datname.data));
+        char *name =
+            MemoryContextStrdup(TopMemoryContext, psprintf("omni_ext worker (%s)", dbi.dbname));
         strncpy(worker.bgw_name, name, BGW_MAXLEN);
         strncpy(worker.bgw_type, name, BGW_MAXLEN);
         strncpy(worker.bgw_extra, db->datname.data, BGW_EXTRALEN);
         RegisterDynamicBackgroundWorker(&worker, &result.ref->second.worker);
-        pid_t worker_pid;
-        switch (WaitForBackgroundWorkerStartup(result.ref->second.worker, &worker_pid)) {
-        case BGWH_STARTED:
-          ereport(LOG, errmsg("Started omni_ext database worker for %s (pid %d)", db->datname.data,
-                              worker_pid));
-          break;
-        case BGWH_STOPPED:
-          ereport(ERROR,
-                  errmsg("Failed to start omni_ext database worker for %s", db->datname.data));
-          break;
-        case BGWH_POSTMASTER_DIED:
-        case BGWH_NOT_YET_STARTED:
-          break;
-        }
       }
     }
     if (scan->rs_rd->rd_tableam->scan_end) {
@@ -122,6 +111,24 @@ void master_worker(Datum main_arg) {
     // Ensure we're not getting a XID
     Assert(GetCurrentTransactionIdIfAny() == InvalidTransactionId);
     AbortCurrentTransaction();
+
+    c_FOREACH(worker, cmap_db, databases) {
+      db_info *info = &worker.ref->second;
+      // If PID of the worker is not known yet
+      if (info->pid == 0) {
+        switch (GetBackgroundWorkerPid(info->worker, &info->pid)) {
+        case BGWH_STARTED:
+          ereport(LOG, errmsg("Started omni_ext database worker for %s (pid %d)", info->dbname,
+                              info->pid));
+          break;
+        case BGWH_STOPPED:
+          ereport(ERROR, errmsg("Failed to start omni_ext database worker for %s", info->dbname));
+        case BGWH_POSTMASTER_DIED:
+        case BGWH_NOT_YET_STARTED:
+          break;
+        }
+      }
+    }
 
     (void)WaitLatch(MyLatch, WL_LATCH_SET | WL_TIMEOUT | WL_EXIT_ON_PM_DEATH, 1000L,
                     PG_WAIT_EXTENSION);
