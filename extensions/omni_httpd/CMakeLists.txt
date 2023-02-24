@@ -22,11 +22,10 @@ add_postgresql_extension(
         RELOCATABLE false
         SCRIPTS omni_httpd--0.1.sql
         SOURCES omni_httpd.c master_worker.c http_worker.c fd.c
-        REQUIRES omni_sql
         TESTS_REQUIRE omni_ext
         REGRESS http role_name)
 
-target_link_libraries(omni_httpd libh2o-evloop libpgaug libgluepg_stc dynpgext metalang99)
+target_link_libraries(omni_httpd libh2o-evloop libpgaug libomnisql libgluepg_stc dynpgext metalang99)
 
 # Disable full macro expansion backtraces for Metalang99.
 if(CMAKE_C_COMPILER_ID STREQUAL "Clang")

@@ -45,6 +45,7 @@
 #include <metalang99.h>
 
 #include <libpgaug.h>
+#include <omni_sql.h>
 
 #include "fd.h"
 #include "omni_httpd.h"
@@ -680,63 +681,57 @@ void http_worker(Datum db_oid) {
                        "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_HEADERS) " AS headers "
                 // clang-format on
             );
-            int prep_ret = SPI_execute_with_args(
-                "SELECT omni_sql.add_cte($1::text::omni_sql.statement, 'request', "
-                "$2::text::omni_sql.statement, prepend => true) WHERE NOT "
-                "omni_sql.is_parameterized($1::text::omni_sql.statement)",
-                2, (Oid[2]){CSTRINGOID, CSTRINGOID},
-                (Datum[2]){CStringGetDatum(query_string), CStringGetDatum(request_cte)}, "  ",
-                false, 1);
-            if (prep_ret != SPI_OK_SELECT) {
-              ereport(WARNING, errmsg("Can't prepare SQL for: %s", query_string));
+
+            List *query_stmt = omni_sql_parse_statement(query_string);
+            if (omni_sql_is_parameterized(query_stmt)) {
+              ereport(WARNING, errmsg("Listener query is parameterized and is rejected:\n %s",
+                                      query_string));
             } else {
-              if (SPI_processed == 1) {
+              List *request_cte_stmt = omni_sql_parse_statement(request_cte);
+              query_stmt = omni_sql_add_cte(query_stmt, cstring_to_text("request"),
+                                            request_cte_stmt, false, true);
 
-                char *query = SPI_getvalue(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1);
-                PG_TRY();
-                {
-                  SPIPlanPtr plan =
-                      SPI_prepare(query, REQUEST_PLAN_PARAMS,
-                                  (Oid[REQUEST_PLAN_PARAMS]){
-                                      [REQUEST_PLAN_METHOD] = TEXTOID,
-                                      [REQUEST_PLAN_PATH] = TEXTOID,
-                                      [REQUEST_PLAN_QUERY_STRING] = TEXTOID,
-                                      [REQUEST_PLAN_BODY] = BYTEAOID,
-                                      [REQUEST_PLAN_HEADERS] = http_header_array_oid(),
-                                  });
+              char *query = omni_sql_deparse_statement(query_stmt);
+              list_free_deep(request_cte_stmt);
+              list_free_deep(query_stmt);
+              PG_TRY();
+              {
+                SPIPlanPtr plan = SPI_prepare(query, REQUEST_PLAN_PARAMS,
+                                              (Oid[REQUEST_PLAN_PARAMS]){
+                                                  [REQUEST_PLAN_METHOD] = TEXTOID,
+                                                  [REQUEST_PLAN_PATH] = TEXTOID,
+                                                  [REQUEST_PLAN_QUERY_STRING] = TEXTOID,
+                                                  [REQUEST_PLAN_BODY] = BYTEAOID,
+                                                  [REQUEST_PLAN_HEADERS] = http_header_array_oid(),
+                                              });
 
-                  // Get role name
-                  Name role = DatumGetName(role_name);
-                  iter.ref->role_name = MemoryContextAlloc(iter.ref->memory_context, sizeof(*role));
-                  memcpy(iter.ref->role_name, role, sizeof(*role));
+                // Get role name
+                Name role = DatumGetName(role_name);
+                iter.ref->role_name = MemoryContextAlloc(iter.ref->memory_context, sizeof(*role));
+                memcpy(iter.ref->role_name, role, sizeof(*role));
 
-                  // We have to keep the plan as we're going to disconnect from SPI
-                  int keepret = SPI_keepplan(plan);
-                  if (keepret != 0) {
-                    ereport(WARNING,
-                            errmsg("Can't save plan: %s", SPI_result_code_string(keepret)));
-                    iter.ref->plan = NULL;
-                  } else {
-                    iter.ref->plan = plan;
-                  }
+                // We have to keep the plan as we're going to disconnect from SPI
+                int keepret = SPI_keepplan(plan);
+                if (keepret != 0) {
+                  ereport(WARNING, errmsg("Can't save plan: %s", SPI_result_code_string(keepret)));
+                  iter.ref->plan = NULL;
+                } else {
+                  iter.ref->plan = plan;
                 }
-                PG_CATCH();
-                {
-                  MemoryContextSwitchTo(memory_context);
-                  WITH_TEMP_MEMCXT {
-                    ErrorData *error = CopyErrorData();
-                    ereport(WARNING, errmsg("Error preparing query %s", query),
-                            errdetail("%s: %s", error->message, error->detail));
-                  }
-
-                  FlushErrorState();
-                }
-                PG_END_TRY();
-                pfree(query);
-              } else {
-                ereport(WARNING, errmsg("Listener query is parameterized and is rejected:\n %s",
-                                        query_string));
               }
+              PG_CATCH();
+              {
+                MemoryContextSwitchTo(memory_context);
+                WITH_TEMP_MEMCXT {
+                  ErrorData *error = CopyErrorData();
+                  ereport(WARNING, errmsg("Error preparing query %s", query),
+                          errdetail("%s: %s", error->message, error->detail));
+                }
+
+                FlushErrorState();
+              }
+              PG_END_TRY();
+              pfree(query);
             }
             pfree(query_string);
           }
