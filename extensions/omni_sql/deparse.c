@@ -21,7 +21,7 @@ char *omni_sql_deparse_statement(List *stmts) {
     if (lnext(stmts, lc))
       appendStringInfoString(&str, "; ");
   }
-  result = strdup(str.data);
+  result = pstrdup(str.data);
 
   return result;
 }
