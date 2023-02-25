@@ -5,17 +5,27 @@ CREATE TABLE users (
 );
 INSERT INTO users (handle, name) VALUES ('johndoe', 'John');
 INSERT INTO omni_httpd.listeners (listen, query) VALUES (array[row('127.0.0.1', 9000)::omni_httpd.listenaddress], $$
-SELECT omni_httpd.http_response(headers => array[omni_httpd.http_header('content-type', 'text/html')], body => 'Hello, <b>' || users.name || '</b>!'), 1 AS priority
+WITH
+hello AS
+(SELECT omni_httpd.http_response(headers => array[omni_httpd.http_header('content-type', 'text/html')], body => 'Hello, <b>' || users.name || '</b>!')
        FROM request
        INNER JOIN users ON string_to_array(request.path,'/', '') = array[NULL, 'users', users.handle]
-UNION
-SELECT omni_httpd.http_response(body => request.headers::text), 1 AS priority FROM request WHERE request.path = '/headers'
-UNION
-SELECT omni_httpd.http_response(body => request.body), 1 AS priority FROM request WHERE request.path = '/echo'
-UNION
-SELECT omni_httpd.http_response(status => 404, body => json_build_object('method', request.method, 'path', request.path, 'query_string', request.query_string)), 0 AS priority
-       FROM request
-ORDER BY priority DESC
+),
+headers AS
+(SELECT omni_httpd.http_response(body => request.headers::text) FROM request WHERE request.path = '/headers'),
+echo AS
+(SELECT omni_httpd.http_response(body => request.body) FROM request WHERE request.path = '/echo'),
+not_found AS
+(
+SELECT omni_httpd.http_response(status => 404, body => json_build_object('method', request.method, 'path', request.path, 'query_string', request.query_string))
+       FROM request)
+SELECT * FROM hello
+UNION ALL
+SELECT * FROM headers WHERE NOT EXISTS (SELECT 1 from hello)
+UNION ALL
+SELECT * FROM echo WHERE NOT EXISTS (SELECT 1 from headers)
+UNION ALL
+SELECT * FROM not_found WHERE NOT EXISTS (SELECT 1 from echo)
 $$);
 -- Now, the actual tests
 -- FIXME: for the time being, since there's no "request" extension yet, we're shelling out to curl
