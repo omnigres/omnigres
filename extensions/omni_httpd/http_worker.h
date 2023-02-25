@@ -1,0 +1,140 @@
+#ifndef OMNI_HTTP_WORKER_H
+#define OMNI_HTTP_WORKER_H
+
+// clang-format off
+#include <postgres.h>
+#include <fmgr.h>
+// clang-format on
+
+#include <executor/spi.h>
+
+#include <h2o.h>
+
+#include <libgluepg_stc.h>
+
+/**
+ * @brief Each listener has a context
+ *
+ */
+typedef struct {
+  /**
+   * @brief Query plan
+   *
+   */
+  SPIPlanPtr plan;
+  /**
+   * @brief Listener's MemoryContext
+   *
+   */
+  MemoryContext memory_context;
+  /**
+   * @brief Role name
+   *
+   */
+  Name role_name;
+  /**
+   * @brief Associated socket
+   *
+   */
+  h2o_socket_t *socket;
+  /**
+   * @brief Underlying file descriptor
+   *
+   */
+  int fd;
+  /**
+   * @brief Accept context
+   *
+   */
+  h2o_accept_ctx_t accept_ctx;
+  /**
+   * @brief H2O context
+   *
+   * Inclusion of this context into `listener_ctx` allows us to retrieve `listener_ctx`:
+   *
+   * ```
+   * listener_ctx *lctx = H2O_STRUCT_FROM_MEMBER(listener_ctx, context, req->conn->ctx);
+   * ```
+   *
+   */
+  h2o_context_t context;
+} listener_ctx;
+
+static inline int listener_ctx_cmp(const listener_ctx *l, const listener_ctx *r);
+
+// This defines clist_listener_context
+#define i_tag listener_contexts
+#define i_val listener_ctx
+#define i_eq c_memcmp_eq
+#define i_cmp listener_ctx_cmp
+#include <stc/clist.h>
+
+static h2o_globalconf_t config;
+static h2o_evloop_t *worker_event_loop;
+
+/**
+ * Sets up H2O server
+ */
+static void setup_server();
+
+/**
+ * @brief Create a H2O listener socket
+ *
+ * @param fd
+ * @param listener_ctx
+ * @return int
+ */
+static int create_listener(int fd, listener_ctx *listener_ctx);
+
+// Defines cset_fd
+#define i_val int
+#define i_tag fd
+#include <stc/cset.h>
+
+/**
+ * Accepts a batch of file descriptors from a named socket
+ * @param socket_name
+ * @return
+ */
+static cvec_fd accept_fds(char *socket_name);
+
+/**
+ * @brief Number of fields in http_request type
+ *
+ */
+#define REQUEST_PLAN_PARAMS 5
+/**
+ * @brief Parameter index in a prepared query
+ *
+ */
+#define REQUEST_PLAN_PARAM(x) ML99_STRINGIFY(ML99_INC(x))
+
+/**
+ * @brief Path parameter index
+ *
+ */
+#define REQUEST_PLAN_PATH 0
+/**
+ * @brief Method parameter index
+ *
+ */
+#define REQUEST_PLAN_METHOD 1
+/**
+ * @brief Query string parameter index
+ *
+ */
+#define REQUEST_PLAN_QUERY_STRING 2
+/**
+ * @brief Body parameter index
+ *
+ */
+#define REQUEST_PLAN_BODY 3
+/**
+ * @brief Headers parameter index
+ *
+ */
+#define REQUEST_PLAN_HEADERS 4
+
+static int handler(h2o_handler_t *self, h2o_req_t *req);
+
+#endif // OMNIGRES_HTTP_WORKER_H
