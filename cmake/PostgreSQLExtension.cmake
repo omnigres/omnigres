@@ -165,6 +165,8 @@ function(add_postgresql_extension NAME)
         PRIVATE ${PostgreSQL_SERVER_INCLUDE_DIRS}
         PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
+    set(_pkg_dir "${CMAKE_BINARY_DIR}/packaged")
+
     # Generate control file at build time (which is when GENERATE evaluate the
     # contents). We do not know the target file name until then.
     set(_control_file "${_ext_dir}/${NAME}--${_ext_VERSION}.control")
@@ -179,6 +181,21 @@ $<$<NOT:$<BOOL:${_ext_REQUIRES}>>:#>requires = '$<JOIN:${_ext_REQUIRES},$<COMMA>
 $<$<NOT:$<BOOL:${_ext_SCHEMA}>>:#>schema = ${_ext_SCHEMA}
 $<$<NOT:$<BOOL:${_ext_RELOCATABLE}>>:#>relocatable = ${_ext_RELOCATABLE}
 ")
+    # Pacaged control file
+    set(_packaged_control_file "${_pkg_dir}/extension/${NAME}--${_ext_VERSION}.control")
+    file(
+        GENERATE
+        OUTPUT ${_packaged_control_file}
+        CONTENT
+        "module_pathname = '$libdir/$<TARGET_FILE_NAME:${NAME}>'
+$<$<NOT:$<BOOL:${_ext_COMMENT}>>:#>comment = '${_ext_COMMENT}'
+$<$<NOT:$<BOOL:${_ext_ENCODING}>>:#>encoding = '${_ext_ENCODING}'
+$<$<NOT:$<BOOL:${_ext_REQUIRES}>>:#>requires = '$<JOIN:${_ext_REQUIRES},$<COMMA>>'
+$<$<NOT:$<BOOL:${_ext_SCHEMA}>>:#>schema = ${_ext_SCHEMA}
+$<$<NOT:$<BOOL:${_ext_RELOCATABLE}>>:#>relocatable = ${_ext_RELOCATABLE}
+")
+ 
+    # Default control file
     set(_default_control_file "${_ext_dir}/${NAME}.control")
     file(
         GENERATE
@@ -186,6 +203,34 @@ $<$<NOT:$<BOOL:${_ext_RELOCATABLE}>>:#>relocatable = ${_ext_RELOCATABLE}
         CONTENT
         "default_version = '${_ext_VERSION}'
 ")
+    # Packaged default control file
+    set(_packaged_default_control_file "${_pkg_dir}/extension/${NAME}.control")
+    file(
+        GENERATE
+        OUTPUT ${_packaged_default_control_file}
+        CONTENT
+        "default_version = '${_ext_VERSION}'
+")
+
+   add_custom_target(package_${NAME}_extension
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            COMMAND
+            ${CMAKE_COMMAND} -E copy_if_different
+            "${CMAKE_CURRENT_BINARY_DIR}/$<TARGET_FILE_NAME:${NAME}>"
+            ${_pkg_dir})
+
+    add_custom_target(package_${NAME}_scripts
+            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+            COMMAND
+            ${CMAKE_COMMAND} -E copy_if_different
+            ${_script_files}
+            ${_pkg_dir}/extension)
+
+    if(NOT TARGET package)
+            add_custom_target(package)
+    endif()
+    add_dependencies(package package_${NAME}_extension package_${NAME}_scripts)
+
 
     if(_ext_REGRESS)
         foreach(_test ${_ext_REGRESS})
