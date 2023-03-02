@@ -25,7 +25,25 @@ Omnigres makes PostgreSQL a complete application platform. You can deploy a sing
 * [omni_httpd](extensions/omni_httpd/README.md)
 * [Dynpgext interface](dynpgext/README.md)
 
-## Try it out
+## Quick start
+
+The fastest way to try Omnigres out is by using its Docker image:
+
+```shell
+# Build the image
+DOCKER_BUILDKIT=1 docker build . -t omnigres
+# Prepare the container and its volume
+docker volume create omnigres
+docker run -d --name omnigres -e POSTGRES_PASSWORD=omnigres -e POSTGRES_USER=omnigres \
+                              -e POSTGRES_DB=omnigres --mount source=omnigres,target=/var/lib/postgresql/data \
+              -p 5432:5432 omnigres
+# Now you can connect to it:
+psql -h localhost -p 5432 -U omnigres omnigres
+```
+
+## Hacking
+
+## Building & using extensions
 
 To build and run Omnigres, you would currently need a recent C compiler, OpenSSL and cmake:
 
@@ -34,10 +52,6 @@ mkdir -p build && cd build
 cmake ..
 make psql_<COMPONENT_NAME> # for example, `psql_omni_containers`
 ```
-
-Beware: this is currently more of a prototype and a lot is missing!
-
-## Hacking
 
 ### Running tests
 
