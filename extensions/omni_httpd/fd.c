@@ -26,9 +26,9 @@
 #include "fd.h"
 
 #define FD_BUFFER(n)                                                                               \
-  struct {                                                                                         \
+  union {                                                                                          \
+    char buf[CMSG_SPACE(sizeof(int)) * n];                                                         \
     struct cmsghdr h;                                                                              \
-    int fd[n];                                                                                     \
   }
 
 static int send_fds_with_buffer(int sock, cvec_fd *fds, void *buffer) {
@@ -48,9 +48,9 @@ static int send_fds_with_buffer(int sock, cvec_fd *fds, void *buffer) {
   msghdr.msg_iovlen = 1;
   msghdr.msg_flags = 0;
   msghdr.msg_control = buffer;
-  msghdr.msg_controllen = sizeof(struct cmsghdr) + sizeof(int) * n_fds;
+  msghdr.msg_controllen = CMSG_SPACE(sizeof(int) * n_fds);
   cmsg = CMSG_FIRSTHDR(&msghdr);
-  cmsg->cmsg_len = msghdr.msg_controllen;
+  cmsg->cmsg_len = CMSG_LEN(sizeof(int) * n_fds);
   cmsg->cmsg_level = SOL_SOCKET;
   cmsg->cmsg_type = SCM_RIGHTS;
   int c = 0;
@@ -82,21 +82,15 @@ static cvec_fd recv_fds_with_buffer(int sock, void *buffer) {
   msghdr.msg_iovlen = 1;
   msghdr.msg_flags = 0;
   msghdr.msg_control = buffer;
-  msghdr.msg_controllen = sizeof(struct cmsghdr) + sizeof(int) * MAX_N_FDS;
-  cmsg = CMSG_FIRSTHDR(&msghdr);
-  cmsg->cmsg_len = msghdr.msg_controllen;
-  cmsg->cmsg_level = SOL_SOCKET;
-  cmsg->cmsg_type = SCM_RIGHTS;
-  n_fds = (cmsg->cmsg_len - sizeof(struct cmsghdr)) / sizeof(int);
+  msghdr.msg_controllen = CMSG_SPACE(sizeof(int) * MAX_N_FDS);
 
-  for (i = 0; i < n_fds; i++)
-    ((int *)CMSG_DATA(cmsg))[i] = -1;
-
-  cvec_fd result = cvec_fd_with_capacity(n_fds);
+  cvec_fd result = cvec_fd_with_capacity(MAX_N_FDS);
   if (recvmsg(sock, &msghdr, 0) < 0)
     return result;
 
-  n_fds = (cmsg->cmsg_len - sizeof(struct cmsghdr)) / sizeof(int);
+  cmsg = CMSG_FIRSTHDR(&msghdr);
+  n_fds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
+
   for (i = 0; i < n_fds; i++)
     cvec_fd_push(&result, ((int *)CMSG_DATA(cmsg))[i]);
 
