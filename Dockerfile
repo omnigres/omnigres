@@ -40,8 +40,8 @@ RUN cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DPG=${PG} /omni
 
 # Omnigres build
 FROM builder AS build
-COPY --chown=${USER} . /omni
-COPY --link --from=postgres-build --chown=${USER} /omni/.pg /omni/.pg
+COPY --chown=${UID} . /omni
+COPY --link --from=postgres-build --chown=${UID} /omni/.pg /omni/.pg
 WORKDIR /build
 RUN cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DPG=${PG} /omni
 RUN make -j all
