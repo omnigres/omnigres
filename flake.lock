@@ -1,21 +1,5 @@
 {
   "nodes": {
-    "cmake_nixpkgs": {
-      "locked": {
-        "lastModified": 1673444646,
-        "narHash": "sha256-KXqUmmkX952jwl/3FO8DWCsQBfOjB0ED4unYCVOOIAk=",
-        "owner": "yrashk",
-        "repo": "nixpkgs",
-        "rev": "3003a72d0e5d1105e963cc3375e7176c2a91d5b4",
-        "type": "github"
-      },
-      "original": {
-        "owner": "yrashk",
-        "ref": "cmake-3.25.1",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
     "flake-utils": {
       "locked": {
         "lastModified": 1667395993,
@@ -46,11 +30,26 @@
         "type": "indirect"
       }
     },
+    "nixpkgs_master": {
+      "locked": {
+        "lastModified": 1677852170,
+        "narHash": "sha256-OTSjXBTg/9HUgL7Wy8cU2cmOnS2tSvJqGyOpS5DPOmc=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "e7d00dfbd3988f4e6916bc5c88dc375bbfd7b42c",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
     "root": {
       "inputs": {
-        "cmake_nixpkgs": "cmake_nixpkgs",
         "flake-utils": "flake-utils",
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": "nixpkgs",
+        "nixpkgs_master": "nixpkgs_master"
       }
     }
   },
