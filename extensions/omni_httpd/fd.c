@@ -89,6 +89,8 @@ static cvec_fd recv_fds_with_buffer(int sock, void *buffer) {
     return result;
 
   cmsg = CMSG_FIRSTHDR(&msghdr);
+  if (cmsg == NULL)
+    return result;
   n_fds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
 
   for (i = 0; i < n_fds; i++)
