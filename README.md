@@ -27,19 +27,27 @@ Omnigres makes PostgreSQL a complete application platform. You can deploy a sing
 
 ## Quick start
 
-The fastest way to try Omnigres out is by using its Docker image:
+The fastest way to try Omnigres out is by using
+its [Docker image](https://github.com/omnigres/omnigres/pkgs/container/omnigres):
+
+```shell
+docker volume create omnigres
+docker run -d --name omnigres -e POSTGRES_PASSWORD=omnigres -e POSTGRES_USER=omnigres \
+                              -e POSTGRES_DB=omnigres --mount source=omnigres,target=/var/lib/postgresql/data \
+              -p 5432:5432 ghcr.io/omnigres/omnigres:master
+# Now you can connect to it:
+psql -h localhost -p 5432 -U omnigres omnigres # password is `omnigres`
+````
+
+### Building your own image
+
+If you can't use the pre-built image (for example, you are running a fork or made changes), you can build the image
+yourself:
 
 ```shell
 # Build the image
 DOCKER_BUILDKIT=1 docker build . -t omnigres
-# Prepare the container and its volume
-docker volume create omnigres
-docker run -d --name omnigres -e POSTGRES_PASSWORD=omnigres -e POSTGRES_USER=omnigres \
-                              -e POSTGRES_DB=omnigres --mount source=omnigres,target=/var/lib/postgresql/data \
-              -p 5432:5432 omnigres
-# Now you can connect to it:
-psql -h localhost -p 5432 -U omnigres omnigres
-```
+``
 
 ## Hacking
 
