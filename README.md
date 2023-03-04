@@ -47,7 +47,7 @@ yourself:
 ```shell
 # Build the image
 DOCKER_BUILDKIT=1 docker build . -t omnigres
-``
+```
 
 ## Hacking
 
