@@ -1,0 +1,31 @@
+#! /usr/bin/env bash
+# This script requires `bash` >= v4, `gh` and `js` to be installed and `gh` authenticated.
+
+[ "${BASH_VERSINFO:-0}" -ge 4 ] || (echo "bash >= 4 required"; exit 1)
+
+total_storage=$(gh api /repos/omnigres/omnigres/actions/cache/usage | jq '.active_caches_size_in_bytes / (1024 * 1024 * 1024) * 100 | round / 100')
+echo "Total storage used: ${total_storage} GB (info can be delayed by up to 5 mins)"
+
+non_master_items=$(gh api "/repos/omnigres/omnigres/actions/caches?per_page=100"  | jq '.actions_caches[] | select(.ref != "refs/heads/master") | "\(.id),\(.ref),\(.key),\(.size_in_bytes / (1024 * 1024) * 100 | round / 100)"' -r)
+
+declare -A PR
+
+for item in ${non_master_items} ; do
+  itemArr=(${item//,/ })
+  id=${itemArr[0]}
+  ref=${itemArr[1]}
+  key=${itemArr[2]}
+  size=${itemArr[3]}
+  refArr=(${ref//\// })
+  pr=${refArr[2]}
+  if [ -z "${PR[${pr}]}" ]; then
+    echo -n "Checking PR #${pr} status: "
+    status=$(gh issue -R omnigres/omnigres view --json state --jq '.state' ${pr})
+    echo "${status}"
+    PR["${pr}"]=${status}
+  fi
+  if [[ "${PR[${pr}]}" == "MERGED" ]]; then
+    echo "Removing $key (${size} MB) [PR #${pr}]"
+    gh api --method DELETE "/repos/omnigres/omnigres/actions/caches/${id}"
+  fi
+done
