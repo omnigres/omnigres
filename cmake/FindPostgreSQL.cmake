@@ -107,10 +107,10 @@ if(NOT EXISTS "${PGDIR_VERSION}/build/bin/postgres")
 
     execute_process(
 
-        # Ensure we always set SHELL to /bin/sh to be used in pg_regress. Otherwise it has been observed to
-        # degrade to `sh` (at least, on NixOS) and pg_regress fails to start anything
-        COMMAND make SHELL=/bin/sh -j install
-        WORKING_DIRECTORY "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}")
+            # Ensure we always set SHELL to /bin/sh to be used in pg_regress. Otherwise it has been observed to
+            # degrade to `sh` (at least, on NixOS) and pg_regress fails to start anything
+            COMMAND make SHELL=/bin/sh -j ${CMAKE_BUILD_PARALLEL_LEVEL} install
+            WORKING_DIRECTORY "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}")
 endif()
 
 set(PostgreSQL_ROOT "${PGDIR_VERSION}/build")

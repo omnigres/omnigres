@@ -13,6 +13,8 @@ ARG UID=501
 ARG ALPINE_VER=20230208
 # Version of Alpine Linux for PostgreSQL container
 ARG ALPINE_VER_PG=3.17
+# Build parallelism
+ARG BUILD_PARALLEL_LEVEL
 
 # Base builder image
 FROM alpine:${ALPINE_VER} AS builder
@@ -22,10 +24,12 @@ ARG USER
 ARG UID
 ARG PG
 ARG BUILD_TYPE
+ARG BUILD_PARALLEL_LEVEL
 ENV USER=${USER}
 ENV UID=$UID
 ENV PG=${PG}
 ENV BUILD_TYPE=${BUILD_TYPE}
+ENV BUILD_PARALLEL_LEVEL=${BUILD_PARALLEL_LEVEL}
 RUN mkdir -p /build /omni
 RUN adduser -D --uid ${UID} ${USER} && chown -R ${USER} /build /omni
 USER $USER
@@ -36,7 +40,7 @@ FROM builder AS postgres-build
 COPY docker/CMakeLists.txt /omni/CMakeLists.txt
 COPY cmake/FindPostgreSQL.cmake docker/PostgreSQLExtension.cmake /omni/cmake/
 WORKDIR /build
-RUN cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DPG=${PG} /omni
+RUN cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DPG=${PG} -DCMAKE_BUILD_PARALLEL_LEVEL=${BUILD_PARALLEL_LEVEL} /omni
 
 # Omnigres build
 FROM builder AS build
@@ -44,7 +48,7 @@ COPY --chown=${UID} . /omni
 COPY --link --from=postgres-build --chown=${UID} /omni/.pg /omni/.pg
 WORKDIR /build
 RUN cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DPG=${PG} /omni
-RUN make -j all
+RUN make -j ${BUILD_PARALLEL_LEVEL} all
 RUN make package
 
 # Official PostgreSQL build
