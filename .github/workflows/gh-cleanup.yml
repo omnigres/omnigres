@@ -22,7 +22,7 @@ jobs:
         run: sudo apt install jq
 
       - name: Authenticate GH
-        run: echo ${{GITHUB_TOKEN}} | gh auth login --with-token
+        run: echo ${{secrets.GITHUB_TOKEN}} | gh auth login --with-token
 
       - name: Clean up
         run: ./ci/github-actions-storage-cleanup
