@@ -3,6 +3,8 @@ name: GH Actions Cleanup
 on:
   schedule:
     - cron: '30 * * * *'
+  workflow_dispatch:
+
 
 jobs:
   cleanup:
