@@ -17,6 +17,7 @@
 // clang-format on
 
 #include <access/xact.h>
+#include <commands/async.h>
 #include <common/int.h>
 #include <executor/spi.h>
 #include <funcapi.h>
@@ -151,7 +152,7 @@ void prepare_share_fd() {
 
 static Latch *latch;
 
-static bool shutdown_worker = false;
+static volatile bool shutdown_worker = false;
 void worker_shutdown() {
   shutdown_worker = true;
   close(socket_fd);
@@ -164,19 +165,19 @@ void worker_shutdown() {
  * It is important that it starts as `true` as we use it for the initial
  * configuration.
  */
-static bool worker_reload = true;
+static volatile bool worker_reload = true;
 
-/**
- * @brief Called by SIGUSR2 handler
- *
- */
-void reload() {
-
-  // This is to ensure that if the reload is requested during the initial wait, we're setting
-  // the latch we're on
-  SetLatch(latch);
-
-  worker_reload = true;
+static pqsigfunc sigusr1_original_handler;
+static void sigusr1_handler(int signo) {
+  if (sigusr1_original_handler != NULL) {
+    sigusr1_original_handler(signo);
+  }
+  if (notifyInterruptPending) {
+    // This is to ensure that if the reload is requested during the initial wait, we're setting
+    // the latch we're on
+    SetLatch(latch);
+    worker_reload = true;
+  }
 }
 
 #define i_key int
@@ -207,12 +208,23 @@ void master_worker(Datum db_oid) {
 #warning "TODO: SignalHandlerForConfigReload for Postgres 12"
 #endif
   pqsignal(SIGTERM, worker_shutdown);
-  // NB: It is important to set up the reload handler before owning the latch
-  // as reload_configuration trigger would use it if the latch shows as owned.
-  pqsignal(SIGUSR2, reload);
 
   BackgroundWorkerUnblockSignals();
   BackgroundWorkerInitializeConnectionByOid(db_oid, InvalidOid, 0);
+
+  // NB: It is important to set up the reload handler before owning the latch
+  // as reload_configuration trigger would use it if the latch shows as owned.
+  sigusr1_original_handler = pqsignal(SIGUSR1, sigusr1_handler);
+
+  // Listen for configuration changes
+  {
+    SetCurrentStatementStartTimestamp();
+    StartTransactionCommand();
+    PushActiveSnapshot(GetTransactionSnapshot());
+    Async_Listen(OMNI_HTTPD_CONFIGURATION_NOTIFY_CHANNEL);
+    PopActiveSnapshot();
+    CommitTransactionCommand();
+  }
 
   latch = (Latch *)dynpgext_lookup_shmem(LATCH);
   OwnLatch(latch);
