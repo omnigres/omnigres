@@ -25,6 +25,7 @@
 #if PG_MAJORVERSION_NUM >= 13
 #include <postmaster/interrupt.h>
 #endif
+#include <commands/async.h>
 #include <storage/latch.h>
 #include <tcop/utility.h>
 #include <utils/builtins.h>
@@ -101,11 +102,8 @@ Datum reload_configuration(PG_FUNCTION_ARGS) {
     ereport(NOTICE, errmsg("omni_httpd hasn't been properly loaded"));
     PG_RETURN_BOOL(false);
   }
-  pg_memory_barrier();
-  SetLatch(worker_latch);
-  if (worker_latch->owner_pid != 0) {
-    kill(worker_latch->owner_pid, SIGUSR2);
-  }
+  Async_Notify(OMNI_HTTPD_CONFIGURATION_NOTIFY_CHANNEL, NULL);
+
   if (CALLED_AS_TRIGGER(fcinfo)) {
     return PointerGetDatum(((TriggerData *)(fcinfo->context))->tg_newtuple);
   } else {

@@ -32,4 +32,6 @@ static const char *LATCH = "omni_httpd:latch:" EXT_VERSION;
 
 extern int num_http_workers;
 
+static const char *OMNI_HTTPD_CONFIGURATION_NOTIFY_CHANNEL = "omni_httpd_configuration";
+
 #endif //  OMNI_HTTPD_H
