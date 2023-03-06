@@ -86,10 +86,9 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=s3,region=us-east-1,bucket=omnigres-ci-cache
-          cache-to: ${{ fromJSON('["type=s3,mode=max,region=us-east-1,bucket=omnigres-ci-cache","type=inline"]')[ github.event_name == 'pull_request' ] }}
-          # Don't build in parallel to avoid exhausting resources, especially when
-          # cross-compiling under qemu
+          # Caching is temporarily disabled as current builds are relatively fast (under 10 mins)
+          #cache-from: type=s3,region=us-east-1,bucket=omnigres-ci-cache
+          #cache-to: ${{ fromJSON('["type=s3,mode=max,region=us-east-1,bucket=omnigres-ci-cache","type=inline"]')[ github.event_name == 'pull_request' ] }}
           build-args: |
             BUILD_PARALLEL_LEVEL=4
           platforms: linux/${{ matrix.platform }}
