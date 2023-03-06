@@ -54,5 +54,7 @@ RUN make package
 # Official PostgreSQL build
 FROM postgres:${PG}-alpine${ALPINE_VER_PG} AS pg
 COPY --from=build /build/packaged /omni
-COPY docker/initdb-omni.sql /docker-entrypoint-initdb.d/
+COPY docker/initdb/* /docker-entrypoint-initdb.d/
 RUN cp -R /omni/extension $(pg_config --sharedir)/ && cp -R /omni/*.so $(pg_config --pkglibdir)/ && rm -rf /omni
+EXPOSE 8080
+EXPOSE 5432
