@@ -56,5 +56,71 @@ CREATE FUNCTION reload_configuration() RETURNS bool
     AS 'MODULE_PATHNAME', 'reload_configuration'
     LANGUAGE C;
 
-CREATE TRIGGER listeners_updated AFTER UPDATE OR DELETE OR INSERT ON listeners
+CREATE TRIGGER listeners_updated
+    AFTER UPDATE OR DELETE OR INSERT
+    ON listeners
 EXECUTE FUNCTION reload_configuration_trigger();
+
+-- Initialization
+WITH config AS
+         (SELECT coalesce(NOT current_setting('omni_httpd.no_init', true)::bool, true)     AS should_init,
+                 coalesce(current_setting('omni_httpd.init_listen_address', true),
+                          '0.0.0.0')::inet                                                 AS init_listen_address,
+                 coalesce(current_setting('omni_httpd.init_port', true)::port, 8080::port) AS init_port)
+INSERT
+INTO listeners (listen, query)
+SELECT array [row (init_listen_address, init_port)::listenaddress],
+       $$
+       WITH stats AS (SELECT * FROM pg_catalog.pg_stat_database WHERE datname = current_database())
+       SELECT omni_httpd.http_response(headers => array[omni_httpd.http_header('content-type', 'text/html')],
+       body => $html$
+       <!DOCTYPE html>
+       <html>
+         <head>
+           <title>Omnigres</title>
+           <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+           <meta name="viewport" content="width=device-width, initial-scale=1">
+         </head>
+         <body class="container">
+         <section class="section">
+           <div class="container">
+             <h1 class="title">Omnigres</h1>
+
+             <div class="tile is-ancestor">
+                <div class="tile is-parent is-8">
+                 <article class="tile is-child notification is-primary">
+                   <div class="content">
+                     <p class="title">Welcome!</p>
+                     <p class="subtitle">What's next?</p>
+                     <div class="content">
+                     <p>You can update the query in the <code>omni_httpd.listeners</code> table to change this default page.</p>
+
+                     <p><a href="https://docs.omnigres.org">Documentation</a></p>
+                     </div>
+                   </div>
+                 </article>
+               </div>
+               <div class="tile is-vertical">
+                 <div class="tile">
+                   <div class="tile is-parent is-vertical">
+                     <article class="tile is-child notification is-grey-lighter">
+                       <p class="title">Database</p>
+                       <p class="subtitle"><strong>$html$ || current_database() || $html$</strong></p>
+                       <p> <strong>Backends</strong>: $html$ || (SELECT numbackends FROM stats) || $html$ </p>
+                       <p> <strong>Transactions committed</strong>: $html$ || (SELECT xact_commit FROM stats) || $html$ </p>
+                     </article>
+                   </div>
+                 </div>
+               </div>
+             </div>
+
+             <p class="is-size-7">
+               Running on <strong> $html$ || version() || $html$ </strong>
+             </p>
+           </div>
+         </section>
+         </body>
+       </html>
+       $html$) FROM request $$
+FROM config
+WHERE should_init;

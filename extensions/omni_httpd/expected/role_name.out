@@ -11,11 +11,11 @@ INSERT INTO omni_httpd.listeners (listen, query) VALUES (array[row('127.0.0.1', 
 -- Can't update it to an arbitrary name
 UPDATE omni_httpd.listeners SET role_name = 'some_role' WHERE role_name = 'test_user';
 ERROR:  new row for relation "listeners" violates check constraint "listeners_role_name_check"
-DETAIL:  Failing row contains (3, {"(127.0.0.1,9003)"}, SELECT omni_httpd.http_response(body => current_user::text) FROM..., some_role).
+DETAIL:  Failing row contains (4, {"(127.0.0.1,9003)"}, SELECT omni_httpd.http_response(body => current_user::text) FROM..., some_role).
 -- Can't update it to a name that is not a current user
 UPDATE omni_httpd.listeners SET role_name = 'test_user1' WHERE role_name = 'test_user';
 ERROR:  new row for relation "listeners" violates check constraint "listeners_role_name_check"
-DETAIL:  Failing row contains (3, {"(127.0.0.1,9003)"}, SELECT omni_httpd.http_response(body => current_user::text) FROM..., test_user1).
+DETAIL:  Failing row contains (4, {"(127.0.0.1,9003)"}, SELECT omni_httpd.http_response(body => current_user::text) FROM..., test_user1).
 -- Can update it to a name that is a current user
 SET ROLE test_user1;
 UPDATE omni_httpd.listeners SET role_name = 'test_user1' WHERE role_name = 'test_user';
@@ -24,7 +24,7 @@ SET ROLE test_user;
 UPDATE omni_httpd.listeners SET query = $$SELECT omni_httpd.http_response(body => current_user::text) FROM request$$
     WHERE role_name = 'test_user1' RETURNING role_name;
 ERROR:  new row for relation "listeners" violates check constraint "listeners_role_name_check"
-DETAIL:  Failing row contains (3, {"(127.0.0.1,9003)"}, SELECT omni_httpd.http_response(body => current_user::text) FROM..., test_user1).
+DETAIL:  Failing row contains (4, {"(127.0.0.1,9003)"}, SELECT omni_httpd.http_response(body => current_user::text) FROM..., test_user1).
   -- This will work
 UPDATE omni_httpd.listeners SET query = $$SELECT omni_httpd.http_response(body => current_user::text) FROM request$$,
     role_name = 'test_user'
