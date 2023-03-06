@@ -21,15 +21,6 @@ int create_listening_socket(sa_family_t family, in_port_t port, char *address);
 
 #define MAX_ADDRESS_SIZE sizeof("xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:255.255.255.255/128")
 
-/**
- * @brief This latch is used to notify the workers that the configuration has changed.
- *
- * Used to `SetLatch` if it is not owned yet, otherwise using owner's PID to set a SIGUSR2
- * directly.
- *
- */
-static const char *LATCH = "omni_httpd:latch:" EXT_VERSION;
-
 extern int num_http_workers;
 
 static const char *OMNI_HTTPD_CONFIGURATION_NOTIFY_CHANNEL = "omni_httpd_configuration";

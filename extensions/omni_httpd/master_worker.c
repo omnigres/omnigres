@@ -150,13 +150,10 @@ void prepare_share_fd() {
   h2o_socket_read_start(sock, on_accept);
 }
 
-static Latch *latch;
-
 static volatile bool shutdown_worker = false;
 void worker_shutdown() {
   shutdown_worker = true;
   close(socket_fd);
-  SetLatch(latch);
 }
 
 /**
@@ -173,9 +170,6 @@ static void sigusr1_handler(int signo) {
     sigusr1_original_handler(signo);
   }
   if (notifyInterruptPending) {
-    // This is to ensure that if the reload is requested during the initial wait, we're setting
-    // the latch we're on
-    SetLatch(latch);
     worker_reload = true;
   }
 }
@@ -212,8 +206,6 @@ void master_worker(Datum db_oid) {
   BackgroundWorkerUnblockSignals();
   BackgroundWorkerInitializeConnectionByOid(db_oid, InvalidOid, 0);
 
-  // NB: It is important to set up the reload handler before owning the latch
-  // as reload_configuration trigger would use it if the latch shows as owned.
   sigusr1_original_handler = pqsignal(SIGUSR1, sigusr1_handler);
 
   // Listen for configuration changes
@@ -225,9 +217,6 @@ void master_worker(Datum db_oid) {
     PopActiveSnapshot();
     CommitTransactionCommand();
   }
-
-  latch = (Latch *)dynpgext_lookup_shmem(LATCH);
-  OwnLatch(latch);
 
   // Start the transaction
   SetCurrentStatementStartTimestamp();
@@ -335,12 +324,11 @@ void master_worker(Datum db_oid) {
       if (port_ready) {
         break;
       }
-      (void)WaitLatch(latch, WL_LATCH_SET | WL_TIMEOUT | WL_EXIT_ON_PM_DEATH, 1000L,
+      (void)WaitLatch(MyLatch, WL_LATCH_SET | WL_TIMEOUT | WL_EXIT_ON_PM_DEATH, 1000L,
                       PG_WAIT_EXTENSION);
-      ResetLatch(latch);
+      ResetLatch(MyLatch);
       if (shutdown_worker) {
         SPI_finish();
-        DisownLatch(latch);
         return;
       }
     }
@@ -376,5 +364,4 @@ void master_worker(Datum db_oid) {
   }
   SPI_finish();
   AbortCurrentTransaction();
-  DisownLatch(latch);
 }

@@ -63,20 +63,9 @@ CACHED_OID(http_response);
 
 int num_http_workers;
 
-/**
- * @brief Initializes allocated shared latch
- *
- * @param latch uninitialized latch
- * @param data unused
- */
-static void init_latch(Latch *latch, void *data) { InitSharedLatch(latch); }
-
 void _Dynpgext_init(const dynpgext_handle *handle) {
   DefineCustomIntVariable("omni_httpd.http_workers", "Number of HTTP workers", NULL,
                           &num_http_workers, 10, 1, INT_MAX, PGC_SIGHUP, 0, NULL, NULL, NULL);
-  // Allocates memory for the worker latch
-  handle->allocate_shmem(handle, LATCH, sizeof(Latch), (void (*)(void *ptr, void *data))init_latch,
-                         NULL, DYNPGEXT_SCOPE_DATABASE_LOCAL);
 
   // Prepares and registers the main background worker
   BackgroundWorker bgw = {.bgw_name = "omni_httpd",
@@ -97,11 +86,6 @@ PG_FUNCTION_INFO_V1(reload_configuration);
  * @return Datum
  */
 Datum reload_configuration(PG_FUNCTION_ARGS) {
-  Latch *worker_latch = (Latch *)dynpgext_lookup_shmem(LATCH);
-  if (worker_latch == NULL) {
-    ereport(NOTICE, errmsg("omni_httpd hasn't been properly loaded"));
-    PG_RETURN_BOOL(false);
-  }
   Async_Notify(OMNI_HTTPD_CONFIGURATION_NOTIFY_CHANNEL, NULL);
 
   if (CALLED_AS_TRIGGER(fcinfo)) {
