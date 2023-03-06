@@ -87,7 +87,7 @@ jobs:
         path: ${{ github.workspace }}/build/extensions/**/regression.diffs
 
     - name: Setup upterm session
-      if: failure()
+      if: failure() && ${{ secrets.ACTIONS_STEP_DEBUG }}
       uses: lhotari/action-upterm@v1
       with:
         limit-access-to-actor: true
