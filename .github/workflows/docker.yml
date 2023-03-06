@@ -81,8 +81,8 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=s3,region=us-east-1,bucket=omnigres-ci-cache,access_key_id=${{ secrets.CI_AWS_ACCESS_KEY_ID }},secret_access_key=${{ secrets.CI_AWS_SECRET_ACCESS_KEY }}
+          cache-to: type=s3,mode=max,region=us-east-1,bucket=omnigres-ci-cache,access_key_id=${{ secrets.CI_AWS_ACCESS_KEY_ID }},secret_access_key=${{ secrets.CI_AWS_SECRET_ACCESS_KEY }}
           # Don't build in parallel to avoid exhausting resources, especially when
           # cross-compiling under qemu
           build-args: |
