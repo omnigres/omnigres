@@ -121,21 +121,29 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      # Extract metadata (tags, labels) for Docker
+      # https://github.com/docker/metadata-action
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
       - name: Create SHA manifest and push
         if: github.event_name != 'pull_request'
         run: |
           docker manifest create \
-            ${{ env.REGISTRY }}/omnigres:${{ github.sha }} \
-            --amend ${{ env.REGISTRY }}/omnigres/omnigres:${{ github.sha }}-amd64 \
-            --amend ${{ env.REGISTRY }}/omnigres/omnigres:${{ github.sha }}-arm64
-          docker manifest push ${{ env.REGISTRY }}/omnigres/omnigres:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+            --amend ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-amd64 \
+            --amend ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-arm64
+          docker manifest push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
 
       - name: Create latest manifest and push
         if: github.event_name != 'pull_request'
         run: |
           docker manifest create \
-            ${{ env.REGISTRY }}/omnigres/omnigres:latest \
-            --amend ${{ env.REGISTRY }}/omnigres/omnigres:latest-amd64 \
-            --amend ${{ env.REGISTRY }}/omnigres/omnigres:latest-arm64
-          docker manifest push omnigres/omnigres:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest \
+            --amend ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-amd64 \
+            --amend ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest-arm64
+          docker manifest push ${{ env.IMAGE_NAME }}:latest
 
