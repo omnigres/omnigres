@@ -125,17 +125,17 @@ jobs:
         if: github.event_name != 'pull_request'
         run: |
           docker manifest create \
-            omnigres/omnigres:${{ github.sha }} \
-            --amend omnigres/omnigres:${{ github.sha }}-amd64 \
-            --amend omnigres/omnigres:${{ github.sha }}-arm64
-          docker manifest push omnigres/omnigres:${{ github.sha }}
+            ${{ env.REGISTRY }}/omnigres:${{ github.sha }} \
+            --amend ${{ env.REGISTRY }}/omnigres/omnigres:${{ github.sha }}-amd64 \
+            --amend ${{ env.REGISTRY }}/omnigres/omnigres:${{ github.sha }}-arm64
+          docker manifest push ${{ env.REGISTRY }}/omnigres/omnigres:${{ github.sha }}
 
       - name: Create latest manifest and push
         if: github.event_name != 'pull_request'
         run: |
           docker manifest create \
-            omnigres/omnigres:latest \
-            --amend omnigres/omnigres:latest-amd64 \
-            --amend omnigres/omnigres:latest-arm64
+            ${{ env.REGISTRY }}/omnigres/omnigres:latest \
+            --amend ${{ env.REGISTRY }}/omnigres/omnigres:latest-amd64 \
+            --amend ${{ env.REGISTRY }}/omnigres/omnigres:latest-arm64
           docker manifest push omnigres/omnigres:latest
 

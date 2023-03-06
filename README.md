@@ -34,7 +34,7 @@ its [Docker image](https://github.com/omnigres/omnigres/pkgs/container/omnigres)
 docker volume create omnigres
 docker run -d --name omnigres -e POSTGRES_PASSWORD=omnigres -e POSTGRES_USER=omnigres \
                               -e POSTGRES_DB=omnigres --mount source=omnigres,target=/var/lib/postgresql/data \
-              -p 5432:5432 -p 8080 ghcr.io/omnigres/omnigres:master
+              -p 5432:5432 -p 8080 ghcr.io/omnigres/omnigres:latest
 # Now you can connect to it:
 psql -h localhost -p 5432 -U omnigres omnigres # password is `omnigres`
 ````
