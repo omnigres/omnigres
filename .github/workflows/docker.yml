@@ -25,13 +25,22 @@ env:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        platform: [ amd64, arm64 ]
+
+    runs-on: ${{ fromJSON('["buildjet-4vcpu-ubuntu-2204", "buildjet-4vcpu-ubuntu-2204-arm"]')[matrix.platform == 'arm64'] }}
+
     permissions:
       contents: read
       packages: write
       # This is used to complete the identity challenge
       # with sigstore/fulcio when running outside of PRs.
       id-token: write
+
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.CI_AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_AWS_SECRET_ACCESS_KEY }}
 
     steps:
       - name: Checkout repository
@@ -44,10 +53,6 @@ jobs:
         uses: sigstore/cosign-installer@f3c664df7af409cb4873aa5068053ba9d61a57b6 #v2.6.0
         with:
           cosign-release: 'v1.11.0'
-
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
 
       # Workaround: https://github.com/docker/build-push-action/issues/461
       - name: Setup Docker buildx
@@ -81,24 +86,57 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=s3,region=us-east-1,bucket=omnigres-ci-cache
+          cache-to: ${{ fromJSON('["type=s3,mode=max,region=us-east-1,bucket=omnigres-ci-cache","type=inline"]')[ github.event_name == 'pull_request' ] }}
           # Don't build in parallel to avoid exhausting resources, especially when
           # cross-compiling under qemu
           build-args: |
-            BUILD_PARALLEL_LEVEL=1
-          platforms: linux/amd64,linux/arm64
+            BUILD_PARALLEL_LEVEL=4
+          platforms: linux/${{ matrix.platform }}
 
+        #       # Sign the resulting Docker image digest except on PRs.
+        #       # This will only write to the public Rekor transparency log when the Docker
+        #       # repository is public to avoid leaking data.  If you would like to publish
+        #       # transparency data even for private images, pass --force to cosign below.
+        #       # https://github.com/sigstore/cosign
+        #       - name: Sign the published Docker image
+        #         if: ${{ github.event_name != 'pull_request' }}
+        #         env:
+        #           COSIGN_EXPERIMENTAL: "true"
+        #         # This step uses the identity token to provision an ephemeral certificate
+        #         # against the sigstore community Fulcio instance.
+        #         run: echo "${{ steps.meta.outputs.tags }}" | xargs -I {} cosign sign {}@${{ steps.build-and-push.outputs.digest }}
+  manifest:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
 
-#       # Sign the resulting Docker image digest except on PRs.
-#       # This will only write to the public Rekor transparency log when the Docker
-#       # repository is public to avoid leaking data.  If you would like to publish
-#       # transparency data even for private images, pass --force to cosign below.
-#       # https://github.com/sigstore/cosign
-#       - name: Sign the published Docker image
-#         if: ${{ github.event_name != 'pull_request' }}
-#         env:
-#           COSIGN_EXPERIMENTAL: "true"
-#         # This step uses the identity token to provision an ephemeral certificate
-#         # against the sigstore community Fulcio instance.
-#         run: echo "${{ steps.meta.outputs.tags }}" | xargs -I {} cosign sign {}@${{ steps.build-and-push.outputs.digest }}
+      # Login against a Docker registry except on PR
+      # https://github.com/docker/login-action
+      - name: Log into registry ${{ env.REGISTRY }}
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@28218f9b04b4f3f62068d7b6ce6ca5b26e35336c
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create SHA manifest and push
+        if: github.event_name != 'pull_request'
+        run: |
+          docker manifest create \
+            omnigres/omnigres:${{ github.sha }} \
+            --amend omnigres/omnigres:${{ github.sha }}-amd64 \
+            --amend omnigres/omnigres:${{ github.sha }}-arm64
+          docker manifest push omnigres/omnigres:${{ github.sha }}
+
+      - name: Create latest manifest and push
+        if: github.event_name != 'pull_request'
+        run: |
+          docker manifest create \
+            omnigres/omnigres:latest \
+            --amend omnigres/omnigres:latest-amd64 \
+            --amend omnigres/omnigres:latest-arm64
+          docker manifest push omnigres/omnigres:latest
+
