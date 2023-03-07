@@ -39,8 +39,10 @@ jobs:
       id-token: write
 
     env:
-      AWS_ACCESS_KEY_ID: ${{ secrets.CI_AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_AWS_SECRET_ACCESS_KEY }}
+      # Public credentials have no privileged access to any credentials and are used to enable
+      # PRs to use the cache in S3
+      AWS_ACCESS_KEY_ID: ${{ (secrets.CI_AWS_ACCESS_KEY_ID != '' && secrets.CI_AWS_ACCESS_KEY_ID) || 'AKIAZUDTHTG3AFBN5U7U' }}
+      AWS_SECRET_ACCESS_KEY: ${{ (secrets.CI_AWS_SECRET_ACCESS_KEY != '' && secrets.CI_AWS_SECRET_ACCESS_KEY) || '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' }}
 
     steps:
       - name: Checkout repository
@@ -90,8 +92,8 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-${{ matrix.platform }}
           provenance: false
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=s3,region=us-east-1,bucket=omnigres-ci-cache
-          cache-to: ${{ fromJSON('["type=s3,mode=max,region=us-east-1,bucket=omnigres-ci-cache","type=inline"]')[ github.event_name == 'pull_request' ] }}
+          cache-from: type=s3,region=us-east-1,bucket=omnigres-ci-cache,name=omnigres-${{ matrix.platform }}
+          cache-to: ${{ format(fromJSON('["type=s3,mode=max,region=us-east-1,bucket=omnigres-ci-cache,name=omnigres-{0}","type=inline"]')[ github.event_name == 'pull_request' ], matrix.platform) }}
           build-args: |
             BUILD_PARALLEL_LEVEL=4
           platforms: linux/${{ matrix.platform }}
