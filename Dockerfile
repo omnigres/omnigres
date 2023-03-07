@@ -56,5 +56,7 @@ FROM postgres:${PG}-alpine${ALPINE_VER_PG} AS pg
 COPY --from=build /build/packaged /omni
 COPY docker/initdb/* /docker-entrypoint-initdb.d/
 RUN cp -R /omni/extension $(pg_config --sharedir)/ && cp -R /omni/*.so $(pg_config --pkglibdir)/ && rm -rf /omni
+RUN apk add python3-dev perl tcl-dev
+RUN cp /usr/lib/perl5/core_perl/CORE/libperl.so /usr/lib/libperl.so
 EXPOSE 8080
 EXPOSE 5432
