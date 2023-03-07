@@ -294,10 +294,16 @@ void master_worker(Datum db_oid) {
               int sock = create_listening_socket(
                   ip_family(inet_address) == PGSQL_AF_INET ? AF_INET : AF_INET6, port_no,
                   address_str);
-              cmap_portsock_insert(&portsocks, port_no, sock);
-              cset_port_push(&ports, port_no);
-              cvec_fd_push_back(&sockets, sock);
-              ereport(LOG, errmsg("omni_httpd: Established listener on %d", port_no));
+              if (sock == -1) {
+                int e = errno;
+                ereport(WARNING, errmsg("couldn't create listening socket on port %d: %s", port_no,
+                                        strerror(e)));
+              } else {
+                cmap_portsock_insert(&portsocks, port_no, sock);
+                cset_port_push(&ports, port_no);
+                cvec_fd_push_back(&sockets, sock);
+                ereport(LOG, errmsg("omni_httpd: Established listener on %d", port_no));
+              }
             } else {
               // This socket already exists
               cset_port_push(&ports, port_no);
