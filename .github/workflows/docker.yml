@@ -39,10 +39,8 @@ jobs:
       id-token: write
 
     env:
-      # Public credentials have no privileged access to any credentials and are used to enable
-      # PRs to use the cache in S3
-      AWS_ACCESS_KEY_ID: ${{ (secrets.CI_AWS_ACCESS_KEY_ID != '' && secrets.CI_AWS_ACCESS_KEY_ID) || 'AKIAZUDTHTG3AFBN5U7U' }}
-      AWS_SECRET_ACCESS_KEY: ${{ (secrets.CI_AWS_SECRET_ACCESS_KEY != '' && secrets.CI_AWS_SECRET_ACCESS_KEY) || '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' }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.CI_AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_AWS_SECRET_ACCESS_KEY }}
 
     steps:
       - name: Checkout repository
@@ -61,6 +59,7 @@ jobs:
         uses: docker/setup-buildx-action@v2
         with:
           version: 'v0.10.4'
+          driver-opts: image=ghcr.io/omnigres/buildkit:${{ matrix.platform }}-0.11.4
 
       # Login against a Docker registry except on PR
       # https://github.com/docker/login-action
