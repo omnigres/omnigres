@@ -76,11 +76,6 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
-      # ARM-build doesn't seem to have aws CLI installed
-      - name: Setup aws CLI
-        if: ${{ matrix.platform == 'arm64' }}
-        run: sudo apt install awscli
-
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
       - name: Build and push Docker image
@@ -93,8 +88,9 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-${{ matrix.platform }}
           provenance: false
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=s3,region=us-east-1,bucket=omnigres-ci-cache
-          cache-to: ${{ fromJSON('["type=s3,mode=max,region=us-east-1,bucket=omnigres-ci-cache","type=inline"]')[ github.event_name == 'pull_request' ] }}
+          # Caching is temporarily disabled as current builds are relatively fast (under 10 mins)
+          #cache-from: type=s3,region=us-east-1,bucket=omnigres-ci-cache
+          #cache-to: ${{ fromJSON('["type=s3,mode=max,region=us-east-1,bucket=omnigres-ci-cache","type=inline"]')[ github.event_name == 'pull_request' ] }}
           build-args: |
             BUILD_PARALLEL_LEVEL=4
           platforms: linux/${{ matrix.platform }}
