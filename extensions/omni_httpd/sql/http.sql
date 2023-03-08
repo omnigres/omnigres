@@ -8,7 +8,7 @@ INSERT INTO users (handle, name) VALUES ('johndoe', 'John');
 
 BEGIN;
 WITH listener AS (INSERT INTO omni_httpd.listeners (address, port) VALUES ('127.0.0.1', 9000) RETURNING id),
-     sqlet AS (INSERT INTO omni_httpd.sqlets (query) VALUES (
+     handler AS (INSERT INTO omni_httpd.handlers (query) VALUES (
 $$
 WITH
 hello AS
@@ -32,9 +32,9 @@ SELECT * FROM echo WHERE NOT EXISTS (SELECT 1 from headers)
 UNION ALL
 SELECT * FROM not_found WHERE NOT EXISTS (SELECT 1 from echo)
 $$) RETURNING id)
-INSERT INTO omni_httpd.listeners_sqlets (listener_id, sqlet_id)
-SELECT listener.id, sqlet.id
-FROM listener, sqlet;
+INSERT INTO omni_httpd.listeners_handlers (listener_id, handler_id)
+SELECT listener.id, handler.id
+FROM listener, handler;
 DELETE FROM omni_httpd.configuration_reloads;
 END;
 
@@ -58,9 +58,9 @@ BEGIN;
 
 UPDATE omni_httpd.listeners SET port = 9001 WHERE port = 9000;
 WITH listener AS (INSERT INTO omni_httpd.listeners (address, port) VALUES ('127.0.0.1', 9002) RETURNING id),
-     sqlet AS (SELECT ls.sqlet_id AS id FROM omni_httpd.listeners INNER JOIN omni_httpd.listeners_sqlets ls ON ls.listener_id = listeners.id WHERE port = 9001)
-INSERT INTO omni_httpd.listeners_sqlets (listener_id, sqlet_id)
- SELECT listener.id, sqlet.id FROM listener, sqlet;
+     handler AS (SELECT ls.handler_id AS id FROM omni_httpd.listeners INNER JOIN omni_httpd.listeners_handlers ls ON ls.listener_id = listeners.id WHERE port = 9001)
+INSERT INTO omni_httpd.listeners_handlers (listener_id, handler_id)
+ SELECT listener.id, handler.id FROM listener, handler;
 
 DELETE FROM omni_httpd.configuration_reloads;
 END;

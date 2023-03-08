@@ -46,17 +46,17 @@ CREATE TABLE listeners (
     -- TODO: key/cert
 );
 
-CREATE TABLE sqlets (
+CREATE TABLE handlers (
     id integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     query text,
     role_name name NOT NULL DEFAULT current_user CHECK (current_user = role_name)
 );
 
-CREATE TABLE listeners_sqlets (
+CREATE TABLE listeners_handlers (
    listener_id integer NOT NULL REFERENCES listeners (id),
-   sqlet_id integer NOT NULL REFERENCES sqlets (id)
+   handler_id integer NOT NULL REFERENCES handlers (id)
 );
-CREATE INDEX listeners_sqlets_index ON listeners_sqlets (listener_id, sqlet_id);
+CREATE INDEX listeners_handlers_index ON listeners_handlers (listener_id, handler_id);
 
 CREATE TABLE configuration_reloads (
     id integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -89,14 +89,14 @@ CREATE TRIGGER listeners_updated
     ON listeners
 EXECUTE FUNCTION reload_configuration_trigger();
 
-CREATE TRIGGER sqlets_updated
+CREATE TRIGGER handlers_updated
     AFTER UPDATE OR DELETE OR INSERT
-    ON sqlets
+    ON handlers
 EXECUTE FUNCTION reload_configuration_trigger();
 
-CREATE TRIGGER listeners_sqlets_updated
+CREATE TRIGGER listeners_handlers_updated
     AFTER UPDATE OR DELETE OR INSERT
-    ON listeners_sqlets
+    ON listeners_handlers
 EXECUTE FUNCTION reload_configuration_trigger();
 
 -- Initialization
@@ -106,7 +106,7 @@ WITH config AS
                           '0.0.0.0')::inet                                                 AS init_listen_address,
                  coalesce(current_setting('omni_httpd.init_port', true)::port, 8080::port) AS init_port),
      listener AS (INSERT INTO listeners (address, port) SELECT init_listen_address, init_port FROM config RETURNING id),
-     sqlet AS (INSERT INTO sqlets (query) VALUES(
+     handler AS (INSERT INTO handlers (query) VALUES(
        $$
        WITH stats AS (SELECT * FROM pg_catalog.pg_stat_database WHERE datname = current_database())
        SELECT omni_httpd.http_response(headers => array[omni_httpd.http_header('content-type', 'text/html')],
@@ -130,7 +130,7 @@ WITH config AS
                      <p class="title">Welcome!</p>
                      <p class="subtitle">What's next?</p>
                      <div class="content">
-                     <p>You can update the query in the <code>omni_httpd.sqlets</code> table to change this default page.</p>
+                     <p>You can update the query in the <code>omni_httpd.handlers</code> table to change this default page.</p>
 
                      <p><a href="https://docs.omnigres.org">Documentation</a></p>
                      </div>
@@ -159,7 +159,7 @@ WITH config AS
          </body>
        </html>
        $html$) FROM request $$) RETURNING id)
-INSERT INTO listeners_sqlets (listener_id, sqlet_id)
-SELECT listener.id, sqlet.id
-FROM config, listener, sqlet
+INSERT INTO listeners_handlers (listener_id, handler_id)
+SELECT listener.id, handler.id
+FROM config, listener, handler
 WHERE config.should_init;
