@@ -58,6 +58,23 @@ CREATE TABLE listeners_sqlets (
 );
 CREATE INDEX listeners_sqlets_index ON listeners_sqlets (listener_id, sqlet_id);
 
+CREATE TABLE configuration_reloads (
+    id integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    happened_at timestamp NOT NULL DEFAULT now()
+);
+
+-- Wait for the number of configuration reloads to be `n` or greater
+-- Useful for testing
+CREATE PROCEDURE wait_for_configuration_reloads(n int) AS $$
+DECLARE
+c int;
+BEGIN
+LOOP
+ SELECT count(*) INTO c  FROM omni_httpd.configuration_reloads;
+ EXIT WHEN c >= n;
+END LOOP;
+END;
+$$ LANGUAGE plpgsql;
 
 CREATE FUNCTION reload_configuration_trigger() RETURNS trigger
     AS 'MODULE_PATHNAME', 'reload_configuration'

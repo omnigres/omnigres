@@ -218,11 +218,6 @@ void master_worker(Datum db_oid) {
     CommitTransactionCommand();
   }
 
-  // Start the transaction
-  SetCurrentStatementStartTimestamp();
-  StartTransactionCommand();
-  PushActiveSnapshot(GetTransactionSnapshot());
-
   // Prepare the event loop
   event_loop = h2o_evloop_create();
   prepare_share_fd();
@@ -233,9 +228,14 @@ void master_worker(Datum db_oid) {
 
   bool http_workers_started = false;
   bool port_ready = false;
-  SPI_connect();
 
   while (!shutdown_worker) {
+    // Start the transaction
+    SPI_connect();
+    SetCurrentStatementStartTimestamp();
+    StartTransactionCommand();
+    PushActiveSnapshot(GetTransactionSnapshot());
+
     // We clear this list every time to prepare an up-to-date version
     cvec_fd_clear(&sockets);
 
@@ -342,6 +342,19 @@ void master_worker(Datum db_oid) {
     }
     HandleMainLoopInterrupts();
 
+    // When the configuration is loaded, insert a reload event
+    // Next time http workers serve requests, they will be already using new data
+    int insert_retcode =
+        SPI_execute("INSERT INTO omni_httpd.configuration_reloads VALUES (DEFAULT)", false, 0);
+    if (insert_retcode != SPI_OK_INSERT) {
+      ereport(WARNING, errmsg("can't insert into omni_httpd.configuration_reloads: %s",
+                              SPI_result_code_string(insert_retcode)));
+    }
+
+    SPI_finish();
+    PopActiveSnapshot();
+    CommitTransactionCommand();
+
     // Start HTTP workers if they aren't already
     if (!http_workers_started) {
       BackgroundWorker worker = {.bgw_name = "omni_httpd worker",
@@ -370,6 +383,4 @@ void master_worker(Datum db_oid) {
     while (!shutdown_worker && !worker_reload && h2o_evloop_run(event_loop, INT32_MAX) == 0)
       ;
   }
-  SPI_finish();
-  AbortCurrentTransaction();
 }

@@ -6,6 +6,7 @@ CREATE TABLE users (
 
 INSERT INTO users (handle, name) VALUES ('johndoe', 'John');
 
+BEGIN;
 WITH listener AS (INSERT INTO omni_httpd.listeners (address, port) VALUES ('127.0.0.1', 9000) RETURNING id),
      sqlet AS (INSERT INTO omni_httpd.sqlets (query) VALUES (
 $$
@@ -34,6 +35,10 @@ $$) RETURNING id)
 INSERT INTO omni_httpd.listeners_sqlets (listener_id, sqlet_id)
 SELECT listener.id, sqlet.id
 FROM listener, sqlet;
+DELETE FROM omni_httpd.configuration_reloads;
+END;
+
+CALL omni_httpd.wait_for_configuration_reloads(1);
 
 -- Now, the actual tests
 
@@ -57,7 +62,11 @@ WITH listener AS (INSERT INTO omni_httpd.listeners (address, port) VALUES ('127.
 INSERT INTO omni_httpd.listeners_sqlets (listener_id, sqlet_id)
  SELECT listener.id, sqlet.id FROM listener, sqlet;
 
+DELETE FROM omni_httpd.configuration_reloads;
 END;
+
+CALL omni_httpd.wait_for_configuration_reloads(1);
+
 
 \! curl --retry-connrefused --retry 10  --retry-max-time 10 --silent -w '\n%{response_code}\nContent-Type: %header{content-type}\n\n' http://localhost:9001/test?q=1
 
