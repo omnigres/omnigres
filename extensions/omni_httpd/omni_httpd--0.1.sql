@@ -130,7 +130,7 @@ WITH config AS
                      <p class="title">Welcome!</p>
                      <p class="subtitle">What's next?</p>
                      <div class="content">
-                     <p>You can update the query in the <code>omni_httpd.listeners</code> table to change this default page.</p>
+                     <p>You can update the query in the <code>omni_httpd.sqlets</code> table to change this default page.</p>
 
                      <p><a href="https://docs.omnigres.org">Documentation</a></p>
                      </div>
