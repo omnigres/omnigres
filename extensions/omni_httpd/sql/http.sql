@@ -6,7 +6,10 @@ CREATE TABLE users (
 
 INSERT INTO users (handle, name) VALUES ('johndoe', 'John');
 
-INSERT INTO omni_httpd.listeners (listen, query) VALUES (array[row('127.0.0.1', 9000)::omni_httpd.listenaddress], $$
+BEGIN;
+WITH listener AS (INSERT INTO omni_httpd.listeners (address, port) VALUES ('127.0.0.1', 9000) RETURNING id),
+     handler AS (INSERT INTO omni_httpd.handlers (query) VALUES (
+$$
 WITH
 hello AS
 (SELECT omni_httpd.http_response(headers => array[omni_httpd.http_header('content-type', 'text/html')], body => 'Hello, <b>' || users.name || '</b>!')
@@ -28,7 +31,14 @@ UNION ALL
 SELECT * FROM echo WHERE NOT EXISTS (SELECT 1 from headers)
 UNION ALL
 SELECT * FROM not_found WHERE NOT EXISTS (SELECT 1 from echo)
-$$);
+$$) RETURNING id)
+INSERT INTO omni_httpd.listeners_handlers (listener_id, handler_id)
+SELECT listener.id, handler.id
+FROM listener, handler;
+DELETE FROM omni_httpd.configuration_reloads;
+END;
+
+CALL omni_httpd.wait_for_configuration_reloads(1);
 
 -- Now, the actual tests
 
@@ -44,19 +54,22 @@ $$);
 
 -- Try changing configuration
 
-UPDATE omni_httpd.listeners SET listen = array[row('127.0.0.1', 9001)::omni_httpd.listenaddress,
-                                               row('127.0.0.1', 9002)::omni_httpd.listenaddress
-];
+BEGIN;
+
+UPDATE omni_httpd.listeners SET port = 9001 WHERE port = 9000;
+WITH listener AS (INSERT INTO omni_httpd.listeners (address, port) VALUES ('127.0.0.1', 9002) RETURNING id),
+     handler AS (SELECT ls.handler_id AS id FROM omni_httpd.listeners INNER JOIN omni_httpd.listeners_handlers ls ON ls.listener_id = listeners.id WHERE port = 9001)
+INSERT INTO omni_httpd.listeners_handlers (listener_id, handler_id)
+ SELECT listener.id, handler.id FROM listener, handler;
+
+DELETE FROM omni_httpd.configuration_reloads;
+END;
+
+CALL omni_httpd.wait_for_configuration_reloads(1);
+
 
 \! curl --retry-connrefused --retry 10  --retry-max-time 10 --silent -w '\n%{response_code}\nContent-Type: %header{content-type}\n\n' http://localhost:9001/test?q=1
 
 \! curl --retry-connrefused --retry 10  --retry-max-time 10 --silent -w '\n%{response_code}\nContent-Type: %header{content-type}\n\n' http://localhost:9002/test?q=1
 
 \! curl --silent http://localhost:9000/test?q=1 || echo "failed as it should"
-
-INSERT INTO omni_httpd.listeners (listen, query) VALUES (array[row('127.0.0.1', 9001)::omni_httpd.listenaddress], $$
-SELECT omni_httpd.http_response(body => 'another port') FROM request
-$$);
-
--- Ensure we serve correct query for a different listener
-\! curl --retry-connrefused --retry 10 --retry-max-time 10 --silent http://localhost:9001

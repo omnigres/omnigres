@@ -36,17 +36,45 @@ CREATE FUNCTION http_response(
 
 CREATE DOMAIN port integer CHECK (VALUE > 0 AND VALUE <= 65535);
 
-CREATE TYPE listenaddress AS (
-    addr inet,
-    port port
-);
+CREATE TYPE http_protocol AS ENUM ('http', 'https');
 
 CREATE TABLE listeners (
     id integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-    listen listenaddress[] NOT NULL DEFAULT array[ROW('127.0.0.1', 80)::listenaddress],
+    address inet NOT NULL DEFAULT '127.0.0.1',
+    port port NOT NULL DEFAULT 80,
+    protocol http_protocol NOT NULL DEFAULT 'http'
+    -- TODO: key/cert
+);
+
+CREATE TABLE handlers (
+    id integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     query text,
     role_name name NOT NULL DEFAULT current_user CHECK (current_user = role_name)
 );
+
+CREATE TABLE listeners_handlers (
+   listener_id integer NOT NULL REFERENCES listeners (id),
+   handler_id integer NOT NULL REFERENCES handlers (id)
+);
+CREATE INDEX listeners_handlers_index ON listeners_handlers (listener_id, handler_id);
+
+CREATE TABLE configuration_reloads (
+    id integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    happened_at timestamp NOT NULL DEFAULT now()
+);
+
+-- Wait for the number of configuration reloads to be `n` or greater
+-- Useful for testing
+CREATE PROCEDURE wait_for_configuration_reloads(n int) AS $$
+DECLARE
+c int;
+BEGIN
+LOOP
+ SELECT count(*) INTO c  FROM omni_httpd.configuration_reloads;
+ EXIT WHEN c >= n;
+END LOOP;
+END;
+$$ LANGUAGE plpgsql;
 
 CREATE FUNCTION reload_configuration_trigger() RETURNS trigger
     AS 'MODULE_PATHNAME', 'reload_configuration'
@@ -61,15 +89,24 @@ CREATE TRIGGER listeners_updated
     ON listeners
 EXECUTE FUNCTION reload_configuration_trigger();
 
+CREATE TRIGGER handlers_updated
+    AFTER UPDATE OR DELETE OR INSERT
+    ON handlers
+EXECUTE FUNCTION reload_configuration_trigger();
+
+CREATE TRIGGER listeners_handlers_updated
+    AFTER UPDATE OR DELETE OR INSERT
+    ON listeners_handlers
+EXECUTE FUNCTION reload_configuration_trigger();
+
 -- Initialization
 WITH config AS
          (SELECT coalesce(NOT current_setting('omni_httpd.no_init', true)::bool, true)     AS should_init,
                  coalesce(current_setting('omni_httpd.init_listen_address', true),
                           '0.0.0.0')::inet                                                 AS init_listen_address,
-                 coalesce(current_setting('omni_httpd.init_port', true)::port, 8080::port) AS init_port)
-INSERT
-INTO listeners (listen, query)
-SELECT array [row (init_listen_address, init_port)::listenaddress],
+                 coalesce(current_setting('omni_httpd.init_port', true)::port, 8080::port) AS init_port),
+     listener AS (INSERT INTO listeners (address, port) SELECT init_listen_address, init_port FROM config RETURNING id),
+     handler AS (INSERT INTO handlers (query) VALUES(
        $$
        WITH stats AS (SELECT * FROM pg_catalog.pg_stat_database WHERE datname = current_database())
        SELECT omni_httpd.http_response(headers => array[omni_httpd.http_header('content-type', 'text/html')],
@@ -93,7 +130,7 @@ SELECT array [row (init_listen_address, init_port)::listenaddress],
                      <p class="title">Welcome!</p>
                      <p class="subtitle">What's next?</p>
                      <div class="content">
-                     <p>You can update the query in the <code>omni_httpd.listeners</code> table to change this default page.</p>
+                     <p>You can update the query in the <code>omni_httpd.handlers</code> table to change this default page.</p>
 
                      <p><a href="https://docs.omnigres.org">Documentation</a></p>
                      </div>
@@ -121,6 +158,8 @@ SELECT array [row (init_listen_address, init_port)::listenaddress],
          </section>
          </body>
        </html>
-       $html$) FROM request $$
-FROM config
-WHERE should_init;
+       $html$) FROM request $$) RETURNING id)
+INSERT INTO listeners_handlers (listener_id, handler_id)
+SELECT listener.id, handler.id
+FROM config, listener, handler
+WHERE config.should_init;
