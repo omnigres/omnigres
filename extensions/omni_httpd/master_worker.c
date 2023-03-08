@@ -255,9 +255,11 @@ void master_worker(Datum db_oid) {
     // Get listeners
     while (worker_reload) {
       worker_reload = false;
-      if (SPI_execute("SELECT listen.addr, listen.port FROM omni_httpd.listeners, "
-                      "unnest(omni_httpd.listeners.listen) AS listen",
-                      false, 0) == SPI_OK_SELECT) {
+      if (SPI_execute(
+              "SELECT listeners.address, listeners.port FROM omni_httpd.listeners_sqlets  "
+              "INNER JOIN omni_httpd.listeners ON listeners.id = listeners_sqlets.listener_id "
+              "INNER JOIN omni_httpd.sqlets sqlets ON sqlets.id = listeners_sqlets.sqlet_id",
+              false, 0) == SPI_OK_SELECT) {
         TupleDesc tupdesc = SPI_tuptable->tupdesc;
         SPITupleTable *tuptable = SPI_tuptable;
         cset_port ports = cset_port_init();

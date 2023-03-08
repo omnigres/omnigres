@@ -36,17 +36,28 @@ CREATE FUNCTION http_response(
 
 CREATE DOMAIN port integer CHECK (VALUE > 0 AND VALUE <= 65535);
 
-CREATE TYPE listenaddress AS (
-    addr inet,
-    port port
-);
+CREATE TYPE http_protocol AS ENUM ('http', 'https');
 
 CREATE TABLE listeners (
     id integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-    listen listenaddress[] NOT NULL DEFAULT array[ROW('127.0.0.1', 80)::listenaddress],
+    address inet NOT NULL DEFAULT '127.0.0.1',
+    port port NOT NULL DEFAULT 80,
+    protocol http_protocol NOT NULL DEFAULT 'http'
+    -- TODO: key/cert
+);
+
+CREATE TABLE sqlets (
+    id integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     query text,
     role_name name NOT NULL DEFAULT current_user CHECK (current_user = role_name)
 );
+
+CREATE TABLE listeners_sqlets (
+   listener_id integer NOT NULL REFERENCES listeners (id),
+   sqlet_id integer NOT NULL REFERENCES sqlets (id)
+);
+CREATE INDEX listeners_sqlets_index ON listeners_sqlets (listener_id, sqlet_id);
+
 
 CREATE FUNCTION reload_configuration_trigger() RETURNS trigger
     AS 'MODULE_PATHNAME', 'reload_configuration'
@@ -61,15 +72,24 @@ CREATE TRIGGER listeners_updated
     ON listeners
 EXECUTE FUNCTION reload_configuration_trigger();
 
+CREATE TRIGGER sqlets_updated
+    AFTER UPDATE OR DELETE OR INSERT
+    ON sqlets
+EXECUTE FUNCTION reload_configuration_trigger();
+
+CREATE TRIGGER listeners_sqlets_updated
+    AFTER UPDATE OR DELETE OR INSERT
+    ON listeners_sqlets
+EXECUTE FUNCTION reload_configuration_trigger();
+
 -- Initialization
 WITH config AS
          (SELECT coalesce(NOT current_setting('omni_httpd.no_init', true)::bool, true)     AS should_init,
                  coalesce(current_setting('omni_httpd.init_listen_address', true),
                           '0.0.0.0')::inet                                                 AS init_listen_address,
-                 coalesce(current_setting('omni_httpd.init_port', true)::port, 8080::port) AS init_port)
-INSERT
-INTO listeners (listen, query)
-SELECT array [row (init_listen_address, init_port)::listenaddress],
+                 coalesce(current_setting('omni_httpd.init_port', true)::port, 8080::port) AS init_port),
+     listener AS (INSERT INTO listeners (address, port) SELECT init_listen_address, init_port FROM config RETURNING id),
+     sqlet AS (INSERT INTO sqlets (query) VALUES(
        $$
        WITH stats AS (SELECT * FROM pg_catalog.pg_stat_database WHERE datname = current_database())
        SELECT omni_httpd.http_response(headers => array[omni_httpd.http_header('content-type', 'text/html')],
@@ -121,6 +141,8 @@ SELECT array [row (init_listen_address, init_port)::listenaddress],
          </section>
          </body>
        </html>
-       $html$) FROM request $$
-FROM config
-WHERE should_init;
+       $html$) FROM request $$) RETURNING id)
+INSERT INTO listeners_sqlets (listener_id, sqlet_id)
+SELECT listener.id, sqlet.id
+FROM config, listener, sqlet
+WHERE config.should_init;

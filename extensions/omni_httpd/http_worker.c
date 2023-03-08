@@ -155,10 +155,12 @@ void http_worker(Datum db_oid) {
 
     SPI_connect();
 
-    int ret =
-        SPI_execute("SELECT listen.addr, listen.port, query, role_name FROM omni_httpd.listeners, "
-                    "unnest(omni_httpd.listeners.listen) AS listen",
-                    false, 0);
+    int ret = SPI_execute(
+        "SELECT listeners.address, listeners.port, sqlets.query, sqlets.role_name FROM "
+        "omni_httpd.listeners_sqlets "
+        "INNER JOIN omni_httpd.listeners ON listeners.id = listeners_sqlets.listener_id "
+        "INNER JOIN omni_httpd.sqlets sqlets ON sqlets.id = listeners_sqlets.sqlet_id",
+        false, 0);
     if (ret == SPI_OK_SELECT) {
       TupleDesc tupdesc = SPI_tuptable->tupdesc;
       SPITupleTable *tuptable = SPI_tuptable;
