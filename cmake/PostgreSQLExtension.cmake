@@ -136,7 +136,7 @@ function(add_postgresql_extension NAME)
     set(_script_files)
 
     foreach(_script_file ${_ext_SCRIPTS})
-        file(CREATE_LINK "${CMAKE_CURRENT_SOURCE_DIR}/${_script_file}" "${_ext_dir}/${_script_file}")
+        file(CREATE_LINK "${CMAKE_CURRENT_SOURCE_DIR}/${_script_file}" "${_ext_dir}/${_script_file}" SYMBOLIC)
         list(APPEND _script_files ${_ext_dir}/${_script_file})
     endforeach()
 
