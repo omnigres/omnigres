@@ -91,6 +91,7 @@ Datum cascading_query_reduce(PG_FUNCTION_ARGS) {
     setop->larg = original_select_stmt;
     setop->rarg = select;
     setop->withClause = original_select_stmt->withClause;
+    setop->all = true;
     original_select_stmt->withClause = NULL;
 
     original_stmt->stmt = (Node *)setop;

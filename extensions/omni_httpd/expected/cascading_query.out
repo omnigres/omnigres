@@ -15,8 +15,8 @@ SELECT omni_httpd.cascading_query(name, query) FROM routes GROUP BY priority ORD
 --------------------------------------------------------------------------------
  WITH test AS (SELECT omni_httpd.http_response(body := 'test') FROM request WHE.
 .RE request.path = '/test'), ping AS (SELECT omni_httpd.http_response(body := '.
-.pong') FROM request WHERE request.path = '/ping') SELECT * FROM test UNION SEL.
-.ECT * FROM ping WHERE NOT EXISTS (SELECT FROM test)
+.pong') FROM request WHERE request.path = '/ping') SELECT * FROM test UNION ALL.
+. SELECT * FROM ping WHERE NOT EXISTS (SELECT FROM test)
 (1 row)
 
 \pset format aligned
