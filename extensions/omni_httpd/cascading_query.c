@@ -13,6 +13,29 @@ PG_FUNCTION_INFO_V1(cascading_query_final);
 #define ARG_NAME 1
 #define ARG_QUERY 2
 
+struct rename {
+  char *from;
+  size_t len;
+  char *to;
+};
+
+static bool renaming_walker(Node *node, struct rename *rename) {
+  if (node != NULL) {
+    if (IsA(node, RangeVar)) {
+      RangeVar *rangeVar = castNode(RangeVar, node);
+      char *relname = rangeVar->relname;
+      if (strlen(relname) == rename->len && strncasecmp(relname, rename->from, rename->len) == 0) {
+        rangeVar->alias = makeNode(Alias);
+        rangeVar->alias->aliasname = rename->from;
+        rangeVar->relname = rename->to;
+      }
+    } else {
+      return raw_expression_tree_walker(node, renaming_walker, rename);
+    }
+  }
+  return false;
+}
+
 Datum cascading_query_reduce(PG_FUNCTION_ARGS) {
   List *stmts;
 
@@ -97,7 +120,43 @@ Datum cascading_query_reduce(PG_FUNCTION_ARGS) {
     original_stmt->stmt = (Node *)setop;
   }
 
-  omni_sql_add_cte(stmts, name, omni_sql_parse_statement(query), false, false);
+  // Get given query's CTEs
+  List *parsed_query = omni_sql_parse_statement(query);
+  WithClause **withClause;
+  if (omni_sql_get_with_clause(linitial(parsed_query), &withClause) && (*withClause != NULL) &&
+      (*withClause)->ctes != NULL) {
+
+    // Get accumulated statement's with clause
+    WithClause **stmtWithClause;
+    if (!omni_sql_get_with_clause(linitial(stmts), &stmtWithClause) || *stmtWithClause == NULL) {
+      WithClause *new_with = makeNode(WithClause);
+      new_with->recursive = false;
+      *stmtWithClause = new_with;
+    }
+
+    const ListCell *lc = NULL;
+    // Rename every sub-CTE to include the CTE name
+    foreach (lc, (*withClause)->ctes) {
+        CommonTableExpr *cte = castNode(CommonTableExpr, lfirst(lc));
+        char *from = cte->ctename;
+        // Rename references by aliasing CTE references. To mitigate the risk of the name
+        // collision with a relation defined outside of the query, we'll prefix them.
+        // But a more sophisticated approach can be used to detect collisions (TODO)
+        cte->ctename = psprintf("__omni_httpd_%s_%s", text_to_cstring(name), cte->ctename);
+        struct rename rename = {.from = from, .len = strlen(from), .to = cte->ctename};
+        raw_expression_tree_walker(castNode(RawStmt, linitial(parsed_query))->stmt, renaming_walker,
+                                   &rename);
+    }
+    // Move the CTEs to the top level
+    if ((*stmtWithClause)->ctes == NULL) {
+      (*stmtWithClause)->ctes = (*withClause)->ctes;
+    } else {
+      (*stmtWithClause)->ctes = list_concat((*stmtWithClause)->ctes, (*withClause)->ctes);
+    }
+    (*withClause)->ctes = NULL;
+  }
+
+  omni_sql_add_cte(stmts, name, parsed_query, false, false);
 
   MemoryContextSwitchTo(old_context);
 

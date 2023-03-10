@@ -4,8 +4,7 @@ CREATE TABLE routes (
    priority INT NOT NULL
 );
 INSERT INTO routes (name, query, priority) VALUES
-  ('test', $$SELECT omni_httpd.http_response(body => 'test') FROM request WHERE request.path = '/test'$$, 1);
-INSERT INTO routes (name, query, priority) VALUES
+  ('test', $$SELECT omni_httpd.http_response(body => 'test') FROM request WHERE request.path = '/test'$$, 1),
   ('ping', $$SELECT omni_httpd.http_response(body => 'pong') FROM request WHERE request.path = '/ping'$$, 1);
 \pset format wrapped
 \pset columns 80
@@ -36,3 +35,23 @@ test
 \! curl --retry-connrefused --retry 10  --retry-max-time 10 -w '\n\n' --silent http://localhost:9100/ping
 pong
 
+-- CTE handling
+\pset format wrapped
+\pset columns 80
+SELECT omni_httpd.cascading_query(name, query) FROM (
+  VALUES
+  ('test', $$WITH test AS (SELECT 1 AS val) SELECT omni_httpd.http_response(body => 'test') FROM request, Test WHERE request.path = '/test' and test.val = 1$$, 1),
+  ('ping', $$WITH test AS (SELECT 1 AS val) SELECT omni_httpd.http_response(body => 'pong') FROM request, Test WHERE request.path = '/ping' and test.val = 1$$, 1))
+  AS routes(name, query, priority) GROUP BY priority ORDER BY priority DESC;
+                                cascading_query                                 
+--------------------------------------------------------------------------------
+ WITH __omni_httpd_test_test AS (SELECT 1 AS val), test AS (WITH SELECT omni_ht.
+.tpd.http_response(body := 'test') FROM request, __omni_httpd_test_test test WH.
+.ERE request.path = '/test' AND test.val = 1), __omni_httpd_ping_test AS (SELEC.
+.T 1 AS val), ping AS (WITH SELECT omni_httpd.http_response(body := 'pong') FRO.
+.M request, __omni_httpd_ping_test test WHERE request.path = '/ping' AND test.v.
+.al = 1) SELECT * FROM test UNION ALL SELECT * FROM ping WHERE NOT EXISTS (SELE.
+.CT FROM test)
+(1 row)
+
+ \pset format aligned
