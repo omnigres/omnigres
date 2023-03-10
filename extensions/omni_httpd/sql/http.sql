@@ -8,30 +8,22 @@ INSERT INTO users (handle, name) VALUES ('johndoe', 'John');
 
 BEGIN;
 WITH listener AS (INSERT INTO omni_httpd.listeners (address, port) VALUES ('127.0.0.1', 9000) RETURNING id),
-     handler AS (INSERT INTO omni_httpd.handlers (query) VALUES (
-$$
-WITH
-hello AS
-(SELECT omni_httpd.http_response(headers => array[omni_httpd.http_header('content-type', 'text/html')], body => 'Hello, <b>' || users.name || '</b>!')
+     handler AS (INSERT INTO omni_httpd.handlers (query)
+     SELECT omni_httpd.cascading_query(name, query) FROM (VALUES
+      ('hello',
+      $$SELECT omni_httpd.http_response(headers => array[omni_httpd.http_header('content-type', 'text/html')], body => 'Hello, <b>' || users.name || '</b>!')
        FROM request
        INNER JOIN users ON string_to_array(request.path,'/', '') = array[NULL, 'users', users.handle]
-),
-headers AS
-(SELECT omni_httpd.http_response(body => request.headers::text) FROM request WHERE request.path = '/headers'),
-echo AS
-(SELECT omni_httpd.http_response(body => request.body) FROM request WHERE request.path = '/echo'),
-not_found AS
-(
-SELECT omni_httpd.http_response(status => 404, body => json_build_object('method', request.method, 'path', request.path, 'query_string', request.query_string))
-       FROM request)
-SELECT * FROM hello
-UNION ALL
-SELECT * FROM headers WHERE NOT EXISTS (SELECT 1 from hello)
-UNION ALL
-SELECT * FROM echo WHERE NOT EXISTS (SELECT 1 from headers)
-UNION ALL
-SELECT * FROM not_found WHERE NOT EXISTS (SELECT 1 from echo)
-$$) RETURNING id)
+      $$),
+      ('headers',
+      $$SELECT omni_httpd.http_response(body => request.headers::text) FROM request WHERE request.path = '/headers'$$),
+      ('echo',
+      $$SELECT omni_httpd.http_response(body => request.body) FROM request WHERE request.path = '/echo'$$),
+      ('not_found',
+      $$SELECT omni_httpd.http_response(status => 404, body => json_build_object('method', request.method, 'path', request.path, 'query_string', request.query_string))
+       FROM request$$)
+     ) AS routes(name,query)
+RETURNING id)
 INSERT INTO omni_httpd.listeners_handlers (listener_id, handler_id)
 SELECT listener.id, handler.id
 FROM listener, handler;
