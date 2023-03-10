@@ -137,15 +137,15 @@ Datum cascading_query_reduce(PG_FUNCTION_ARGS) {
     const ListCell *lc = NULL;
     // Rename every sub-CTE to include the CTE name
     foreach (lc, (*withClause)->ctes) {
-        CommonTableExpr *cte = castNode(CommonTableExpr, lfirst(lc));
-        char *from = cte->ctename;
-        // Rename references by aliasing CTE references. To mitigate the risk of the name
-        // collision with a relation defined outside of the query, we'll prefix them.
-        // But a more sophisticated approach can be used to detect collisions (TODO)
-        cte->ctename = psprintf("__omni_httpd_%s_%s", text_to_cstring(name), cte->ctename);
-        struct rename rename = {.from = from, .len = strlen(from), .to = cte->ctename};
-        raw_expression_tree_walker(castNode(RawStmt, linitial(parsed_query))->stmt, renaming_walker,
-                                   &rename);
+      CommonTableExpr *cte = castNode(CommonTableExpr, lfirst(lc));
+      char *from = cte->ctename;
+      // Rename references by aliasing CTE references. To mitigate the risk of the name
+      // collision with a relation defined outside of the query, we'll prefix them.
+      // But a more sophisticated approach can be used to detect collisions (TODO)
+      cte->ctename = psprintf("__omni_httpd_%s_%s", text_to_cstring(name), cte->ctename);
+      struct rename rename = {.from = from, .len = strlen(from), .to = cte->ctename};
+      raw_expression_tree_walker(castNode(RawStmt, linitial(parsed_query))->stmt, renaming_walker,
+                                 &rename);
     }
     // Move the CTEs to the top level
     if ((*stmtWithClause)->ctes == NULL) {
