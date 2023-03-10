@@ -21,9 +21,9 @@ add_postgresql_extension(
         SCHEMA omni_httpd
         RELOCATABLE false
         SCRIPTS omni_httpd--0.1.sql
-        SOURCES omni_httpd.c master_worker.c http_worker.c fd.c
+        SOURCES omni_httpd.c master_worker.c http_worker.c fd.c cascading_query.c
         TESTS_REQUIRE omni_ext
-        REGRESS http role_name)
+        REGRESS http role_name cascading_query)
 
 target_link_libraries(omni_httpd libh2o-evloop libpgaug libomnisql libgluepg_stc dynpgext metalang99)
 

@@ -99,6 +99,18 @@ CREATE TRIGGER listeners_handlers_updated
     ON listeners_handlers
 EXECUTE FUNCTION reload_configuration_trigger();
 
+CREATE FUNCTION cascading_query_reduce(internal, name text, query text) RETURNS internal
+ AS 'MODULE_PATHNAME', 'cascading_query_reduce' LANGUAGE C;
+
+CREATE FUNCTION cascading_query_final(internal) RETURNS text
+ AS 'MODULE_PATHNAME', 'cascading_query_final' LANGUAGE C;
+
+CREATE AGGREGATE cascading_query (name text, query text) (
+  sfunc = cascading_query_reduce,
+  finalfunc = cascading_query_final,
+  stype = internal
+ );
+
 -- Initialization
 WITH config AS
          (SELECT coalesce(NOT current_setting('omni_httpd.no_init', true)::bool, true)     AS should_init,
