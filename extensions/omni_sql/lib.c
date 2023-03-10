@@ -54,7 +54,7 @@ dispatch:
     *with = &delete->withClause;
     break;
   }
-#if PG_VERSION_NUM >= 15
+#if PG_MAJORVERSION_NUM >= 15
   case T_MergeStmt: {
     MergeStmt *delete = castNode(MergeStmt, curNode);
     *with = &delete->withClause;
