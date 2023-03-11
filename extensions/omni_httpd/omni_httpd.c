@@ -190,7 +190,7 @@ Datum handlers_query_validity_trigger(PG_FUNCTION_ARGS) {
     omni_sql_add_cte(stmts, "request", request_cte, false, true);
     char *err;
     if (!omni_sql_is_valid(stmts, &err)) {
-      ereport(ERROR, errmsg("invalid query: %s", err));
+      ereport(ERROR, errmsg("invalid query"), errdetail("%s", err));
     }
     return PointerGetDatum(trigger_data->tg_trigtuple);
   } else {
