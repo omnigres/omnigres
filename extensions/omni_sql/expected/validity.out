@@ -1,0 +1,28 @@
+-- Valid
+SELECT omni_sql.is_valid('SELECT'::omni_sql.statement);
+ is_valid 
+----------
+ t
+(1 row)
+
+-- An invalid table
+SELECT omni_sql.is_valid('SELECT * FROM no_such_table_exists'::omni_sql.statement);
+ is_valid 
+----------
+ f
+(1 row)
+
+-- Parameters
+SELECT omni_sql.is_valid('SELECT $1'::omni_sql.statement);
+ is_valid 
+----------
+ f
+(1 row)
+
+-- Multiple statements (one is invalid)
+SELECT omni_sql.is_valid('SELECT; SELECT $1'::omni_sql.statement);
+ is_valid 
+----------
+ f
+(1 row)
+

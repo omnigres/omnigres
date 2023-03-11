@@ -9,6 +9,7 @@
 // clang-format on
 
 #include <funcapi.h>
+#include <parser/analyze.h>
 #include <parser/parser.h>
 #include <utils/builtins.h>
 
@@ -67,7 +68,7 @@ dispatch:
   return true;
 }
 
-List *omni_sql_add_cte(List *stmts, text *cte_name, List *cte_stmts, bool recursive, bool prepend) {
+List *omni_sql_add_cte(List *stmts, char *cte_name, List *cte_stmts, bool recursive, bool prepend) {
 
   if (list_length(stmts) != 1) {
     ereport(ERROR, errmsg("Statement should contain one and only one statement"));
@@ -80,7 +81,7 @@ List *omni_sql_add_cte(List *stmts, text *cte_name, List *cte_stmts, bool recurs
   void *node = linitial(stmts);
 
   CommonTableExpr *cte_node = makeNode(CommonTableExpr);
-  cte_node->ctename = text_to_cstring(cte_name);
+  cte_node->ctename = cte_name;
   cte_node->ctematerialized = CTEMaterializeDefault;
   cte_node->ctequery = linitial_node(RawStmt, cte_stmts)->stmt;
   cte_node->cterecursive = recursive;
@@ -132,4 +133,46 @@ bool omni_sql_is_parameterized(List *stmts) {
     }
   }
   return false;
+}
+
+bool omni_sql_is_valid(List *stmts, char **error) {
+  if (omni_sql_is_parameterized(stmts)) {
+    return false;
+  }
+
+  ListCell *lc = NULL;
+  bool valid = true;
+  MemoryContext memory_context = CurrentMemoryContext;
+  foreach (lc, stmts) {
+    RawStmt *stmt = lfirst_node(RawStmt, lc);
+    PG_TRY();
+    {
+#if PG_MAJORVERSION_NUM >= 15
+      parse_analyze_fixedparams(stmt, omni_sql_deparse_statement(list_make1(stmt)), NULL, 0, NULL);
+#else
+      int numparams = 0;
+      parse_analyze_varparams(stmt, omni_sql_deparse_statement(list_make1(stmt)), NULL, &numparams);
+      if (numparams != 0) {
+        if (error != NULL) {
+          *error = pstrdup("can't be parameterized");
+        }
+        goto done;
+      }
+#endif
+    }
+    PG_CATCH();
+    {
+      valid = false;
+      if (error != NULL) {
+        MemoryContextSwitchTo(memory_context);
+        ErrorData *err = CopyErrorData();
+        *error = err->message;
+      }
+      FlushErrorState();
+      goto done;
+    }
+    PG_END_TRY();
+  }
+done:
+  return valid;
 }

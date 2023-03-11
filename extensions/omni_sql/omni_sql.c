@@ -62,7 +62,7 @@ Datum add_cte(PG_FUNCTION_ARGS) {
   bool recursive = PG_GETARG_BOOL(3);
   bool prepend = PG_GETARG_BOOL(4);
 
-  stmts = omni_sql_add_cte(stmts, cte_name, cte_stmts, recursive, prepend);
+  stmts = omni_sql_add_cte(stmts, text_to_cstring(cte_name), cte_stmts, recursive, prepend);
 
   char *deparsed = omni_sql_deparse_statement(stmts);
   text *deparsed_statement = cstring_to_text(deparsed);
@@ -80,4 +80,17 @@ Datum is_parameterized(PG_FUNCTION_ARGS) {
   List *stmts = omni_sql_parse_statement(text_to_cstring(statement));
 
   PG_RETURN_BOOL(omni_sql_is_parameterized(stmts));
+}
+
+PG_FUNCTION_INFO_V1(is_valid);
+
+Datum is_valid(PG_FUNCTION_ARGS) {
+  if (PG_ARGISNULL(0)) {
+    ereport(ERROR, errmsg("statement can't be NULL"));
+  }
+  text *statement = PG_GETARG_TEXT_PP(0);
+  char *string = text_to_cstring(statement);
+  List *stmts = omni_sql_parse_statement(string);
+
+  PG_RETURN_BOOL(omni_sql_is_valid(stmts, NULL));
 }

@@ -22,6 +22,17 @@ UPDATE omni_httpd.handlers SET query =
      AS routes(name,query));
 ```
 
+??? tip "What if the query is invalid?"
+
+    omni_httpd enforces validity of the query using a constraint trigger at the transaction boundary when updating or
+    inserting a handler. This means that once the transaction is being committed, the query is validated and if it,
+    say, refers to an unknown relation, column or is invalid for other reasons, it will be rejected and the transaction
+    will not succeed.
+
+    Please note, however, that at this moment, this enforcement will not help avoiding runtime errors if you render
+    your query invalid *afterwards* (for example, by dropping relations it references), this will lead to runtime errors, ultimately
+    leading to HTTP 500 responses.
+
 The query called `headers` will dump request's headers, `not_found` will return HTTP 404. We can test it with `curl`:
 
 ```shell

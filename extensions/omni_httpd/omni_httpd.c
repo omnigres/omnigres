@@ -22,6 +22,7 @@
 #include <miscadmin.h>
 #include <port.h>
 #include <postmaster/bgworker.h>
+#include <utils/rel.h>
 #if PG_MAJORVERSION_NUM >= 13
 #include <postmaster/interrupt.h>
 #endif
@@ -46,6 +47,8 @@
 #include <libpgaug.h>
 
 #include <libgluepg_stc.h>
+
+#include <omni_sql.h>
 
 #include "fd.h"
 #include "omni_httpd.h"
@@ -164,4 +167,33 @@ Datum http_response(PG_FUNCTION_ARGS) {
   HeapTuple response = heap_form_tuple(response_tupledesc, values, (bool[3]){false, false, false});
 
   PG_RETURN_DATUM(HeapTupleGetDatum(response));
+}
+
+PG_FUNCTION_INFO_V1(handlers_query_validity_trigger);
+
+Datum handlers_query_validity_trigger(PG_FUNCTION_ARGS) {
+  if (CALLED_AS_TRIGGER(fcinfo)) {
+    TriggerData *trigger_data = (TriggerData *)(fcinfo->context);
+    TupleDesc tupdesc = trigger_data->tg_relation->rd_att;
+    bool isnull;
+    Datum query = SPI_getbinval(trigger_data->tg_trigtuple, tupdesc, 2, &isnull);
+    if (isnull) {
+      ereport(ERROR, errmsg("query can't be null"));
+    }
+    List *stmts = omni_sql_parse_statement(text_to_cstring(DatumGetTextPP(query)));
+    if (list_length(stmts) != 1) {
+      ereport(ERROR, errmsg("query can only contain one statement"));
+    }
+    List *request_cte = omni_sql_parse_statement(
+        "SELECT NULL::omni_httpd.http_method AS method, NULL::text AS path, NULL::text AS "
+        "query_string, NULL::bytea AS body, NULL::omni_httpd.http_header[] AS headers");
+    omni_sql_add_cte(stmts, "request", request_cte, false, true);
+    char *err;
+    if (!omni_sql_is_valid(stmts, &err)) {
+      ereport(ERROR, errmsg("invalid query"), errdetail("%s", err));
+    }
+    return PointerGetDatum(trigger_data->tg_trigtuple);
+  } else {
+    ereport(ERROR, errmsg("can only be called as a trigger"));
+  }
 }

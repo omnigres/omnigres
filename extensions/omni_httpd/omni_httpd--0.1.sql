@@ -48,9 +48,18 @@ CREATE TABLE listeners (
 
 CREATE TABLE handlers (
     id integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-    query text,
+    query text NOT NULL,
     role_name name NOT NULL DEFAULT current_user CHECK (current_user = role_name)
 );
+
+CREATE FUNCTION handlers_query_validity_trigger() RETURNS trigger
+AS 'MODULE_PATHNAME', 'handlers_query_validity_trigger' LANGUAGE C;
+
+CREATE CONSTRAINT TRIGGER handlers_query_validity_trigger AFTER INSERT OR UPDATE
+  ON handlers
+  DEFERRABLE INITIALLY DEFERRED
+  FOR EACH ROW
+  EXECUTE FUNCTION handlers_query_validity_trigger();
 
 CREATE TABLE listeners_handlers (
    listener_id integer NOT NULL REFERENCES listeners (id),
