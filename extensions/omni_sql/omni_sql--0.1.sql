@@ -22,3 +22,7 @@ CREATE FUNCTION add_cte(statement, name text, cte statement,
 CREATE FUNCTION is_parameterized(statement) RETURNS bool
   AS 'MODULE_PATHNAME', 'is_parameterized'
   LANGUAGE C STRICT IMMUTABLE;
+
+ CREATE FUNCTION is_valid(statement) RETURNS bool
+  AS 'MODULE_PATHNAME', 'is_valid'
+  LANGUAGE C STRICT IMMUTABLE;

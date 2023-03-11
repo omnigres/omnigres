@@ -247,8 +247,7 @@ void http_worker(Datum db_oid) {
                                       query_string));
             } else {
               List *request_cte_stmt = omni_sql_parse_statement(request_cte);
-              query_stmt = omni_sql_add_cte(query_stmt, cstring_to_text("request"),
-                                            request_cte_stmt, false, true);
+              query_stmt = omni_sql_add_cte(query_stmt, "request", request_cte_stmt, false, true);
 
               char *query = omni_sql_deparse_statement(query_stmt);
               list_free_deep(request_cte_stmt);

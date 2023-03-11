@@ -156,7 +156,7 @@ Datum cascading_query_reduce(PG_FUNCTION_ARGS) {
     (*withClause)->ctes = NULL;
   }
 
-  omni_sql_add_cte(stmts, name, parsed_query, false, false);
+  omni_sql_add_cte(stmts, text_to_cstring(name), parsed_query, false, false);
 
   MemoryContextSwitchTo(old_context);
 

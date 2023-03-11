@@ -25,7 +25,7 @@ add_postgresql_extension(
         RELOCATABLE false
         SCRIPTS omni_sql--0.1.sql
         SOURCES omni_sql.c
-        REGRESS deparse cte parameterized
+        REGRESS deparse cte parameterized validity
 )
 
 target_link_libraries(omni_sql libpgaug libomnisql)
