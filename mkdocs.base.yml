@@ -22,8 +22,10 @@ markdown_extensions:
   - pymdownx.inlinehilite
   - pymdownx.snippets
   - pymdownx.superfences
+  - pymdownx.details
   - toc:
       permalink: true
+  - admonition
 
 plugins:
   - search

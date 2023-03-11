@@ -25,6 +25,48 @@ List *omni_sql_parse_statement(char *statement) {
   return stmts;
 }
 
+bool omni_sql_get_with_clause(Node *node, WithClause ***with) {
+  Node *curNode = node;
+dispatch:
+  switch (nodeTag(curNode)) {
+  case T_RawStmt: {
+    RawStmt *stmt = castNode(RawStmt, curNode);
+    curNode = stmt->stmt;
+    goto dispatch;
+  }
+  case T_SelectStmt: {
+    SelectStmt *select = castNode(SelectStmt, curNode);
+    *with = &select->withClause;
+    break;
+  }
+  case T_InsertStmt: {
+    InsertStmt *insert = castNode(InsertStmt, curNode);
+    *with = &insert->withClause;
+    break;
+  }
+  case T_UpdateStmt: {
+    UpdateStmt *update = castNode(UpdateStmt, curNode);
+    *with = &update->withClause;
+    break;
+  }
+  case T_DeleteStmt: {
+    DeleteStmt *delete = castNode(DeleteStmt, curNode);
+    *with = &delete->withClause;
+    break;
+  }
+#if PG_MAJORVERSION_NUM >= 15
+  case T_MergeStmt: {
+    MergeStmt *delete = castNode(MergeStmt, curNode);
+    *with = &delete->withClause;
+    break;
+  }
+#endif
+  default:
+    return false;
+  }
+  return true;
+}
+
 List *omni_sql_add_cte(List *stmts, text *cte_name, List *cte_stmts, bool recursive, bool prepend) {
 
   if (list_length(stmts) != 1) {
@@ -37,54 +79,19 @@ List *omni_sql_add_cte(List *stmts, text *cte_name, List *cte_stmts, bool recurs
 
   void *node = linitial(stmts);
 
-  CommonTableExpr *cte_node = palloc0(sizeof(*cte_node));
+  CommonTableExpr *cte_node = makeNode(CommonTableExpr);
+  cte_node->ctename = text_to_cstring(cte_name);
+  cte_node->ctematerialized = CTEMaterializeDefault;
+  cte_node->ctequery = linitial_node(RawStmt, cte_stmts)->stmt;
+  cte_node->cterecursive = recursive;
 
-  *cte_node = (CommonTableExpr) {
-    .type = T_CommonTableExpr, .ctename = text_to_cstring(cte_name), .aliascolnames = NULL,
-    .ctematerialized = CTEMaterializeDefault, .ctequery = linitial_node(RawStmt, cte_stmts)->stmt,
-#if PG_VERSION_MAJORNUM >= 14
-    .search_clause = NULL, .cycle_clause = NULL,
-#endif
-    .location = -1, // unknown location
-        .cterecursive = recursive, .cterefcount = 0, .ctecolnames = NULL, .ctecoltypes = NULL,
-    .ctecoltypmods = NULL, .ctecolcollations = NULL
-  };
-
-  WithClause **with = NULL;
-dispatch:
-  switch (nodeTag(node)) {
-  case T_RawStmt: {
-    RawStmt *stmt = castNode(RawStmt, node);
-    node = stmt->stmt;
-    goto dispatch;
-  }
-  case T_SelectStmt: {
-    SelectStmt *select = castNode(SelectStmt, node);
-    with = &select->withClause;
-    break;
-  }
-  case T_InsertStmt: {
-    InsertStmt *insert = castNode(InsertStmt, node);
-    with = &insert->withClause;
-    break;
-  }
-  case T_UpdateStmt: {
-    UpdateStmt *update = castNode(UpdateStmt, node);
-    with = &update->withClause;
-    break;
-  }
-  case T_DeleteStmt: {
-    DeleteStmt *delete = castNode(DeleteStmt, node);
-    with = &delete->withClause;
-    break;
-  }
-  default:
+  WithClause **with;
+  if (!omni_sql_get_with_clause(node, &with)) {
     ereport(ERROR, errmsg("no supported statement found"));
   }
 
   if (*with == NULL) {
-    WithClause *new_with = palloc(sizeof(*new_with));
-    new_with->type = T_WithClause;
+    WithClause *new_with = makeNode(WithClause);
     new_with->location = -1;
     new_with->recursive = recursive;
     new_with->ctes = list_make1(cte_node);
