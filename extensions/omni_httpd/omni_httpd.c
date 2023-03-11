@@ -22,6 +22,7 @@
 #include <miscadmin.h>
 #include <port.h>
 #include <postmaster/bgworker.h>
+#include <utils/rel.h>
 #if PG_MAJORVERSION_NUM >= 13
 #include <postmaster/interrupt.h>
 #endif

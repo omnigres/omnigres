@@ -147,7 +147,18 @@ bool omni_sql_is_valid(List *stmts, char **error) {
     RawStmt *stmt = lfirst_node(RawStmt, lc);
     PG_TRY();
     {
+#if PG_MAJORVERSION_NUM >= 15
       parse_analyze_fixedparams(stmt, omni_sql_deparse_statement(list_make1(stmt)), NULL, 0, NULL);
+#else
+      int numparams = 0;
+      parse_analyze_varparams(stmt, omni_sql_deparse_statement(list_make1(stmt)), NULL, &numparams);
+      if (numparams != 0) {
+        if (error != NULL) {
+          *error = pstrdup("can't be parameterized");
+        }
+        goto done;
+      }
+#endif
     }
     PG_CATCH();
     {
