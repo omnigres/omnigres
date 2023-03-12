@@ -1,0 +1,80 @@
+name: Debug
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo:
+        description: 'Repository'
+        required: true
+        default: 'omnigres/omnigres'
+      ref:
+        description: 'Ref (commit, branch, tag)'
+        required: true
+        default: 'master'
+      os:
+        description: 'OS'
+        required: true
+        default: 'ubuntu-latest'
+      pgver:
+        description: 'Postgres version'
+        required: true
+        default: '15'
+      build_type:
+        description: 'Build type'
+        required: true
+        default: 'Debug'
+
+jobs:
+  debug:
+    runs-on: ${{ github.event.inputs.os }}
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        repository: ${{ github.event.inputs.repo }}
+        ref: ${{ github.event.inputs.ref }}
+
+    - name: Install OpenSSL
+      if: github.event.inputs.os == 'macos-12'
+      env:
+        HOMEBREW_NO_AUTO_UPDATE: "1"
+        HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: "1"
+        HOMEBREW_NO_INSTALL_CLEANUP: "1"
+      run: |
+        brew update
+        brew install openssl@3
+
+    - name: Install recent curl on Linux
+      if: github.event.inputs.os == 'ubuntu-latest'
+      run: |
+        wget --retry-on-http-error=42 --retry-connrefused -c https://github.com/moparisthebest/static-curl/releases/download/v7.87.0/curl-amd64
+        chmod +x curl-amd64
+        mv curl-amd64 curl
+
+    - name: Setup Docker on macOS using Colima, Lima-VM, and Homebrew.
+      uses: douglascamata/setup-docker-macos-action@v1-alpha
+      if: github.event.inputs.os == 'macos-12' # No need to check on Linux, it's there
+
+    - name: Configure Docker host on macOS
+      if: github.event.inputs.os == 'macos-12'
+      run: |
+        echo "DOCKER_HOST=$(docker context inspect -f '{{ .Endpoints.docker.Host }}')" >> $GITHUB_ENV
+        echo "DOCKER_HOST_IP=192.168.5.2" >> $GITHUB_ENV
+
+    - uses: actions/cache@v3
+      with:
+        path: .pg
+        key: ${{ github.event.inputs.os }}-pg-${{ github.event.inputs.pgver }}-${{ hashFiles('cmake/FindPostgreSQL.cmake') }}
+
+    - name: Configure
+      # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
+      # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{github.event.inputs.build_type}} -DPGVER=${{ github.event.inputs.pgver }}
+
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build --parallel --config ${{github.event.inputs.build_type}}
+
+    - name: Setup upterm session
+      uses: lhotari/action-upterm@v1
+      with:
+        limit-access-to-actor: true
