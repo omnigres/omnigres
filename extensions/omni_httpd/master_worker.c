@@ -398,6 +398,12 @@ void master_worker(Datum db_oid) {
         }
         cvec_bgwhandle_push(&http_workers, handle);
       }
+      // Ensure all workers have indeed started their loops
+      uint32 expected = cvec_bgwhandle_size(&http_workers);
+      while (!pg_atomic_compare_exchange_u32(semaphore, &expected, 0)) {
+        expected = cvec_bgwhandle_size(&http_workers);
+        HandleMainLoopInterrupts();
+      }
       http_workers_started = true;
     }
 
