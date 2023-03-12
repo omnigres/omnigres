@@ -91,5 +91,9 @@ jobs:
     - name: Print error-related artifacts
       if: failure()
       run: |
+        echo "- diffs: "
         find ${{github.workspace}}/build -name \*.diffs -exec cat {} \;
+        echo "- postmaster.log: "
         find ${{github.workspace}}/build -name postmaster.log -exec cat {} \;
+        echo "- initdb.log: "
+        find ${{github.workspace}}/build -name initdb.log -exec cat {} \;
