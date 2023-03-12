@@ -244,7 +244,7 @@ void master_worker(Datum db_oid) {
     // We clear this list every time to prepare an up-to-date version
     cvec_fd_clear(&sockets);
 
-    // If HTTP workes have already been started, notify them of the upcoming change.
+    // If HTTP workers have already been started, notify them of the upcoming change.
     // It is okay to notify them at this time as they will try to connect to the UNIX socket
     // which will be served as soon as we're done getting the new configuration and restart
     // the event loop.
@@ -365,8 +365,9 @@ void master_worker(Datum db_oid) {
     // So, we'll wait until all http workers have signalled their readiness, and exchange it back to
     // zero, to prepare for the next iteration.
     if (http_workers_started) {
-      uint32 expected = num_http_workers;
+      uint32 expected = cvec_bgwhandle_size(&http_workers);
       while (!pg_atomic_compare_exchange_u32(semaphore, &expected, 0)) {
+        expected = cvec_bgwhandle_size(&http_workers);
         HandleMainLoopInterrupts();
       }
     }
