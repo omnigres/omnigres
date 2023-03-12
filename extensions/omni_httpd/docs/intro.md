@@ -108,3 +108,5 @@ headers omni_httpd.http_header[]
 
     If this signature seem a little incomplete (where's the source IP address, can the body by streamed, etc.?),
     that's because it is still work in progress. Please consider contributing if you feel up to it.
+
+    Also, [omni_web](/omni_web/intro) provides complementary higher-level functionality.
