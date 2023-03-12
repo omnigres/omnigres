@@ -15,6 +15,7 @@ theme:
     - navigation.tracking
     - navigation.expand
     - navigation.top
+    - content.code.annotate
 
 markdown_extensions:
   - pymdownx.highlight:
