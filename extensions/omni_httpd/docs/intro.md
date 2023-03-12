@@ -15,12 +15,16 @@ own SQL completely by hand). This function simplifies building priority-sorted r
 ```sql
 UPDATE omni_httpd.handlers SET query = 
 (SELECT omni_httpd.cascading_query(name, query) FROM (VALUES
-      ('headers',
-      $$SELECT omni_httpd.http_response(body => request.headers::text) FROM request WHERE request.path = '/headers'$$),
-      ('not_found',
-      $$SELECT omni_httpd.http_response(status => 404, body => 'Not found') FROM request$$))
-     AS routes(name,query));
+     ('headers',
+     $$SELECT omni_httpd.http_response(body => request.headers::text) FROM request WHERE request.path = '/headers'$$, 1),
+     ('not_found',
+     $$SELECT omni_httpd.http_response(status => 404, body => 'Not found') FROM request$$, 0)
+     ORDER BY column3 DESC -- (1)
+     ) 
+     AS routes(name,query,priority) );
 ```
+
+1. `column3` refers to the third (last) column with the integer
 
 ??? tip "What if the query is invalid?"
 
@@ -53,15 +57,19 @@ or can be retrieved during deployment (say, from a Git repository or any other s
     attempt `not_found`. Suppose we changed the order:
 
     ```sql
-    UPDATE omni_httpd.handlers SET query = 
-    (SELECT omni_httpd.cascading_query(name, query) FROM (VALUES 
-          ('not_found',
-          $$SELECT omni_httpd.http_response(status => 404, body => 'Not found') FROM request$$),
-          ('headers',
-          $$SELECT omni_httpd.http_response(body => request.headers::text) FROM request WHERE request.path = '/headers'$$))
-         AS routes(name,query));
+    UPDATE omni_httpd.handlers SET query =
+    (SELECT omni_httpd.cascading_query(name, query) FROM (VALUES
+    ('headers',
+    $$SELECT omni_httpd.http_response(body => request.headers::text) FROM request WHERE request.path = '/headers'$$, 1),
+    ('not_found',
+    $$SELECT omni_httpd.http_response(status => 404, body => 'Not found') FROM request$$, 0)
+    ORDER BY column3 ASC -- (1)
+    )
+    AS routes(name,query,priority) );
     ```
-    
+
+    1. We changed this from `DESC` to `ASC`
+
     Then `not_found` will always take the precedence:
     
     ```shell
