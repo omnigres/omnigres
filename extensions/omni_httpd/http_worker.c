@@ -47,6 +47,8 @@
 #include <libpgaug.h>
 #include <omni_sql.h>
 
+#include <dynpgext.h>
+
 #include "fd.h"
 #include "http_worker.h"
 #include "omni_httpd.h"
@@ -86,7 +88,12 @@ void http_worker(Datum db_oid) {
 
   listener_contexts = clist_listener_contexts_init();
 
+  volatile pg_atomic_uint32 *semaphore =
+      dynpgext_lookup_shmem(OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE);
+  Assert(semaphore != NULL);
+
   while (worker_running) {
+    uint32 v = pg_atomic_add_fetch_u32(semaphore, 1);
     worker_reload = false;
     cvec_fd fds = accept_fds(MyBgworkerEntry->bgw_extra);
 

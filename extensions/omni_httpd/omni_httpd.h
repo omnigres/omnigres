@@ -15,6 +15,7 @@
 Oid http_method_oid();
 Oid http_response_oid();
 Oid http_header_oid();
+
 Oid http_header_array_oid();
 
 int create_listening_socket(sa_family_t family, in_port_t port, char *address);
@@ -24,5 +25,8 @@ int create_listening_socket(sa_family_t family, in_port_t port, char *address);
 extern int num_http_workers;
 
 static const char *OMNI_HTTPD_CONFIGURATION_NOTIFY_CHANNEL = "omni_httpd_configuration";
+
+static const char *OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE =
+    "omni_httpd:" EXT_VERSION ":_configuration_reload_semaphore";
 
 #endif //  OMNI_HTTPD_H
