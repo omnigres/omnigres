@@ -93,7 +93,9 @@ void http_worker(Datum db_oid) {
   Assert(semaphore != NULL);
 
   while (worker_running) {
-    uint32 v = pg_atomic_add_fetch_u32(semaphore, 1);
+    if (worker_reload) {
+      pg_atomic_add_fetch_u32(semaphore, 1);
+    }
     worker_reload = false;
     cvec_fd fds = accept_fds(MyBgworkerEntry->bgw_extra);
 
