@@ -423,6 +423,10 @@ static cvec_fd accept_fds(char *socket_name) {
   if (socket_fd < 0) {
     ereport(ERROR, errmsg("can't create sharing socket"));
   }
+  int err = fcntl(socket_fd, F_SETFL, fcntl(socket_fd, F_GETFL, 0) | O_NONBLOCK);
+  if (err != 0) {
+    ereport(ERROR, errmsg("Error setting O_NONBLOCK: %s", strerror(err)));
+  }
 
   memset(&address, 0, sizeof(struct sockaddr_un));
 
@@ -432,14 +436,30 @@ static cvec_fd accept_fds(char *socket_name) {
 try_connect:
   if (connect(socket_fd, (struct sockaddr *)&address, sizeof(struct sockaddr_un)) != 0) {
     int e = errno;
+    if (e == EAGAIN || e == EWOULDBLOCK) {
+      if (worker_reload) {
+        // Don't try to get fds, roll with the reload
+        return cvec_fd_init();
+      } else {
+        goto try_connect;
+      }
+    }
     if (e == ECONNREFUSED) {
       goto try_connect;
     }
     ereport(ERROR, errmsg("error connecting to sharing socket: %s", strerror(e)));
   }
 
-  cvec_fd result = recv_fds(socket_fd);
-  int l = cvec_fd_size(&result);
+  cvec_fd result;
+
+  do {
+    errno = 0;
+    if (worker_reload) {
+      break;
+    }
+    result = recv_fds(socket_fd);
+  } while (errno == EAGAIN || errno == EWOULDBLOCK);
+
   close(socket_fd);
 
   return result;
