@@ -66,9 +66,15 @@ CACHED_OID(http_response);
 
 int num_http_workers;
 
+static void init_semaphore(void *ptr, void *data) { pg_atomic_init_u32(ptr, 0); }
+
 void _Dynpgext_init(const dynpgext_handle *handle) {
   DefineCustomIntVariable("omni_httpd.http_workers", "Number of HTTP workers", NULL,
                           &num_http_workers, 10, 1, INT_MAX, PGC_SIGHUP, 0, NULL, NULL, NULL);
+
+  handle->allocate_shmem(handle, OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE,
+                         sizeof(pg_atomic_uint32), init_semaphore, NULL,
+                         DYNPGEXT_SCOPE_DATABASE_LOCAL);
 
   // Prepares and registers the main background worker
   BackgroundWorker bgw = {.bgw_name = "omni_httpd",

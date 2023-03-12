@@ -229,6 +229,11 @@ void master_worker(Datum db_oid) {
   bool http_workers_started = false;
   bool port_ready = false;
 
+  volatile pg_atomic_uint32 *semaphore =
+      dynpgext_lookup_shmem(OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE);
+  Assert(semaphore != NULL);
+  pg_atomic_write_u32(semaphore, 0);
+
   while (!shutdown_worker) {
     // Start the transaction
     SPI_connect();
@@ -244,6 +249,7 @@ void master_worker(Datum db_oid) {
     // which will be served as soon as we're done getting the new configuration and restart
     // the event loop.
     if (http_workers_started) {
+      pg_atomic_write_u32(semaphore, 0);
       c_FOREACH(i, cvec_bgwhandle, http_workers) {
         pid_t pid;
         if (GetBackgroundWorkerPid(*i.ref, &pid) == BGWH_STARTED) {
@@ -352,6 +358,20 @@ void master_worker(Datum db_oid) {
                               SPI_result_code_string(insert_retcode)));
     }
 
+    // However, there's a problem with the fact that we don't know when all the http workers
+    // are in fact in the "standby" mode, so when we commit this transaction, they may or may have
+    // not even started their "standby"/"resume" process.
+    //
+    // So, we'll wait until all http workers have signalled their readiness, and exchange it back to
+    // zero, to prepare for the next iteration.
+    if (http_workers_started) {
+      uint32 expected = num_http_workers;
+      while (!pg_atomic_compare_exchange_u32(semaphore, &expected, 0)) {
+        HandleMainLoopInterrupts();
+      }
+    }
+
+    // After doing this, we're ready to commit
     SPI_finish();
     PopActiveSnapshot();
     CommitTransactionCommand();
