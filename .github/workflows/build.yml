@@ -85,3 +85,9 @@ jobs:
       with:
         name: ${{ matrix.os }}-${{ matrix.pgver }}-regression.diffs
         path: ${{ github.workspace }}/build/extensions/**/regression.diffs
+
+    - name: Print error-related artifacts
+      if: failure()
+      run: |
+        find ${{github.workspace}}/build -name \*.diffs -exec cat {} \;
+        find ${{github.workspace}}/build -name postmaster.log -exec cat {} \;
