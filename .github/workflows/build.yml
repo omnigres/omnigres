@@ -85,13 +85,3 @@ jobs:
       with:
         name: ${{ matrix.os }}-${{ matrix.pgver }}-regression.diffs
         path: ${{ github.workspace }}/build/extensions/**/regression.diffs
-
-    - name: Setup upterm session
-      if: failure()
-      uses: lhotari/action-upterm@v1
-      with:
-        limit-access-to-actor: true
-        limit-access-to-users: yrashk
-
-
-
