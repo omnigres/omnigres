@@ -27,6 +27,7 @@
 
 #include <access/xact.h>
 #include <catalog/pg_authid.h>
+#include <catalog/pg_collation_d.h>
 #include <executor/spi.h>
 #include <funcapi.h>
 #include <miscadmin.h>
@@ -495,7 +496,7 @@ static int handler(h2o_handler_t *self, h2o_req_t *req) {
   // Stores a pointer to the last used role name (NULL initially) in this process
   // to enable on-demand role switching.
   static Name role_name;
-  if (role_name != lctx->role_name) {
+  if (role_name == NULL || namecmp(lctx->role_name, role_name, C_COLLATION_OID) != 0) {
     role_name = lctx->role_name;
     HeapTuple roleTup = SearchSysCache1(AUTHNAME, PointerGetDatum(role_name));
     if (!HeapTupleIsValid(roleTup)) {

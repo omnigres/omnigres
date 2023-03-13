@@ -86,4 +86,9 @@ void __with_temp_memcxt_cleanup(struct __with_temp_memcxt *s);
     return oid_array_##name;                                                                       \
   }
 
+/**
+ * Compares names (extracted from Postgres source code)
+ */
+int namecmp(Name arg1, Name arg2, Oid collid);
+
 #endif // LIBPGAUG_H

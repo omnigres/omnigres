@@ -24,3 +24,22 @@ void __with_temp_memcxt_cleanup(struct __with_temp_memcxt *s) {
   }
   MemoryContextDelete(s->new);
 }
+
+#include <catalog/pg_collation_d.h>
+#include <utils/varlena.h>
+
+int namecmp(Name arg1, Name arg2, Oid collid) {
+  /*
+   * This code is licensed under the terms of PostgreSQL license
+   *
+   * Portions Copyright (c) 1996-2023, PostgreSQL Global Development Group
+   * Portions Copyright (c) 1994, Regents of the University of California
+   */
+  /* Fast path for common case used in system catalogs */
+  if (collid == C_COLLATION_OID)
+    return strncmp(NameStr(*arg1), NameStr(*arg2), NAMEDATALEN);
+
+  /* Else rely on the varstr infrastructure */
+  return varstr_cmp(NameStr(*arg1), strlen(NameStr(*arg1)), NameStr(*arg2), strlen(NameStr(*arg2)),
+                    collid);
+}
