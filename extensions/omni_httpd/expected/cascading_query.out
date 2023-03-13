@@ -45,13 +45,13 @@ SELECT omni_httpd.cascading_query(name, query) FROM (
   AS routes(name, query, priority) GROUP BY priority ORDER BY priority DESC;
                                 cascading_query                                 
 --------------------------------------------------------------------------------
- WITH __omni_httpd_test_test AS (SELECT 1 AS val), test AS (WITH SELECT omni_ht.
-.tpd.http_response(body := 'test') FROM request, __omni_httpd_test_test test WH.
-.ERE request.path = '/test' AND test.val = 1), __omni_httpd_ping_test AS (SELEC.
-.T 1 AS val), ping AS (WITH SELECT omni_httpd.http_response(body := 'pong') FRO.
-.M request, __omni_httpd_ping_test test WHERE request.path = '/ping' AND test.v.
-.al = 1) SELECT * FROM test UNION ALL SELECT * FROM ping WHERE NOT EXISTS (SELE.
-.CT FROM test)
+ WITH __omni_httpd_test_test AS (SELECT 1 AS val), test AS (SELECT omni_httpd.h.
+.ttp_response(body := 'test') FROM request, __omni_httpd_test_test test WHERE r.
+.equest.path = '/test' AND test.val = 1), __omni_httpd_ping_test AS (SELECT 1 A.
+.S val), ping AS (SELECT omni_httpd.http_response(body := 'pong') FROM request,.
+. __omni_httpd_ping_test test WHERE request.path = '/ping' AND test.val = 1) SE.
+.LECT * FROM test UNION ALL SELECT * FROM ping WHERE NOT EXISTS (SELECT FROM te.
+.st)
 (1 row)
 
  \pset format aligned
