@@ -80,7 +80,7 @@ jobs:
 
     - name: Test
       working-directory: ${{github.workspace}}/build
-      run: env PATH=${{github.workspace}}:$PATH ctest -timeout 1000 --force-new-ctest-process --verbose --output-on-failure -j $(nproc) -C ${{matrix.build_type}}
+      run: env PATH=${{github.workspace}}:$PATH TMPDIR=$RUNNER_TEMP ctest -timeout 1000 --force-new-ctest-process --verbose --output-on-failure -j $(nproc) -C ${{matrix.build_type}}
 
     - uses: actions/upload-artifact@v3
       if: failure()
