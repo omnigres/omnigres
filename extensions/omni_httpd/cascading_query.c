@@ -153,7 +153,7 @@ Datum cascading_query_reduce(PG_FUNCTION_ARGS) {
     } else {
       (*stmtWithClause)->ctes = list_concat((*stmtWithClause)->ctes, (*withClause)->ctes);
     }
-    (*withClause)->ctes = NULL;
+    *withClause = NULL;
   }
 
   omni_sql_add_cte(stmts, text_to_cstring(name), parsed_query, false, false);
