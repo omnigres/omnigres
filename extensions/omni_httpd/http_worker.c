@@ -111,9 +111,6 @@ void http_worker(Datum db_oid) {
           SPI_freeplan(iter.ref->plan);
           iter.ref->plan = NULL;
         }
-        if (iter.ref->role_name != NULL) {
-          pfree(iter.ref->role_name);
-        }
 
         if (iter.ref->socket != NULL) {
           h2o_socket_t *socket = iter.ref->socket;
@@ -182,8 +179,24 @@ void http_worker(Datum db_oid) {
 
         bool query_is_null = false;
         Datum query = SPI_getbinval(tuple, tupdesc, 3, &query_is_null);
-        bool role_name_is_null = false;
-        Datum role_name = SPI_getbinval(tuple, tupdesc, 4, &role_name_is_null);
+
+        Oid role_id = InvalidOid;
+        bool role_superuser = false;
+        {
+          bool role_name_is_null = false;
+          Datum role_name = SPI_getbinval(tuple, tupdesc, 4, &role_name_is_null);
+
+          HeapTuple roleTup = SearchSysCache1(AUTHNAME, role_name);
+          if (!HeapTupleIsValid(roleTup)) {
+            ereport(WARNING,
+                    errmsg("role \"%s\" does not exist", NameStr(*DatumGetName(role_name))));
+          } else {
+            Form_pg_authid rform = (Form_pg_authid)GETSTRUCT(roleTup);
+            role_id = rform->oid;
+            role_superuser = rform->rolsuper;
+          }
+          ReleaseSysCache(roleTup);
+        }
 
         c_FOREACH(iter, clist_listener_contexts, listener_contexts) {
           int fd = iter.ref->fd;
@@ -270,10 +283,9 @@ void http_worker(Datum db_oid) {
                                                   [REQUEST_PLAN_HEADERS] = http_header_array_oid(),
                                               });
 
-                // Get role name
-                Name role = DatumGetName(role_name);
-                iter.ref->role_name = MemoryContextAlloc(iter.ref->memory_context, sizeof(*role));
-                memcpy(iter.ref->role_name, role, sizeof(*role));
+                // Get role
+                iter.ref->role_id = role_id;
+                iter.ref->role_supervisor = role_superuser;
 
                 // We have to keep the plan as we're going to disconnect from SPI
                 int keepret = SPI_keepplan(plan);
@@ -492,22 +504,12 @@ static int handler(h2o_handler_t *self, h2o_req_t *req) {
 
   int ret;
 
-  // Stores a pointer to the last used role name (NULL initially) in this process
+  // Stores OID of the last used role name (InvalidOid initially) in this process
   // to enable on-demand role switching.
-  static Name role_name;
-  if (role_name != lctx->role_name) {
-    role_name = lctx->role_name;
-    HeapTuple roleTup = SearchSysCache1(AUTHNAME, PointerGetDatum(role_name));
-    if (!HeapTupleIsValid(roleTup)) {
-      ereport(WARNING, errmsg("role \"%s\" does not exist", role_name->data));
-      req->res.status = 500;
-      h2o_send_inline(req, H2O_STRLIT("Internal server error"));
-      ReleaseSysCache(roleTup);
-      goto cleanup;
-    }
-    Form_pg_authid rform = (Form_pg_authid)GETSTRUCT(roleTup);
-    SetCurrentRoleId(rform->oid, rform->rolsuper);
-    ReleaseSysCache(roleTup);
+  static Oid role_id = InvalidOid;
+  if (role_id != lctx->role_id) {
+    role_id = lctx->role_id;
+    SetCurrentRoleId(role_id, lctx->role_supervisor);
   }
 
   // Execute listener's query
