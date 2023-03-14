@@ -252,7 +252,9 @@ void master_worker(Datum db_oid) {
               "omni_httpd.listeners_handlers  "
               "INNER JOIN omni_httpd.listeners ON listeners.id = listeners_handlers.listener_id "
               "INNER JOIN omni_httpd.handlers handlers ON handlers.id = "
-              "listeners_handlers.handler_id",
+              "listeners_handlers.handler_id GROUP BY listeners.id, "
+              "listeners_handlers.listener_id, "
+              "listeners.address, listeners.port",
               false, 0) == SPI_OK_SELECT) {
         TupleDesc tupdesc = SPI_tuptable->tupdesc;
         SPITupleTable *tuptable = SPI_tuptable;

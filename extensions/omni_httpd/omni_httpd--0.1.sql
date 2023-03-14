@@ -49,7 +49,8 @@ CREATE TABLE listeners (
 CREATE TABLE handlers (
     id integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
     query text NOT NULL,
-    role_name name NOT NULL DEFAULT current_user CHECK (current_user = role_name)
+    role_name name NOT NULL DEFAULT current_user CHECK (current_user = role_name),
+    name text
 );
 
 CREATE FUNCTION handlers_query_validity_trigger() RETURNS trigger
@@ -63,7 +64,8 @@ CREATE CONSTRAINT TRIGGER handlers_query_validity_trigger AFTER INSERT OR UPDATE
 
 CREATE TABLE listeners_handlers (
    listener_id integer NOT NULL REFERENCES listeners (id),
-   handler_id integer NOT NULL REFERENCES handlers (id)
+   handler_id integer NOT NULL REFERENCES handlers (id),
+   priority integer
 );
 CREATE INDEX listeners_handlers_index ON listeners_handlers (listener_id, handler_id);
 
