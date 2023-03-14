@@ -344,6 +344,8 @@ void master_worker(Datum db_oid) {
       ResetLatch(MyLatch);
       if (shutdown_worker) {
         SPI_finish();
+        PopActiveSnapshot();
+        AbortCurrentTransaction();
         return;
       }
     }
@@ -369,6 +371,12 @@ void master_worker(Datum db_oid) {
       while (!pg_atomic_compare_exchange_u32(semaphore, &expected, 0)) {
         expected = cvec_bgwhandle_size(&http_workers);
         HandleMainLoopInterrupts();
+        if (shutdown_worker) {
+          SPI_finish();
+          PopActiveSnapshot();
+          AbortCurrentTransaction();
+          return;
+        }
       }
     }
 
@@ -403,6 +411,9 @@ void master_worker(Datum db_oid) {
       while (!pg_atomic_compare_exchange_u32(semaphore, &expected, 0)) {
         expected = cvec_bgwhandle_size(&http_workers);
         HandleMainLoopInterrupts();
+        if (shutdown_worker) {
+          return;
+        }
       }
       http_workers_started = true;
     }
