@@ -10,16 +10,21 @@ ARG USER=omni
 ARG UID=501
 # Version of Alpine Linux for the builder
 # Currently set to a snaposhot of `edge` to get the minimum requires version of `cmake` (3.25.1)
-ARG ALPINE_VER=20230208
+ARG DEBIAN_VER=bullseye
 # Version of Alpine Linux for PostgreSQL container
-ARG ALPINE_VER_PG=3.17
+ARG DEBIAN_VER_PG=bullseye
 # Build parallelism
 ARG BUILD_PARALLEL_LEVEL
 
 # Base builder image
-FROM alpine:${ALPINE_VER} AS builder
-RUN apk add git cmake clang lld flex readline-dev zlib-dev openssl-dev libssl3 openssl-libs-static libcrypto3 \
-            tmux lldb gdb make musl-dev linux-headers perl
+FROM debian:${DEBIAN_VER}-slim AS builder
+RUN echo "deb http://deb.debian.org/debian bullseye-backports main contrib non-free" >> /etc/apt/sources.list 
+RUN apt update
+RUN apt install -y wget build-essential git clang lld flex libreadline-dev zlib1g-dev libssl-dev tmux lldb gdb make perl
+# current cmake is too old
+ARG DEBIAN_VER
+ENV DEBIAN_VER=${DEBIAN_VER}
+RUN apt install -y cmake -t ${DEBIAN_VER}-backports
 ARG USER
 ARG UID
 ARG PG
@@ -31,7 +36,7 @@ ENV PG=${PG}
 ENV BUILD_TYPE=${BUILD_TYPE}
 ENV BUILD_PARALLEL_LEVEL=${BUILD_PARALLEL_LEVEL}
 RUN mkdir -p /build /omni
-RUN adduser -D --uid ${UID} ${USER} && chown -R ${USER} /build /omni
+RUN adduser --uid ${UID} ${USER} && chown -R ${USER} /build /omni
 USER $USER
 RUN git config --global --add safe.directory '*'
 
@@ -52,11 +57,10 @@ RUN make -j ${BUILD_PARALLEL_LEVEL} all
 RUN make package
 
 # Official PostgreSQL build
-FROM postgres:${PG}-alpine${ALPINE_VER_PG} AS pg
+FROM postgres:${PG}-${DEBIAN_VER_PG} AS pg
 COPY --from=build /build/packaged /omni
 COPY docker/initdb/* /docker-entrypoint-initdb.d/
 RUN cp -R /omni/extension $(pg_config --sharedir)/ && cp -R /omni/*.so $(pg_config --pkglibdir)/ && rm -rf /omni
-RUN apk add python3-dev perl tcl-dev
-RUN cp /usr/lib/perl5/core_perl/CORE/libperl.so /usr/lib/libperl.so
+RUN apt update && apt -y install libtclcl1 libpython3.9 libperl5.32
 EXPOSE 8080
 EXPOSE 5432
