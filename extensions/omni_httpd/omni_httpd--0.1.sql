@@ -34,7 +34,7 @@ CREATE FUNCTION http_response(
     AS 'MODULE_PATHNAME', 'http_response'
     LANGUAGE C;
 
-CREATE DOMAIN port integer CHECK (VALUE > 0 AND VALUE <= 65535);
+CREATE DOMAIN port integer CHECK (VALUE >= 0 AND VALUE <= 65535);
 
 CREATE TYPE http_protocol AS ENUM ('http', 'https');
 
