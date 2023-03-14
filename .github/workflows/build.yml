@@ -92,8 +92,8 @@ jobs:
       if: failure()
       run: |
         echo "- diffs: "
-        find ${{github.workspace}}/build -name \*.diffs -exec cat {} \;
+        find ${{github.workspace}}/build -name \*.diffs -exec echo \n{}:\n \; -exec cat {} \;
         echo "- postmaster.log: "
-        find ${{github.workspace}}/build -name postmaster.log -exec cat {} \;
+        find ${{github.workspace}}/build -name postmaster.log -exec echo \n{}:\n \; -exec cat {} \;
         echo "- initdb.log: "
-        find ${{github.workspace}}/build -name initdb.log -exec cat {} \;
+        find ${{github.workspace}}/build -name initdb.log -exec echo \n{}:\n \; -exec cat {} \;
