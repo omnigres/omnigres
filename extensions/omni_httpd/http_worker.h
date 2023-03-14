@@ -28,10 +28,14 @@ typedef struct {
    */
   MemoryContext memory_context;
   /**
-   * @brief Role name
+   * @brief Role ID
    *
    */
-  Name role_name;
+  Oid role_id;
+  /**
+   * @brief Is role a superuser?
+   */
+  bool role_supervisor;
   /**
    * @brief Associated socket
    *
