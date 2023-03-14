@@ -244,25 +244,12 @@ void master_worker(Datum db_oid) {
     // We clear this list every time to prepare an up-to-date version
     cvec_fd_clear(&sockets);
 
-    // If HTTP workers have already been started, notify them of the upcoming change.
-    // It is okay to notify them at this time as they will try to connect to the UNIX socket
-    // which will be served as soon as we're done getting the new configuration and restart
-    // the event loop.
-    if (http_workers_started) {
-      pg_atomic_write_u32(semaphore, 0);
-      c_FOREACH(i, cvec_bgwhandle, http_workers) {
-        pid_t pid;
-        if (GetBackgroundWorkerPid(*i.ref, &pid) == BGWH_STARTED) {
-          kill(pid, SIGUSR2);
-        }
-      }
-    }
-
     // Get listeners
     while (worker_reload) {
       worker_reload = false;
       if (SPI_execute(
-              "SELECT listeners.address, listeners.port FROM omni_httpd.listeners_handlers  "
+              "SELECT listeners.address, listeners.port, listeners.id FROM "
+              "omni_httpd.listeners_handlers  "
               "INNER JOIN omni_httpd.listeners ON listeners.id = listeners_handlers.listener_id "
               "INNER JOIN omni_httpd.handlers handlers ON handlers.id = "
               "listeners_handlers.handler_id",
@@ -300,14 +287,31 @@ void master_worker(Datum db_oid) {
               // At least some ports are ready to be listened on
               port_ready = true;
               // Create a listening socket
+              in_port_t designated_port;
               int sock = create_listening_socket(
                   ip_family(inet_address) == PGSQL_AF_INET ? AF_INET : AF_INET6, port_no,
-                  address_str);
+                  address_str, &designated_port);
               if (sock == -1) {
                 int e = errno;
                 ereport(WARNING, errmsg("couldn't create listening socket on port %d: %s", port_no,
                                         strerror(e)));
               } else {
+                if (designated_port != port_no) {
+                  ereport(LOG, errmsg("omni_httpd listening port %d was replaced with %d", port_no,
+                                      designated_port));
+                  bool id_is_null = false;
+                  int update_retcode;
+                  if ((update_retcode = SPI_execute_with_args(
+                           "UPDATE omni_httpd.listeners SET port = $1 WHERE id = $2", 2,
+                           (Oid[2]){INT4OID, INT4OID},
+                           (Datum[2]){Int32GetDatum(designated_port),
+                                      SPI_getbinval(tuple, tupdesc, 3, &id_is_null)},
+                           "  ", false, 0)) != SPI_OK_UPDATE) {
+                    ereport(WARNING, errmsg("can't update omni_httpd.listeners: %s",
+                                            SPI_result_code_string(update_retcode)));
+                  }
+                }
+                port_no = designated_port;
                 cmap_portsock_insert(&portsocks, port_no, sock);
                 cset_port_push(&ports, port_no);
                 cvec_fd_push_back(&sockets, sock);
@@ -351,13 +355,29 @@ void master_worker(Datum db_oid) {
     }
     HandleMainLoopInterrupts();
 
-    // When the configuration is loaded, insert a reload event
-    // Next time http workers serve requests, they will be already using new data
-    int insert_retcode =
-        SPI_execute("INSERT INTO omni_httpd.configuration_reloads VALUES (DEFAULT)", false, 0);
-    if (insert_retcode != SPI_OK_INSERT) {
-      ereport(WARNING, errmsg("can't insert into omni_httpd.configuration_reloads: %s",
-                              SPI_result_code_string(insert_retcode)));
+    // Commit current state for http workers to read
+    SPI_finish();
+    PopActiveSnapshot();
+    CommitTransactionCommand();
+
+    // Prepare transaction for configuration reload notification
+    SPI_connect();
+    SetCurrentStatementStartTimestamp();
+    StartTransactionCommand();
+    PushActiveSnapshot(GetTransactionSnapshot());
+
+    // If HTTP workers have already been started, notify them of the change.
+    // It is okay to notify them at this time as they will try to connect to the UNIX socket
+    // which will be served as soon as we're done getting the new configuration and restart
+    // the event loop.
+    if (http_workers_started) {
+      pg_atomic_write_u32(semaphore, 0);
+      c_FOREACH(i, cvec_bgwhandle, http_workers) {
+        pid_t pid;
+        if (GetBackgroundWorkerPid(*i.ref, &pid) == BGWH_STARTED) {
+          kill(pid, SIGUSR2);
+        }
+      }
     }
 
     // However, there's a problem with the fact that we don't know when all the http workers
@@ -378,6 +398,15 @@ void master_worker(Datum db_oid) {
           return;
         }
       }
+    }
+
+    // When the configuration is loaded, insert a reload event
+    // Next time http workers serve requests, they will be already using new data
+    int insert_retcode =
+        SPI_execute("INSERT INTO omni_httpd.configuration_reloads VALUES (DEFAULT)", false, 0);
+    if (insert_retcode != SPI_OK_INSERT) {
+      ereport(WARNING, errmsg("can't insert into omni_httpd.configuration_reloads: %s",
+                              SPI_result_code_string(insert_retcode)));
     }
 
     // After doing this, we're ready to commit

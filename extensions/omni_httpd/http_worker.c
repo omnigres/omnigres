@@ -175,7 +175,7 @@ void http_worker(Datum db_oid) {
         bool port_is_null = false;
         Datum port = SPI_getbinval(tuple, tupdesc, 2, &port_is_null);
 
-        int port_no = DatumGetInt16(port);
+        int port_no = DatumGetInt32(port);
 
         bool query_is_null = false;
         Datum query = SPI_getbinval(tuple, tupdesc, 3, &query_is_null);
@@ -359,11 +359,12 @@ static void on_accept(h2o_socket_t *listener, const char *err) {
  * @param address
  * @return int
  */
-int create_listening_socket(sa_family_t family, in_port_t port, char *address) {
+int create_listening_socket(sa_family_t family, in_port_t port, char *address,
+                            in_port_t *out_port) {
   struct sockaddr_in addr;
   struct sockaddr_in6 addr6;
   void *sockaddr;
-  size_t socksize;
+  socklen_t socksize;
   int fd, reuseaddr_flag = 1;
 
   if (family == AF_INET) {
@@ -388,6 +389,22 @@ int create_listening_socket(sa_family_t family, in_port_t port, char *address) {
       setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuseaddr_flag, sizeof(reuseaddr_flag)) != 0 ||
       bind(fd, (struct sockaddr *)sockaddr, socksize) != 0 || listen(fd, SOMAXCONN) != 0) {
     return -1;
+  }
+
+  if (out_port != NULL) {
+    if (getsockname(fd, sockaddr, &socksize) == -1) {
+      int e = errno;
+      ereport(WARNING, errmsg("getsockname failed with: %s", strerror(e)));
+    }
+    if (family == AF_INET) {
+      Assert(addr.sin_family == AF_INET);
+      *out_port = ntohs(addr.sin_port);
+    } else if (family == AF_INET6) {
+      Assert(addr.sin_family == AF_INET6);
+      *out_port = ntohs(addr6.sin6_port);
+    } else {
+      return -1;
+    }
   }
 
   return fd;

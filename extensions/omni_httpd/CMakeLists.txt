@@ -23,7 +23,7 @@ add_postgresql_extension(
         SCRIPTS omni_httpd--0.1.sql
         SOURCES omni_httpd.c master_worker.c http_worker.c fd.c cascading_query.c
         TESTS_REQUIRE omni_ext
-        REGRESS http role_name cascading_query handler_validity)
+        REGRESS http role_name cascading_query handler_validity port_selector)
 
 target_link_libraries(omni_httpd libh2o-evloop libpgaug libomnisql libgluepg_stc dynpgext metalang99)
 
