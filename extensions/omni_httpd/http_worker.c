@@ -160,10 +160,13 @@ void http_worker(Datum db_oid) {
     SPI_connect();
 
     int ret = SPI_execute(
-        "SELECT listeners.address, listeners.port, handlers.query, handlers.role_name FROM "
-        "omni_httpd.listeners_handlers "
-        "INNER JOIN omni_httpd.listeners ON listeners.id = listeners_handlers.listener_id "
-        "INNER JOIN omni_httpd.handlers handlers ON handlers.id = listeners_handlers.handler_id",
+        // clang-format off
+            "SELECT listeners.address, listeners.port, omni_httpd.cascading_query(coalesce(handlers.name, gen_random_uuid()::text), handlers.query), handlers.role_name FROM "
+            "(SELECT * FROM omni_httpd.listeners_handlers ORDER BY priority DESC NULLS LAST) listeners_handlers "
+            "INNER JOIN omni_httpd.listeners ON listeners.id = listeners_handlers.listener_id "
+            "INNER JOIN omni_httpd.handlers handlers ON handlers.id = listeners_handlers.handler_id "
+            "GROUP BY listeners.id, listeners.address, listeners.port, handlers.role_name",
+        // clang-format on
         false, 0);
     if (ret == SPI_OK_SELECT) {
       TupleDesc tupdesc = SPI_tuptable->tupdesc;
@@ -253,11 +256,11 @@ void http_worker(Datum db_oid) {
             MemoryContext memory_context = CurrentMemoryContext;
             char *request_cte = psprintf(
                 // clang-format off
-                      "SELECT $" REQUEST_PLAN_PARAM(REQUEST_PLAN_PATH) " AS path, "
-                       "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_METHOD) "::text::omni_httpd.http_method AS method, "
-                       "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_QUERY_STRING) " AS query_string, "
-                       "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_BODY) " AS body, "
-                       "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_HEADERS) " AS headers "
+                            "SELECT $" REQUEST_PLAN_PARAM(REQUEST_PLAN_PATH) " AS path, "
+                            "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_METHOD) "::text::omni_httpd.http_method AS method, "
+                            "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_QUERY_STRING) " AS query_string, "
+                            "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_BODY) " AS body, "
+                            "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_HEADERS) " AS headers "
                 // clang-format on
             );
 
