@@ -1,13 +1,13 @@
 --- Force omni_httpd to select a port
 BEGIN;
-WITH listener AS (INSERT INTO omni_httpd.listeners (address, port) VALUES ('127.0.0.1', 0) RETURNING id),
-     handler AS (INSERT INTO omni_httpd.handlers (query) VALUES ($$SELECT$$))
-INSERT INTO omni_httpd.listeners_handlers (listener_id, handler_id)
-SELECT listener.id, handler.id
-FROM listener, handler;
-ERROR:  WITH query "handler" does not have a RETURNING clause
-LINE 5: FROM listener, handler;
-                       ^
+WITH listener AS (INSERT INTO omni_httpd.listeners (address, port, handler_id) VALUES ('127.0.0.1', 0, (SELECT id FROM handler)) RETURNING id),
+     handler AS (INSERT INTO omni_httpd.handlers VALUES (DEFAULT) RETURNING id)
+     SELECT * FROM listener;
+ERROR:  relation "handler" does not exist
+LINE 1: ...ndler_id) VALUES ('127.0.0.1', 0, (SELECT id FROM handler)) ...
+                                                             ^
+DETAIL:  There is a WITH item named "handler", but it cannot be referenced from this part of the query.
+HINT:  Use WITH RECURSIVE, or re-order the WITH items to remove forward references.
 DELETE FROM omni_httpd.configuration_reloads;
 ERROR:  current transaction is aborted, commands ignored until end of transaction block
 END;

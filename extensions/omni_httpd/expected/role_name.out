@@ -14,7 +14,7 @@ CALL omni_httpd.wait_for_configuration_reloads(1);
 BEGIN;
 UPDATE omni_httpd.handlers SET role_name = 'some_role' WHERE role_name = 'test_user';
 ERROR:  new row for relation "handlers" violates check constraint "handlers_role_name_check"
-DETAIL:  Failing row contains (3, SELECT omni_httpd.http_response(body => current_user::text) FROM..., some_role).
+DETAIL:  Failing row contains (3, SELECT omni_httpd.http_response(body => current_user::text) FROM..., some_role, null).
 DELETE FROM omni_httpd.configuration_reloads;
 ERROR:  current transaction is aborted, commands ignored until end of transaction block
 END;
@@ -23,7 +23,7 @@ CALL omni_httpd.wait_for_configuration_reloads(1);
 BEGIN;
 UPDATE omni_httpd.handlers SET role_name = 'test_user1' WHERE role_name = 'test_user';
 ERROR:  new row for relation "handlers" violates check constraint "handlers_role_name_check"
-DETAIL:  Failing row contains (3, SELECT omni_httpd.http_response(body => current_user::text) FROM..., test_user1).
+DETAIL:  Failing row contains (3, SELECT omni_httpd.http_response(body => current_user::text) FROM..., test_user1, null).
 DELETE FROM omni_httpd.configuration_reloads;
 ERROR:  current transaction is aborted, commands ignored until end of transaction block
 END;
@@ -40,7 +40,7 @@ SET ROLE test_user;
 UPDATE omni_httpd.handlers SET query = $$SELECT omni_httpd.http_response(body => current_user::text) FROM request$$
     WHERE role_name = 'test_user1' RETURNING role_name;
 ERROR:  new row for relation "handlers" violates check constraint "handlers_role_name_check"
-DETAIL:  Failing row contains (3, SELECT omni_httpd.http_response(body => current_user::text) FROM..., test_user1).
+DETAIL:  Failing row contains (3, SELECT omni_httpd.http_response(body => current_user::text) FROM..., test_user1, null).
 -- This will work
 BEGIN;
 UPDATE omni_httpd.handlers SET query = $$SELECT omni_httpd.http_response(body => current_user::text) FROM request$$,

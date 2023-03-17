@@ -5,26 +5,26 @@ CREATE TABLE users (
 );
 INSERT INTO users (handle, name) VALUES ('johndoe', 'John');
 BEGIN;
-WITH listener AS (INSERT INTO omni_httpd.listeners (address, port) VALUES ('127.0.0.1', 9000) RETURNING id),
-     handler AS (INSERT INTO omni_httpd.handlers (query)
-     SELECT omni_httpd.cascading_query(name, query) FROM (VALUES
-      ('hello',
+WITH handler AS (INSERT INTO omni_httpd.handlers VALUES (DEFAULT) RETURNING id),
+     listener AS (INSERT INTO omni_httpd.listeners (address, port, handler_id) VALUES ('127.0.0.1', 9000, (SELECT id FROM handler)) RETURNING id),
+     queries AS (INSERT INTO omni_httpd.handlers_queries (priority, name, query, handler_id) VALUES
+      (1, 'hello',
       $$SELECT omni_httpd.http_response(headers => array[omni_httpd.http_header('content-type', 'text/html')], body => 'Hello, <b>' || users.name || '</b>!')
        FROM request
        INNER JOIN users ON string_to_array(request.path,'/', '') = array[NULL, 'users', users.handle]
-      $$),
-      ('headers',
-      $$SELECT omni_httpd.http_response(body => request.headers::text) FROM request WHERE request.path = '/headers'$$),
-      ('echo',
-      $$SELECT omni_httpd.http_response(body => request.body) FROM request WHERE request.path = '/echo'$$),
-      ('not_found',
+      $$, (SELECT id FROM handler)),
+      (1, 'headers',
+      $$SELECT omni_httpd.http_response(body => request.headers::text) FROM request WHERE request.path = '/headers'$$, (SELECT id FROM handler)),
+      (1, 'echo',
+      $$SELECT omni_httpd.http_response(body => request.body) FROM request WHERE request.path = '/echo'$$, (SELECT id FROM handler)),
+      (0, 'not_found',
       $$SELECT omni_httpd.http_response(status => 404, body => json_build_object('method', request.method, 'path', request.path, 'query_string', request.query_string))
-       FROM request$$)
-     ) AS routes(name,query)
-RETURNING id)
-INSERT INTO omni_httpd.listeners_handlers (listener_id, handler_id)
-SELECT listener.id, handler.id
-FROM listener, handler;
+       FROM request$$,  (SELECT id FROM handler)) RETURNING id)
+SELECT * FROM listener, queries LIMIT 0;
+ id | id 
+----+----
+(0 rows)
+
 DELETE FROM omni_httpd.configuration_reloads;
 END;
 CALL omni_httpd.wait_for_configuration_reloads(1);
@@ -49,10 +49,7 @@ Content-Type: text/html
 {"(user-agent,test-agent,t)","(accept,*/*,t)"}-- Try changing configuration
 BEGIN;
 UPDATE omni_httpd.listeners SET port = 9001 WHERE port = 9000;
-WITH listener AS (INSERT INTO omni_httpd.listeners (address, port) VALUES ('127.0.0.1', 9002) RETURNING id),
-     handler AS (SELECT ls.handler_id AS id FROM omni_httpd.listeners INNER JOIN omni_httpd.listeners_handlers ls ON ls.listener_id = listeners.id WHERE port = 9001)
-INSERT INTO omni_httpd.listeners_handlers (listener_id, handler_id)
- SELECT listener.id, handler.id FROM listener, handler;
+INSERT INTO omni_httpd.listeners (address, port, handler_id) VALUES ('127.0.0.1', 9002, (SELECT handler_id AS id FROM omni_httpd.listeners WHERE port = 9001));
 DELETE FROM omni_httpd.configuration_reloads;
 END;
 CALL omni_httpd.wait_for_configuration_reloads(1);

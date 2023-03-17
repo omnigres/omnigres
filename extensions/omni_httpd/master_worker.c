@@ -248,11 +248,7 @@ void master_worker(Datum db_oid) {
     while (worker_reload) {
       worker_reload = false;
       if (SPI_execute(
-              "SELECT listeners.address, listeners.port, listeners.id FROM "
-              "omni_httpd.listeners_handlers  "
-              "INNER JOIN omni_httpd.listeners ON listeners.id = listeners_handlers.listener_id "
-              "INNER JOIN omni_httpd.handlers handlers ON handlers.id = "
-              "listeners_handlers.handler_id",
+              "SELECT listeners.address, listeners.port, listeners.id FROM omni_httpd.listeners",
               false, 0) == SPI_OK_SELECT) {
         TupleDesc tupdesc = SPI_tuptable->tupdesc;
         SPITupleTable *tuptable = SPI_tuptable;

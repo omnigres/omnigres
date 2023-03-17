@@ -1,10 +1,8 @@
 --- Force omni_httpd to select a port
 BEGIN;
-WITH listener AS (INSERT INTO omni_httpd.listeners (address, port) VALUES ('127.0.0.1', 0) RETURNING id),
-     handler AS (INSERT INTO omni_httpd.handlers (query) VALUES ($$SELECT$$))
-INSERT INTO omni_httpd.listeners_handlers (listener_id, handler_id)
-SELECT listener.id, handler.id
-FROM listener, handler;
+WITH listener AS (INSERT INTO omni_httpd.listeners (address, port, handler_id) VALUES ('127.0.0.1', 0, (SELECT id FROM handler)) RETURNING id),
+     handler AS (INSERT INTO omni_httpd.handlers VALUES (DEFAULT) RETURNING id)
+     SELECT * FROM listener;
 DELETE FROM omni_httpd.configuration_reloads;
 END;
 

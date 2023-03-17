@@ -38,34 +38,37 @@ CREATE DOMAIN port integer CHECK (VALUE >= 0 AND VALUE <= 65535);
 
 CREATE TYPE http_protocol AS ENUM ('http', 'https');
 
-CREATE TABLE listeners (
-    id integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-    address inet NOT NULL DEFAULT '127.0.0.1',
-    port port NOT NULL DEFAULT 80,
-    protocol http_protocol NOT NULL DEFAULT 'http'
-    -- TODO: key/cert
-);
 
 CREATE TABLE handlers (
     id integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-    query text NOT NULL,
-    role_name name NOT NULL DEFAULT current_user CHECK (current_user = role_name)
+    role_name name NOT NULL DEFAULT current_user CHECK (current_user = role_name),
+    name text
 );
 
-CREATE FUNCTION handlers_query_validity_trigger() RETURNS trigger
-AS 'MODULE_PATHNAME', 'handlers_query_validity_trigger' LANGUAGE C;
+CREATE TABLE handlers_queries (
+   id integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+   handler_id integer NOT NULL REFERENCES handlers (id),
+   query text,
+   name text,
+   priority integer
+);
 
-CREATE CONSTRAINT TRIGGER handlers_query_validity_trigger AFTER INSERT OR UPDATE
-  ON handlers
+CREATE FUNCTION handlers_queries_validity_trigger() RETURNS trigger
+AS 'MODULE_PATHNAME', 'handlers_queries_validity_trigger' LANGUAGE C;
+
+CREATE CONSTRAINT TRIGGER handlers_queries_validity_trigger AFTER INSERT OR UPDATE
+  ON handlers_queries
   DEFERRABLE INITIALLY DEFERRED
   FOR EACH ROW
-  EXECUTE FUNCTION handlers_query_validity_trigger();
+  EXECUTE FUNCTION handlers_queries_validity_trigger();
 
-CREATE TABLE listeners_handlers (
-   listener_id integer NOT NULL REFERENCES listeners (id),
-   handler_id integer NOT NULL REFERENCES handlers (id)
+ CREATE TABLE listeners (
+    id integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    address inet NOT NULL DEFAULT '127.0.0.1',
+    port port NOT NULL DEFAULT 80,
+    protocol http_protocol NOT NULL DEFAULT 'http',
+    handler_id integer NOT NULL REFERENCES handlers (id)
 );
-CREATE INDEX listeners_handlers_index ON listeners_handlers (listener_id, handler_id);
 
 CREATE TABLE configuration_reloads (
     id integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
@@ -103,9 +106,9 @@ CREATE TRIGGER handlers_updated
     ON handlers
 EXECUTE FUNCTION reload_configuration_trigger();
 
-CREATE TRIGGER listeners_handlers_updated
+CREATE TRIGGER handlers_queries_updated
     AFTER UPDATE OR DELETE OR INSERT
-    ON listeners_handlers
+    ON handlers_queries
 EXECUTE FUNCTION reload_configuration_trigger();
 
 CREATE FUNCTION cascading_query_reduce(internal, name text, query text) RETURNS internal
@@ -122,65 +125,62 @@ CREATE AGGREGATE cascading_query (name text, query text) (
 
 -- Initialization
 WITH config AS
-         (SELECT coalesce(NOT current_setting('omni_httpd.no_init', true)::bool, true)     AS should_init,
-                 coalesce(current_setting('omni_httpd.init_listen_address', true),
-                          '0.0.0.0')::inet                                                 AS init_listen_address,
-                 coalesce(current_setting('omni_httpd.init_port', true)::port, 8080::port) AS init_port),
-     listener AS (INSERT INTO listeners (address, port) SELECT init_listen_address, init_port FROM config RETURNING id),
-     handler AS (INSERT INTO handlers (query) VALUES(
-       $$
-       WITH stats AS (SELECT * FROM pg_catalog.pg_stat_database WHERE datname = current_database())
-       SELECT omni_httpd.http_response(headers => array[omni_httpd.http_header('content-type', 'text/html')],
-       body => $html$
-       <!DOCTYPE html>
-       <html>
-         <head>
-           <title>Omnigres</title>
-           <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
-           <meta name="viewport" content="width=device-width, initial-scale=1">
-         </head>
-         <body class="container">
-         <section class="section">
-           <div class="container">
-             <h1 class="title">Omnigres</h1>
+          (SELECT coalesce(NOT current_setting('omni_httpd.no_init', true)::bool, true)     AS should_init,
+                  coalesce(current_setting('omni_httpd.init_listen_address', true),
+                           '0.0.0.0')::inet                                                 AS init_listen_address,
+                  coalesce(current_setting('omni_httpd.init_port', true)::port, 8080::port) AS init_port),
+      handler AS (INSERT INTO handlers (name) VALUES ('default') RETURNING id),
+      listener AS (INSERT INTO listeners (address, port, handler_id) SELECT init_listen_address, init_port, (SELECT id FROM handler) FROM config RETURNING id)
+      INSERT INTO handlers_queries (handler_id, query) SELECT queries.* FROM (VALUES((SELECT id FROM handler),
+        $$
+        WITH stats AS (SELECT * FROM pg_catalog.pg_stat_database WHERE datname = current_database())
+        SELECT omni_httpd.http_response(headers => array[omni_httpd.http_header('content-type', 'text/html')],
+        body => $html$
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Omnigres</title>
+            <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.4/css/bulma.min.css">
+            <meta name="viewport" content="width=device-width, initial-scale=1">
+          </head>
+          <body class="container">
+          <section class="section">
+            <div class="container">
+              <h1 class="title">Omnigres</h1>
 
-             <div class="tile is-ancestor">
-                <div class="tile is-parent is-8">
-                 <article class="tile is-child notification is-primary">
-                   <div class="content">
-                     <p class="title">Welcome!</p>
-                     <p class="subtitle">What's next?</p>
-                     <div class="content">
-                     <p>You can update the query in the <code>omni_httpd.handlers</code> table to change this default page.</p>
+              <div class="tile is-ancestor">
+                 <div class="tile is-parent is-8">
+                  <article class="tile is-child notification is-primary">
+                    <div class="content">
+                      <p class="title">Welcome!</p>
+                      <p class="subtitle">What's next?</p>
+                      <div class="content">
+                      <p>You can update the query in the <code>omni_httpd.handlers</code> table to change this default page.</p>
 
-                     <p><a href="https://docs.omnigres.org">Documentation</a></p>
-                     </div>
-                   </div>
-                 </article>
-               </div>
-               <div class="tile is-vertical">
-                 <div class="tile">
-                   <div class="tile is-parent is-vertical">
-                     <article class="tile is-child notification is-grey-lighter">
-                       <p class="title">Database</p>
-                       <p class="subtitle"><strong>$html$ || current_database() || $html$</strong></p>
-                       <p> <strong>Backends</strong>: $html$ || (SELECT numbackends FROM stats) || $html$ </p>
-                       <p> <strong>Transactions committed</strong>: $html$ || (SELECT xact_commit FROM stats) || $html$ </p>
-                     </article>
-                   </div>
-                 </div>
-               </div>
-             </div>
+                      <p><a href="https://docs.omnigres.org">Documentation</a></p>
+                      </div>
+                    </div>
+                  </article>
+                </div>
+                <div class="tile is-vertical">
+                  <div class="tile">
+                    <div class="tile is-parent is-vertical">
+                      <article class="tile is-child notification is-grey-lighter">
+                        <p class="title">Database</p>
+                        <p class="subtitle"><strong>$html$ || current_database() || $html$</strong></p>
+                        <p> <strong>Backends</strong>: $html$ || (SELECT numbackends FROM stats) || $html$ </p>
+                        <p> <strong>Transactions committed</strong>: $html$ || (SELECT xact_commit FROM stats) || $html$ </p>
+                      </article>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
-             <p class="is-size-7">
-               Running on <strong> $html$ || version() || $html$ </strong>
-             </p>
-           </div>
-         </section>
-         </body>
-       </html>
-       $html$) FROM request $$) RETURNING id)
-INSERT INTO listeners_handlers (listener_id, handler_id)
-SELECT listener.id, handler.id
-FROM config, listener, handler
-WHERE config.should_init;
+              <p class="is-size-7">
+                Running on <strong> $html$ || version() || $html$ </strong>
+              </p>
+            </div>
+          </section>
+          </body>
+        </html>
+        $html$) FROM request $$)) AS queries(handler_id, query), config, listener WHERE config.should_init;

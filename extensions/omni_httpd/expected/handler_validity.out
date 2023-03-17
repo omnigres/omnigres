@@ -1,17 +1,21 @@
 -- Invalid queries
-INSERT INTO omni_httpd.handlers (query) VALUES($$SELECT * FROM no_such_table$$);
-ERROR:  invalid query
-DETAIL:  relation "no_such_table" does not exist
-INSERT INTO omni_httpd.handlers (query) VALUES($$SELECT request.pth FROM request$$);
-ERROR:  invalid query
-DETAIL:  column request.pth does not exist
-INSERT INTO omni_httpd.handlers (query) VALUES($$$$);
-ERROR:  query can only contain one statement
-INSERT INTO omni_httpd.handlers (query) VALUES($$SELECT; SELECT$$);
-ERROR:  query can only contain one statement
+BEGIN;
+INSERT INTO omni_httpd.handlers VALUES (DEFAULT) RETURNING id AS handler_id \gset
+INSERT INTO omni_httpd.handler_queries (handler_id, query) VALUES(:handler_id, $$SELECT * FROM no_such_table$$);
+ERROR:  relation "omni_httpd.handler_queries" does not exist
+LINE 1: INSERT INTO omni_httpd.handler_queries (handler_id, query) V...
+                    ^
+INSERT INTO omni_httpd.handler_queries (handler_id, query) VALUES(:handler_id, $$SELECT request.pth FROM request$$);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+INSERT INTO omni_httpd.handler_queries (handler_id, query) VALUES(:handler_id, $$$$);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+INSERT INTO omni_httpd.handler_queries (handler_id, query) VALUES(:handler_id, $$SELECT; SELECT$$);
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+ROLLBACK;
 -- Valid query at the end of the transaction
 BEGIN;
-INSERT INTO omni_httpd.handlers (query) VALUES($$SELECT * FROM no_such_table$$);
+INSERT INTO omni_httpd.handlers VALUES (DEFAULT) RETURNING id AS handler_id \gset
+INSERT INTO omni_httpd.handlers_queries (handler_id, query) VALUES(:handler_id, $$SELECT * FROM no_such_table$$);
 CREATE TABLE no_such_table ();
 END;
 DROP TABLE no_such_table;

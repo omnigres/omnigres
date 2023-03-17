@@ -175,14 +175,14 @@ Datum http_response(PG_FUNCTION_ARGS) {
   PG_RETURN_DATUM(HeapTupleGetDatum(response));
 }
 
-PG_FUNCTION_INFO_V1(handlers_query_validity_trigger);
+PG_FUNCTION_INFO_V1(handlers_queries_validity_trigger);
 
-Datum handlers_query_validity_trigger(PG_FUNCTION_ARGS) {
+Datum handlers_queries_validity_trigger(PG_FUNCTION_ARGS) {
   if (CALLED_AS_TRIGGER(fcinfo)) {
     TriggerData *trigger_data = (TriggerData *)(fcinfo->context);
     TupleDesc tupdesc = trigger_data->tg_relation->rd_att;
     bool isnull;
-    Datum query = SPI_getbinval(trigger_data->tg_trigtuple, tupdesc, 2, &isnull);
+    Datum query = SPI_getbinval(trigger_data->tg_trigtuple, tupdesc, 3, &isnull);
     if (isnull) {
       ereport(ERROR, errmsg("query can't be null"));
     }
