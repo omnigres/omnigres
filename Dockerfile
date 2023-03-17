@@ -56,11 +56,38 @@ RUN cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DPG=${PG} /omni
 RUN make -j ${BUILD_PARALLEL_LEVEL} all
 RUN make package
 
+ARG V8_BUILD_CONCURRENCY
+
+# PLV8
+FROM postgres:${PG}-${DEBIAN_VER_PG} AS plv8
+ARG V8_BUILD_CONCURRENCY=0
+ENV PLV8_VERSION=3.1.5
+ENV PLV8_BRANCH=r3.1
+ENV V8_BUILD_CONCURRENCY=${V8_BUILD_CONCURRENCY}
+RUN set -ex \
+  && apt-get update \
+  && apt-get install -y build-essential curl python3 ninja-build git wget postgresql-server-dev-${PG_MAJOR} libtinfo5 pkg-config clang binutils \
+  && git clone https://github.com/plv8/plv8 \
+  && cd plv8 \
+  && git checkout ${PLV8_BRANCH} \
+  && sed -i -e 's/--args/--ninja-extra-args="-j $V8_BUILD_CONCURRENCY" --args/g' Makefiles/Makefile.docker \
+  && make DOCKER=1 generate_upgrades \
+  && make DOCKER=1 install \
+  && strip /usr/lib/postgresql/${PG_MAJOR}/lib/plv8-${PLV8_VERSION}.so
+
 # Official PostgreSQL build
 FROM postgres:${PG}-${DEBIAN_VER_PG} AS pg
+ENV PLV8_VERSION=3.1.5
 COPY --from=build /build/packaged /omni
 COPY docker/initdb/* /docker-entrypoint-initdb.d/
 RUN cp -R /omni/extension $(pg_config --sharedir)/ && cp -R /omni/*.so $(pg_config --pkglibdir)/ && rm -rf /omni
 RUN apt update && apt -y install libtclcl1 libpython3.9 libperl5.32
+
+COPY --from=plv8 /usr/lib/postgresql/${PG_MAJOR}/lib/plv8* /usr/lib/postgresql/${PG_MAJOR}/lib/
+COPY --from=plv8 /usr/lib/postgresql/${PG_MAJOR}/lib/bitcode/plv8-${PLV8_VERSION}.index.bc /usr/lib/postgresql/${PG_MAJOR}/lib/bitcode/
+COPY --from=plv8 /usr/lib/postgresql/${PG_MAJOR}/lib/bitcode/plv8-${PLV8_VERSION}/* /usr/lib/postgresql/${PG_MAJOR}/lib/bitcode/plv8-${PLV8_VERSION}/
+COPY --from=plv8 /usr/share/postgresql/${PG_MAJOR}/extension/plv8* /usr/share/postgresql/${PG_MAJOR}/extension/
+COPY --from=plv8 /usr/share/postgresql/${PG_MAJOR}/extension/plls* /usr/share/postgresql/${PG_MAJOR}/extension/
+COPY --from=plv8 /usr/share/postgresql/${PG_MAJOR}/extension/plcoffee* /usr/share/postgresql/${PG_MAJOR}/extension/
 EXPOSE 8080
 EXPOSE 5432

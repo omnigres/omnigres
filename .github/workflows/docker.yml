@@ -21,7 +21,6 @@ env:
   # github.repository as <account>/<repo>
   IMAGE_NAME: ${{ github.repository }}
 
-
 jobs:
   build:
 
@@ -29,7 +28,7 @@ jobs:
       matrix:
         platform: [ amd64, arm64 ]
 
-    runs-on: ${{ fromJSON('["buildjet-4vcpu-ubuntu-2204", "buildjet-4vcpu-ubuntu-2204-arm"]')[matrix.platform == 'arm64'] }}
+    runs-on: ${{ fromJSON('["buildjet-4vcpu-ubuntu-2204", "buildjet-8vcpu-ubuntu-2204-arm"]')[matrix.platform == 'arm64'] }}
 
     permissions:
       contents: read
@@ -43,6 +42,20 @@ jobs:
       AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_AWS_SECRET_ACCESS_KEY }}
 
     steps:
+      - name: Get source branch name
+        id: branch-name
+        uses: tj-actions/branch-names@v6
+
+      - name: Set image name on local pull requests
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          echo "IMAGE_NAME=${IMAGE_NAME}-${{ steps.branch-name.outputs.current_branch }}" >> $GITHUB_ENV
+
+      - name: Figure out V8 build concurrency
+        # Approximately 4GB per core (source: https://github.com/plv8/plv8/issues/509#issuecomment-1315351087)
+        run: |
+          echo "V8_BUILD_CONCURRENCY=$(free -g | awk 'NR==2{print int($7/4)}')" >> $GITHUB_ENV
+
       - name: Checkout repository
         uses: actions/checkout@v3
 
@@ -60,11 +73,16 @@ jobs:
         with:
           version: 'v0.10.4'
           driver-opts: image=ghcr.io/omnigres/buildkit:${{ matrix.platform }}-0.11.4
-
+          # This will use limited resources more conservatively:
+          config-inline: |
+            [worker.oci]
+              max-parallelism = 1
+      
+      
       # Login against a Docker registry except on PR
       # https://github.com/docker/login-action
       - name: Log into registry ${{ env.REGISTRY }}
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: docker/login-action@28218f9b04b4f3f62068d7b6ce6ca5b26e35336c
         with:
           registry: ${{ env.REGISTRY }}
@@ -72,7 +90,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Log into Docker Hub for increased limits
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
         uses: docker/login-action@28218f9b04b4f3f62068d7b6ce6ca5b26e35336c
         with:
           username: ${{ secrets.DOCKER_USER }}
@@ -93,15 +111,16 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: .
-          push: ${{ github.event_name != 'pull_request' }}
+          push: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-${{ matrix.platform }}
           provenance: false
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=s3,region=us-east-1,bucket=omnigres-ci-cache,name=omnigres-${{ matrix.platform }}
-          cache-to: ${{ format(fromJSON('["type=s3,mode=max,region=us-east-1,bucket=omnigres-ci-cache,name=omnigres-{0}","type=inline"]')[ github.event_name == 'pull_request' ], matrix.platform) }}
+          cache-from: type=s3,region=us-east-1,bucket=omnigres-ci-cache,name=${{ env.IMAGE_NAME }}-${{ matrix.platform }}
+          cache-to: ${{ format(fromJSON('["type=s3,mode=max,region=us-east-1,bucket=omnigres-ci-cache,name={0}-{1}","type=inline"]')[  github.event.pull_request.head.repo.full_name != github.repository || github.event_name == 'pull_request' ], env.IMAGE_NAME, matrix.platform) }}
           build-args: |
             BUILD_PARALLEL_LEVEL=4
+            V8_BUILD_CONCURRENCY=${{env.V8_BUILD_CONCURRENCY}}
           platforms: linux/${{ matrix.platform }}
 
         #       # Sign the resulting Docker image digest except on PRs.
@@ -117,10 +136,20 @@ jobs:
         #         # against the sigstore community Fulcio instance.
         #         run: echo "${{ steps.meta.outputs.tags }}" | xargs -I {} cosign sign {}@${{ steps.build-and-push.outputs.digest }}
   manifest:
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     needs: build
     runs-on: ubuntu-latest
     steps:
+
+      - name: Get source branch name
+        id: branch-name
+        uses: tj-actions/branch-names@v6
+
+      - name: Set image name on local pull requests
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+        run: |
+          echo "IMAGE_NAME=${IMAGE_NAME}-${{ steps.branch-name.outputs.current_branch }}" >> $GITHUB_ENV
+
       - uses: actions/checkout@v3
 
       # Login against a Docker registry except on PR
