@@ -253,11 +253,11 @@ void http_worker(Datum db_oid) {
             MemoryContext memory_context = CurrentMemoryContext;
             char *request_cte = psprintf(
                 // clang-format off
-                      "SELECT $" REQUEST_PLAN_PARAM(REQUEST_PLAN_PATH) " AS path, "
-                       "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_METHOD) "::text::omni_httpd.http_method AS method, "
-                       "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_QUERY_STRING) " AS query_string, "
-                       "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_BODY) " AS body, "
-                       "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_HEADERS) " AS headers "
+                    "SELECT " "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_METHOD) "::text::omni_httpd.http_method AS method, "
+                    "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_PATH) " AS path, "
+                    "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_QUERY_STRING) " AS query_string, "
+                    "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_BODY) " AS body, "
+                    "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_HEADERS) " AS headers "
                 // clang-format on
             );
 

@@ -19,6 +19,9 @@ WITH listener AS (INSERT INTO omni_httpd.listeners (address, port) VALUES ('127.
       $$SELECT omni_httpd.http_response(body => request.headers::text) FROM request WHERE request.path = '/headers'$$),
       ('echo',
       $$SELECT omni_httpd.http_response(body => request.body) FROM request WHERE request.path = '/echo'$$),
+      -- This validates that `request CTE` can be casted to http_request
+      ('http_request',
+      $$SELECT omni_httpd.http_response(body => request.*::omni_httpd.http_request::text) FROM request WHERE request.path = '/http_request'$$),
       ('not_found',
       $$SELECT omni_httpd.http_response(status => 404, body => json_build_object('method', request.method, 'path', request.path, 'query_string', request.query_string))
        FROM request$$)
