@@ -12,14 +12,14 @@ INSERT INTO routes (name, query, priority) VALUES
 \pset columns 80
 
 -- Preview the query
-SELECT omni_httpd.cascading_query(name, query) FROM routes GROUP BY priority ORDER BY priority DESC;
+SELECT omni_httpd.cascading_query(name, query ORDER BY priority DESC NULLS LAST) FROM routes;
 
 \pset format aligned
 
 -- Try it
 BEGIN;
 WITH listener AS (INSERT INTO omni_httpd.listeners (address, port) VALUES ('127.0.0.1', 9100) RETURNING id),
-     handler AS (INSERT INTO omni_httpd.handlers (query) SELECT omni_httpd.cascading_query(name, query) FROM routes GROUP BY priority ORDER BY priority DESC RETURNING id)
+     handler AS (INSERT INTO omni_httpd.handlers (query) SELECT omni_httpd.cascading_query(name, query ORDER BY priority DESC NULLS LAST) FROM routes RETURNING id)
 INSERT INTO omni_httpd.listeners_handlers (listener_id, handler_id)
 SELECT listener.id, handler.id
 FROM listener, handler;
@@ -37,10 +37,10 @@ CALL omni_httpd.wait_for_configuration_reloads(1);
 \pset format wrapped
 \pset columns 80
 
-SELECT omni_httpd.cascading_query(name, query) FROM (
+SELECT omni_httpd.cascading_query(name, query ORDER BY priority DESC NULLS LAST ) FROM (
   VALUES
   ('test', $$WITH test AS (SELECT 1 AS val) SELECT omni_httpd.http_response(body => 'test') FROM request, Test WHERE request.path = '/test' and test.val = 1$$, 1),
   ('ping', $$WITH test AS (SELECT 1 AS val) SELECT omni_httpd.http_response(body => 'pong') FROM request, Test WHERE request.path = '/ping' and test.val = 1$$, 1))
-  AS routes(name, query, priority) GROUP BY priority ORDER BY priority DESC;
+  AS routes(name, query, priority);
 
  \pset format aligned

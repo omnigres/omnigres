@@ -14,17 +14,14 @@ own SQL completely by hand). This function simplifies building priority-sorted r
 
 ```sql
 UPDATE omni_httpd.handlers SET query = 
-(SELECT omni_httpd.cascading_query(name, query) FROM (VALUES
+(SELECT omni_httpd.cascading_query(name, query ORDER BY priority DESC NULLS LAST) FROM (VALUES
      ('headers',
      $$SELECT omni_httpd.http_response(body => request.headers::text) FROM request WHERE request.path = '/headers'$$, 1),
      ('not_found',
      $$SELECT omni_httpd.http_response(status => 404, body => 'Not found') FROM request$$, 0)
-     ORDER BY column3 DESC -- (1)
      ) 
      AS routes(name,query,priority) );
 ```
-
-1. `column3` refers to the third (last) column with the integer
 
 ??? tip "What if the query is invalid?"
 
@@ -58,12 +55,11 @@ or can be retrieved during deployment (say, from a Git repository or any other s
 
     ```sql
     UPDATE omni_httpd.handlers SET query =
-    (SELECT omni_httpd.cascading_query(name, query) FROM (VALUES
+    (SELECT omni_httpd.cascading_query(name, query ORDER BY priority ASC NULLS LAST) FROM (VALUES -- (1)
     ('headers',
     $$SELECT omni_httpd.http_response(body => request.headers::text) FROM request WHERE request.path = '/headers'$$, 1),
     ('not_found',
     $$SELECT omni_httpd.http_response(status => 404, body => 'Not found') FROM request$$, 0)
-    ORDER BY column3 ASC -- (1)
     )
     AS routes(name,query,priority) );
     ```
@@ -78,6 +74,11 @@ or can be retrieved during deployment (say, from a Git repository or any other s
     $ curl http://localhost:8080/headers
     Not found
     ```
+
+    !!! tip
+
+        An interesting corollary to this approach is that if all of the handling sub-queries are of the same priority,
+        then priority-ordering is not required and one can simply use `cascading_query` without `ORDER BY`.
 
 ??? question "What does `cascading_query` do?"
 

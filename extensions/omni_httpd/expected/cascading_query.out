@@ -9,7 +9,7 @@ INSERT INTO routes (name, query, priority) VALUES
 \pset format wrapped
 \pset columns 80
 -- Preview the query
-SELECT omni_httpd.cascading_query(name, query) FROM routes GROUP BY priority ORDER BY priority DESC;
+SELECT omni_httpd.cascading_query(name, query ORDER BY priority DESC NULLS LAST) FROM routes;
                                 cascading_query                                 
 --------------------------------------------------------------------------------
  WITH test AS (SELECT omni_httpd.http_response(body := 'test') FROM request WHE.
@@ -22,7 +22,7 @@ SELECT omni_httpd.cascading_query(name, query) FROM routes GROUP BY priority ORD
 -- Try it
 BEGIN;
 WITH listener AS (INSERT INTO omni_httpd.listeners (address, port) VALUES ('127.0.0.1', 9100) RETURNING id),
-     handler AS (INSERT INTO omni_httpd.handlers (query) SELECT omni_httpd.cascading_query(name, query) FROM routes GROUP BY priority ORDER BY priority DESC RETURNING id)
+     handler AS (INSERT INTO omni_httpd.handlers (query) SELECT omni_httpd.cascading_query(name, query ORDER BY priority DESC NULLS LAST) FROM routes RETURNING id)
 INSERT INTO omni_httpd.listeners_handlers (listener_id, handler_id)
 SELECT listener.id, handler.id
 FROM listener, handler;
@@ -38,11 +38,11 @@ pong
 -- CTE handling
 \pset format wrapped
 \pset columns 80
-SELECT omni_httpd.cascading_query(name, query) FROM (
+SELECT omni_httpd.cascading_query(name, query ORDER BY priority DESC NULLS LAST ) FROM (
   VALUES
   ('test', $$WITH test AS (SELECT 1 AS val) SELECT omni_httpd.http_response(body => 'test') FROM request, Test WHERE request.path = '/test' and test.val = 1$$, 1),
   ('ping', $$WITH test AS (SELECT 1 AS val) SELECT omni_httpd.http_response(body => 'pong') FROM request, Test WHERE request.path = '/ping' and test.val = 1$$, 1))
-  AS routes(name, query, priority) GROUP BY priority ORDER BY priority DESC;
+  AS routes(name, query, priority);
                                 cascading_query                                 
 --------------------------------------------------------------------------------
  WITH __omni_httpd_test_test AS (SELECT 1 AS val), test AS (SELECT omni_httpd.h.
