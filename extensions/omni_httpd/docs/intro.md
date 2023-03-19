@@ -75,6 +75,11 @@ or can be retrieved during deployment (say, from a Git repository or any other s
     Not found
     ```
 
+    !!! tip
+
+        An interesting corollary to this approach is that if all of the handling sub-queries are of the same priority,
+        then priority-ordering is not required and one can simply use `cascading_query` without `ORDER BY`.
+
 ??? question "What does `cascading_query` do?"
 
     The idea behind `cascading_query` is that it aggregates named queries in a `UNION` query where all given queries
