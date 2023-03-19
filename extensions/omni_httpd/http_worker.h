@@ -114,15 +114,15 @@ static cvec_fd accept_fds(char *socket_name);
 #define REQUEST_PLAN_PARAM(x) ML99_STRINGIFY(ML99_INC(x))
 
 /**
- * @brief Path parameter index
- *
- */
-#define REQUEST_PLAN_PATH 0
-/**
  * @brief Method parameter index
  *
  */
-#define REQUEST_PLAN_METHOD 1
+#define REQUEST_PLAN_METHOD 0
+/**
+ * @brief Path parameter index
+ *
+ */
+#define REQUEST_PLAN_PATH 1
 /**
  * @brief Query string parameter index
  *
