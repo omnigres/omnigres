@@ -32,7 +32,7 @@ CREATE FUNCTION http_response(
 )
     RETURNS http_response
     AS 'MODULE_PATHNAME', 'http_response'
-    LANGUAGE C;
+    LANGUAGE C IMMUTABLE;
 
 CREATE DOMAIN port integer CHECK (VALUE >= 0 AND VALUE <= 65535);
 
