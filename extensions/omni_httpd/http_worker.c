@@ -58,7 +58,7 @@
 #endif
 
 static bool worker_running = true;
-static bool worker_reload = false;
+static bool worker_reload = true;
 static void reload_worker() { worker_reload = true; }
 static void stop_worker() { worker_running = false; }
 
@@ -93,233 +93,240 @@ void http_worker(Datum db_oid) {
   Assert(semaphore != NULL);
 
   while (worker_running) {
-    pg_atomic_add_fetch_u32(semaphore, 1);
-    worker_reload = false;
-    cvec_fd fds = accept_fds(MyBgworkerEntry->bgw_extra);
+    if (worker_reload) {
+      pg_atomic_add_fetch_u32(semaphore, 1);
+      worker_reload = false;
+      cvec_fd fds = accept_fds(MyBgworkerEntry->bgw_extra);
 
-    // Disposing allocated listener/query pairs and their associated data
-    // (such as sockets)
-    {
-      clist_listener_contexts_iter iter = clist_listener_contexts_begin(&listener_contexts);
-      while (iter.ref != NULL) {
-        if (cvec_fd_get(&fds, iter.ref->fd) != NULL) {
-          // We still have this fd, don't dispose it
-          clist_listener_contexts_next(&iter);
-          continue;
-        }
-        if (iter.ref->plan != NULL) {
-          SPI_freeplan(iter.ref->plan);
-          iter.ref->plan = NULL;
-        }
-
-        if (iter.ref->socket != NULL) {
-          h2o_socket_t *socket = iter.ref->socket;
-          h2o_socket_read_stop(socket);
-          h2o_socket_export_t info;
-          h2o_socket_export(socket, &info);
-          close(info.fd);
-        }
-        h2o_context_dispose(&iter.ref->context);
-        MemoryContextDelete(iter.ref->memory_context);
-        iter = clist_listener_contexts_erase_at(&listener_contexts, iter);
-      }
-    }
-
-    c_FOREACH(i, cvec_fd, fds) {
-      int fd = *i.ref;
-
-      listener_ctx c = {.fd = fd,
-                        .socket = NULL,
-                        .plan = NULL,
-                        .memory_context =
-                            AllocSetContextCreate(TopMemoryContext, "omni_httpd_listener_context",
-                                                  ALLOCSET_DEFAULT_SIZES),
-                        .accept_ctx = (h2o_accept_ctx_t){.hosts = config.hosts}};
-
-      listener_ctx *lctx = clist_listener_contexts_push(&listener_contexts, c);
-
-    try_create_listener:
-      if (create_listener(fd, lctx) == 0) {
-        h2o_context_init(&(lctx->context), worker_event_loop, &config);
-        lctx->accept_ctx.ctx = &lctx->context;
-      } else {
-        if (errno == EINTR) {
-          goto try_create_listener; // retry
-        }
-        int e = errno;
-        ereport(WARNING, errmsg("socket error: %s", strerror(e)));
-      }
-    }
-
-    cvec_fd_drop(&fds);
-
-    SetCurrentStatementStartTimestamp();
-    StartTransactionCommand();
-    PushActiveSnapshot(GetTransactionSnapshot());
-
-    SPI_connect();
-
-    int ret = SPI_execute(
-        "SELECT listeners.address, listeners.port, handlers.query, handlers.role_name FROM "
-        "omni_httpd.listeners_handlers "
-        "INNER JOIN omni_httpd.listeners ON listeners.id = listeners_handlers.listener_id "
-        "INNER JOIN omni_httpd.handlers handlers ON handlers.id = listeners_handlers.handler_id",
-        false, 0);
-    if (ret == SPI_OK_SELECT) {
-      TupleDesc tupdesc = SPI_tuptable->tupdesc;
-      SPITupleTable *tuptable = SPI_tuptable;
-      for (int i = 0; i < tuptable->numvals; i++) {
-        HeapTuple tuple = tuptable->vals[i];
-        bool addr_is_null = false;
-        Datum addr = SPI_getbinval(tuple, tupdesc, 1, &addr_is_null);
-        bool port_is_null = false;
-        Datum port = SPI_getbinval(tuple, tupdesc, 2, &port_is_null);
-
-        int port_no = DatumGetInt32(port);
-
-        bool query_is_null = false;
-        Datum query = SPI_getbinval(tuple, tupdesc, 3, &query_is_null);
-
-        Oid role_id = InvalidOid;
-        bool role_superuser = false;
-        {
-          bool role_name_is_null = false;
-          Datum role_name = SPI_getbinval(tuple, tupdesc, 4, &role_name_is_null);
-
-          HeapTuple roleTup = SearchSysCache1(AUTHNAME, role_name);
-          if (!HeapTupleIsValid(roleTup)) {
-            ereport(WARNING,
-                    errmsg("role \"%s\" does not exist", NameStr(*DatumGetName(role_name))));
-          } else {
-            Form_pg_authid rform = (Form_pg_authid)GETSTRUCT(roleTup);
-            role_id = rform->oid;
-            role_superuser = rform->rolsuper;
-          }
-          ReleaseSysCache(roleTup);
-        }
-
-        c_FOREACH(iter, clist_listener_contexts, listener_contexts) {
-          int fd = iter.ref->fd;
-          struct sockaddr_in sin;
-          socklen_t len = sizeof(sin);
-          struct sockaddr_in6 sin6;
-          socklen_t len6 = sizeof(sin6);
-
-          socklen_t socklen;
-          void *sockaddr;
-
-          const char *fdaddr;
-
-          char _address[MAX_ADDRESS_SIZE];
-          char _address1[MAX_ADDRESS_SIZE];
-
-          int family = 0;
-          if (getsockname(fd, (struct sockaddr *)&sin, &len) == 0) {
-            family = sin.sin_family;
-          }
-
-          if (family == AF_INET) {
-            sockaddr = &sin;
-            socklen = len;
-          } else if (family == AF_INET6) {
-            sockaddr = &sin6;
-            socklen = len6;
-          } else {
+      // Disposing allocated listener/query pairs and their associated data
+      // (such as sockets)
+      {
+        clist_listener_contexts_iter iter = clist_listener_contexts_begin(&listener_contexts);
+        while (iter.ref != NULL) {
+          // FIXME: wrong assumption, new socket fd may be different
+          // if it is the same socket being sent (without the current one being closed)
+          if (cvec_fd_get(&fds, iter.ref->fd) != NULL) {
+            // We still have this fd, don't dispose it
+            clist_listener_contexts_next(&iter);
             continue;
           }
+          if (iter.ref->plan != NULL) {
+            SPI_freeplan(iter.ref->plan);
+            iter.ref->plan = NULL;
+          }
 
-          int sock_port_no = 0;
-          if (getsockname(fd, (struct sockaddr *)sockaddr, &len) == 0) {
+          if (iter.ref->socket != NULL) {
+            h2o_socket_t *socket = iter.ref->socket;
+            h2o_socket_read_stop(socket);
+            h2o_socket_export_t info;
+            h2o_socket_export(socket, &info);
+            close(info.fd);
+          }
+          h2o_context_dispose(&iter.ref->context);
+          MemoryContextDelete(iter.ref->memory_context);
+          iter = clist_listener_contexts_erase_at(&listener_contexts, iter);
+        }
+      }
+
+      c_FOREACH(i, cvec_fd, fds) {
+        int fd = *i.ref;
+
+        listener_ctx c = {.fd = fd,
+                          .socket = NULL,
+                          .plan = NULL,
+                          .memory_context =
+                              AllocSetContextCreate(TopMemoryContext, "omni_httpd_listener_context",
+                                                    ALLOCSET_DEFAULT_SIZES),
+                          .accept_ctx = (h2o_accept_ctx_t){.hosts = config.hosts}};
+
+        listener_ctx *lctx = clist_listener_contexts_push(&listener_contexts, c);
+
+      try_create_listener:
+        if (create_listener(fd, lctx) == 0) {
+          h2o_context_init(&(lctx->context), worker_event_loop, &config);
+          lctx->accept_ctx.ctx = &lctx->context;
+        } else {
+          if (errno == EINTR) {
+            goto try_create_listener; // retry
+          }
+          int e = errno;
+          ereport(WARNING, errmsg("socket error: %s", strerror(e)));
+        }
+      }
+
+      cvec_fd_drop(&fds);
+
+      SetCurrentStatementStartTimestamp();
+      StartTransactionCommand();
+      PushActiveSnapshot(GetTransactionSnapshot());
+
+      SPI_connect();
+
+      int ret = SPI_execute(
+          "SELECT listeners.address, listeners.port, handlers.query, handlers.role_name FROM "
+          "omni_httpd.listeners_handlers "
+          "INNER JOIN omni_httpd.listeners ON listeners.id = listeners_handlers.listener_id "
+          "INNER JOIN omni_httpd.handlers handlers ON handlers.id = listeners_handlers.handler_id",
+          false, 0);
+      if (ret == SPI_OK_SELECT) {
+        TupleDesc tupdesc = SPI_tuptable->tupdesc;
+        SPITupleTable *tuptable = SPI_tuptable;
+        for (int i = 0; i < tuptable->numvals; i++) {
+          HeapTuple tuple = tuptable->vals[i];
+          bool addr_is_null = false;
+          Datum addr = SPI_getbinval(tuple, tupdesc, 1, &addr_is_null);
+          bool port_is_null = false;
+          Datum port = SPI_getbinval(tuple, tupdesc, 2, &port_is_null);
+
+          int port_no = DatumGetInt32(port);
+
+          bool query_is_null = false;
+          Datum query = SPI_getbinval(tuple, tupdesc, 3, &query_is_null);
+
+          Oid role_id = InvalidOid;
+          bool role_superuser = false;
+          {
+            bool role_name_is_null = false;
+            Datum role_name = SPI_getbinval(tuple, tupdesc, 4, &role_name_is_null);
+
+            HeapTuple roleTup = SearchSysCache1(AUTHNAME, role_name);
+            if (!HeapTupleIsValid(roleTup)) {
+              ereport(WARNING,
+                      errmsg("role \"%s\" does not exist", NameStr(*DatumGetName(role_name))));
+            } else {
+              Form_pg_authid rform = (Form_pg_authid)GETSTRUCT(roleTup);
+              role_id = rform->oid;
+              role_superuser = rform->rolsuper;
+            }
+            ReleaseSysCache(roleTup);
+          }
+
+          c_FOREACH(iter, clist_listener_contexts, listener_contexts) {
+            int fd = iter.ref->fd;
+            struct sockaddr_in sin;
+            socklen_t len = sizeof(sin);
+            struct sockaddr_in6 sin6;
+            socklen_t len6 = sizeof(sin6);
+
+            socklen_t socklen;
+            void *sockaddr;
+
+            const char *fdaddr;
+
+            char _address[MAX_ADDRESS_SIZE];
+            char _address1[MAX_ADDRESS_SIZE];
+
+            int family = 0;
+            if (getsockname(fd, (struct sockaddr *)&sin, &len) == 0) {
+              family = sin.sin_family;
+            }
+
             if (family == AF_INET) {
-              sock_port_no = ntohs(sin.sin_port);
-              fdaddr = inet_ntop(AF_INET, &sin.sin_addr, _address, sizeof(_address));
+              sockaddr = &sin;
+              socklen = len;
             } else if (family == AF_INET6) {
-              sock_port_no = ntohs(sin6.sin6_port);
-              fdaddr = inet_ntop(AF_INET6, &sin6.sin6_addr, _address, sizeof(_address));
+              sockaddr = &sin6;
+              socklen = len6;
             } else {
               continue;
             }
-          } else {
-            continue;
-          }
 
-          inet *inet_address = DatumGetInetPP(addr);
-          char *address = pg_inet_net_ntop(ip_family(inet_address), ip_addr(inet_address),
-                                           ip_bits(inet_address), _address1, sizeof(_address1));
-
-          if (strncmp(address, fdaddr, strlen(address)) == 0 && port_no == sock_port_no) {
-            // Found matching socket
-            char *query_string = text_to_cstring(DatumGetTextPP(query));
-            MemoryContext memory_context = CurrentMemoryContext;
-            char *request_cte = psprintf(
-                // clang-format off
-                    "SELECT " "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_METHOD) "::text::omni_httpd.http_method AS method, "
-                    "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_PATH) " AS path, "
-                    "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_QUERY_STRING) " AS query_string, "
-                    "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_BODY) " AS body, "
-                    "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_HEADERS) " AS headers "
-                // clang-format on
-            );
-
-            List *query_stmt = omni_sql_parse_statement(query_string);
-            if (omni_sql_is_parameterized(query_stmt)) {
-              ereport(WARNING, errmsg("Listener query is parameterized and is rejected:\n %s",
-                                      query_string));
+            int sock_port_no = 0;
+            if (getsockname(fd, (struct sockaddr *)sockaddr, &len) == 0) {
+              if (family == AF_INET) {
+                sock_port_no = ntohs(sin.sin_port);
+                fdaddr = inet_ntop(AF_INET, &sin.sin_addr, _address, sizeof(_address));
+              } else if (family == AF_INET6) {
+                sock_port_no = ntohs(sin6.sin6_port);
+                fdaddr = inet_ntop(AF_INET6, &sin6.sin6_addr, _address, sizeof(_address));
+              } else {
+                continue;
+              }
             } else {
-              List *request_cte_stmt = omni_sql_parse_statement(request_cte);
-              query_stmt = omni_sql_add_cte(query_stmt, "request", request_cte_stmt, false, true);
-
-              char *query = omni_sql_deparse_statement(query_stmt);
-              list_free_deep(request_cte_stmt);
-              list_free_deep(query_stmt);
-              PG_TRY();
-              {
-                SPIPlanPtr plan = SPI_prepare(query, REQUEST_PLAN_PARAMS,
-                                              (Oid[REQUEST_PLAN_PARAMS]){
-                                                  [REQUEST_PLAN_METHOD] = TEXTOID,
-                                                  [REQUEST_PLAN_PATH] = TEXTOID,
-                                                  [REQUEST_PLAN_QUERY_STRING] = TEXTOID,
-                                                  [REQUEST_PLAN_BODY] = BYTEAOID,
-                                                  [REQUEST_PLAN_HEADERS] = http_header_array_oid(),
-                                              });
-
-                // Get role
-                iter.ref->role_id = role_id;
-                iter.ref->role_supervisor = role_superuser;
-
-                // We have to keep the plan as we're going to disconnect from SPI
-                int keepret = SPI_keepplan(plan);
-                if (keepret != 0) {
-                  ereport(WARNING, errmsg("Can't save plan: %s", SPI_result_code_string(keepret)));
-                  iter.ref->plan = NULL;
-                } else {
-                  iter.ref->plan = plan;
-                }
-              }
-              PG_CATCH();
-              {
-                MemoryContextSwitchTo(memory_context);
-                WITH_TEMP_MEMCXT {
-                  ErrorData *error = CopyErrorData();
-                  ereport(WARNING, errmsg("Error preparing query %s", query),
-                          errdetail("%s: %s", error->message, error->detail));
-                }
-
-                FlushErrorState();
-              }
-              PG_END_TRY();
-              pfree(query);
+              continue;
             }
-            pfree(query_string);
+
+            inet *inet_address = DatumGetInetPP(addr);
+            char *address = pg_inet_net_ntop(ip_family(inet_address), ip_addr(inet_address),
+                                             ip_bits(inet_address), _address1, sizeof(_address1));
+
+            if (strncmp(address, fdaddr, strlen(address)) == 0 && port_no == sock_port_no) {
+              // Found matching socket
+              char *query_string = text_to_cstring(DatumGetTextPP(query));
+              MemoryContext memory_context = CurrentMemoryContext;
+              char *request_cte = psprintf(
+                  // clang-format off
+                                  "SELECT " "$" REQUEST_PLAN_PARAM(
+                                          REQUEST_PLAN_METHOD) "::text::omni_httpd.http_method AS method, "
+                                  "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_PATH) " AS path, "
+                                  "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_QUERY_STRING) " AS query_string, "
+                                  "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_BODY) " AS body, "
+                                  "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_HEADERS) " AS headers "
+                  // clang-format on
+              );
+
+              List *query_stmt = omni_sql_parse_statement(query_string);
+              if (omni_sql_is_parameterized(query_stmt)) {
+                ereport(WARNING, errmsg("Listener query is parameterized and is rejected:\n %s",
+                                        query_string));
+              } else {
+                List *request_cte_stmt = omni_sql_parse_statement(request_cte);
+                query_stmt = omni_sql_add_cte(query_stmt, "request", request_cte_stmt, false, true);
+
+                char *query = omni_sql_deparse_statement(query_stmt);
+                list_free_deep(request_cte_stmt);
+                list_free_deep(query_stmt);
+                PG_TRY();
+                {
+                  SPIPlanPtr plan =
+                      SPI_prepare(query, REQUEST_PLAN_PARAMS,
+                                  (Oid[REQUEST_PLAN_PARAMS]){
+                                      [REQUEST_PLAN_METHOD] = TEXTOID,
+                                      [REQUEST_PLAN_PATH] = TEXTOID,
+                                      [REQUEST_PLAN_QUERY_STRING] = TEXTOID,
+                                      [REQUEST_PLAN_BODY] = BYTEAOID,
+                                      [REQUEST_PLAN_HEADERS] = http_header_array_oid(),
+                                  });
+
+                  // Get role
+                  iter.ref->role_id = role_id;
+                  iter.ref->role_supervisor = role_superuser;
+
+                  // We have to keep the plan as we're going to disconnect from SPI
+                  int keepret = SPI_keepplan(plan);
+                  if (keepret != 0) {
+                    ereport(WARNING,
+                            errmsg("Can't save plan: %s", SPI_result_code_string(keepret)));
+                    iter.ref->plan = NULL;
+                  } else {
+                    iter.ref->plan = plan;
+                  }
+                }
+                PG_CATCH();
+                {
+                  MemoryContextSwitchTo(memory_context);
+                  WITH_TEMP_MEMCXT {
+                    ErrorData *error = CopyErrorData();
+                    ereport(WARNING, errmsg("Error preparing query %s", query),
+                            errdetail("%s: %s", error->message, error->detail));
+                  }
+
+                  FlushErrorState();
+                }
+                PG_END_TRY();
+                pfree(query);
+              }
+              pfree(query_string);
+            }
           }
         }
+      } else {
+        ereport(WARNING, errmsg("Error fetching configuration: %s", SPI_result_code_string(ret)));
       }
-    } else {
-      ereport(WARNING, errmsg("Error fetching configuration: %s", SPI_result_code_string(ret)));
-    }
 
-    SPI_finish();
-    AbortCurrentTransaction();
+      SPI_finish();
+      AbortCurrentTransaction();
+    }
 
     while (worker_running && !worker_reload && h2o_evloop_run(worker_event_loop, INT32_MAX) == 0)
       ;
