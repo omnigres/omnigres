@@ -120,17 +120,10 @@ CREATE AGGREGATE cascading_query (name text, query text) (
   stype = internal
  );
 
--- Initialization
-WITH config AS
-         (SELECT coalesce(NOT current_setting('omni_httpd.no_init', true)::bool, true)     AS should_init,
-                 coalesce(current_setting('omni_httpd.init_listen_address', true),
-                          '0.0.0.0')::inet                                                 AS init_listen_address,
-                 coalesce(current_setting('omni_httpd.init_port', true)::port, 8080::port) AS init_port),
-     listener AS (INSERT INTO listeners (address, port) SELECT init_listen_address, init_port FROM config RETURNING id),
-     handler AS (INSERT INTO handlers (query) VALUES(
-       $$
-       WITH stats AS (SELECT * FROM pg_catalog.pg_stat_database WHERE datname = current_database())
-       SELECT omni_httpd.http_response(headers => array[omni_httpd.http_header('content-type', 'text/html')],
+ CREATE FUNCTION default_page(request http_request) RETURNS SETOF http_response AS $$
+ BEGIN
+ RETURN QUERY (WITH stats AS (SELECT * FROM pg_catalog.pg_stat_database WHERE datname = current_database())
+       SELECT * FROM omni_httpd.http_response(headers => array[omni_httpd.http_header('content-type', 'text/html')],
        body => $html$
        <!DOCTYPE html>
        <html>
@@ -179,7 +172,20 @@ WITH config AS
          </section>
          </body>
        </html>
-       $html$) FROM request $$) RETURNING id)
+       $html$));
+       END;
+$$ LANGUAGE plpgsql;
+
+-- Initialization
+WITH config AS
+         (SELECT coalesce(NOT current_setting('omni_httpd.no_init', true)::bool, true)     AS should_init,
+                 coalesce(current_setting('omni_httpd.init_listen_address', true),
+                          '0.0.0.0')::inet                                                 AS init_listen_address,
+                 coalesce(current_setting('omni_httpd.init_port', true)::port, 8080::port) AS init_port),
+     listener AS (INSERT INTO listeners (address, port) SELECT init_listen_address, init_port FROM config RETURNING id),
+     handler AS (INSERT INTO handlers (query) VALUES(
+       $$
+       SELECT omni_httpd.default_page(request.*::omni_httpd.http_request) FROM request $$) RETURNING id)
 INSERT INTO listeners_handlers (listener_id, handler_id)
 SELECT listener.id, handler.id
 FROM config, listener, handler
