@@ -125,54 +125,133 @@ static inline Datum add_header(Datum headers, char *name, char *value, bool appe
                                      },
                                      (bool[3]){false, false, false});
 
+  // If there are no headers yet
+  if (headers == 0) {
+    // simpyl construct a new array with one element
+    return PointerGetDatum(construct_md_array((Datum[1]){HeapTupleGetDatum(header)},
+                                              (bool[1]){false}, 1, (int[1]){1}, (int[1]){1},
+                                              http_header_oid(), -1, false, TYPALIGN_INT));
+  }
+
   ExpandedArrayHeader *eah = DatumGetExpandedArray(headers);
 
   int *lb = eah->lbound;
+  int *dimv = eah->dims;
 
   int indx;
 
-  if (pg_sub_s32_overflow(lb[0], 1, &indx))
+  if (pg_add_s32_overflow(lb[0], dimv[0], &indx))
     ereport(ERROR, (errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE), errmsg("integer out of range")));
 
-  return array_set_element(EOHPGetRWDatum(&eah->hdr), /* subscripts */ 1, &indx,
-                           HeapTupleGetDatum(header),
-                           /* isnull */ false, -1, -1, false, TYPALIGN_INT);
+  return array_set_element(EOHPGetRWDatum(&eah->hdr), 1, &indx, HeapTupleGetDatum(header), false,
+                           -1, -1, false, TYPALIGN_INT);
 }
 
 PG_FUNCTION_INFO_V1(http_response);
 
 Datum http_response(PG_FUNCTION_ARGS) {
+#define ARG_STATUS 0
+#define ARG_HEADERS 1
+#define ARG_BODY 2
   TupleDesc response_tupledesc = TypeGetTupleDesc(http_response_oid(), NULL);
   BlessTupleDesc(response_tupledesc);
 
-  Oid body_element_type = get_fn_expr_argtype(fcinfo->flinfo, 2);
-
-  Datum values[3] = {PG_GETARG_DATUM(0), PG_GETARG_DATUM(1), PG_GETARG_DATUM(2)};
-
-  Jsonb *jb;
-  switch (body_element_type) {
-  case TEXTOID:
-  case VARCHAROID:
-  case CHAROID:
-    values[1] = add_header(values[1], "content-type", "text/plain; charset=utf-8", false);
-  case BYTEAOID:
-    values[1] = add_header(values[1], "content-type", "application/octet-stream", false);
-    break;
-  case JSONBOID:
-    jb = PG_GETARG_JSONB_P(2);
-    char *out = JsonbToCString(NULL, &jb->root, VARSIZE(jb));
-    values[2] = PointerGetDatum(cstring_to_text(out));
-  case JSONOID:
-    values[1] = add_header(values[1], "content-type", "text/json", false);
-    break;
-  default:
-    ereport(ERROR, errmsg("Can't (yet) cast %s to bytea",
-                          format_type_extended(body_element_type, -1, FORMAT_TYPE_ALLOW_INVALID)));
+  Datum status = PG_GETARG_INT32(ARG_STATUS);
+  if (PG_ARGISNULL(ARG_STATUS)) {
+    status = 200;
   }
 
-  HeapTuple response = heap_form_tuple(response_tupledesc, values, (bool[3]){false, false, false});
+  Datum headers = PG_GETARG_DATUM(ARG_HEADERS);
+
+  if (PG_ARGISNULL(ARG_HEADERS)) {
+    // Signal to add_header that there are no headers yet
+    headers = (Datum)0;
+  }
+
+#define TUPLE_STATUS 0
+#define TUPLE_HEADERS 1
+#define TUPLE_BODY 2
+
+  Datum values[3] = {
+      [TUPLE_STATUS] = status, [TUPLE_HEADERS] = headers, [TUPLE_BODY] = PG_GETARG_DATUM(ARG_BODY)};
+
+  // Process body, infer content-type, etc.
+  if (!PG_ARGISNULL(ARG_BODY)) {
+
+    // If we are to infer content-type, check if there was content type
+    // specified explicitly.
+    bool has_content_type = false;
+    // If there is a headers array at all
+    if (values[TUPLE_HEADERS] != 0) {
+      TupleDesc tupdesc = TypeGetTupleDesc(http_header_oid(), NULL);
+      BlessTupleDesc(tupdesc);
+
+      ArrayIterator it = array_create_iterator(DatumGetArrayTypeP(headers), 0, NULL);
+      bool isnull = false;
+      Datum value;
+      while (array_iterate(it, &value, &isnull)) {
+        if (!isnull) {
+          HeapTupleHeader tuple = DatumGetHeapTupleHeader(value);
+          Datum name = GetAttributeByNum(tuple, 1, &isnull);
+          if (!isnull) {
+            text *name_str = DatumGetTextPP(name);
+            if (strncasecmp(VARDATA_ANY(name_str), "content-type", VARSIZE_ANY_EXHDR(name_str)) ==
+                0) {
+              has_content_type = true;
+              break;
+            }
+          }
+        }
+      }
+      array_free_iterator(it);
+    }
+
+    Oid body_element_type = get_fn_expr_argtype(fcinfo->flinfo, 2);
+    Jsonb *jb;
+    switch (body_element_type) {
+    case TEXTOID:
+    case VARCHAROID:
+    case CHAROID:
+      if (!has_content_type) {
+        values[TUPLE_HEADERS] =
+            add_header(values[TUPLE_HEADERS], "content-type", "text/plain; charset=utf-8", false);
+      }
+      break;
+    case BYTEAOID:
+      if (!has_content_type) {
+        values[TUPLE_HEADERS] =
+            add_header(values[TUPLE_HEADERS], "content-type", "application/octet-stream", false);
+      }
+      break;
+    case JSONBOID:
+      jb = PG_GETARG_JSONB_P(2);
+      char *out = JsonbToCString(NULL, &jb->root, VARSIZE(jb));
+      values[TUPLE_BODY] = PointerGetDatum(cstring_to_text(out));
+    case JSONOID:
+      if (!has_content_type) {
+        values[TUPLE_HEADERS] =
+            add_header(values[TUPLE_HEADERS], "content-type", "text/json", false);
+      }
+      break;
+    default:
+      ereport(ERROR,
+              errmsg("Can't (yet) cast %s to bytea",
+                     format_type_extended(body_element_type, -1, FORMAT_TYPE_ALLOW_INVALID)));
+    }
+  }
+
+  HeapTuple response = heap_form_tuple(
+      response_tupledesc, values,
+      (bool[3]){false, values[TUPLE_HEADERS] == 0 ? true : false, PG_ARGISNULL(ARG_BODY)});
+
+#undef TUPLE_STATUS
+#undef TUPLE_HEADERS
+#undef TUPLE_BODY
 
   PG_RETURN_DATUM(HeapTupleGetDatum(response));
+#undef ARG_STATUS
+#undef ARG_HEADERS
+#undef ARG_BODY
 }
 
 PG_FUNCTION_INFO_V1(handlers_query_validity_trigger);

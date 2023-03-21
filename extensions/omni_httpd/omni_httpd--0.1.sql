@@ -27,8 +27,8 @@ CREATE TYPE http_response AS (
 
 CREATE FUNCTION http_response(
     status int DEFAULT 200,
-    headers http_header[] DEFAULT array[]::http_header[],
-    body anycompatible DEFAULT ''::bytea
+    headers http_header[] DEFAULT NULL,
+    body anycompatible DEFAULT NULL
 )
     RETURNS http_response
     AS 'MODULE_PATHNAME', 'http_response'
