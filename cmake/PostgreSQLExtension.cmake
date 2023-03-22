@@ -86,6 +86,8 @@
 #
 # NAME_update_results Updates pg_regress test expectations to match results
 # test_verbose_NAME Runs tests verbosely
+find_program(PGCLI pgcli)
+
 function(add_postgresql_extension NAME)
     set(_optional SHARED_PRELOAD)
     set(_single VERSION ENCODING SCHEMA RELOCATABLE)
@@ -311,7 +313,13 @@ ${_loadextensions} \
             ${CMAKE_CURRENT_SOURCE_DIR}/expected)
     endif()
 
-    if(INITDB AND CREATEDB AND PSQL AND PG_CTL)
+    if(INITDB AND CREATEDB AND (PSQL OR PGCLI) AND PG_CTL)
+        if(PGCLI)
+            set(_cli ${PGCLI})
+        else()
+            set(_cli ${PSQL})
+        endif()
+
         file(GENERATE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/psql_${NAME}
             CONTENT "#! /usr/bin/env bash
 # Pick random port
@@ -334,7 +342,7 @@ ${PG_CTL} start -D \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" \
 -o \"-c max_worker_processes=64 -c listen_addresses=* -c port=$PGPORT $<IF:$<BOOL:${_ext_SHARED_PRELOAD}>,-c shared_preload_libraries='$<TARGET_FILE:${NAME}>$<COMMA>$<TARGET_FILE:omni_ext>',-c shared_preload_libraries='$<TARGET_FILE:omni_ext>'>\" \
 -o -F -o -k -o \"$SOCKDIR\"
 ${CREATEDB} -h \"$SOCKDIR\" ${NAME}
-${PSQL} -h \"$SOCKDIR\" ${NAME}
+${_cli} -h \"$SOCKDIR\" ${NAME}
 ${PG_CTL} stop -D  \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" -m smart
 "
             FILE_PERMISSIONS OWNER_EXECUTE OWNER_READ OWNER_WRITE
