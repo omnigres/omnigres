@@ -1,36 +1,57 @@
 -- Creating container
-SELECT count(*) FROM pg_catalog.pg_tables WHERE tablename = 'container_test';
+select
+    count(*)
+from
+    pg_catalog.pg_tables
+where
+    tablename = 'container_test';
  count 
 -------
      0
 (1 row)
 
-SET client_min_messages TO WARNING;
-WITH container AS (SELECT * FROM omni_containers.docker_container_create('ghcr.io/yrashk/psql', cmd => $$psql -c 'CREATE TABLE container_test ();'$$,
-                                                      wait => true, pull => true) AS id)
-SELECT omni_containers.docker_container_inspect(id)->'State'->'ExitCode' AS exit_code,
-       omni_containers.docker_container_logs(id) AS logs
-       FROM container;
+set client_min_messages to WARNING;
+with
+    container as (select *
+                  from
+                      omni_containers.docker_container_create('ghcr.io/yrashk/psql',
+                                                              cmd => $$psql -c 'CREATE TABLE container_test ();'$$,
+                                                              wait => true, pull => true) as id)
+select
+    omni_containers.docker_container_inspect(id) -> 'State' -> 'ExitCode' as exit_code,
+    omni_containers.docker_container_logs(id)                             as logs
+from
+    container;
  exit_code |     logs     
 -----------+--------------
  0         | CREATE TABLE+
            | 
 (1 row)
 
-SET client_min_messages TO NOTICE;
-SELECT count(*) FROM pg_catalog.pg_tables WHERE tablename = 'container_test';
+set client_min_messages to NOTICE;
+select
+    count(*)
+from
+    pg_catalog.pg_tables
+where
+    tablename = 'container_test';
  count 
 -------
      1
 (1 row)
 
 -- Passing extra options
-WITH container AS (SELECT * FROM omni_containers.docker_container_create('ghcr.io/yrashk/psql', cmd => $$echo $TEST$$,
-                                                      options => $${"Env": ["TEST=ok"]}$$,
-                                                      wait => true, pull => true) AS id)
-SELECT omni_containers.docker_container_inspect(id)->'State'->'ExitCode' AS exit_code,
-       omni_containers.docker_container_logs(id) AS logs
-       FROM container;
+with
+    container as (select *
+                  from
+                      omni_containers.docker_container_create('ghcr.io/yrashk/psql', cmd => $$echo $TEST$$,
+                                                              options => $${"Env": ["TEST=ok"]}$$,
+                                                              wait => true, pull => true) as id)
+select
+    omni_containers.docker_container_inspect(id) -> 'State' -> 'ExitCode' as exit_code,
+    omni_containers.docker_container_logs(id)                             as logs
+from
+    container;
  exit_code | logs 
 -----------+------
  0         | ok  +
@@ -38,6 +59,9 @@ SELECT omni_containers.docker_container_inspect(id)->'State'->'ExitCode' AS exit
 (1 row)
 
 -- Creating a container that can't be found
-SELECT true FROM omni_containers.docker_container_create('cannotbefound');
+select
+    true
+from
+    omni_containers.docker_container_create('cannotbefound');
 ERROR:  Docker image not found
 DETAIL:  cannotbefound

@@ -1,0 +1,33 @@
+<code_scheme name="omnigres-sql" version="173">
+  <PostgresCodeStyleSettings version="6">
+    <option name="USE_GENERAL_STYLE" value="false" />
+    <option name="KEYWORD_CASE" value="1" />
+    <option name="IDENTIFIER_CASE" value="1" />
+    <option name="TYPE_CASE" value="1" />
+    <option name="ALIAS_CASE" value="1" />
+    <option name="QUERY_EL_LINE" value="101" />
+    <option name="QUERY_EL_COMMA" value="2" />
+    <option name="INSERT_INTO_NL" value="1" />
+    <option name="INSERT_TABLE_EL_LINE" value="101" />
+    <option name="INSERT_VALUES_EL_LINE" value="101" />
+    <option name="SELECT_EL_LINE" value="101" />
+    <option name="FROM_EL_LINE" value="101" />
+    <option name="FROM_ALIGN_JOIN_TABLES" value="true" />
+    <option name="FROM_ALIGN_ALIASES" value="true" />
+    <option name="FROM_INDENT_JOIN" value="false" />
+    <option name="WHERE_EL_LINE" value="101" />
+    <option name="WHERE_EL_BOUND" value="2" />
+    <option name="ORDER_EL_LINE" value="101" />
+    <option name="ORDER_EL_COMMA" value="2" />
+    <option name="VIEW_INDENT_QUERY" value="true" />
+  </PostgresCodeStyleSettings>
+  <SqlCodeStyleSettings version="6">
+    <option name="KEYWORD_CASE" value="1" />
+    <option name="IDENTIFIER_CASE" value="1" />
+    <option name="TYPE_CASE" value="1" />
+    <option name="ALIAS_CASE" value="4" />
+    <option name="BUILT_IN_CASE" value="4" />
+    <option name="QUERY_SECTION_1ST_WORD_ALIGN" value="2" />
+    <option name="INSERT_INTO_NL" value="2" />
+  </SqlCodeStyleSettings>
+</code_scheme>

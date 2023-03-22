@@ -1,82 +1,88 @@
 -- NULL status
-SELECT omni_httpd.http_response(status => null, body => 'test');
+select omni_httpd.http_response(status => null, body => 'test');
                                  http_response                                  
 --------------------------------------------------------------------------------
  (200,"{""(content-type,\\""text/plain; charset=utf-8\\"",f)""}","\\x74657374")
 (1 row)
 
 -- NULL headers
-SELECT omni_httpd.http_response(headers => null, body => 'test');
+select omni_httpd.http_response(headers => null, body => 'test');
                                  http_response                                  
 --------------------------------------------------------------------------------
  (200,"{""(content-type,\\""text/plain; charset=utf-8\\"",f)""}","\\x74657374")
 (1 row)
 
 -- NULL body
-SELECT omni_httpd.http_response(body => null);
+select omni_httpd.http_response(body => null);
  http_response 
 ---------------
  (200,,)
 (1 row)
 
 -- Text body
-SELECT omni_httpd.http_response(body => 'text');
+select omni_httpd.http_response(body => 'text');
                                  http_response                                  
 --------------------------------------------------------------------------------
  (200,"{""(content-type,\\""text/plain; charset=utf-8\\"",f)""}","\\x74657874")
 (1 row)
 
 -- JSON body
-SELECT omni_httpd.http_response(body => '{}'::json);
+select omni_httpd.http_response(body => '{}'::json);
                    http_response                    
 ----------------------------------------------------
  (200,"{""(content-type,text/json,f)""}","\\x7b7d")
 (1 row)
 
 -- JSONB body
-SELECT omni_httpd.http_response(body => '{}'::jsonb);
+select omni_httpd.http_response(body => '{}'::jsonb);
                    http_response                    
 ----------------------------------------------------
  (200,"{""(content-type,text/json,f)""}","\\x7b7d")
 (1 row)
 
 -- Binary body
-SELECT omni_httpd.http_response(body => convert_to('binary', 'UTF8'));
+select omni_httpd.http_response(body => convert_to('binary', 'UTF8'));
                                http_response                               
 ---------------------------------------------------------------------------
  (200,"{""(content-type,application/octet-stream,f)""}","\\x62696e617279")
 (1 row)
 
 -- Specifying status
-SELECT omni_httpd.http_response(status => 404);
+select omni_httpd.http_response(status => 404);
  http_response 
 ---------------
  (404,,)
 (1 row)
 
 -- Specifying headers
-SELECT omni_httpd.http_response(headers => array[omni_httpd.http_header('test', 'value')]::omni_httpd.http_header[], body => null);
+select
+    omni_httpd.http_response(headers => array [omni_httpd.http_header('test', 'value')]::omni_httpd.http_header[],
+                             body => null);
          http_response         
 -------------------------------
  (200,"{""(test,value,f)""}",)
 (1 row)
 
 -- Merging headers with inferred ones
-SELECT omni_httpd.http_response(headers => array[omni_httpd.http_header('test', 'value')]::omni_httpd.http_header[], body => 'test');
+select
+    omni_httpd.http_response(headers => array [omni_httpd.http_header('test', 'value')]::omni_httpd.http_header[],
+                             body => 'test');
                                            http_response                                           
 ---------------------------------------------------------------------------------------------------
  (200,"{""(test,value,f)"",""(content-type,\\""text/plain; charset=utf-8\\"",f)""}","\\x74657374")
 (1 row)
 
 -- Overriding content type
-SELECT omni_httpd.http_response(headers => array[omni_httpd.http_header('content-type', 'text/html')], body => 'test');
+select
+    omni_httpd.http_response(headers => array [omni_httpd.http_header('content-type', 'text/html')], body => 'test');
                      http_response                      
 --------------------------------------------------------
  (200,"{""(content-type,text/html,f)""}","\\x74657374")
 (1 row)
 
 -- Overriding content type, with a different case
-SELECT omni_httpd.http_response(headers => array[omni_httpd.http_header('Content-Type', 'text/html')], body => 'test');
+select
+    omni_httpd.http_response(headers => array [omni_httpd.http_header('Content-Type', 'text/html')], body => 'test');
                      http_response                      
 --------------------------------------------------------
  (200,"{""(Content-Type,text/html,f)""}","\\x74657374")

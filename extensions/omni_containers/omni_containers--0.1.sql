@@ -1,55 +1,63 @@
 -- API: PRIVATE
-CREATE FUNCTION docker_images_json()
-    RETURNS jsonb
-    AS 'MODULE_PATHNAME', 'docker_images_json'
-    LANGUAGE C;
+create function docker_images_json()
+    returns jsonb
+as 'MODULE_PATHNAME', 'docker_images_json'
+    language c;
 
-COMMENT ON FUNCTION docker_images_json() IS 'Private API';
-
--- API: PUBLIC
-CREATE VIEW docker_images AS (
-     select "Id" AS id, "Size" AS "size", "Labels" AS "labels", to_timestamp("Created") AS created_at,
-            "ParentId" AS parent_id, "RepoTags" AS repo_tags, "Containers" AS containers,
-            "SharedSize" AS shared_size, "RepoDigests" AS repo_digests, "VirtualSize" AS virtual_size FROM
-            jsonb_to_recordset(jsonb_strip_nulls(omni_containers.docker_images_json())) AS
-              images("Id" text, "Size" int8, "Labels" jsonb, "Created" int8, "ParentId" text, "RepoTags" text[],
-                     "Containers" int, "SharedSize" int, "RepoDigests" text[], "VirtualSize" jsonb)
-);
-
-CREATE TYPE docker_container_environment_variable AS (
-  key text,
-  value text
-);
+comment
+on function docker_images_json() is 'Private API';
 
 -- API: PUBLIC
-CREATE FUNCTION docker_container_create(
-  image text,
-  cmd text DEFAULT NULL,
-  attach text DEFAULT 'db.omni',
-  start bool DEFAULT true,
-  wait bool DEFAULT false,
-  pull bool DEFAULT false,
-  options jsonb DEFAULT '{}')
-RETURNS text
-AS 'MODULE_PATHNAME', 'docker_container_create'
-    LANGUAGE C;
+create view docker_images as
+(
+select "Id" as id,
+       "Size" as size,
+       "Labels"                as labels,
+       to_timestamp("Created") as created_at,
+       "ParentId"              as parent_id,
+       "RepoTags"              as repo_tags,
+       "Containers"            as containers,
+       "SharedSize"            as shared_size,
+       "RepoDigests"           as repo_digests,
+       "VirtualSize"           as virtual_size
+    from jsonb_to_recordset(jsonb_strip_nulls(omni_containers.docker_images_json()))
+        as images("Id" text, "Size" int8, "Labels" jsonb, "Created" int8, "ParentId" text, "RepoTags" text[], "Containers" int, "SharedSize" int, "RepoDigests" text[], "VirtualSize" jsonb)
+        );
+
+create type docker_container_environment_variable as (
+    key text,
+    value text
+    );
 
 -- API: PUBLIC
-CREATE FUNCTION docker_container_inspect(id text)
-RETURNS jsonb
-AS 'MODULE_PATHNAME', 'docker_container_inspect'
-    LANGUAGE C;
+create function docker_container_create(
+    image text,
+    cmd text default null,
+    attach text default 'db.omni',
+    start bool default true,
+    wait bool default false,
+    pull bool default false,
+    options jsonb default '{}')
+    returns text
+as 'MODULE_PATHNAME', 'docker_container_create'
+    language c;
 
 -- API: PUBLIC
-CREATE FUNCTION docker_container_logs(
-  id text,
-  stdout bool DEFAULT true,
-  stderr bool DEFAULT true,
-  since timestamp DEFAULT NULL,
-  until timestamp DEFAULT NULL,
-  timestamps bool DEFAULT false,
-  tail int DEFAULT NULL
-  )
-RETURNS text
-AS 'MODULE_PATHNAME', 'docker_container_logs'
-    LANGUAGE C;
+create function docker_container_inspect(id text)
+    returns jsonb
+as 'MODULE_PATHNAME', 'docker_container_inspect'
+    language c;
+
+-- API: PUBLIC
+create function docker_container_logs(
+    id text,
+    stdout bool default true,
+    stderr bool default true,
+    since timestamp default null,
+    until timestamp default null,
+    timestamps bool default false,
+    tail int default null
+)
+    returns text
+as 'MODULE_PATHNAME', 'docker_container_logs'
+    language c;

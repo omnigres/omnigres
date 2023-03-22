@@ -1,28 +1,44 @@
-CREATE TYPE statement;
+create type statement;
 
-CREATE FUNCTION statement_in(cstring) RETURNS statement
-  AS 'MODULE_PATHNAME', 'statement_in'
-  LANGUAGE C STRICT IMMUTABLE;
+create function statement_in(cstring) returns statement
+as
+'MODULE_PATHNAME',
+'statement_in'
+    language c strict
+               immutable;
 
-CREATE FUNCTION statement_out(statement) RETURNS cstring
-  AS 'MODULE_PATHNAME', 'statement_out'
-  LANGUAGE C STRICT IMMUTABLE;
+create function statement_out(statement) returns cstring
+as
+'MODULE_PATHNAME',
+'statement_out'
+    language c strict
+               immutable;
 
-CREATE TYPE statement (
-    INPUT = statement_in,
-    OUTPUT = statement_out,
-    LIKE = text
+create type statement
+(
+    input = statement_in,
+    output = statement_out,
+    like = text
 );
 
-CREATE FUNCTION add_cte(statement, name text, cte statement,
-                        recursive bool DEFAULT false, prepend bool DEFAULT false) RETURNS statement
-  AS 'MODULE_PATHNAME', 'add_cte'
-  LANGUAGE C STRICT IMMUTABLE;
+create function add_cte(statement, name text, cte statement,
+                        recursive bool default false, prepend bool default false) returns statement
+as
+'MODULE_PATHNAME',
+'add_cte'
+    language c strict
+               immutable;
 
-CREATE FUNCTION is_parameterized(statement) RETURNS bool
-  AS 'MODULE_PATHNAME', 'is_parameterized'
-  LANGUAGE C STRICT IMMUTABLE;
+create function is_parameterized(statement) returns bool
+as
+'MODULE_PATHNAME',
+'is_parameterized'
+    language c strict
+               immutable;
 
- CREATE FUNCTION is_valid(statement) RETURNS bool
-  AS 'MODULE_PATHNAME', 'is_valid'
-  LANGUAGE C STRICT IMMUTABLE;
+create function is_valid(statement) returns bool
+as
+'MODULE_PATHNAME',
+'is_valid'
+    language c strict
+               immutable;

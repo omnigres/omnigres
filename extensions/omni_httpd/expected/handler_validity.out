@@ -1,17 +1,39 @@
 -- Invalid queries
-INSERT INTO omni_httpd.handlers (query) VALUES($$SELECT * FROM no_such_table$$);
+insert
+into
+    omni_httpd.handlers (query)
+values
+    ($$SELECT * FROM no_such_table$$);
 ERROR:  invalid query
 DETAIL:  relation "no_such_table" does not exist
-INSERT INTO omni_httpd.handlers (query) VALUES($$SELECT request.pth FROM request$$);
+insert
+into
+    omni_httpd.handlers (query)
+values
+    ($$SELECT request.pth FROM request$$);
 ERROR:  invalid query
 DETAIL:  column request.pth does not exist
-INSERT INTO omni_httpd.handlers (query) VALUES($$$$);
+insert
+into
+    omni_httpd.handlers (query)
+values
+    ($$$$);
 ERROR:  query can only contain one statement
-INSERT INTO omni_httpd.handlers (query) VALUES($$SELECT; SELECT$$);
+insert
+into
+    omni_httpd.handlers (query)
+values
+    ($$SELECT; SELECT$$);
 ERROR:  query can only contain one statement
 -- Valid query at the end of the transaction
-BEGIN;
-INSERT INTO omni_httpd.handlers (query) VALUES($$SELECT * FROM no_such_table$$);
-CREATE TABLE no_such_table ();
-END;
-DROP TABLE no_such_table;
+begin;
+insert
+into
+    omni_httpd.handlers (query)
+values
+    ($$SELECT * FROM no_such_table$$);
+create table no_such_table
+(
+);
+end;
+drop table no_such_table;
