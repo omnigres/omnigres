@@ -1,130 +1,156 @@
-CREATE TYPE http_method AS ENUM ('GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'CONNECT', 'OPTIONS', 'TRACE', 'PATCH');
+create type http_method as enum ('GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'CONNECT', 'OPTIONS', 'TRACE', 'PATCH');
 
-CREATE TYPE http_header AS (
-    name text,
-    value text,
+create type http_header as
+(
+    name   text,
+    value  text,
     append bool
 );
 
-CREATE TYPE http_request AS (
-    method http_method,
-    path text,
+create type http_request as
+(
+    method       http_method,
+    path         text,
     query_string text,
-    body bytea,
-    headers http_header[]
+    body         bytea,
+    headers      http_header[]
 );
 
-CREATE FUNCTION http_header(name text, value text, append bool DEFAULT false) RETURNS http_header AS $$
-SELECT ROW(name, value, append) AS result;
+create function http_header(name text, value text, append bool default false) returns http_header as
 $$
-LANGUAGE SQL;
+select row (name, value, append) as result;
+$$
+    language sql;
 
-CREATE TYPE http_response AS (
-    status smallint,
+create type http_response as
+(
+    status  smallint,
     headers http_header[],
-    body bytea
+    body    bytea
 );
 
-CREATE FUNCTION http_response(
-    status int DEFAULT 200,
-    headers http_header[] DEFAULT NULL,
-    body anycompatible DEFAULT NULL
+create function http_response(
+    status int default 200,
+    headers http_header[] default null,
+    body anycompatible default null
 )
-    RETURNS http_response
-    AS 'MODULE_PATHNAME', 'http_response'
-    LANGUAGE C;
+    returns http_response
+as
+'MODULE_PATHNAME',
+'http_response'
+    language c;
 
-CREATE DOMAIN port integer CHECK (VALUE >= 0 AND VALUE <= 65535);
+create domain port integer check (value >= 0 and value <= 65535);
 
-CREATE TYPE http_protocol AS ENUM ('http', 'https');
+create type http_protocol as enum ('http', 'https');
 
-CREATE TABLE listeners (
-    id integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-    address inet NOT NULL DEFAULT '127.0.0.1',
-    port port NOT NULL DEFAULT 80,
-    protocol http_protocol NOT NULL DEFAULT 'http'
+create table listeners
+(
+    id       integer primary key generated always as identity,
+    address  inet          not null default '127.0.0.1',
+    port     port          not null default 80,
+    protocol http_protocol not null default 'http'
     -- TODO: key/cert
 );
 
-CREATE TABLE handlers (
-    id integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-    query text NOT NULL,
-    role_name name NOT NULL DEFAULT current_user CHECK (current_user = role_name)
+create table handlers
+(
+    id        integer primary key generated always as identity,
+    query     text not null,
+    role_name name not null default current_user check (current_user = role_name)
 );
 
-CREATE FUNCTION handlers_query_validity_trigger() RETURNS trigger
-AS 'MODULE_PATHNAME', 'handlers_query_validity_trigger' LANGUAGE C;
+create function handlers_query_validity_trigger() returns trigger
+as
+'MODULE_PATHNAME',
+'handlers_query_validity_trigger' language c;
 
-CREATE CONSTRAINT TRIGGER handlers_query_validity_trigger AFTER INSERT OR UPDATE
-  ON handlers
-  DEFERRABLE INITIALLY DEFERRED
-  FOR EACH ROW
-  EXECUTE FUNCTION handlers_query_validity_trigger();
+create constraint trigger handlers_query_validity_trigger
+    after insert or update
+    on handlers
+    deferrable initially deferred
+    for each row
+execute function handlers_query_validity_trigger();
 
-CREATE TABLE listeners_handlers (
-   listener_id integer NOT NULL REFERENCES listeners (id),
-   handler_id integer NOT NULL REFERENCES handlers (id)
+create table listeners_handlers
+(
+    listener_id integer not null references listeners (id),
+    handler_id  integer not null references handlers (id)
 );
-CREATE INDEX listeners_handlers_index ON listeners_handlers (listener_id, handler_id);
+create index listeners_handlers_index on listeners_handlers (listener_id, handler_id);
 
-CREATE TABLE configuration_reloads (
-    id integer PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-    happened_at timestamp NOT NULL DEFAULT now()
+create table configuration_reloads
+(
+    id          integer primary key generated always as identity,
+    happened_at timestamp not null default now()
 );
 
 -- Wait for the number of configuration reloads to be `n` or greater
 -- Useful for testing
-CREATE PROCEDURE wait_for_configuration_reloads(n int) AS $$
-DECLARE
-c int;
-BEGIN
-LOOP
- SELECT count(*) INTO c  FROM omni_httpd.configuration_reloads;
- EXIT WHEN c >= n;
-END LOOP;
-END;
-$$ LANGUAGE plpgsql;
+create procedure wait_for_configuration_reloads(n int) as
+$$
+declare
+    c int;
+begin
+    loop
+        select count(*) into c from omni_httpd.configuration_reloads;
+        exit when c >= n;
+    end loop;
+end;
+$$ language plpgsql;
 
-CREATE FUNCTION reload_configuration_trigger() RETURNS trigger
-    AS 'MODULE_PATHNAME', 'reload_configuration'
-    LANGUAGE C;
+create function reload_configuration_trigger() returns trigger
+as
+'MODULE_PATHNAME',
+'reload_configuration'
+    language c;
 
-CREATE FUNCTION reload_configuration() RETURNS bool
-    AS 'MODULE_PATHNAME', 'reload_configuration'
-    LANGUAGE C;
+create function reload_configuration() returns bool
+as
+'MODULE_PATHNAME',
+'reload_configuration'
+    language c;
 
-CREATE TRIGGER listeners_updated
-    AFTER UPDATE OR DELETE OR INSERT
-    ON listeners
-EXECUTE FUNCTION reload_configuration_trigger();
+create trigger listeners_updated
+    after update or delete or insert
+    on listeners
+execute function reload_configuration_trigger();
 
-CREATE TRIGGER handlers_updated
-    AFTER UPDATE OR DELETE OR INSERT
-    ON handlers
-EXECUTE FUNCTION reload_configuration_trigger();
+create trigger handlers_updated
+    after update or delete or insert
+    on handlers
+execute function reload_configuration_trigger();
 
-CREATE TRIGGER listeners_handlers_updated
-    AFTER UPDATE OR DELETE OR INSERT
-    ON listeners_handlers
-EXECUTE FUNCTION reload_configuration_trigger();
+create trigger listeners_handlers_updated
+    after update or delete or insert
+    on listeners_handlers
+execute function reload_configuration_trigger();
 
-CREATE FUNCTION cascading_query_reduce(internal, name text, query text) RETURNS internal
- AS 'MODULE_PATHNAME', 'cascading_query_reduce' LANGUAGE C;
+create function cascading_query_reduce(internal, name text, query text) returns internal
+as
+'MODULE_PATHNAME',
+'cascading_query_reduce' language c;
 
-CREATE FUNCTION cascading_query_final(internal) RETURNS text
- AS 'MODULE_PATHNAME', 'cascading_query_final' LANGUAGE C;
+create function cascading_query_final(internal) returns text
+as
+'MODULE_PATHNAME',
+'cascading_query_final' language c;
 
-CREATE AGGREGATE cascading_query (name text, query text) (
-  sfunc = cascading_query_reduce,
-  finalfunc = cascading_query_final,
-  stype = internal
- );
+create aggregate cascading_query (name text, query text) (
+    sfunc = cascading_query_reduce,
+    finalfunc = cascading_query_final,
+    stype = internal
+    );
 
- CREATE FUNCTION default_page(request http_request) RETURNS SETOF http_response AS $$
- BEGIN
- RETURN QUERY (WITH stats AS (SELECT * FROM pg_catalog.pg_stat_database WHERE datname = current_database())
-       SELECT * FROM omni_httpd.http_response(headers => array[omni_httpd.http_header('content-type', 'text/html')],
-       body => $html$
+create function default_page(request http_request) returns setof http_response as
+$$
+begin
+    return query (with
+                      stats as (select * from pg_catalog.pg_stat_database where datname = current_database())
+                  select *
+                  from
+                      omni_httpd.http_response(headers => array [omni_httpd.http_header('content-type', 'text/html')],
+                                               body => $html$
        <!DOCTYPE html>
        <html>
          <head>
@@ -157,8 +183,8 @@ CREATE AGGREGATE cascading_query (name text, query text) (
                      <article class="tile is-child notification is-grey-lighter">
                        <p class="title">Database</p>
                        <p class="subtitle"><strong>$html$ || current_database() || $html$</strong></p>
-                       <p> <strong>Backends</strong>: $html$ || (SELECT numbackends FROM stats) || $html$ </p>
-                       <p> <strong>Transactions committed</strong>: $html$ || (SELECT xact_commit FROM stats) || $html$ </p>
+                       <p> <strong>Backends</strong>: $html$ || (select numbackends from stats) || $html$ </p>
+                       <p> <strong>Transactions committed</strong>: $html$ || (select xact_commit from stats) || $html$ </p>
                      </article>
                    </div>
                  </div>
@@ -173,20 +199,30 @@ CREATE AGGREGATE cascading_query (name text, query text) (
          </body>
        </html>
        $html$));
-       END;
-$$ LANGUAGE plpgsql;
+end;
+$$ language plpgsql;
 
 -- Initialization
-WITH config AS
-         (SELECT coalesce(NOT current_setting('omni_httpd.no_init', true)::bool, true)     AS should_init,
-                 coalesce(current_setting('omni_httpd.init_listen_address', true),
-                          '0.0.0.0')::inet                                                 AS init_listen_address,
-                 coalesce(current_setting('omni_httpd.init_port', true)::port, 8080::port) AS init_port),
-     listener AS (INSERT INTO listeners (address, port) SELECT init_listen_address, init_port FROM config RETURNING id),
-     handler AS (INSERT INTO handlers (query) VALUES(
-       $$
-       SELECT omni_httpd.default_page(request.*::omni_httpd.http_request) FROM request $$) RETURNING id)
-INSERT INTO listeners_handlers (listener_id, handler_id)
-SELECT listener.id, handler.id
-FROM config, listener, handler
-WHERE config.should_init;
+with
+    config as
+        (select
+             coalesce(not current_setting('omni_httpd.no_init', true)::bool, true)     as should_init,
+             coalesce(current_setting('omni_httpd.init_listen_address', true),
+                      '0.0.0.0')::inet                                                 as init_listen_address,
+             coalesce(current_setting('omni_httpd.init_port', true)::port, 8080::port) as init_port),
+    listener as (insert into listeners (address, port) select init_listen_address, init_port from config returning id),
+    handler as (insert into handlers (query) values
+                                                 ($$
+       SELECT omni_httpd.default_page(request.*::omni_httpd.http_request) FROM request $$) returning id)
+insert
+into
+    listeners_handlers (listener_id, handler_id)
+select
+    listener.id,
+    handler.id
+from
+    config,
+    listener,
+    handler
+where
+    config.should_init;
