@@ -7,14 +7,7 @@ create type http_header as
     append bool
 );
 
-create type http_request as
-(
-    method       http_method,
-    path         text,
-    query_string text,
-    body         bytea,
-    headers      http_header[]
-);
+create domain http_headers as http_header[];
 
 create function http_header(name text, value text, append bool default false) returns http_header as
 $$
@@ -22,16 +15,50 @@ select row (name, value, append) as result;
 $$
     language sql;
 
+create function http_header_get_all(headers http_headers, header_name text) returns setof text
+    strict immutable
+as
+$$
+select
+    header.value
+from
+    unnest(headers) header(name, value, append)
+where
+    lower(header.name) = lower(header_name)
+$$
+    language sql;
+
+create function http_header_get(headers http_headers, name text) returns text
+    strict immutable
+as
+$$
+select
+    http_header_get_all
+from
+    omni_httpd.http_header_get_all(headers, name)
+limit 1
+$$
+    language sql;
+
+create type http_request as
+(
+    method       http_method,
+    path         text,
+    query_string text,
+    body         bytea,
+    headers      http_headers
+);
+
 create type http_response as
 (
     status  smallint,
-    headers http_header[],
+    headers http_headers,
     body    bytea
 );
 
 create function http_response(
     status int default 200,
-    headers http_header[] default null,
+    headers http_headers default null,
     body anycompatible default null
 )
     returns http_response
