@@ -6,6 +6,7 @@ select omni_httpd.http_response(headers => null, body => 'test');
 
 -- NULL body
 select omni_httpd.http_response(body => null);
+select omni_httpd.http_response();
 
 -- Text body
 select omni_httpd.http_response(body => 'text');
@@ -38,3 +39,8 @@ select
 -- Overriding content type, with a different case
 select
     omni_httpd.http_response(headers => array [omni_httpd.http_header('Content-Type', 'text/html')], body => 'test');
+
+--- Shortcut syntax with body first
+select omni_httpd.http_response('test');
+select omni_httpd.http_response('"test"'::json);
+select omni_httpd.http_response('"test"'::jsonb);

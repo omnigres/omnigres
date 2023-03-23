@@ -12,7 +12,7 @@ You can change the handler by updating the `query` column in the `handlers` tabl
 to write this query is to use `omni_httpd.cascading_query` aggregate function (though, of course, one can roll their
 own SQL completely by hand). This function simplifies building priority-sorted request handling:
 
-```sql
+```postgresql
 update omni_httpd.handlers
 set
     query =
@@ -58,7 +58,7 @@ or can be retrieved during deployment (say, from a Git repository or any other s
     `not_found`), it means that `cascading_query`-built query will first try to get results from `headers` and if none available, will
     attempt `not_found`. Suppose we changed the order:
 
-    ```sql
+    ```postgresql
     update omni_httpd.handlers
     set
         query =
@@ -95,7 +95,7 @@ or can be retrieved during deployment (say, from a Git repository or any other s
     The idea behind `cascading_query` is that it aggregates named queries in a `UNION` query where all given queries
     will become common table expressions (CTEs) and the `UNION` will be used to cascade over them, something like:
 
-    ```sql
+    ```postgresql
     with
         headers as (...),
         not_found as (...)
@@ -114,7 +114,7 @@ All good. But looking back into the queries itself, they mention `request` which
 come from? This is actually a CTE that `omni_httpd` supplies in runtime that has the following `omni_httpd.http_request`
 signature:
 
-```sql
+```postgresql
 method omni_httpd.http_method,
 path text,
 query_string text,
