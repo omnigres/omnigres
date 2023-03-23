@@ -19,7 +19,7 @@ add_postgresql_extension(
         SCRIPTS omni_web--0.1.sql
         SOURCES omni_web.c
         TESTS_REQUIRE omni_ext
-        REGRESS smoketest)
+        REGRESS query_string params)
 
 target_link_libraries(omni_web uriparser)
 
