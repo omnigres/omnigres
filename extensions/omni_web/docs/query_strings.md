@@ -5,7 +5,7 @@
 `parse_query_string` takes a query string:
 
 ```sql
-SELECT omni_web.parse_query_string('key=value')
+select omni_web.parse_query_string('key=value')
 ```
 
 And returns an array of keys and values:
@@ -17,19 +17,19 @@ And returns an array of keys and values:
 (1 row)
 ```
 
-!!! tip
+To retrieve individual parameters, you can use `omni_web.param_get` and `omni_web.param_get_all`:
 
-    It can be used together with Postgres built-in
-    function [`jsonb_object`](https://www.postgresql.org/docs/current/functions-json.html)
-    if the keys are expected to be unique:
+```sql
+select omni_web.param_get(omni_web.parse_query_string('a=1&a=2'), 'a');
+param_get 
+-----------
+ 1
+(1 row)
+select omni_web.param_get_all(omni_web.parse_query_string('a=1&a=2'), 'a');
+param_get_all
+-----------
+ 1
+ 2
+(1 row)
 
-    ```sql
-    SELECT jsonb_object(omni_web.parse_query_string('key=value'))->'key';
-    ```
-
-    ```psql
-     ?column?
-    ----------
-     "value"
-    (1 row)
-    ```
+```

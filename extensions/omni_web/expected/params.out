@@ -1,0 +1,30 @@
+-- params type
+select array['key', 'value']::omni_web.params;
+    array    
+-------------
+ {key,value}
+(1 row)
+
+-- Invalid params should fail:
+select array['key']::omni_web.params;
+ERROR:  value for domain omni_web.params violates check constraint "params_check"
+\pset null '<null>'
+select omni_web.param_get(omni_web.parse_query_string('a=1&a=2'), 'a');
+ param_get 
+-----------
+ 1
+(1 row)
+
+select omni_web.param_get(omni_web.parse_query_string('a&a=2'), 'a');
+ param_get 
+-----------
+ <null>
+(1 row)
+
+select omni_web.param_get_all(omni_web.parse_query_string('a&a=2'), 'a');
+ param_get_all 
+---------------
+ <null>
+ 2
+(2 rows)
+
