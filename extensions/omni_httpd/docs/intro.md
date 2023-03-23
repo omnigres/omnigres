@@ -13,14 +13,19 @@ to write this query is to use `omni_httpd.cascading_query` aggregate function (t
 own SQL completely by hand). This function simplifies building priority-sorted request handling:
 
 ```sql
-UPDATE omni_httpd.handlers SET query = 
-(SELECT omni_httpd.cascading_query(name, query ORDER BY priority DESC NULLS LAST) FROM (VALUES
-     ('headers',
-     $$SELECT omni_httpd.http_response(body => request.headers::text) FROM request WHERE request.path = '/headers'$$, 1),
-     ('not_found',
-     $$SELECT omni_httpd.http_response(status => 404, body => 'Not found') FROM request$$, 0)
-     ) 
-     AS routes(name,query,priority) );
+update omni_httpd.handlers
+set
+    query =
+        (select
+             omni_httpd.cascading_query(name, query order by priority desc nulls last)
+         from
+             (values
+                  ('headers',
+                   $$select omni_httpd.http_response(body => request.headers::text) from request where request.path = '/headers'$$,
+                   1),
+                  ('not_found',
+                   $$select omni_httpd.http_response(status => 404, body => 'Not found') from request$$, 0))
+                 as routes(name, query, priority));
 ```
 
 ??? tip "What if the query is invalid?"
@@ -54,17 +59,22 @@ or can be retrieved during deployment (say, from a Git repository or any other s
     attempt `not_found`. Suppose we changed the order:
 
     ```sql
-    UPDATE omni_httpd.handlers SET query =
-    (SELECT omni_httpd.cascading_query(name, query ORDER BY priority ASC NULLS LAST) FROM (VALUES -- (1)
-    ('headers',
-    $$SELECT omni_httpd.http_response(body => request.headers::text) FROM request WHERE request.path = '/headers'$$, 1),
-    ('not_found',
-    $$SELECT omni_httpd.http_response(status => 404, body => 'Not found') FROM request$$, 0)
-    )
-    AS routes(name,query,priority) );
+    update omni_httpd.handlers
+    set
+        query =
+            (select
+                 omni_httpd.cascading_query(name, query order by priority asc nulls last) -- (1)
+             from
+                 (values
+                      ('headers',
+                       $$select omni_httpd.http_response(body => request.headers::text) from request where request.path = '/headers'$$,
+                       1),
+                      ('not_found',
+                       $$select omni_httpd.http_response(status => 404, body => 'Not found') from request$$, 0))
+                     as routes(name, query, priority));
     ```
 
-    1. We changed this from `DESC` to `ASC`
+    1. We changed the order from `desc` to `asc`
 
     Then `not_found` will always take the precedence:
     
@@ -86,11 +96,18 @@ or can be retrieved during deployment (say, from a Git repository or any other s
     will become common table expressions (CTEs) and the `UNION` will be used to cascade over them, something like:
 
     ```sql
-    WITH headers AS (...),
-         not_found AS (...)
-    SELECT * FROM headers
-    UNION ALL
-    SELECT * FROM not_found WHERE NOT EXISTS (SELECT FROM headers)
+    with
+        headers as (...),
+        not_found as (...)
+    select *
+    from
+        headers
+    union all
+    select *
+    from
+        not_found
+    where
+        not exists(select from headers)
     ```
 
 All good. But looking back into the queries itself, they mention `request` which is nowhere to be found. Where does this
