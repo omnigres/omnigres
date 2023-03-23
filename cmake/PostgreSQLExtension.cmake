@@ -306,11 +306,15 @@ ${_loadextensions} \
         endif()
 
         add_custom_target(
-            ${NAME}_update_results
-            COMMAND
-            ${CMAKE_COMMAND} -E copy_if_different
-            ${CMAKE_CURRENT_BINARY_DIR}/${NAME}/results/*.out
-            ${CMAKE_CURRENT_SOURCE_DIR}/expected)
+                ${NAME}_update_results
+                COMMAND
+                ${CMAKE_COMMAND} -E copy_if_different
+                ${CMAKE_CURRENT_BINARY_DIR}/${NAME}/results/*.out
+                ${CMAKE_CURRENT_SOURCE_DIR}/expected)
+        if(NOT TARGET update_test_results)
+            add_custom_target(update_test_results)
+        endif()
+        add_dependencies(update_test_results ${NAME}_update_results)
     endif()
 
     if(INITDB AND CREATEDB AND (PSQL OR PGCLI) AND PG_CTL)
