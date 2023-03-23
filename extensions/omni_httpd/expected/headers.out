@@ -1,0 +1,22 @@
+select omni_httpd.http_header_get(array [omni_httpd.http_header('Host', 'omnihost')], 'Host');
+ http_header_get 
+-----------------
+ omnihost
+(1 row)
+
+select omni_httpd.http_header_get(array [omni_httpd.http_header('Host', 'omnihost')], 'host');
+ http_header_get 
+-----------------
+ omnihost
+(1 row)
+
+select
+    omni_httpd.http_header_get_all(
+            array [omni_httpd.http_header('Accept', 'application/xml'), omni_httpd.http_header('Accept', 'application/json')],
+            'accept');
+ http_header_get_all 
+---------------------
+ application/xml
+ application/json
+(2 rows)
+
