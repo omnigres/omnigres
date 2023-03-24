@@ -32,3 +32,4 @@ plugins:
   - search
   - monorepo
   - mermaid2
+  - include-markdown

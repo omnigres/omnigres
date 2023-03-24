@@ -51,15 +51,15 @@ create type http_request as
 
 create type http_response as
 (
+    body    bytea,
     status  smallint,
-    headers http_headers,
-    body    bytea
+    headers http_headers
 );
 
 create function http_response(
+    body anycompatible default null,
     status int default 200,
-    headers http_headers default null,
-    body anycompatible default null
+    headers http_headers default null
 )
     returns http_response
 as

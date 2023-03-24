@@ -631,13 +631,14 @@ static int handler(h2o_handler_t *self, h2o_req_t *req) {
       HeapTupleHeader response_tuple = DatumGetHeapTupleHeader(response);
 
       // Status
-      req->res.status = DatumGetUInt16(GetAttributeByNum(response_tuple, 1, &isnull));
+      req->res.status =
+          DatumGetUInt16(GetAttributeByIndex(response_tuple, HTTP_RESPONSE_TUPLE_STATUS, &isnull));
       if (isnull) {
         req->res.status = 200;
       }
 
       // Headers
-      Datum array_datum = GetAttributeByNum(response_tuple, 2, &isnull);
+      Datum array_datum = GetAttributeByIndex(response_tuple, HTTP_RESPONSE_TUPLE_HEADERS, &isnull);
       if (!isnull) {
         ArrayType *headers = DatumGetArrayTypeP(array_datum);
         ArrayIterator iter = array_create_iterator(headers, 0, NULL);
@@ -669,7 +670,7 @@ static int handler(h2o_handler_t *self, h2o_req_t *req) {
       }
 
       // Body
-      Datum body = GetAttributeByNum(response_tuple, 3, &isnull);
+      Datum body = GetAttributeByIndex(response_tuple, HTTP_RESPONSE_TUPLE_BODY, &isnull);
 
       if (!isnull) {
         bytea *body_content = DatumGetByteaPP(body);

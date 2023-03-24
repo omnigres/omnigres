@@ -26,7 +26,7 @@ docker run --name omnigres -e POSTGRES_PASSWORD=omnigres -e POSTGRES_USER=omnigr
            -p 5432:5432 -p 8080:8080 --rm ghcr.io/omnigres/omnigres:latest
 # Now you can connect to it:
 psql -h localhost -p 5432 -U omnigres omnigres # password is `omnigres`
-````
+```
 
 You can access the HTTP server at [localhost:8080](http://localhost:8080)
 
@@ -42,72 +42,52 @@ DOCKER_BUILDKIT=1 docker build . -t ghcr.io/omnigres/omnigres
 
 ## :wave: "Hello, world"
 
-Below is a simple web application that runs inside of Postgres
-and manages [MOTD (Message Of The Day)](https://en.wikipedia.org/wiki/Message_of_the_day).
+Here we expect you are running the [container image](#-runner--quick-start), which has
+omni_httpd and omni_web extensions provisioned by default.
+
+Let's start with a traditional example:
 
 ```sql
-create table if not exists motd
-(
-    id        int primary key generated always as identity,
-    content   text,
-    posted_at timestamp default now()
-);
-
-create or replace function show_motd() returns setof omni_httpd.http_response as
-$$
-select
-    omni_httpd.http_response(body => 'Posted at ' || posted_at || E'\n' || content)
-from
-    motd
-order by
-    posted_at desc
-limit 1;
-$$ language sql;
-
-create or replace function no_motd() returns setof omni_httpd.http_response as
-$$
-select omni_httpd.http_response(body => 'No MOTD');
-$$
-    language sql;
-
-create or replace function update_motd(request omni_httpd.http_request) returns omni_httpd.http_response as
-$$
-insert
-into
-    motd (content)
-values
-    (convert_from(request.body, 'UTF8'))
-returning omni_httpd.http_response(status => 201);
-$$
-    language sql;
-
 update omni_httpd.handlers
 set
-    query = (select
-                 omni_httpd.cascading_query(name, query order by priority desc nulls last)
-             from
-                 (values
-                      ('show', $$select show_motd() from request where request.method = 'GET'$$, 1),
-                      ('update', $$select update_motd(request.*) from request where request.method = 'POST'$$, 1),
-                      ('fallback', $$select no_motd() from request where request.method = 'GET'$$,
-                       0)) handlers(name, query, priority));
+    query =
+        $$select omni_httpd.http_response('Hello, world!') from request;$$;
 ```
 
-It works like this:
+Here we instruct the handler that is provisioned by omni_httpd by default
+to use the enclosed query to greet the world:
 
 ```shell
-GET / # => HTTP/1.1 200 OK
-No MOTD
-
-POST / "Check out Omnigres" # => HTTP/1.1 201 OK
-
-GET / # => HTTP/1.1 200 OK
-Posted at 2023-03-23 02:59:14.679113
-Check out Omnigres
+$ curl localhost:8080
+Hello, world!
 ```
 
-All you need to run this is just an instance of Postgres with
-Omnigres extensions installed, like the one in the [container image](#quick-start).
+Now, let's make it more personal and let it greet the requester by name.
+
+```sql
+update omni_httpd.handlers
+set
+    query =
+        $$select omni_httpd.http_response('Hello, ' || 
+                   coalesce(omni_web.param_get(omni_web.parse_query_string(request.query_string), 'name'), 'world') || '!')
+          from request;$$;
+```
+
+Now, it'll respond in a personalized manner if `name` query string parameter is provided:
+
+```shell
+$ curl localhost:8080
+Hello, world!
+
+$ curl "localhost:8080?name=John"
+Hello, John!
+```
+
+This, of course, only barely scratches the surface, but it may give you a very high-level concept
+of how Omnigres web services can be built.
+
+For a more complex example, that uses the underlying database and employs more real-world layout, check out
+this [MOTD service example](https://docs.omnigres.org/examples/motd/).
 
 ## :building_construction: Component Roadmap
 

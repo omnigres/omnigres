@@ -150,9 +150,9 @@ static inline Datum add_header(Datum headers, char *name, char *value, bool appe
 PG_FUNCTION_INFO_V1(http_response);
 
 Datum http_response(PG_FUNCTION_ARGS) {
-#define ARG_STATUS 0
-#define ARG_HEADERS 1
-#define ARG_BODY 2
+#define ARG_BODY 0
+#define ARG_STATUS 1
+#define ARG_HEADERS 2
   TupleDesc response_tupledesc = TypeGetTupleDesc(http_response_oid(), NULL);
   BlessTupleDesc(response_tupledesc);
 
@@ -168,12 +168,9 @@ Datum http_response(PG_FUNCTION_ARGS) {
     headers = (Datum)0;
   }
 
-#define TUPLE_STATUS 0
-#define TUPLE_HEADERS 1
-#define TUPLE_BODY 2
-
-  Datum values[3] = {
-      [TUPLE_STATUS] = status, [TUPLE_HEADERS] = headers, [TUPLE_BODY] = PG_GETARG_DATUM(ARG_BODY)};
+  Datum values[3] = {[HTTP_RESPONSE_TUPLE_STATUS] = status,
+                     [HTTP_RESPONSE_TUPLE_HEADERS] = headers,
+                     [HTTP_RESPONSE_TUPLE_BODY] = PG_GETARG_DATUM(ARG_BODY)};
 
   // Process body, infer content-type, etc.
   if (!PG_ARGISNULL(ARG_BODY)) {
@@ -182,7 +179,7 @@ Datum http_response(PG_FUNCTION_ARGS) {
     // specified explicitly.
     bool has_content_type = false;
     // If there is a headers array at all
-    if (values[TUPLE_HEADERS] != 0) {
+    if (values[HTTP_RESPONSE_TUPLE_HEADERS] != 0) {
       TupleDesc tupdesc = TypeGetTupleDesc(http_header_oid(), NULL);
       BlessTupleDesc(tupdesc);
 
@@ -206,31 +203,32 @@ Datum http_response(PG_FUNCTION_ARGS) {
       array_free_iterator(it);
     }
 
-    Oid body_element_type = get_fn_expr_argtype(fcinfo->flinfo, 2);
+    Oid body_element_type = get_fn_expr_argtype(fcinfo->flinfo, ARG_BODY);
     Jsonb *jb;
     switch (body_element_type) {
     case TEXTOID:
     case VARCHAROID:
     case CHAROID:
       if (!has_content_type) {
-        values[TUPLE_HEADERS] =
-            add_header(values[TUPLE_HEADERS], "content-type", "text/plain; charset=utf-8", false);
+        values[HTTP_RESPONSE_TUPLE_HEADERS] =
+            add_header(values[HTTP_RESPONSE_TUPLE_HEADERS], "content-type",
+                       "text/plain; charset=utf-8", false);
       }
       break;
     case BYTEAOID:
       if (!has_content_type) {
-        values[TUPLE_HEADERS] =
-            add_header(values[TUPLE_HEADERS], "content-type", "application/octet-stream", false);
+        values[HTTP_RESPONSE_TUPLE_HEADERS] = add_header(
+            values[HTTP_RESPONSE_TUPLE_HEADERS], "content-type", "application/octet-stream", false);
       }
       break;
     case JSONBOID:
-      jb = PG_GETARG_JSONB_P(2);
+      jb = DatumGetJsonbP(values[HTTP_RESPONSE_TUPLE_BODY]);
       char *out = JsonbToCString(NULL, &jb->root, VARSIZE(jb));
-      values[TUPLE_BODY] = PointerGetDatum(cstring_to_text(out));
+      values[HTTP_RESPONSE_TUPLE_BODY] = PointerGetDatum(cstring_to_text(out));
     case JSONOID:
       if (!has_content_type) {
-        values[TUPLE_HEADERS] =
-            add_header(values[TUPLE_HEADERS], "content-type", "text/json", false);
+        values[HTTP_RESPONSE_TUPLE_HEADERS] =
+            add_header(values[HTTP_RESPONSE_TUPLE_HEADERS], "content-type", "text/json", false);
       }
       break;
     default:
@@ -240,13 +238,12 @@ Datum http_response(PG_FUNCTION_ARGS) {
     }
   }
 
-  HeapTuple response = heap_form_tuple(
-      response_tupledesc, values,
-      (bool[3]){false, values[TUPLE_HEADERS] == 0 ? true : false, PG_ARGISNULL(ARG_BODY)});
-
-#undef TUPLE_STATUS
-#undef TUPLE_HEADERS
-#undef TUPLE_BODY
+  HeapTuple response =
+      heap_form_tuple(response_tupledesc, values,
+                      (bool[3]){[HTTP_RESPONSE_TUPLE_STATUS] = false,
+                                [HTTP_RESPONSE_TUPLE_HEADERS] =
+                                    values[HTTP_RESPONSE_TUPLE_HEADERS] == 0 ? true : false,
+                                [HTTP_RESPONSE_TUPLE_BODY] = PG_ARGISNULL(ARG_BODY)});
 
   PG_RETURN_DATUM(HeapTupleGetDatum(response));
 #undef ARG_STATUS

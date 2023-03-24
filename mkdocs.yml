@@ -4,5 +4,8 @@ site_name: Omnigres documentation
 
 nav:
   - Intro: 'index.md'
+  - Quick Start: 'quick_start.md'
+  - Examples:
+      - 'MOTD service': 'examples/motd.md'
   - Dynpgext: '!include ./dynpgext/mkdocs.yml'
   - Extensions: '*include ./extensions/*/mkdocs.yml'
