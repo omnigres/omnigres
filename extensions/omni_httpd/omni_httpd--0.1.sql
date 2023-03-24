@@ -80,11 +80,31 @@ create table listeners
     -- TODO: key/cert
 );
 
+create function check_if_role_accessible_to_current_user(role name) returns boolean
+as
+$$
+declare
+    username name;
+begin
+    select current_user into username;
+    begin
+        execute format('set role %I', role);
+    exception
+        when others then
+            return false;
+    end;
+
+    execute format('set role %I', username);
+    return true;
+end;
+
+$$ language plpgsql;
+
 create table handlers
 (
     id        integer primary key generated always as identity,
     query     text not null,
-    role_name name not null default current_user check (current_user = role_name)
+    role_name name not null default current_user check (check_if_role_accessible_to_current_user(role_name))
 );
 
 create function handlers_query_validity_trigger() returns trigger
