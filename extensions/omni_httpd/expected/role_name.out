@@ -1,5 +1,6 @@
 create role test_user inherit in role current_user;
 create role test_user1 inherit in role current_user;
+create role anotherrole nosuperuser;
 set role test_user;
 -- Should use current_user as a default role_name
 begin;
@@ -36,19 +37,16 @@ from
 ERROR:  current transaction is aborted, commands ignored until end of transaction block
 end;
 call omni_httpd.wait_for_configuration_reloads(1);
--- Can't update it to a name that is not a current user
+-- Can update it to a name that is not a current user if it is accessible
 begin;
 update omni_httpd.handlers
 set
     role_name = 'test_user1'
 where
     role_name = 'test_user';
-ERROR:  new row for relation "handlers" violates check constraint "handlers_role_name_check"
-DETAIL:  Failing row contains (3, SELECT omni_httpd.http_response(body => current_user::text) FROM..., test_user1).
 delete
 from
     omni_httpd.configuration_reloads;
-ERROR:  current transaction is aborted, commands ignored until end of transaction block
 end;
 call omni_httpd.wait_for_configuration_reloads(1);
 -- Can update it to a name that is a current user
@@ -64,34 +62,31 @@ from
     omni_httpd.configuration_reloads;
 end;
 call omni_httpd.wait_for_configuration_reloads(1);
--- When changing the query, should always set current user
-set role test_user;
-update omni_httpd.handlers
-set
-    query = $$SELECT omni_httpd.http_response(body => current_user::text) FROM request$$
-where
-    role_name = 'test_user1'
-returning role_name;
-ERROR:  new row for relation "handlers" violates check constraint "handlers_role_name_check"
-DETAIL:  Failing row contains (3, SELECT omni_httpd.http_response(body => current_user::text) FROM..., test_user1).
--- This will work
+-- After checking permissions, should not change to the new role
 begin;
 update omni_httpd.handlers
 set
-    query     = $$SELECT omni_httpd.http_response(body => current_user::text) FROM request$$,
-    role_name = 'test_user'
+    role_name = 'anotherrole'
 where
-    role_name = 'test_user1'
-returning role_name;
- role_name 
------------
- test_user
+    role_name = 'test_user1';
+select current_user;
+ current_user 
+--------------
+ test_user1
 (1 row)
 
-delete
-from
-    omni_httpd.configuration_reloads;
-end;
-call omni_httpd.wait_for_configuration_reloads(1);
+rollback;
+-- Can't update it to a name that is not a current user if it is not accessible
+begin;
+reset role;
+alter role current_user nosuperuser;
+update omni_httpd.handlers
+set
+    role_name = 'anotherrole'
+where
+    role_name = 'test_user1';
+ERROR:  new row for relation "handlers" violates check constraint "handlers_role_name_check"
+DETAIL:  Failing row contains (3, SELECT omni_httpd.http_response(body => current_user::text) FROM..., anotherrole).
+rollback;
 \! curl --retry-connrefused --retry 10  --retry-max-time 10 --silent http://localhost:9003/
-test_user
+test_user1
