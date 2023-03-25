@@ -69,7 +69,7 @@ update omni_httpd.handlers
 set
     query =
         $$select omni_httpd.http_response('Hello, ' || 
-                   coalesce(omni_web.param_get(omni_web.parse_query_string(request.query_string), 'name'), 'world') || '!')
+                   coalesce(omni_web.param_get(request.query_string, 'name'), 'world') || '!')
           from request;$$;
 ```
 
