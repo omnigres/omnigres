@@ -163,10 +163,11 @@ void http_worker(Datum db_oid) {
       SPI_connect();
 
       int ret = SPI_execute(
-          "SELECT listeners.address, listeners.port, handlers.query, handlers.role_name FROM "
+          "select listeners.address, listeners.effective_port, handlers.query, handlers.role_name "
+          "from "
           "omni_httpd.listeners_handlers "
-          "INNER JOIN omni_httpd.listeners ON listeners.id = listeners_handlers.listener_id "
-          "INNER JOIN omni_httpd.handlers handlers ON handlers.id = listeners_handlers.handler_id",
+          "inner join omni_httpd.listeners on listeners.id = listeners_handlers.listener_id "
+          "inner join omni_httpd.handlers handlers on handlers.id = listeners_handlers.handler_id",
           false, 0);
       if (ret == SPI_OK_SELECT) {
         TupleDesc tupdesc = SPI_tuptable->tupdesc;
@@ -256,12 +257,12 @@ void http_worker(Datum db_oid) {
               MemoryContext memory_context = CurrentMemoryContext;
               char *request_cte = psprintf(
                   // clang-format off
-                                  "SELECT " "$" REQUEST_PLAN_PARAM(
+                                  "select " "$" REQUEST_PLAN_PARAM(
                                           REQUEST_PLAN_METHOD) "::text::omni_httpd.http_method AS method, "
-                                  "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_PATH) " AS path, "
-                                  "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_QUERY_STRING) " AS query_string, "
-                                  "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_BODY) " AS body, "
-                                  "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_HEADERS) " AS headers "
+                                  "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_PATH) " as path, "
+                                  "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_QUERY_STRING) " as query_string, "
+                                  "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_BODY) " as body, "
+                                  "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_HEADERS) " as headers "
                   // clang-format on
               );
 

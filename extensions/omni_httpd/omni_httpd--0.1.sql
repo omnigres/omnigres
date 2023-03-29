@@ -73,11 +73,11 @@ create type http_protocol as enum ('http', 'https');
 
 create table listeners
 (
-    id       integer primary key generated always as identity,
-    address  inet          not null default '127.0.0.1',
-    port     port          not null default 80,
-    protocol http_protocol not null default 'http'
-    -- TODO: key/cert
+    id             integer primary key generated always as identity,
+    address        inet          not null default '127.0.0.1',
+    port           port          not null default 80,
+    effective_port port          not null default 0,
+    protocol       http_protocol not null default 'http'
 );
 
 create function check_if_role_accessible_to_current_user(role name) returns boolean
