@@ -64,6 +64,8 @@ CACHED_OID(http_header);
 CACHED_OID(http_method);
 CACHED_OID(http_response);
 
+bool IsOmniHttpdWorker;
+
 int num_http_workers;
 
 static void init_semaphore(void *ptr, void *data) { pg_atomic_init_u32(ptr, 0); }
@@ -87,6 +89,8 @@ void _Dynpgext_init(const dynpgext_handle *handle) {
                             DYNPGEXT_REGISTER_BGWORKER_NOTIFY | DYNPGEXT_SCOPE_DATABASE_LOCAL);
 }
 
+void _PG_init() { IsOmniHttpdWorker = false; }
+
 PG_FUNCTION_INFO_V1(reload_configuration);
 
 /**
@@ -95,7 +99,12 @@ PG_FUNCTION_INFO_V1(reload_configuration);
  * @return Datum
  */
 Datum reload_configuration(PG_FUNCTION_ARGS) {
-  Async_Notify(OMNI_HTTPD_CONFIGURATION_NOTIFY_CHANNEL, NULL);
+  // It is important to ensure that when we update the configuration (for example,
+  // effective_port) in the background worker, we should not notify the background
+  // worker of the change.
+  if (!IsOmniHttpdWorker) {
+    Async_Notify(OMNI_HTTPD_CONFIGURATION_NOTIFY_CHANNEL, NULL);
+  }
 
   if (CALLED_AS_TRIGGER(fcinfo)) {
     return PointerGetDatum(((TriggerData *)(fcinfo->context))->tg_newtuple);

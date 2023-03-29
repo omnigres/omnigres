@@ -1,8 +1,9 @@
 --- Force omni_httpd to select a port
 begin;
 with
-    listener as (insert into omni_httpd.listeners (address, port) values ('127.0.0.1', 0) returning id),
-    handler as (insert into omni_httpd.handlers (query) values ($$SELECT$$))
+    listener
+        as (insert into omni_httpd.listeners (address, port, effective_port) values ('127.0.0.1', 0, 0) returning id),
+    handler as (insert into omni_httpd.handlers (query) values ($$SELECT$$) returning id)
 insert
 into
     omni_httpd.listeners_handlers (listener_id, handler_id)
@@ -25,6 +26,6 @@ select
 from
     omni_httpd.listeners
 where
-    port = 0;
+    effective_port = 0;
 
 -- TODO: Test request on a given port. Needs non-shell http client

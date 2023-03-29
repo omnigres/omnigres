@@ -192,6 +192,7 @@ static void sigusr1_handler(int signo) {
  * @param db_oid Database OID
  */
 void master_worker(Datum db_oid) {
+  IsOmniHttpdWorker = true;
   char socket_path_template[] = "omni_httpdXXXXXX";
   char *tmpname = mkdtemp(socket_path_template);
   socket_path = psprintf("%s/socket.%d", tmpname, getpid());
@@ -248,10 +249,10 @@ void master_worker(Datum db_oid) {
     while (worker_reload) {
       worker_reload = false;
       if (SPI_execute(
-              "SELECT listeners.address, listeners.port, listeners.id FROM "
-              "omni_httpd.listeners_handlers  "
-              "INNER JOIN omni_httpd.listeners ON listeners.id = listeners_handlers.listener_id "
-              "INNER JOIN omni_httpd.handlers handlers ON handlers.id = "
+              "select listeners.address, listeners.port, listeners.id from "
+              "omni_httpd.listeners_handlers "
+              "inner join omni_httpd.listeners on listeners.id = listeners_handlers.listener_id "
+              "inner join omni_httpd.handlers handlers on handlers.id = "
               "listeners_handlers.handler_id",
               false, 0) == SPI_OK_SELECT) {
         TupleDesc tupdesc = SPI_tuptable->tupdesc;
@@ -262,7 +263,7 @@ void master_worker(Datum db_oid) {
         if (SPI_processed == 0) {
           port_ready = false;
         }
-        for (int i = 0; i < SPI_processed; i++) {
+        for (int i = 0; i < tuptable->numvals; i++) {
           if (cvec_fd_size(&sockets) == MAX_N_FDS) {
             ereport(WARNING,
                     errmsg("Reached maximum number of fds limit (%d). This restriction "
@@ -287,31 +288,31 @@ void master_worker(Datum db_oid) {
               // At least some ports are ready to be listened on
               port_ready = true;
               // Create a listening socket
-              in_port_t designated_port;
+              in_port_t effective_port;
               int sock = create_listening_socket(
                   ip_family(inet_address) == PGSQL_AF_INET ? AF_INET : AF_INET6, port_no,
-                  address_str, &designated_port);
+                  address_str, &effective_port);
               if (sock == -1) {
                 int e = errno;
                 ereport(WARNING, errmsg("couldn't create listening socket on port %d: %s", port_no,
                                         strerror(e)));
               } else {
-                if (designated_port != port_no) {
+                if (effective_port != port_no) {
                   ereport(LOG, errmsg("omni_httpd listening port %d was replaced with %d", port_no,
-                                      designated_port));
-                  bool id_is_null = false;
-                  int update_retcode;
-                  if ((update_retcode = SPI_execute_with_args(
-                           "UPDATE omni_httpd.listeners SET port = $1 WHERE id = $2", 2,
-                           (Oid[2]){INT4OID, INT4OID},
-                           (Datum[2]){Int32GetDatum(designated_port),
-                                      SPI_getbinval(tuple, tupdesc, 3, &id_is_null)},
-                           "  ", false, 0)) != SPI_OK_UPDATE) {
-                    ereport(WARNING, errmsg("can't update omni_httpd.listeners: %s",
-                                            SPI_result_code_string(update_retcode)));
-                  }
+                                      effective_port));
                 }
-                port_no = designated_port;
+                bool id_is_null = false;
+                int update_retcode;
+                if ((update_retcode = SPI_execute_with_args(
+                         "update omni_httpd.listeners set effective_port = $1 where id = $2", 2,
+                         (Oid[2]){INT4OID, INT4OID},
+                         (Datum[2]){Int32GetDatum(effective_port),
+                                    SPI_getbinval(tuple, tupdesc, 3, &id_is_null)},
+                         "  ", false, 0)) != SPI_OK_UPDATE) {
+                  ereport(WARNING, errmsg("can't update omni_httpd.listeners: %s",
+                                          SPI_result_code_string(update_retcode)));
+                }
+                port_no = effective_port;
                 cmap_portsock_insert(&portsocks, port_no, sock);
                 cset_port_push(&ports, port_no);
                 cvec_fd_push_back(&sockets, sock);
@@ -403,7 +404,7 @@ void master_worker(Datum db_oid) {
     // When the configuration is loaded, insert a reload event
     // Next time http workers serve requests, they will be already using new data
     int insert_retcode =
-        SPI_execute("INSERT INTO omni_httpd.configuration_reloads VALUES (DEFAULT)", false, 0);
+        SPI_execute("insert into omni_httpd.configuration_reloads values (default)", false, 0);
     if (insert_retcode != SPI_OK_INSERT) {
       ereport(WARNING, errmsg("can't insert into omni_httpd.configuration_reloads: %s",
                               SPI_result_code_string(insert_retcode)));
