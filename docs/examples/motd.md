@@ -2,7 +2,7 @@ Below is a simple web application that runs inside of Postgres
 and manages [MOTD (Message Of The Day)](https://en.wikipedia.org/wiki/Message_of_the_day).
 
 All you need to run this is just an instance of Postgres with
-Omnigres extensions (omni_httpd and omni_web) [installed](quick_start.md).
+Omnigres extensions (omni_httpd and omni_web) [installed](../quick_start.md).
 
 ```postgresql
 {% include "motd.sql" %}
