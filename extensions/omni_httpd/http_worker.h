@@ -16,7 +16,7 @@
  * @brief Each listener has a context
  *
  */
-typedef struct {
+typedef struct st_listener_ctx {
   /**
    * @brief Query plan
    *
@@ -74,7 +74,6 @@ static inline int listener_ctx_cmp(const listener_ctx *l, const listener_ctx *r)
 #include <stc/clist.h>
 
 static h2o_globalconf_t config;
-static h2o_evloop_t *worker_event_loop;
 
 /**
  * Sets up H2O server
@@ -139,6 +138,8 @@ static cvec_fd accept_fds(char *socket_name);
  */
 #define REQUEST_PLAN_HEADERS 4
 
-static int handler(h2o_handler_t *self, h2o_req_t *req);
+static int handler(request_message_t *msg);
+
+static h2o_evloop_t *handler_event_loop;
 
 #endif // OMNIGRES_HTTP_WORKER_H

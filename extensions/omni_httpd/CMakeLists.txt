@@ -3,6 +3,7 @@ project(omni_httpd)
 
 include(CTest)
 include(FindPkgConfig)
+include(FindThreads)
 
 list(PREPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/../../cmake)
 
@@ -11,6 +12,9 @@ enable_testing()
 find_package(PostgreSQL REQUIRED)
 find_package(H2O REQUIRED)
 find_package(Metalang REQUIRED)
+if(NOT Threads_FOUND)
+        message(FATAL_ERROR "Threading library required (such as pthreads)")
+endif()
 
 pkg_check_modules(BROTLI_DEC libbrotlidec)
 pkg_check_modules(BROTLI_ENC libbrotlienc)
@@ -21,11 +25,14 @@ add_postgresql_extension(
         SCHEMA omni_httpd
         RELOCATABLE false
         SCRIPTS omni_httpd--0.1.sql
-        SOURCES omni_httpd.c master_worker.c http_worker.c fd.c cascading_query.c
+        SOURCES omni_httpd.c master_worker.c http_worker.c event_loop.c fd.c cascading_query.c
         TESTS_REQUIRE omni_ext
         REGRESS http role_name cascading_query handler_validity port_selector http_response headers)
 
-target_link_libraries(omni_httpd libh2o-evloop libpgaug libomnisql libgluepg_stc dynpgext metalang99)
+set_property(TARGET omni_httpd PROPERTY C_STANDARD 11)
+
+target_link_libraries(omni_httpd libh2o-evloop libpgaug libomnisql libgluepg_stc dynpgext metalang99
+        Threads::Threads)
 
 # Disable full macro expansion backtraces for Metalang99.
 if(CMAKE_C_COMPILER_ID STREQUAL "Clang")
