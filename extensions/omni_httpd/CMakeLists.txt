@@ -27,7 +27,8 @@ add_postgresql_extension(
         SCRIPTS omni_httpd--0.1.sql
         SOURCES omni_httpd.c master_worker.c http_worker.c event_loop.c fd.c cascading_query.c
         TESTS_REQUIRE omni_ext
-        REGRESS http role_name cascading_query handler_validity port_selector http_response headers)
+        REGRESS http role_name cascading_query handler_validity port_selector http_response headers
+        http2_reproxy)
 
 set_property(TARGET omni_httpd PROPERTY C_STANDARD 11)
 
