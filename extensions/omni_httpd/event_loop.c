@@ -141,9 +141,9 @@ void *event_loop(void *arg) {
 }
 
 void on_accept(h2o_socket_t *listener, const char *err) {
-  if (false /* TODO */) {
+  if (requests_in_flight > 0) {
     // Don't accept new connections if this instance is busy as we'd likely
-    // have to proxy it
+    // have to proxy it (or put in the queue if it is not HTTP/2+)
     return;
   }
   h2o_socket_t *sock;
