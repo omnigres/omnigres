@@ -78,6 +78,18 @@ static void on_message(h2o_multithread_receiver_t *receiver, h2o_linklist_t *mes
   }
 }
 
+static void sigusr2() {
+  atomic_store(&worker_reload, true);
+  h2o_multithread_send_message(&event_loop_receiver, NULL);
+  h2o_multithread_send_message(&handler_receiver, NULL);
+}
+
+static void sigterm() {
+  atomic_store(&worker_running, false);
+  h2o_multithread_send_message(&event_loop_receiver, NULL);
+  h2o_multithread_send_message(&handler_receiver, NULL);
+}
+
 /**
  * HTTP worker entry point
  *
@@ -90,6 +102,11 @@ void http_worker(Datum db_oid) {
   atomic_store(&worker_reload, true);
 
   setup_server();
+
+  // Block signals except for SIGUSR2 and SIGTERM
+  pqsignal(SIGUSR2, sigusr2);
+  pqsignal(SIGTERM, sigterm);
+  BackgroundWorkerUnblockSignals();
 
   pthread_t event_loop_thread;
   event_loop_suspended = true;

@@ -100,43 +100,12 @@ static void on_message(h2o_multithread_receiver_t *receiver, h2o_linklist_t *mes
   }
 }
 
-static void sighandler(int sig) {
-  switch (sig) {
-  case SIGUSR2:
-    atomic_store(&worker_reload, true);
-    h2o_multithread_send_message(&event_loop_receiver, NULL);
-    h2o_multithread_send_message(&handler_receiver, NULL);
-    break;
-  case SIGTERM:
-    atomic_store(&worker_running, false);
-    h2o_multithread_send_message(&event_loop_receiver, NULL);
-    h2o_multithread_send_message(&handler_receiver, NULL);
-    break;
-  default:
-    break;
-  }
-}
-
 void *event_loop(void *arg) {
   assert(worker_event_loop != NULL);
   assert(handler_queue != NULL);
   assert(event_loop_queue != NULL);
 
   h2o_multithread_register_receiver(event_loop_queue, &event_loop_receiver, on_message);
-
-  // Block signals except for SIGUSR2 and SIGTERM
-
-  struct sigaction handler;
-  handler.sa_handler = sighandler;
-  handler.sa_flags = 0;
-
-  sigemptyset(&handler.sa_mask);
-  sigaddset(&handler.sa_mask, SIGUSR2);
-  sigaddset(&handler.sa_mask, SIGTERM);
-  assert(sigprocmask(SIG_SETMASK, &handler.sa_mask, NULL) == 0);
-
-  assert(sigaction(SIGUSR2, &handler, NULL) == 0);
-  assert(sigaction(SIGTERM, &handler, NULL) == 0);
 
   bool running = atomic_load(&worker_running);
   bool reload = atomic_load(&worker_reload);
