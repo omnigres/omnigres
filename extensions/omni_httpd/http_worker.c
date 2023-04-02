@@ -10,7 +10,9 @@
 #include <errno.h>
 #include <limits.h>
 #include <netinet/in.h>
+#include <pthread.h>
 #include <signal.h>
+#include <stdatomic.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -49,6 +51,7 @@
 
 #include <dynpgext.h>
 
+#include "event_loop.h"
 #include "fd.h"
 #include "http_worker.h"
 #include "omni_httpd.h"
@@ -57,12 +60,35 @@
 #error "only evloop is supported, ensure H2O_USE_LIBUV is not set to 1"
 #endif
 
-static bool worker_running = true;
-static bool worker_reload = true;
-static void reload_worker() { worker_reload = true; }
-static void stop_worker() { worker_running = false; }
+h2o_multithread_receiver_t handler_receiver;
+h2o_multithread_queue_t *handler_queue;
 
 static clist_listener_contexts listener_contexts;
+
+static void on_message(h2o_multithread_receiver_t *receiver, h2o_linklist_t *messages) {
+  while (!h2o_linklist_is_empty(messages)) {
+    h2o_multithread_message_t *message =
+        H2O_STRUCT_FROM_MEMBER(h2o_multithread_message_t, link, messages->next);
+
+    request_message_t *request_msg = (request_message_t *)messages->next;
+
+    handler(request_msg);
+
+    h2o_linklist_unlink(&message->link);
+  }
+}
+
+static void sigusr2() {
+  atomic_store(&worker_reload, true);
+  h2o_multithread_send_message(&event_loop_receiver, NULL);
+  h2o_multithread_send_message(&handler_receiver, NULL);
+}
+
+static void sigterm() {
+  atomic_store(&worker_running, false);
+  h2o_multithread_send_message(&event_loop_receiver, NULL);
+  h2o_multithread_send_message(&handler_receiver, NULL);
+}
 
 /**
  * HTTP worker entry point
@@ -72,19 +98,25 @@ static clist_listener_contexts listener_contexts;
  * @param db_oid Database OID
  */
 void http_worker(Datum db_oid) {
-#if PG_MAJORVERSION_NUM >= 13
-  pqsignal(SIGHUP, SignalHandlerForConfigReload);
-#else
-#warning "TODO: SignalHandlerForConfigReload for Postgres 12"
-#endif
-  pqsignal(SIGTERM, die);
-
-  BackgroundWorkerUnblockSignals();
-  BackgroundWorkerInitializeConnectionByOid(db_oid, InvalidOid, 0);
+  atomic_store(&worker_running, true);
+  atomic_store(&worker_reload, true);
 
   setup_server();
-  pqsignal(SIGTERM, stop_worker);
-  pqsignal(SIGUSR2, reload_worker);
+
+  // Block signals except for SIGUSR2 and SIGTERM
+  pqsignal(SIGUSR2, sigusr2); // used to reload configuration
+  pqsignal(SIGTERM, sigterm); // used to terminate the worker
+  BackgroundWorkerUnblockSignals();
+
+  // Start thread that will be servicing `worker_event_loop` and handling all
+  // communication with the outside world. Current thread will be responsible for
+  // configuration reloads and calling handlers.
+  pthread_t event_loop_thread;
+  event_loop_suspended = true;
+  pthread_create(&event_loop_thread, NULL, event_loop, NULL);
+
+  // Connect worker to the database
+  BackgroundWorkerInitializeConnectionByOid(db_oid, InvalidOid, 0);
 
   listener_contexts = clist_listener_contexts_init();
 
@@ -92,10 +124,11 @@ void http_worker(Datum db_oid) {
       dynpgext_lookup_shmem(OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE);
   Assert(semaphore != NULL);
 
-  while (worker_running) {
-    if (worker_reload) {
+  while (atomic_load(&worker_running)) {
+    bool worker_reload_test = true;
+    if (atomic_compare_exchange_strong(&worker_reload, &worker_reload_test, false)) {
       pg_atomic_add_fetch_u32(semaphore, 1);
-      worker_reload = false;
+
       cvec_fd fds = accept_fds(MyBgworkerEntry->bgw_extra);
 
       // Disposing allocated listener/query pairs and their associated data
@@ -329,8 +362,27 @@ void http_worker(Datum db_oid) {
       AbortCurrentTransaction();
     }
 
-    while (worker_running && !worker_reload && h2o_evloop_run(worker_event_loop, INT32_MAX) == 0)
+    event_loop_suspended = false;
+    pthread_mutex_lock(&event_loop_mutex);
+    pthread_cond_signal(&event_loop_resume_cond);
+    pthread_mutex_unlock(&event_loop_mutex);
+
+    bool running = atomic_load(&worker_running);
+    bool reload = atomic_load(&worker_reload);
+
+    // Handle requests until shutdown or reload is requested
+    while ((running = atomic_load(&worker_running)) && !(reload = atomic_load(&worker_reload)) &&
+           h2o_evloop_run(handler_event_loop, INT32_MAX))
       ;
+
+    // Ensure the event loop is suspended while we're reloading
+    if (reload || !running) {
+      pthread_mutex_lock(&event_loop_mutex);
+      while (event_loop_resumed) {
+        pthread_cond_wait(&event_loop_resume_cond_ack, &event_loop_mutex);
+      }
+      pthread_mutex_unlock(&event_loop_mutex);
+    }
   }
 
   clist_listener_contexts_drop(&listener_contexts);
@@ -340,23 +392,8 @@ static inline int listener_ctx_cmp(const listener_ctx *l, const listener_ctx *r)
   return (l->plan == r->plan && l->socket == r->socket && l->fd == r->fd) ? 0 : -1;
 }
 
-/**
- * @brief Accept socket
- *
- * @param listener
- * @param err
- */
-static void on_accept(h2o_socket_t *listener, const char *err) {
-  h2o_socket_t *sock;
-
-  if (err != NULL) {
-    return;
-  }
-
-  if ((sock = h2o_evloop_socket_accept(listener)) == NULL) {
-    return;
-  }
-  h2o_accept(&((listener_ctx *)listener->data)->accept_ctx, sock);
+h2o_accept_ctx_t *listener_accept_ctx(h2o_socket_t *listener) {
+  return &((listener_ctx *)listener->data)->accept_ctx;
 }
 
 /**
@@ -448,9 +485,16 @@ static void setup_server() {
   config.server_name = h2o_iovec_init(H2O_STRLIT("omni_httpd-" EXT_VERSION));
   hostconf = h2o_config_register_host(&config, h2o_iovec_init(H2O_STRLIT("default")), 65535);
 
+  // Set up event loop for HTTP event loop
   worker_event_loop = h2o_evloop_create();
+  event_loop_queue = h2o_multithread_create_queue(worker_event_loop);
 
-  h2o_pathconf_t *pathconf = register_handler(hostconf, "/", handler);
+  // Set up event loop for request handler loop
+  handler_event_loop = h2o_evloop_create();
+  handler_queue = h2o_multithread_create_queue(handler_event_loop);
+  h2o_multithread_register_receiver(handler_queue, &handler_receiver, on_message);
+
+  h2o_pathconf_t *pathconf = register_handler(hostconf, "/", event_loop_req_handler);
 }
 static cvec_fd accept_fds(char *socket_name) {
   struct sockaddr_un address;
@@ -474,7 +518,7 @@ try_connect:
   if (connect(socket_fd, (struct sockaddr *)&address, sizeof(struct sockaddr_un)) != 0) {
     int e = errno;
     if (e == EAGAIN || e == EWOULDBLOCK) {
-      if (worker_reload) {
+      if (atomic_load(&worker_reload)) {
         // Don't try to get fds, roll with the reload
         return cvec_fd_init();
       } else {
@@ -491,7 +535,7 @@ try_connect:
 
   do {
     errno = 0;
-    if (worker_reload) {
+    if (atomic_load(&worker_reload)) {
       break;
     }
     result = recv_fds(socket_fd);
@@ -502,22 +546,23 @@ try_connect:
   return result;
 }
 
-/**
- * @brief Request handler
- *
- * @param self
- * @param req
- * @return int
- */
-static int handler(h2o_handler_t *self, h2o_req_t *req) {
+static int handler(request_message_t *msg) {
+  pthread_mutex_lock(&msg->mutex);
+  h2o_req_t *req = msg->req;
+  if (req == NULL) {
+    // The connection is gone
+    // We can release the message
+    free(msg);
+    goto release;
+  }
   listener_ctx *lctx = H2O_STRUCT_FROM_MEMBER(listener_ctx, context, req->conn->ctx);
 
   SPIPlanPtr plan = lctx->plan;
 
   if (plan == NULL) {
     req->res.status = 500;
-    h2o_send_inline(req, H2O_STRLIT("Internal server error"));
-    return 0;
+    h2o_queue_send_inline(msg, H2O_STRLIT("Internal server error"));
+    goto release;
   }
 
   SetCurrentStatementStartTimestamp();
@@ -608,7 +653,7 @@ static int handler(h2o_handler_t *self, h2o_req_t *req) {
     FlushErrorState();
 
     req->res.status = 500;
-    h2o_send_inline(req, H2O_STRLIT("Internal server error"));
+    h2o_queue_send_inline(msg, H2O_STRLIT("Internal server error"));
     goto cleanup;
   }
   PG_END_TRY();
@@ -675,25 +720,25 @@ static int handler(h2o_handler_t *self, h2o_req_t *req) {
 
       if (!isnull) {
         bytea *body_content = DatumGetByteaPP(body);
-        h2o_send_inline(req, VARDATA_ANY(body_content), VARSIZE_ANY_EXHDR(body_content));
+        h2o_queue_send_inline(msg, VARDATA_ANY(body_content), VARSIZE_ANY_EXHDR(body_content));
       } else {
-        h2o_send_inline(req, "", 0);
+        h2o_queue_send_inline(msg, "", 0);
       }
 
     } else {
-      h2o_send_inline(req, "", 0);
+      h2o_queue_send_inline(msg, "", 0);
     }
     succeeded = true;
   } else {
     if (ret == SPI_OK_SELECT) {
       // No result
       req->res.status = 204;
-      h2o_send_inline(req, H2O_STRLIT(""));
+      h2o_queue_send_inline(msg, H2O_STRLIT(""));
       succeeded = true;
     } else {
       req->res.status = 500;
       ereport(WARNING, errmsg("Error executing query: %s", SPI_result_code_string(ret)));
-      h2o_send_inline(req, H2O_STRLIT("Internal server error"));
+      h2o_queue_send_inline(msg, H2O_STRLIT("Internal server error"));
     }
   }
 
@@ -705,6 +750,9 @@ cleanup:
   } else {
     AbortCurrentTransaction();
   }
+
+release:
+  pthread_mutex_unlock(&msg->mutex);
 
   return 0;
 }

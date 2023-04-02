@@ -27,9 +27,18 @@ markdown_extensions:
   - toc:
       permalink: true
   - admonition
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - footnotes
+  - attr_list
+  - pymdownx.emoji:
+      emoji_index: !!python/name:materialx.emoji.twemoji
+      emoji_generator: !!python/name:materialx.emoji.to_svg
 
 plugins:
   - search
   - monorepo
-  - mermaid2
   - include-markdown
