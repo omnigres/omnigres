@@ -104,14 +104,18 @@ void http_worker(Datum db_oid) {
   setup_server();
 
   // Block signals except for SIGUSR2 and SIGTERM
-  pqsignal(SIGUSR2, sigusr2);
-  pqsignal(SIGTERM, sigterm);
+  pqsignal(SIGUSR2, sigusr2); // used to reload configuration
+  pqsignal(SIGTERM, sigterm); // used to terminate the worker
   BackgroundWorkerUnblockSignals();
 
+  // Start thread that will be servicing `worker_event_loop` and handling all
+  // communication with the outside world. Current thread will be responsible for
+  // configuration reloads and calling handlers.
   pthread_t event_loop_thread;
   event_loop_suspended = true;
   pthread_create(&event_loop_thread, NULL, event_loop, NULL);
 
+  // Connect worker to the database
   BackgroundWorkerInitializeConnectionByOid(db_oid, InvalidOid, 0);
 
   listener_contexts = clist_listener_contexts_init();
@@ -365,6 +369,8 @@ void http_worker(Datum db_oid) {
 
     bool running = atomic_load(&worker_running);
     bool reload = atomic_load(&worker_reload);
+
+    // Handle requests until shutdown or reload is requested
     while ((running = atomic_load(&worker_running)) && !(reload = atomic_load(&worker_reload)) &&
            h2o_evloop_run(handler_event_loop, INT32_MAX))
       ;

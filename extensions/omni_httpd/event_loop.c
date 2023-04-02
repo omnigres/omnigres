@@ -159,6 +159,8 @@ void on_accept(h2o_socket_t *listener, const char *err) {
 }
 
 void req_dispose(void *ptr) {
+  // If HTTP request is disposed (can happen if the connection goes away, too)
+  // ensure we signal that by nulling `req` safely.
   request_message_t **message_ptr = (request_message_t **)ptr;
   request_message_t *message = *message_ptr;
   pthread_mutex_lock(&message->mutex);
