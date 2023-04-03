@@ -12,6 +12,7 @@ find_package(PostgreSQL REQUIRED)
 add_postgresql_extension(
         libpgaug_test
         VERSION 0.1
+        PRIVATE true
         SCRIPTS libpgaug_test--0.1.sql
         SOURCES libpgaug_test.c
         REGRESS memcxt)
