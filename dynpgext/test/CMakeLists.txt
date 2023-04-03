@@ -14,6 +14,7 @@ add_postgresql_extension(
         dynpgext_test
         VERSION 0.1
         SCRIPTS dynpgext_test--0.1.sql
+        PRIVATE true
         RELOCATABLE false
         SOURCES dynpgext_test.c
         REGRESS loader_present)

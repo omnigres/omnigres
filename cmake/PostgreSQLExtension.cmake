@@ -78,6 +78,8 @@
 #
 # SHARED_PRELOAD Is this a shared preload extension
 #
+# PRIVATE If true, this extension will not be automatically packaged
+#
 #
 # Defines the following targets:
 #
@@ -89,7 +91,7 @@
 find_program(PGCLI pgcli)
 
 function(add_postgresql_extension NAME)
-    set(_optional SHARED_PRELOAD)
+    set(_optional SHARED_PRELOAD PRIVATE)
     set(_single VERSION ENCODING SCHEMA RELOCATABLE)
     set(_multi SOURCES SCRIPTS SCRIPT_TEMPLATES REQUIRES TESTS_REQUIRE REGRESS)
     cmake_parse_arguments(_ext "${_optional}" "${_single}" "${_multi}" ${ARGN})
@@ -231,7 +233,9 @@ $<$<NOT:$<BOOL:${_ext_RELOCATABLE}>>:#>relocatable = ${_ext_RELOCATABLE}
     if(NOT TARGET package)
             add_custom_target(package)
     endif()
-    add_dependencies(package package_${NAME}_extension package_${NAME}_scripts)
+    if(NOT ${_ext_PRIVATE})
+            add_dependencies(package package_${NAME}_extension package_${NAME}_scripts)
+    endif()
 
 
     if(_ext_REGRESS)
