@@ -186,8 +186,9 @@ $<$<NOT:$<BOOL:${_ext_SCHEMA}>>:#>schema = ${_ext_SCHEMA}
 $<$<NOT:$<BOOL:${_ext_RELOCATABLE}>>:#>relocatable = ${_ext_RELOCATABLE}
 ")
     # Pacaged control file
-    set(_packaged_control_file "${_pkg_dir}/extension/${NAME}--${_ext_VERSION}.control")
-    file(
+    if(NOT ${_ext_PRIVATE})
+      set(_packaged_control_file "${_pkg_dir}/extension/${NAME}--${_ext_VERSION}.control")
+      file(
         GENERATE
         OUTPUT ${_packaged_control_file}
         CONTENT
@@ -198,6 +199,7 @@ $<$<NOT:$<BOOL:${_ext_REQUIRES}>>:#>requires = '$<JOIN:${_ext_REQUIRES},$<COMMA>
 $<$<NOT:$<BOOL:${_ext_SCHEMA}>>:#>schema = ${_ext_SCHEMA}
 $<$<NOT:$<BOOL:${_ext_RELOCATABLE}>>:#>relocatable = ${_ext_RELOCATABLE}
 ")
+    endif()
  
     # Default control file
     set(_default_control_file "${_ext_dir}/${NAME}.control")
@@ -208,13 +210,15 @@ $<$<NOT:$<BOOL:${_ext_RELOCATABLE}>>:#>relocatable = ${_ext_RELOCATABLE}
         "default_version = '${_ext_VERSION}'
 ")
     # Packaged default control file
-    set(_packaged_default_control_file "${_pkg_dir}/extension/${NAME}.control")
-    file(
+    if(NOT ${_ext_PRIVATE})
+      set(_packaged_default_control_file "${_pkg_dir}/extension/${NAME}.control")
+      file(
         GENERATE
         OUTPUT ${_packaged_default_control_file}
         CONTENT
         "default_version = '${_ext_VERSION}'
 ")
+   endif()
 
    add_custom_target(package_${NAME}_extension
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
