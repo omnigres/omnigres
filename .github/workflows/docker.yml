@@ -106,7 +106,7 @@ jobs:
           target: pg
 
       - name: Build and push slim Docker image
-        id: build-and-push
+        id: build-and-push-slim
         uses: docker/build-push-action@v4
         with:
           context: .
