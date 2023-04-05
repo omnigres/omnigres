@@ -78,7 +78,7 @@ You can access the HTTP server at [localhost:8080](http://localhost:8080)
     However, if you want a smaller image and don't need Rust, use __slim__ flavor:
 
     ```
-    ghcr.io/omnigres/omnigres:latest-slim
+    ghcr.io/omnigres/omnigres-slim:latest
     ```
 
 ### Building your own image

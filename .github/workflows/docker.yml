@@ -112,7 +112,7 @@ jobs:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-slim:${{ github.sha }}-slim-${{ matrix.platform }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-slim:${{ github.sha }}-${{ matrix.platform }}
           provenance: false
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=s3,region=us-east-1,bucket=omnigres-ci-cache,name=omnigres-${{ matrix.platform }}-slim
@@ -168,12 +168,12 @@ jobs:
         with:
           inputs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}:${{ github.sha }}
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}:${{ github.sha }}${{ matrix.flavor }}-amd64,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}:${{ github.sha }}${{ matrix.flavor }}-arm64
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}:${{ github.sha }}-amd64,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}:${{ github.sha }}-arm64
           push: true
 
       - name: Create and push manifest images (latest)
         uses: Noelware/docker-manifest-action@master # or use a pinned version in the Releases tab
         with:
-          inputs: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest${{ matrix.flavor }}
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}:${{ github.sha }}${{ matrix.flavor }}-amd64,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}:${{ github.sha }}${{ matrix.flavor }}-arm64
+          inputs: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}:latest
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}:${{ github.sha }}-amd64,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}:${{ github.sha }}-arm64
           push: true
