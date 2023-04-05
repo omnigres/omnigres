@@ -15,6 +15,8 @@ ARG DEBIAN_VER=bullseye
 ARG DEBIAN_VER_PG=bullseye
 # Build parallelism
 ARG BUILD_PARALLEL_LEVEL
+# plrust version
+ARG PLRUST_VERSION=1.0.0
 
 # Base builder image
 FROM debian:${DEBIAN_VER}-slim AS builder
@@ -55,8 +57,6 @@ WORKDIR /build
 RUN cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DPG=${PG} /omni
 RUN make -j ${BUILD_PARALLEL_LEVEL} all
 RUN make package
-
-ARG PLRUST_VERSION=1.0.0
 
 # plrust build
 FROM postgres:${PG}-${DEBIAN_VER_PG}  AS plrust
