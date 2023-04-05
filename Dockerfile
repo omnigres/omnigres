@@ -84,15 +84,21 @@ RUN export USER=postgres && PG_VER=${PG%.*} && . "$HOME/.cargo/env" && cd plrust
 RUN PG_VER=${PG%.*} && . "$HOME/.cargo/env" && cd plrust/plrust && \
     cargo pgx package --features "pg${PG_VER} trusted"
 
-# Official PostgreSQL build
-FROM postgres:${PG}-${DEBIAN_VER_PG} AS pg
+# Official slim PostgreSQL build
+FROM postgres:${PG}-${DEBIAN_VER_PG} AS pg-slim
 ARG PG
 ENV PG=${PG}
 COPY --from=build /build/packaged /omni
-COPY docker/initdb/* /docker-entrypoint-initdb.d/
+COPY docker/initdb-slim/* /docker-entrypoint-initdb.d/
 RUN cp -R /omni/extension $(pg_config --sharedir)/ && cp -R /omni/*.so $(pg_config --pkglibdir)/ && rm -rf /omni
 RUN apt update && apt -y install libtclcl1 libpython3.9 libperl5.32
+EXPOSE 8080
+EXPOSE 5432
+
+# Official PostgreSQL build
+FROM pg-slim AS pg
 COPY --from=plrust /var/lib/postgresql/plrust/target/release /plrust-release
+COPY docker/initdb/* /docker-entrypoint-initdb.d/
 RUN PG_VER=${PG%.*} && cp /plrust-release/plrust-pg${PG_VER}/usr/lib/postgresql/${PG_VER}/lib/plrust.so $(pg_config --pkglibdir) && \
     cp /plrust-release/plrust-pg${PG_VER}/usr/share/postgresql/${PG_VER}/extension/plrust* $(pg_config --sharedir)/extension && \
     rm -rf /plrust-release
@@ -104,5 +110,3 @@ RUN apt install -y postgresql-server-dev-15
 USER postgres
 RUN PG_VER=${PG%.*} && rustup default 1.67.1 && cargo pgx init --pg${PG_VER} /usr/bin/pg_config
 USER root
-EXPOSE 8080
-EXPOSE 5432

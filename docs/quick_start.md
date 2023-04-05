@@ -69,6 +69,18 @@ You can access the HTTP server at [localhost:8080](http://localhost:8080)
     * postgres_fdw
     * tcn
 
+??? warning "Why is the container image so large?"
+
+    Unfortunately, __plrust__ extension is responsible for many gigabytes of artifacts in the image. Typically,
+    if you need Rust, this is not a big problem as both development machines and servers can handle
+    this just fine.
+
+    However, if you want a smaller image and don't need Rust, use __slim__ flavor:
+
+    ```
+    ghcr.io/omnigres/omnigres:latest-slim
+    ```
+
 ### Building your own image
 
 If you can't use the pre-built image (for example, you are running a fork or made changes), you can build the image
