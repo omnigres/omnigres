@@ -12,6 +12,63 @@ psql -h localhost -p 5432 -U omnigres omnigres # password is `omnigres`
 
 You can access the HTTP server at [localhost:8080](http://localhost:8080)
 
+!!! tip "Important updates"
+
+    __April 2023__: Omnigres container image now includes [plrust](https://github.com/tcdi/plrust), an extension that allows developing
+    functions in Rust!
+
+??? question "Which batteries are included?"
+
+    This image contains all Omnigres extensions (with omni_httpd and omni_web preinstalled),
+    as well as the following languages & extensions:
+    
+    * __plrust__ (That's right, you can use Rust!)
+    * uuid-ossp
+    * btree_gin
+    * dict_int
+    * hstore
+    * lo
+    * pg_prewarm
+    * pg_walinspect
+    * refint
+    * tsm_system_rows
+    * adminpack
+    * btree_gist
+    * dict_xsyn
+    * insert_username
+    * ltree
+    * pg_stat_statements pgcrypto
+    * seg
+    * tsm_system_time
+    * amcheck
+    * citext
+    * earthdistance
+    * intagg
+    * moddatetime
+    * pageinspect
+    * pg_surgery
+    * pgrowlocks
+    * sslinfo
+    * unaccent
+    * autoinc
+    * cube
+    * file_fdw
+    * intarray
+    * old_snapshot
+    * pg_buffercache
+    * pg_trgm
+    * pgstattuple
+    * tablefunc
+    * xml2
+    * bloom
+    * dblink
+    * fuzzystrmatch
+    * isn
+    * pg_freespacemap
+    * pg_visibility
+    * postgres_fdw
+    * tcn
+
 ### Building your own image
 
 If you can't use the pre-built image (for example, you are running a fork or made changes), you can build the image

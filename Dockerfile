@@ -56,11 +56,53 @@ RUN cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DPG=${PG} /omni
 RUN make -j ${BUILD_PARALLEL_LEVEL} all
 RUN make package
 
+ARG PLRUST_VERSION=1.0.0
+
+# plrust build
+FROM postgres:${PG}-${DEBIAN_VER_PG}  AS plrust
+ARG PLRUST_VERSION
+ENV PLRUST_VERSION=${PLRUST_VERSION}
+ARG PG
+ENV PG=${PG}
+RUN apt update && apt install -y curl pkg-config git build-essential libssl-dev libclang-dev flex libreadline-dev zlib1g-dev crossbuild-essential-arm64 crossbuild-essential-amd64
+USER postgres
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+RUN . "$HOME/.cargo/env" && \
+    rustup default 1.67.1 && rustup component add llvm-tools-preview rustc-dev && \
+    rustup target install x86_64-unknown-linux-gnu && \
+    rustup target install aarch64-unknown-linux-gnu
+WORKDIR /var/lib/postgresql
+RUN git clone https://github.com/tcdi/plrust.git plrust && cd plrust && git checkout v${PLRUST_VERSION}
+RUN . "$HOME/.cargo/env" && cd plrust/plrustc && ./build.sh && mv ../build/bin/plrustc ~/.cargo/bin && cd ..
+RUN . "$HOME/.cargo/env" && cd plrust/plrust && cargo install cargo-pgx --version 0.7.4 --locked
+USER root
+RUN apt install -y postgresql-server-dev-15
+RUN chown -R postgres /usr/share/postgresql /usr/lib/postgresql
+USER postgres
+RUN PG_VER=${PG%.*} && . "$HOME/.cargo/env" && cargo pgx init --pg${PG_VER} /usr/bin/pg_config
+RUN export USER=postgres && PG_VER=${PG%.*} && . "$HOME/.cargo/env" && cd plrust/plrust && ./build && cd ..
+RUN PG_VER=${PG%.*} && . "$HOME/.cargo/env" && cd plrust/plrust && \
+    cargo pgx package --features "pg${PG_VER} trusted"
+
 # Official PostgreSQL build
 FROM postgres:${PG}-${DEBIAN_VER_PG} AS pg
+ARG PG
+ENV PG=${PG}
 COPY --from=build /build/packaged /omni
 COPY docker/initdb/* /docker-entrypoint-initdb.d/
 RUN cp -R /omni/extension $(pg_config --sharedir)/ && cp -R /omni/*.so $(pg_config --pkglibdir)/ && rm -rf /omni
 RUN apt update && apt -y install libtclcl1 libpython3.9 libperl5.32
+COPY --from=plrust /var/lib/postgresql/plrust/target/release /plrust-release
+RUN PG_VER=${PG%.*} && cp /plrust-release/plrust-pg${PG_VER}/usr/lib/postgresql/${PG_VER}/lib/plrust.so $(pg_config --pkglibdir) && \
+    cp /plrust-release/plrust-pg${PG_VER}/usr/share/postgresql/${PG_VER}/extension/plrust* $(pg_config --sharedir)/extension && \
+    rm -rf /plrust-release
+RUN apt -y install libclang-dev build-essential crossbuild-essential-arm64 crossbuild-essential-amd64
+COPY --from=plrust /var/lib/postgresql/.cargo /var/lib/postgresql/.cargo
+COPY --from=plrust /var/lib/postgresql/.rustup /var/lib/postgresql/.rustup
+ENV PATH="/var/lib/postgresql/.cargo/bin:$PATH"
+RUN apt install -y postgresql-server-dev-15
+USER postgres
+RUN PG_VER=${PG%.*} && rustup default 1.67.1 && cargo pgx init --pg${PG_VER} /usr/bin/pg_config
+USER root
 EXPOSE 8080
 EXPOSE 5432
