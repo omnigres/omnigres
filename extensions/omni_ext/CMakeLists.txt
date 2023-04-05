@@ -27,6 +27,7 @@ add_postgresql_extension(
         RELOCATABLE false
         SCRIPTS omni_ext--0.1.sql
         SOURCES omni_ext.c control_file.c init.c workers.c strverscmp.c
+        UNVERSIONED_SO ON
         SHARED_PRELOAD ON)
 
 set_property(TARGET omni_ext PROPERTY C_STANDARD 11)

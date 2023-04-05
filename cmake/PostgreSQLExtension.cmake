@@ -91,7 +91,7 @@
 find_program(PGCLI pgcli)
 
 function(add_postgresql_extension NAME)
-    set(_optional SHARED_PRELOAD PRIVATE)
+    set(_optional SHARED_PRELOAD PRIVATE UNVERSIONED_SO)
     set(_single VERSION ENCODING SCHEMA RELOCATABLE)
     set(_multi SOURCES SCRIPTS SCRIPT_TEMPLATES REQUIRES TESTS_REQUIRE REGRESS)
     cmake_parse_arguments(_ext "${_optional}" "${_single}" "${_multi}" ${ARGN})
@@ -156,11 +156,16 @@ function(add_postgresql_extension NAME)
         set(_link_flags "${_link_flags} -bundle -bundle_loader ${PG_BINARY}")
     endif()
 
+    set(_suffix "--${_ext_VERSION}.so")
+    if(_ext_UNVERSIONED_SO)
+        set(_suffix ".so")
+    endif()
+
     set_target_properties(
         ${NAME}
         PROPERTIES
         PREFIX ""
-        SUFFIX "--${_ext_VERSION}.so"
+        SUFFIX "${_suffix}"
         LINK_FLAGS "${_link_flags}"
         POSITION_INDEPENDENT_CODE ON)
 
