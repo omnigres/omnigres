@@ -29,7 +29,7 @@ jobs:
       matrix:
         platform: [ amd64, arm64 ]
 
-    runs-on: ${{ fromJSON('["buildjet-4vcpu-ubuntu-2204", "buildjet-4vcpu-ubuntu-2204-arm"]')[matrix.platform == 'arm64'] }}
+    runs-on: ${{ fromJSON('["buildjet-4vcpu-ubuntu-2204", "buildjet-16vcpu-ubuntu-2204-arm"]')[matrix.platform == 'arm64'] }}
 
     permissions:
       contents: read
@@ -103,6 +103,24 @@ jobs:
           build-args: |
             BUILD_PARALLEL_LEVEL=4
           platforms: linux/${{ matrix.platform }}
+          target: pg
+
+      - name: Build and push slim Docker image
+        id: build-and-push-slim
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-slim:${{ github.sha }}-slim-${{ matrix.platform }}
+          provenance: false
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=s3,region=us-east-1,bucket=omnigres-ci-cache,name=omnigres-${{ matrix.platform }}-slim
+          cache-to: ${{ format(fromJSON('["type=s3,mode=max,region=us-east-1,bucket=omnigres-ci-cache,name=omnigres-{0}-slim","type=inline"]')[ github.event_name == 'pull_request' ], matrix.platform) }}
+          build-args: |
+            BUILD_PARALLEL_LEVEL=4
+          platforms: linux/${{ matrix.platform }}
+          target: pg-slim
 
         #       # Sign the resulting Docker image digest except on PRs.
         #       # This will only write to the public Rekor transparency log when the Docker
@@ -117,6 +135,10 @@ jobs:
         #         # against the sigstore community Fulcio instance.
         #         run: echo "${{ steps.meta.outputs.tags }}" | xargs -I {} cosign sign {}@${{ steps.build-and-push.outputs.digest }}
   manifest:
+    strategy:
+      matrix:
+        flavor: [ "", "-slim" ]
+
     if: github.event_name != 'pull_request'
     needs: build
     runs-on: ubuntu-latest
@@ -138,19 +160,20 @@ jobs:
         id: meta
         uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}
 
       - name: Create and push manifest images (rev)
         uses: Noelware/docker-manifest-action@master # or use a pinned version in the Releases tab
         with:
           inputs:
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-amd64,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-arm64
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}:${{ github.sha }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}:${{ github.sha }}${{ matrix.flavor }}-amd64,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}:${{ github.sha }}${{ matrix.flavor }}-arm64
           push: true
 
       - name: Create and push manifest images (latest)
         uses: Noelware/docker-manifest-action@master # or use a pinned version in the Releases tab
         with:
-          inputs: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-amd64,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-arm64
+          inputs: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest${{ matrix.flavor }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}:${{ github.sha }}${{ matrix.flavor }}-amd64,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}:${{ github.sha }}${{ matrix.flavor }}-arm64
           push: true

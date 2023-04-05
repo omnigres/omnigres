@@ -1,0 +1,1 @@
+alter system set plrust.work_dir = '/tmp';
