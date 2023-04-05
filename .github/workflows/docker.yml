@@ -29,7 +29,7 @@ jobs:
       matrix:
         platform: [ amd64, arm64 ]
 
-    runs-on: ${{ fromJSON('["buildjet-4vcpu-ubuntu-2204", "buildjet-4vcpu-ubuntu-2204-arm"]')[matrix.platform == 'arm64'] }}
+    runs-on: ${{ fromJSON('["buildjet-4vcpu-ubuntu-2204", "buildjet-16vcpu-ubuntu-2204-arm"]')[matrix.platform == 'arm64'] }}
 
     permissions:
       contents: read
