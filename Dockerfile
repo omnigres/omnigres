@@ -109,4 +109,10 @@ ENV PATH="/var/lib/postgresql/.cargo/bin:$PATH"
 RUN apt install -y postgresql-server-dev-15
 USER postgres
 RUN PG_VER=${PG%.*} && rustup default 1.67.1 && cargo pgx init --pg${PG_VER} /usr/bin/pg_config
+# Prime the compiler so it doesn't take forever on first compilation
+WORKDIR /var/lib/postgresql
+RUN initdb -D prime &&  pg_ctl start -o "-c shared_preload_libraries='plrust' -c plrust.work_dir='/tmp' -c listen_addresses='' " -D prime && \
+    createdb -h /var/run/postgresql prime && \
+    psql -h /var/run/postgresql prime -c "create extension plrust; create function test () returns bool language plrust as 'Ok(Some(true))';" && \
+    pg_ctl stop -D prime && rm -rf prime
 USER root
