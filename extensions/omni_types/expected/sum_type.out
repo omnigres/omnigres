@@ -575,6 +575,47 @@ ERROR:  Sum types can not contain duplicate variants
 CONTEXT:  PL/pgSQL function omni_types.sum_type_unique_variants_trigger_func() line 12 at RAISE
 SQL statement "insert into omni_types.sum_types (oid, variants) values ($1, $2)"
 rollback;
+-- Determining variant
+begin;
+select omni_types.sum_type('sum_type', 'integer', 'boolean');
+ sum_type 
+----------
+ sum_type
+(1 row)
+
+\dT;
+       List of data types
+ Schema |   Name   | Description 
+--------+----------+-------------
+ public | sum_type | 
+(1 row)
+
+:dump_types;
+ typname  |     variants      
+----------+-------------------
+ sum_type | {integer,boolean}
+(1 row)
+
+select omni_types.variant(100::sum_type);
+ variant 
+---------
+ integer
+(1 row)
+
+select omni_types.variant(true::sum_type);
+ variant 
+---------
+ boolean
+(1 row)
+
+-- Invalid type
+select omni_types.variant(10);
+ variant 
+---------
+ NULL
+(1 row)
+
+rollback;
 -- Ensure no types are leaked
 \dT;
      List of data types

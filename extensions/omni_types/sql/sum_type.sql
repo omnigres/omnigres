@@ -192,6 +192,20 @@ select omni_types.sum_type('sum_type', 'integer', 'integer');
 
 rollback;
 
+-- Determining variant
+begin;
+select omni_types.sum_type('sum_type', 'integer', 'boolean');
+\dT;
+:dump_types;
+
+select omni_types.variant(100::sum_type);
+select omni_types.variant(true::sum_type);
+
+-- Invalid type
+select omni_types.variant(10);
+
+rollback;
+
 -- Ensure no types are leaked
 \dT;
 :dump_types;
