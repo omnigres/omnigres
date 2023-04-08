@@ -98,8 +98,9 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-${{ matrix.platform }}
           provenance: false
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=s3,region=us-east-1,bucket=omnigres-ci-cache,name=omnigres-${{ matrix.platform }}
-          cache-to: ${{ format(fromJSON('["type=s3,mode=max,region=us-east-1,bucket=omnigres-ci-cache,name=omnigres-{0}","type=inline"]')[ github.event_name == 'pull_request' ], matrix.platform) }}
+          # Currently using S3 in EU as BuildJet is in the EU and going to the U.S. may be slow
+          cache-from: type=s3,region=eu-central-1,bucket=omnigres-ci-cache-de,name=omnigres-${{ matrix.platform }}
+          cache-to: ${{ format(fromJSON('["type=s3,mode=max,region=eu-central-1,bucket=omnigres-ci-cache-de,name=omnigres-{0}","type=inline"]')[ github.event_name == 'pull_request' ], matrix.platform) }}
           build-args: |
             BUILD_PARALLEL_LEVEL=4
           platforms: linux/${{ matrix.platform }}
