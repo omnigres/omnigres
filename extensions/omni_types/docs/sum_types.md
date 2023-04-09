@@ -14,8 +14,7 @@ Below, let's create a unified [geometric type](https://www.postgresql.org/docs/c
 [^geom_type]: PostGIS defines it is own [`geometry` type](https://postgis.net/docs/manual-3.3/using_postgis_dbmanagement.html#PostGIS_Geometry). Our definition is used to showcase a generalized approach.
 
 ```postgresql
-omni_types=#
-select omni_types.sum_type('geom', 'point', 'line', 'lseg', 'box', 'path', 'polygon', 'circle');
+omni_types=# select omni_types.sum_type('geom', 'point', 'line', 'lseg', 'box', 'path', 'polygon', 'circle');
 sum_type
 ----------
  geom
@@ -25,16 +24,14 @@ sum_type
 We can now see it's been created:
 
 ```postgresql
-omni_types=#
-\dT geom
+omni_types=# \dT geom
 list of data types
  schema | name | Description
 --------+------+-------------
  public | geom |
 (1 row)
          
-omni_types=#
-table omni_types.sum_types;
+omni_types=# table omni_types.sum_types;
 oid  |                 variants
 -------+-------------------------------------------
  16397 | {point,line,lseg,box,path,polygon,circle}
@@ -47,8 +44,7 @@ Sum type can be initialized using textual representatin, with the variant name u
 indicate the type:
 
 ```postgresql
-omni_types=#
-select 'point(10,10)'::geom;
+omni_types=# select 'point(10,10)'::geom;
 geom
 ----------------
  point((10,10))
@@ -69,8 +65,7 @@ geom
  circle(<(10,10),10>)
 (1 row)
              
-omni_types=#
-select '<(10,10),10>'::circle::geom::circle;
+omni_types=# select '<(10,10),10>'::circle::geom::circle;
 circle
 --------------
  <(10,10),10>
@@ -144,8 +139,7 @@ point_from_geom
 One can determine the type of the variant to advise further processing:
 
 ```postgresql
-omni_types=#
-select omni_types.variant('point(10,10)'::geom);
+omni_types=# select omni_types.variant('point(10,10)'::geom);
 variant
 ---------
  point
