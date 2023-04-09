@@ -6,6 +6,7 @@ list(PREPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/../cmake)
 enable_testing()
 
 add_subdirectory(omni_ext)
+add_subdirectory(omni_types)
 add_subdirectory(omni_containers)
 add_subdirectory(omni_httpd)
 add_subdirectory(omni_sql)
