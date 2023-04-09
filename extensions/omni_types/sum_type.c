@@ -273,7 +273,6 @@ Datum sum_in(PG_FUNCTION_ARGS) {
   return make_variant(sum_type_len, discriminant, variant_type_len, variant_byval, result);
 }
 
-
 Datum sum_out(PG_FUNCTION_ARGS) {
   HeapTuple proc_tuple = SearchSysCache1(PROCOID, fcinfo->flinfo->fn_oid);
   Assert(HeapTupleIsValid(proc_tuple));
