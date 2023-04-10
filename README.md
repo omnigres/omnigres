@@ -102,7 +102,7 @@ Below is the current list of components being worked on, experimented with and d
 | [omni_containers](extensions/omni_containers/README.md)                                     | :ballot_box_with_check: Initial prototype                               | Managing containers                                   |
 | [omni_ext](extensions/omni_ext/README.md) and  [Dynpgext interface](dynpgext/README.md)     | :ballot_box_with_check: Getting ready to become first release candidate | Advanced Postgres extension loader                    |
 | omni_git                                                                                    | :lab_coat: Early experiments (unpublished)                              | Postgres Git client                                   |
-| omni_types                                                                                  | :lab_coat: Early experiments (unpublished)                              | Advanced Postgres typing techniques (sum types, etc.) |
+| [omni_types](extensions/omni_types/README.md)                                               | :white_check_mark: First release candidate                              | Advanced Postgres typing techniques (sum types, etc.) |
 | omni_reactive                                                                               | :spiral_calendar: Haven't started yet                                   | Reactive queries                                      |
 
 ## :keyboard: Hacking
