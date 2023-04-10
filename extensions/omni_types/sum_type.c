@@ -544,8 +544,8 @@ Datum sum_type(PG_FUNCTION_ARGS) {
 
   // Register the type and ensure constraints are checked
   SPI_connect();
-  SPI_execute_with_args("insert into omni_types.sum_types (oid, variants) values ($1, $2)", 2,
-                        (Oid[2]){OIDOID, REGTYPEARRAYOID},
+  SPI_execute_with_args("insert into omni_types.sum_types (typ, variants) values ($1, $2)", 2,
+                        (Oid[2]){REGTYPEOID, REGTYPEARRAYOID},
                         (Datum[2]){
                             shell.objectId,
                             PointerGetDatum(arr),

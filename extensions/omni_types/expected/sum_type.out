@@ -1,5 +1,5 @@
 \pset null 'NULL'
-\set dump_types 'select typname,variants from omni_types.sum_types st inner join pg_type t on t.oid = st.oid'
+\set dump_types 'select typ as typname,variants from omni_types.sum_types'
 create or replace function get_type_size(data_type regtype)
     returns integer as
 $$
@@ -573,7 +573,7 @@ begin;
 select omni_types.sum_type('sum_type', 'integer', 'integer');
 ERROR:  Sum types can not contain duplicate variants
 CONTEXT:  PL/pgSQL function omni_types.sum_type_unique_variants_trigger_func() line 12 at RAISE
-SQL statement "insert into omni_types.sum_types (oid, variants) values ($1, $2)"
+SQL statement "insert into omni_types.sum_types (typ, variants) values ($1, $2)"
 rollback;
 -- Determining variant
 begin;
