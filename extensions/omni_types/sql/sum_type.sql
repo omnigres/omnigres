@@ -224,6 +224,11 @@ select (case when omni_types.variant(val) = 'text'::regtype then length(val::tex
 
 rollback;
 
+-- Pseudo-types can't be used
+begin;
+select omni_types.sum_type('sum_type', 'text', 'anyarray');
+rollback;
+
 -- Ensure no types are leaked
 \dT;
 :dump_types;

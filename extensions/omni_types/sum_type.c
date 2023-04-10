@@ -520,6 +520,11 @@ Datum sum_type(PG_FUNCTION_ARGS) {
       /* Get the Form_pg_type struct from the type tuple */
       typ = (Form_pg_type)GETSTRUCT(type_tuple);
 
+      if (typ->typcategory == TYPCATEGORY_PSEUDOTYPE) {
+        ereport(ERROR, errmsg("Pseudo-types can't be variants"),
+                errdetail("%s", NameStr(typ->typname)));
+      }
+
       if (typ->typlen == -1) {
         varlen = true;
       } else {
