@@ -214,9 +214,13 @@ select omni_types.sum_type('sum_type', 'text', 'integer');
 :dump_types;
 
 create table test (val sum_type);
+alter table test alter val set storage external;
 
-insert into test values (repeat('a', 100000)::text::sum_type),(1);
+insert into test values (repeat('a', 100000)::text::sum_type),(1000);
 select omni_types.variant(val) from test;
+select (case when omni_types.variant(val) = 'text'::regtype then length(val::text)
+             when omni_types.variant(val) = 'integer'::regtype then val::integer
+             else null end) from test;
 
 rollback;
 
