@@ -206,6 +206,20 @@ select omni_types.variant(10);
 
 rollback;
 
+-- TOASTing
+
+begin;
+select omni_types.sum_type('sum_type', 'text', 'integer');
+\dT;
+:dump_types;
+
+create table test (val sum_type);
+
+insert into test values (repeat('a', 100000)::text::sum_type),(1);
+select omni_types.variant(val) from test;
+
+rollback;
+
 -- Ensure no types are leaked
 \dT;
 :dump_types;
