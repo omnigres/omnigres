@@ -638,12 +638,22 @@ select omni_types.sum_type('sum_type', 'text', 'integer');
 (1 row)
 
 create table test (val sum_type);
-insert into test values (repeat('a', 100000)::text::sum_type),(1);
+alter table test alter val set storage external;
+insert into test values (repeat('a', 100000)::text::sum_type),(1000);
 select omni_types.variant(val) from test;
  variant 
 ---------
  text
  integer
+(2 rows)
+
+select (case when omni_types.variant(val) = 'text'::regtype then length(val::text)
+             when omni_types.variant(val) = 'integer'::regtype then val::integer
+             else null end) from test;
+  case  
+--------
+ 100000
+   1000
 (2 rows)
 
 rollback;

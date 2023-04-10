@@ -403,7 +403,7 @@ static void get_variant_val(Datum *arg, Oid sum_type_oid, Oid *variant, Datum *v
   int16 sum_type_len = sum_typtup->typlen;
   ReleaseSysCache(sum_type_tup);
 
-  struct varlena *varsize = sum_type_len == -1 ? PG_DETOAST_DATUM(arg) : NULL;
+  struct varlena *varsize = sum_type_len == -1 ? PG_DETOAST_DATUM_PACKED(arg) : NULL;
   FixedSizeVariant *value =
       sum_type_len == -1 ? (FixedSizeVariant *)VARDATA_ANY(varsize) : (FixedSizeVariant *)arg;
 
