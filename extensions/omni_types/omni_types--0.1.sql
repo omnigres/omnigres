@@ -1,6 +1,6 @@
 create table sum_types
 (
-    oid      oid primary key unique,
+    typ      regtype primary key unique,
     variants regtype[] not null
 );
 

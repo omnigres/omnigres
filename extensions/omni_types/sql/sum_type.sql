@@ -1,5 +1,5 @@
 \pset null 'NULL'
-\set dump_types 'select typname,variants from omni_types.sum_types st inner join pg_type t on t.oid = st.oid'
+\set dump_types 'select typ as typname,variants from omni_types.sum_types'
 
 create or replace function get_type_size(data_type regtype)
     returns integer as
