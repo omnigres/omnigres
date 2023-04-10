@@ -616,6 +616,37 @@ select omni_types.variant(10);
 (1 row)
 
 rollback;
+-- TOASTing
+begin;
+select omni_types.sum_type('sum_type', 'text', 'integer');
+ sum_type 
+----------
+ sum_type
+(1 row)
+
+\dT;
+       List of data types
+ Schema |   Name   | Description 
+--------+----------+-------------
+ public | sum_type | 
+(1 row)
+
+:dump_types;
+ typname  |    variants    
+----------+----------------
+ sum_type | {text,integer}
+(1 row)
+
+create table test (val sum_type);
+insert into test values (repeat('a', 100000)::text::sum_type),(1);
+select omni_types.variant(val) from test;
+ variant 
+---------
+ text
+ integer
+(2 rows)
+
+rollback;
 -- Ensure no types are leaked
 \dT;
      List of data types

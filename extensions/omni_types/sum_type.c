@@ -403,7 +403,7 @@ static void get_variant_val(Datum *arg, Oid sum_type_oid, Oid *variant, Datum *v
   int16 sum_type_len = sum_typtup->typlen;
   ReleaseSysCache(sum_type_tup);
 
-  struct varlena *varsize = (struct varlena *)arg;
+  struct varlena *varsize = sum_type_len == -1 ? PG_DETOAST_DATUM(arg) : NULL;
   FixedSizeVariant *value =
       sum_type_len == -1 ? (FixedSizeVariant *)VARDATA_ANY(varsize) : (FixedSizeVariant *)arg;
 
@@ -577,6 +577,7 @@ Datum sum_type(PG_FUNCTION_ARGS) {
                       PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
 
   // Prepare the type itself
+  char storage = type_size == -1 ? TYPSTORAGE_EXTENDED : TYPSTORAGE_PLAIN;
   ObjectAddress type =
       TypeCreate(InvalidOid, NameStr(*name), namespace, InvalidOid, 0, GetUserId(), type_size,
                  TYPTYPE_BASE, TYPCATEGORY_USER, true, DEFAULT_TYPDELIM, in.objectId, out.objectId,
@@ -584,8 +585,8 @@ Datum sum_type(PG_FUNCTION_ARGS) {
 #if PG_MAJORVERSION_NUM > 13
                  InvalidOid,
 #endif
-                 InvalidOid, false, array_oid, InvalidOid, NULL, NULL, false, TYPALIGN_INT,
-                 TYPSTORAGE_PLAIN, -1, 0, false, DEFAULT_COLLATION_OID);
+                 InvalidOid, false, array_oid, InvalidOid, NULL, NULL, false, TYPALIGN_INT, storage,
+                 -1, 0, false, DEFAULT_COLLATION_OID);
 
   Assert(shell.objectId == type.objectId);
 
