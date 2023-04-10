@@ -657,6 +657,12 @@ select (case when omni_types.variant(val) = 'text'::regtype then length(val::tex
 (2 rows)
 
 rollback;
+-- Pseudo-types can't be used
+begin;
+select omni_types.sum_type('sum_type', 'text', 'anyarray');
+ERROR:  Pseudo-types can't be variants
+DETAIL:  anyarray
+rollback;
 -- Ensure no types are leaked
 \dT;
      List of data types
