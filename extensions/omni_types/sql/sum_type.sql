@@ -229,6 +229,29 @@ begin;
 select omni_types.sum_type('sum_type', 'text', 'anyarray');
 rollback;
 
+-- Binary I/O
+begin;
+select omni_types.sum_type('sum_type', 'text', 'integer');
+
+select typsend = 'sum_type_send'::regproc as valid_send,
+       typreceive = 'sum_type_recv'::regproc as valid_recv
+from pg_type
+where oid = 'sum_type'::regtype;
+
+select sum_type_recv(sum_type_send('text(Hello)'));
+select sum_type_recv(sum_type_send('integer(1000)'));
+
+-- Malformed input
+savepoint try;
+select sum_type_recv(E''::bytea);
+rollback to savepoint try;
+select sum_type_recv(int4send(1));
+rollback to savepoint try;
+select sum_type_recv(int4send(2));
+rollback to savepoint try;
+
+rollback;
+
 -- Ensure no types are leaked
 \dT;
 :dump_types;

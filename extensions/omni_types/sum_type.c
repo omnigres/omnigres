@@ -54,6 +54,18 @@ PG_FUNCTION_INFO_V1(sum_in);
  */
 PG_FUNCTION_INFO_V1(sum_out);
 /**
+ * Converts bytea into a sum type
+ * @param fcinfo
+ * @return
+ */
+PG_FUNCTION_INFO_V1(sum_recv);
+/**
+ * Converts sum type to a bytea
+ * @param fcinfo
+ * @return
+ */
+PG_FUNCTION_INFO_V1(sum_send);
+/**
  * Casts sum type to a variant
  * @param fcinfo
  * @return
@@ -107,7 +119,8 @@ StaticAssertDecl(offsetof(VarSizeVariant, discriminant) == offsetof(FixedSizeVar
  * @param variant returns the variant Oid
  * @param val returns the extracted variant
  */
-static void get_variant_val(Datum *arg, Oid sum_type_oid, Oid *variant, Datum *val);
+static void get_variant_val(Datum *arg, Oid sum_type_oid, Oid *variant, Datum *val,
+                            Discriminant *discriminant);
 
 Datum sum_variant(PG_FUNCTION_ARGS) {
 
@@ -126,7 +139,7 @@ Datum sum_variant(PG_FUNCTION_ARGS) {
   Datum *arg = (Datum *)PG_GETARG_POINTER(0);
 
   Oid variant;
-  get_variant_val(arg, sum_type_oid, &variant, NULL);
+  get_variant_val(arg, sum_type_oid, &variant, NULL, NULL);
 
   if (variant == InvalidOid) {
     PG_RETURN_NULL();
@@ -284,7 +297,7 @@ Datum sum_out(PG_FUNCTION_ARGS) {
 
   Oid variant;
   Datum val;
-  get_variant_val(arg, sum_type_oid, &variant, &val);
+  get_variant_val(arg, sum_type_oid, &variant, &val, NULL);
 
   HeapTuple type_tup = SearchSysCache1(TYPEOID, ObjectIdGetDatum(variant));
   Assert(HeapTupleIsValid(type_tup));
@@ -303,6 +316,117 @@ Datum sum_out(PG_FUNCTION_ARGS) {
   PG_RETURN_CSTRING(string.data);
 }
 
+Datum sum_recv(PG_FUNCTION_ARGS) {
+
+  bytea *input = PG_GETARG_BYTEA_PP(0);
+  if (VARSIZE_ANY_EXHDR(input) < sizeof(Discriminant)) {
+    ereport(ERROR, errmsg("input is too short to fit a discriminant"));
+  }
+
+  HeapTuple proc_tuple = SearchSysCache1(PROCOID, fcinfo->flinfo->fn_oid);
+  Assert(HeapTupleIsValid(proc_tuple));
+  Form_pg_proc proc_struct = (Form_pg_proc)GETSTRUCT(proc_tuple);
+  Oid sum_type_oid = proc_struct->prorettype;
+  ReleaseSysCache(proc_tuple);
+
+  HeapTuple sum_type_tup = SearchSysCache1(TYPEOID, ObjectIdGetDatum(sum_type_oid));
+  Assert(HeapTupleIsValid(sum_type_tup));
+  Form_pg_type sum_typtup = (Form_pg_type)GETSTRUCT(sum_type_tup);
+  int16 sum_type_len = sum_typtup->typlen;
+  ReleaseSysCache(sum_type_tup);
+
+  // Find matching variant
+  Oid types = get_relname_relid("sum_types", get_namespace_oid("omni_types", false));
+
+  Relation rel = table_open(types, AccessShareLock);
+  TupleDesc tupdesc = RelationGetDescr(rel);
+  TableScanDesc scan = table_beginscan_catalog(rel, 0, NULL);
+  Oid variant = InvalidOid;
+  StaticAssertStmt(sizeof(Discriminant) == 4, "must be 32-bit");
+  Discriminant discriminant = (Discriminant)pg_ntoh32(*((Discriminant *)VARDATA_ANY(input)));
+  for (;;) {
+    HeapTuple tup = heap_getnext(scan, ForwardScanDirection);
+    // The end
+    if (tup == NULL)
+      break;
+
+    bool isnull;
+    // Matching type
+    if (sum_type_oid == DatumGetObjectId(heap_getattr(tup, 1, tupdesc, &isnull))) {
+      ArrayType *arr = DatumGetArrayTypeP(heap_getattr(tup, 2, tupdesc, &isnull));
+      Assert(ARR_NDIM(arr) == 1);
+      if (ARR_DIMS(arr)[0] < discriminant + 1) {
+        ereport(ERROR, errmsg("invalid discriminant"));
+      }
+
+      Datum element = array_get_element(PointerGetDatum(arr), 1, (int[1]){discriminant + 1}, -1, 4,
+                                        true, TYPALIGN_INT, &isnull);
+      variant = DatumGetObjectId(element);
+      break;
+    }
+  }
+  if (scan->rs_rd->rd_tableam->scan_end) {
+    scan->rs_rd->rd_tableam->scan_end(scan);
+  }
+  table_close(rel, AccessShareLock);
+
+  if (variant == InvalidOid) {
+    ereport(ERROR, errmsg("No valid variant found"));
+  }
+
+  HeapTuple type_tup = SearchSysCache1(TYPEOID, ObjectIdGetDatum(variant));
+  Assert(HeapTupleIsValid(type_tup));
+  Form_pg_type typtup = (Form_pg_type)GETSTRUCT(type_tup);
+  int16 variant_type_len = typtup->typlen;
+  bool variant_byval = typtup->typbyval;
+  regproc variant_recv_function_oid = typtup->typreceive;
+  int32 variant_typmod = typtup->typmodin;
+  Oid variant_ioparam = OidIsValid(typtup->typelem) ? typtup->typelem : typtup->oid;
+  ReleaseSysCache(type_tup);
+
+  StringInfoData string;
+  initStringInfo(&string);
+  string.data = (char *)(((Discriminant *)VARDATA_ANY(input)) + 1);
+  string.len = VARSIZE_ANY_EXHDR(input) - sizeof(Discriminant);
+  Datum result =
+      OidReceiveFunctionCall(variant_recv_function_oid, &string, variant_ioparam, variant_typmod);
+
+  return make_variant(sum_type_len, discriminant, variant_type_len, variant_byval, result);
+}
+
+Datum sum_send(PG_FUNCTION_ARGS) {
+  HeapTuple proc_tuple = SearchSysCache1(PROCOID, fcinfo->flinfo->fn_oid);
+  Assert(HeapTupleIsValid(proc_tuple));
+  Form_pg_proc proc_struct = (Form_pg_proc)GETSTRUCT(proc_tuple);
+  Oid sum_type_oid = proc_struct->proargtypes.values[0];
+  ReleaseSysCache(proc_tuple);
+
+  Datum *arg = (Datum *)PG_GETARG_POINTER(0);
+
+  Oid variant;
+  Datum val;
+  Discriminant discriminant;
+  get_variant_val(arg, sum_type_oid, &variant, &val, &discriminant);
+
+  HeapTuple type_tup = SearchSysCache1(TYPEOID, ObjectIdGetDatum(variant));
+  Assert(HeapTupleIsValid(type_tup));
+  Form_pg_type typtup = (Form_pg_type)GETSTRUCT(type_tup);
+  regproc variant_send_function_oid = typtup->typsend;
+  ReleaseSysCache(type_tup);
+
+  struct varlena *out = OidSendFunctionCall(variant_send_function_oid, val);
+
+  size_t len = sizeof(Discriminant) + VARSIZE_ANY(out);
+  struct varlena *bytes = palloc(len);
+  SET_VARSIZE(bytes, len);
+  StaticAssertStmt(sizeof(Discriminant) == 4, "must be 32-bit");
+  *((Discriminant *)VARDATA_ANY(bytes)) = pg_hton32(discriminant);
+
+  memcpy(VARDATA_ANY(bytes) + sizeof(Discriminant), VARDATA_ANY(out), VARSIZE_ANY_EXHDR(out));
+
+  PG_RETURN_BYTEA_P(bytes);
+}
+
 Datum sum_cast_to(PG_FUNCTION_ARGS) {
   HeapTuple proc_tuple = SearchSysCache1(PROCOID, fcinfo->flinfo->fn_oid);
   Assert(HeapTupleIsValid(proc_tuple));
@@ -315,7 +439,7 @@ Datum sum_cast_to(PG_FUNCTION_ARGS) {
 
   Oid variant;
   Datum val;
-  get_variant_val(arg, sum_type_oid, &variant, &val);
+  get_variant_val(arg, sum_type_oid, &variant, &val, NULL);
 
   if (variant != variant_type_oid) {
     PG_RETURN_NULL();
@@ -396,7 +520,8 @@ Datum sum_cast_from(PG_FUNCTION_ARGS) {
                       PG_GETARG_DATUM(0));
 }
 
-static void get_variant_val(Datum *arg, Oid sum_type_oid, Oid *variant, Datum *val) {
+static void get_variant_val(Datum *arg, Oid sum_type_oid, Oid *variant, Datum *val,
+                            Discriminant *discriminant) {
   HeapTuple sum_type_tup = SearchSysCache1(TYPEOID, ObjectIdGetDatum(sum_type_oid));
   Assert(HeapTupleIsValid(sum_type_tup));
   Form_pg_type sum_typtup = (Form_pg_type)GETSTRUCT(sum_type_tup);
@@ -406,6 +531,9 @@ static void get_variant_val(Datum *arg, Oid sum_type_oid, Oid *variant, Datum *v
   struct varlena *varsize = sum_type_len == -1 ? PG_DETOAST_DATUM_PACKED(arg) : NULL;
   FixedSizeVariant *value =
       sum_type_len == -1 ? (FixedSizeVariant *)VARDATA_ANY(varsize) : (FixedSizeVariant *)arg;
+  if (discriminant != NULL) {
+    *discriminant = value->discriminant;
+  }
 
   // Find the variant
   Oid types = get_relname_relid("sum_types", get_namespace_oid("omni_types", false));
@@ -425,7 +553,9 @@ static void get_variant_val(Datum *arg, Oid sum_type_oid, Oid *variant, Datum *v
     if (sum_type_oid == DatumGetObjectId(heap_getattr(tup, 1, tupdesc, &isnull))) {
       ArrayType *arr = DatumGetArrayTypeP(heap_getattr(tup, 2, tupdesc, &isnull));
       Assert(ARR_NDIM(arr) == 1);
-      Assert(ARR_DIMS(arr)[0] >= value->discriminant + 1);
+      if (ARR_DIMS(arr)[0] < value->discriminant + 1) {
+        ereport(ERROR, errmsg("invalid discriminant"));
+      }
 
       Datum element = array_get_element(PointerGetDatum(arr), 1, (int[1]){value->discriminant + 1},
                                         -1, 4, true, TYPALIGN_INT, &isnull);
@@ -494,6 +624,7 @@ Datum sum_type(PG_FUNCTION_ARGS) {
 
   int16 variant_size = 0;
   bool varlen = false;
+  bool binary_io = true;
 
   // Figure out sum type size
   {
@@ -529,6 +660,11 @@ Datum sum_type(PG_FUNCTION_ARGS) {
         varlen = true;
       } else {
         variant_size = Max(variant_size, typ->typlen);
+      }
+
+      // All variants must support binary I/O in order for the sum type to support it
+      if (typ->typsend == InvalidOid || typ->typreceive == InvalidOid) {
+        binary_io = false;
       }
 
       ReleaseSysCache(type_tuple);
@@ -581,12 +717,43 @@ Datum sum_type(PG_FUNCTION_ARGS) {
                       PointerGetDatum(NULL), PointerGetDatum(NULL), NIL, PointerGetDatum(NULL),
                       PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
 
+  // Prepare send/recv functions (if possible)
+  Oid typsend = InvalidOid;
+  Oid typrecv = InvalidOid;
+  if (binary_io) {
+    char *f_recv = psprintf("%s_recv", NameStr(*name));
+    ObjectAddress recv =
+        ProcedureCreate(f_recv, namespace, false, false, shell.objectId, GetUserId(), ClanguageId,
+                        F_FMGR_C_VALIDATOR, "sum_recv", probin,
+#if PG_MAJORVERSION_NUM > 13
+                        NULL,
+#endif
+                        PROKIND_FUNCTION, false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
+                        buildoidvector((Oid[1]){BYTEAOID}, 1), PointerGetDatum(NULL),
+                        PointerGetDatum(NULL), PointerGetDatum(NULL), NIL, PointerGetDatum(NULL),
+                        PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
+
+    char *f_send = psprintf("%s_send", NameStr(*name));
+    ObjectAddress send =
+        ProcedureCreate(f_send, namespace, false, false, BYTEAOID, GetUserId(), ClanguageId,
+                        F_FMGR_C_VALIDATOR, "sum_send", probin,
+#if PG_MAJORVERSION_NUM > 13
+                        NULL,
+#endif
+                        PROKIND_FUNCTION, false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
+                        buildoidvector((Oid[1]){shell.objectId}, 1), PointerGetDatum(NULL),
+                        PointerGetDatum(NULL), PointerGetDatum(NULL), NIL, PointerGetDatum(NULL),
+                        PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
+    typrecv = recv.objectId;
+    typsend = send.objectId;
+  }
+
   // Prepare the type itself
   char storage = type_size == -1 ? TYPSTORAGE_EXTENDED : TYPSTORAGE_PLAIN;
   ObjectAddress type =
       TypeCreate(InvalidOid, NameStr(*name), namespace, InvalidOid, 0, GetUserId(), type_size,
                  TYPTYPE_BASE, TYPCATEGORY_USER, true, DEFAULT_TYPDELIM, in.objectId, out.objectId,
-                 InvalidOid, InvalidOid, InvalidOid, InvalidOid, InvalidOid,
+                 typrecv, typsend, InvalidOid, InvalidOid, InvalidOid,
 #if PG_MAJORVERSION_NUM > 13
                  InvalidOid,
 #endif
