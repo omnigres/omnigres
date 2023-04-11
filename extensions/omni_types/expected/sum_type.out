@@ -704,6 +704,163 @@ select sum_type_recv(int4send(2));
 ERROR:  invalid discriminant
 rollback to savepoint try;
 rollback;
+-- Adding variants
+begin;
+select omni_types.sum_type('sum_type', 'boolean', 'bigint');
+ sum_type 
+----------
+ sum_type
+(1 row)
+
+\dT
+       List of data types
+ Schema |   Name   | Description 
+--------+----------+-------------
+ public | sum_type | 
+(1 row)
+
+:dump_types;
+ typname  |     variants     
+----------+------------------
+ sum_type | {boolean,bigint}
+(1 row)
+
+select omni_types.add_variant('sum_type', 'integer');
+ add_variant 
+-------------
+ 
+(1 row)
+
+:dump_types;
+ typname  |         variants         
+----------+--------------------------
+ sum_type | {boolean,bigint,integer}
+(1 row)
+
+select 'integer(1000)'::sum_type;
+   sum_type    
+---------------
+ integer(1000)
+(1 row)
+
+select 'bigint(1000)'::sum_type;
+   sum_type   
+--------------
+ bigint(1000)
+(1 row)
+
+select 'boolean(t)'::sum_type;
+  sum_type  
+------------
+ boolean(t)
+(1 row)
+
+rollback;
+-- Adding variants to variable sized type
+begin;
+select omni_types.sum_type('sum_type', 'boolean', 'text');
+ sum_type 
+----------
+ sum_type
+(1 row)
+
+\dT
+       List of data types
+ Schema |   Name   | Description 
+--------+----------+-------------
+ public | sum_type | 
+(1 row)
+
+:dump_types;
+ typname  |    variants    
+----------+----------------
+ sum_type | {boolean,text}
+(1 row)
+
+select omni_types.add_variant('sum_type', 'bigint');
+ add_variant 
+-------------
+ 
+(1 row)
+
+:dump_types;
+ typname  |       variants        
+----------+-----------------------
+ sum_type | {boolean,text,bigint}
+(1 row)
+
+select 'text(test)'::sum_type;
+  sum_type  
+------------
+ text(test)
+(1 row)
+
+select 'bigint(1000)'::sum_type;
+   sum_type   
+--------------
+ bigint(1000)
+(1 row)
+
+select 'boolean(t)'::sum_type;
+  sum_type  
+------------
+ boolean(t)
+(1 row)
+
+rollback;
+-- Adding larger (invalid) variants to fixed sized type
+begin;
+select omni_types.sum_type('sum_type', 'boolean');
+ sum_type 
+----------
+ sum_type
+(1 row)
+
+\dT
+       List of data types
+ Schema |   Name   | Description 
+--------+----------+-------------
+ public | sum_type | 
+(1 row)
+
+:dump_types;
+ typname  | variants  
+----------+-----------
+ sum_type | {boolean}
+(1 row)
+
+select omni_types.add_variant('sum_type', 'bigint');
+ERROR:  variant type size must not be larger than that of the largest existing variant type's
+DETAIL:  largest existing variant size: 1, variant type size: 8
+rollback;
+-- Adding duplicate variants
+begin;
+select omni_types.sum_type('sum_type', 'integer');
+ sum_type 
+----------
+ sum_type
+(1 row)
+
+\dT
+       List of data types
+ Schema |   Name   | Description 
+--------+----------+-------------
+ public | sum_type | 
+(1 row)
+
+:dump_types;
+ typname  | variants  
+----------+-----------
+ sum_type | {integer}
+(1 row)
+
+-- Using a different name for the same type here intentionally
+-- to make sure it is checked against OIDs
+select omni_types.add_variant('sum_type', 'int4');
+ERROR:  Sum types can not contain duplicate variants
+CONTEXT:  PL/pgSQL function omni_types.sum_type_unique_variants_trigger_func() line 12 at RAISE
+SQL statement "update omni_types.sum_types set variants = array_append(variants, $1) where typ = $2"
+rollback;
 -- Ensure no types are leaked
 \dT;
      List of data types

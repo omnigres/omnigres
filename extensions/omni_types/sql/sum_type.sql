@@ -252,6 +252,59 @@ rollback to savepoint try;
 
 rollback;
 
+-- Adding variants
+begin;
+select omni_types.sum_type('sum_type', 'boolean', 'bigint');
+\dT
+:dump_types;
+
+select omni_types.add_variant('sum_type', 'integer');
+:dump_types;
+
+select 'integer(1000)'::sum_type;
+select 'bigint(1000)'::sum_type;
+select 'boolean(t)'::sum_type;
+
+rollback;
+
+-- Adding variants to variable sized type
+begin;
+select omni_types.sum_type('sum_type', 'boolean', 'text');
+\dT
+:dump_types;
+
+select omni_types.add_variant('sum_type', 'bigint');
+:dump_types;
+
+select 'text(test)'::sum_type;
+select 'bigint(1000)'::sum_type;
+select 'boolean(t)'::sum_type;
+
+rollback;
+
+-- Adding larger (invalid) variants to fixed sized type
+begin;
+select omni_types.sum_type('sum_type', 'boolean');
+\dT
+:dump_types;
+
+select omni_types.add_variant('sum_type', 'bigint');
+
+rollback;
+
+-- Adding duplicate variants
+begin;
+select omni_types.sum_type('sum_type', 'integer');
+\dT
+:dump_types;
+
+-- Using a different name for the same type here intentionally
+-- to make sure it is checked against OIDs
+select omni_types.add_variant('sum_type', 'int4');
+
+rollback;
+
+
 -- Ensure no types are leaked
 \dT;
 :dump_types;
