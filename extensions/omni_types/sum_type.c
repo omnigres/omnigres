@@ -7,22 +7,22 @@
 #include <postgres.h>
 #include <fmgr.h>
 // clang-format on
-#include "access/heapam.h"
-#include "access/table.h"
-#include "catalog/pg_cast.h"
-#include "executor/spi.h"
-#include "utils/builtins.h"
-#include "utils/fmgroids.h"
-#include "utils/lsyscache.h"
+#include <access/heapam.h>
 #include <access/htup_details.h>
+#include <access/table.h>
 #include <catalog/namespace.h>
+#include <catalog/pg_cast.h>
 #include <catalog/pg_collation.h>
 #include <catalog/pg_language.h>
 #include <catalog/pg_proc.h>
 #include <catalog/pg_type.h>
 #include <commands/typecmds.h>
+#include <executor/spi.h>
 #include <miscadmin.h>
 #include <utils/array.h>
+#include <utils/builtins.h>
+#include <utils/fmgroids.h>
+#include <utils/lsyscache.h>
 #include <utils/syscache.h>
 
 PG_MODULE_MAGIC;
