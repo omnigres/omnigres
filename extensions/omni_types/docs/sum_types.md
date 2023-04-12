@@ -145,3 +145,20 @@ variant
  point
 (1 row)
 ```
+
+## Changing the variant type
+
+Sometimes it may be desirable to change the definition of a sum type. In most cases, it would
+be prudent to define a new type and migrate to it. However, this may be undesirable to due
+involved complexity. Luckily, under certain constraints, variant types __can__ be changed:
+
+* Only __adding__ new variants is permitted
+* For fixed-size sum types (those _not_ containing variable-sized variants), the size of the new variant __may not be larger__
+  than that of the largest existing variant. [^fixed-size-alteration]
+
+```postgresql
+select omni_types.add_variant('geom', 'my_box');
+```
+
+[^fixed-size-alteration]: This is done so that Postgres would not try to read existing values using an updated, larger size, which
+is erroneous.

@@ -42,6 +42,13 @@ PG_FUNCTION_INFO_V1(sum_variant);
 PG_FUNCTION_INFO_V1(sum_type);
 
 /**
+ * Adds a variant to the sum type
+ * @param fcinfo
+ * @return
+ */
+PG_FUNCTION_INFO_V1(add_variant);
+
+/**
  * Converts cstring into a sum type
  * @param fcinfo
  * @return
@@ -836,4 +843,50 @@ Datum sum_type(PG_FUNCTION_ARGS) {
   }
 
   PG_RETURN_OID(type.objectId);
+}
+
+Datum add_variant(PG_FUNCTION_ARGS) {
+
+  if (PG_ARGISNULL(0)) {
+    ereport(ERROR, errmsg("sum type must have a non-NULL value"));
+  }
+
+  Oid sum_type_oid = PG_GETARG_OID(0);
+
+  if (PG_ARGISNULL(1)) {
+    ereport(ERROR, errmsg("variant type must have a non-NULL value"));
+  }
+
+  Oid variant_type_oid = PG_GETARG_OID(1);
+
+  HeapTuple sum_type_tup = SearchSysCache1(TYPEOID, ObjectIdGetDatum(sum_type_oid));
+  Assert(HeapTupleIsValid(sum_type_tup));
+  Form_pg_type sum_typtup = (Form_pg_type)GETSTRUCT(sum_type_tup);
+  int16 sum_type_len = sum_typtup->typlen;
+  ReleaseSysCache(sum_type_tup);
+
+  HeapTuple variant_type_tup = SearchSysCache1(TYPEOID, ObjectIdGetDatum(variant_type_oid));
+  Assert(HeapTupleIsValid(variant_type_tup));
+  Form_pg_type variant_typtup = (Form_pg_type)GETSTRUCT(variant_type_tup);
+  int16 variant_type_len = variant_typtup->typlen;
+  ReleaseSysCache(variant_type_tup);
+
+  if (sum_type_len != -1 &&
+      (variant_type_len < 0 || variant_type_len > (sum_type_len - sizeof(Discriminant)))) {
+    // If sum type is fixed size, the variant must not be larger
+    ereport(ERROR,
+            errmsg("variant type size must not be larger than that of the largest existing variant "
+                   "type's"),
+            errdetail("largest existing variant size: %lu, variant type size: %d",
+                      sum_type_len - sizeof(Discriminant), variant_type_len));
+  }
+
+  SPI_connect();
+  SPI_execute_with_args(
+      "update omni_types.sum_types set variants = array_append(variants, $1) where typ = $2", 2,
+      (Oid[2]){REGTYPEOID, REGTYPEOID}, (Datum[2]){variant_type_oid, sum_type_oid},
+      (char[2]){' ', ' '}, false, 0);
+  SPI_finish();
+
+  PG_RETURN_VOID();
 }

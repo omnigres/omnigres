@@ -37,6 +37,12 @@ as
 'sum_type'
     language c;
 
+create function add_variant(sum_type regtype, variant regtype) returns void
+as
+'MODULE_PATHNAME',
+'add_variant'
+    language c;
+
 create function variant(v anycompatible) returns regtype as
 'MODULE_PATHNAME',
 'sum_variant' language c;
