@@ -137,12 +137,6 @@ Datum sum_variant(PG_FUNCTION_ARGS) {
 
   Oid sum_type_oid = get_fn_expr_argtype(fcinfo->flinfo, 0);
 
-  HeapTuple sum_type_tup = SearchSysCache1(TYPEOID, ObjectIdGetDatum(sum_type_oid));
-  Assert(HeapTupleIsValid(sum_type_tup));
-  Form_pg_type sum_typtup = (Form_pg_type)GETSTRUCT(sum_type_tup);
-  int16 sum_type_len = sum_typtup->typlen;
-  ReleaseSysCache(sum_type_tup);
-
   Datum *arg = (Datum *)PG_GETARG_POINTER(0);
 
   Oid variant;
