@@ -123,6 +123,23 @@ jobs:
           platforms: linux/${{ matrix.platform }}
           target: pg-slim
 
+      - name: Build and push dev Docker image
+        id: build-and-push-dev
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-slim:${{ github.sha }}-${{ matrix.platform }}
+          provenance: false
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=s3,region=us-east-1,bucket=omnigres-ci-cache,name=omnigres-${{ matrix.platform }}-dev
+          cache-to: ${{ format(fromJSON('["type=s3,mode=max,region=us-east-1,bucket=omnigres-ci-cache,name=omnigres-{0}-dev","type=inline"]')[ github.event_name == 'pull_request' ], matrix.platform) }}
+          build-args: |
+            BUILD_PARALLEL_LEVEL=4
+          platforms: linux/${{ matrix.platform }}
+          target: builder
+
         #       # Sign the resulting Docker image digest except on PRs.
         #       # This will only write to the public Rekor transparency log when the Docker
         #       # repository is public to avoid leaking data.  If you would like to publish
@@ -138,7 +155,7 @@ jobs:
   manifest:
     strategy:
       matrix:
-        flavor: [ "", "-slim" ]
+        flavor: [ "", "-slim", "-dev" ]
 
     if: github.event_name != 'pull_request'
     needs: build
