@@ -33,6 +33,9 @@ of the following:
 * `int32`
 * `int64`
 
+For brevity, where prefix type and identifier type are the same, the type is not repeated,
+so instead of __`omni_seq.id_int64_int64`__ we call it __`omni_seq.id_int64`__.
+
 ## How to Use
 
 One can use it as a default value for a primary key, with an explicitly created sequence:
@@ -41,8 +44,8 @@ One can use it as a default value for a primary key, with an explicitly created 
 create sequence seq;
 create table t
 (
-  id omni_seq.id_int64_int64 primary key not null default
-     omni_seq.id_int64_int64_nextval(node_id, 'seq') -- (1)
+  id omni_seq.id_int64 primary key not null default
+     omni_seq.id_int64_nextval(node_id, 'seq') -- (1)
 );
 ```
 

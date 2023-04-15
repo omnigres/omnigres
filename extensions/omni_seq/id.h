@@ -33,8 +33,15 @@
 // clang-format on
 #include <utils/builtins.h>
 
+#define make_name__(name, prefix_len, val_len, suffix) name##_##prefix_len##_##val_len##suffix
+
+#if PREFIX_SIZE == VAL_SIZE
+#define make_name_(name, prefix_len, val_len, suffix) name##_##prefix_len##suffix
+#else
 #define make_name_(name, prefix_len, val_len, suffix) name##_##prefix_len##_##val_len##suffix
+#endif
 #define make_name(name, prefix_len, val_len) make_name_(name, prefix_len, val_len, )
+#define make_name_ref(name, prefix_len, val_len) make_name__(name, prefix_len, val_len, )
 #define make_fun_name(name, prefix_len, val_len, suffix)                                           \
   make_name_(name, prefix_len, val_len, suffix)
 
@@ -121,7 +128,7 @@ Datum make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _out)(PG_FUNCTION_ARGS) {
   make_name(st, PREFIX_TYPE, VAL_TYPE) *val =
       (make_name(st, PREFIX_TYPE, VAL_TYPE) *)PG_GETARG_POINTER(0);
 
-  char *out = psprintf("%" make_name(pri, PREFIX_TYPE, t) ":%" make_name(pri, VAL_TYPE, t),
+  char *out = psprintf("%" make_name_ref(pri, PREFIX_TYPE, t) ":%" make_name_ref(pri, VAL_TYPE, t),
                        (concat(PREFIX_TYPE, _t))val->prefix, (concat(VAL_TYPE, _t))val->val);
 
   PG_RETURN_CSTRING(out);
@@ -325,7 +332,7 @@ Datum make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _nextval)(PG_FUNCTION_ARGS) {
   int64 nextval = DirectFunctionCall1(nextval_oid, sequence_oid);
 
   make_name(st, PREFIX_TYPE, VAL_TYPE) *val = palloc(sizeof(*val));
-  val->prefix = make_name(PG_GETARG, PREFIX_TYPE, )(0);
+  val->prefix = make_name_ref(PG_GETARG, PREFIX_TYPE, )(0);
   val->val = (VAL_TYPE)nextval;
   PG_RETURN_POINTER(val);
 }
@@ -338,7 +345,7 @@ Datum make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _make)(PG_FUNCTION_ARGS) {
   }
 
   make_name(st, PREFIX_TYPE, VAL_TYPE) *val = palloc(sizeof(*val));
-  val->prefix = make_name(PG_GETARG, PREFIX_TYPE, )(0);
+  val->prefix = make_name_ref(PG_GETARG, PREFIX_TYPE, )(0);
   val->val = (VAL_TYPE)PG_GETARG_INT64(1);
   PG_RETURN_POINTER(val);
 }
@@ -346,6 +353,7 @@ Datum make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _make)(PG_FUNCTION_ARGS) {
 #undef stringify
 #undef _stringify
 #undef make_name_
+#undef make_name__
 #undef make_name
 #undef make_fun_name
 #undef concat
