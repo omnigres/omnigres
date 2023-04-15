@@ -4,6 +4,9 @@ repo_url: https://github.com/omnigres/omnigres
 repo_name: omnigres/omnigres
 
 theme:
+  font:
+    text: Atkinson Hyperlegible
+    code: Martian Mono
   name: material
   palette:
     scheme: default
