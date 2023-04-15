@@ -20,45 +20,45 @@ PG_FUNCTION_INFO_V1(system_identifier);
 
 Datum system_identifier(PG_FUNCTION_ARGS) { PG_RETURN_INT64(GetSystemIdentifier()); }
 
-#define PREFIX_TYPE int16
-#define VAL_TYPE int16
+#define PREFIX_SIZE 16
+#define VAL_SIZE 16
 
 #include "prefix_seq.h"
 
-#define VAL_TYPE int32
+#define VAL_SIZE 32
 
 #include "prefix_seq.h"
 
-#define VAL_TYPE int64
+#define VAL_SIZE 64
 
 #include "prefix_seq.h"
 
-#undef PREFIX_TYPE
+#undef PREFIX_SIZE
 
-#define PREFIX_TYPE int32
-#define VAL_TYPE int16
-
-#include "prefix_seq.h"
-
-#define VAL_TYPE int32
+#define PREFIX_SIZE 32
+#define VAL_SIZE 16
 
 #include "prefix_seq.h"
 
-#define VAL_TYPE int64
+#define VAL_SIZE 32
 
 #include "prefix_seq.h"
 
-#undef PREFIX_TYPE
-
-#define PREFIX_TYPE int64
-#define VAL_TYPE int16
+#define VAL_SIZE 64
 
 #include "prefix_seq.h"
 
-#define VAL_TYPE int32
+#undef PREFIX_SIZE
+
+#define PREFIX_SIZE 64
+#define VAL_SIZE 16
 
 #include "prefix_seq.h"
 
-#define VAL_TYPE int64
+#define VAL_SIZE 32
+
+#include "prefix_seq.h"
+
+#define VAL_SIZE 64
 
 #include "prefix_seq.h"

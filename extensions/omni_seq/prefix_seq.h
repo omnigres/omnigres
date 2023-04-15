@@ -1,12 +1,19 @@
-#ifndef PREFIX_TYPE
-#error "PREFIX_TYPE must be defined"
+#ifndef PREFIX_SIZE
+#error "PREFIX_SIZE must be defined"
 #endif
 
-#ifndef VAL_TYPE
-#error "VAL_TYPE must be defined"
+#ifndef VAL_SIZE
+#error "VAL_SIZE must be defined"
 #endif
+
+#define concat_(a, b) a##b
+#define concat(a, b) concat_(a, b)
+
+#define PREFIX_TYPE concat(int, PREFIX_SIZE)
+#define VAL_TYPE concat(int, VAL_SIZE)
 
 #include <inttypes.h>
+#include <stdalign.h>
 
 #ifndef pri_int16_t
 #define pri_int16_t PRId16
@@ -56,13 +63,28 @@
 #define _stringify(x) #x
 #define stringify(x) _stringify(x)
 
-#define concat_(a, b) a##b
-#define concat(a, b) concat_(a, b)
-
 typedef struct {
+// Bigger field should go first to self-align at the start,
+// otherwise it will require padding to align correctly.
+#if PREFIX_SIZE >= VAL_SIZE
   PREFIX_TYPE prefix;
   VAL_TYPE val;
-} make_name(st, PREFIX_TYPE, VAL_TYPE);
+#else
+  VAL_TYPE val;
+  PREFIX_TYPE prefix;
+#endif
+  // we're packing this struct to ensure no trailing padding
+} pg_attribute_packed() make_name(st, PREFIX_TYPE, VAL_TYPE);
+
+StaticAssertDecl(sizeof(make_name(st, PREFIX_TYPE, VAL_TYPE)) ==
+                     sizeof(PREFIX_TYPE) + sizeof(VAL_TYPE),
+                 "type must not be larger than its components");
+
+StaticAssertDecl(offsetof(make_name(st, PREFIX_TYPE, VAL_TYPE), prefix) % alignof(PREFIX_TYPE) == 0,
+                 "prefix must self-align");
+
+StaticAssertDecl(offsetof(make_name(st, PREFIX_TYPE, VAL_TYPE), val) % alignof(VAL_TYPE) == 0,
+                 "val must self-align");
 
 PG_FUNCTION_INFO_V1(make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _in));
 
@@ -316,3 +338,5 @@ Datum make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _nextval)(PG_FUNCTION_ARG
 #undef concat
 #undef concat_
 #undef VAL_TYPE
+#undef PREFIX_TYPE
+#undef VAL_SIZE
