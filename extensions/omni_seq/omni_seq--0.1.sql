@@ -26,7 +26,7 @@ create type "id_int16"
     input = "id_int16_in",
     output = "id_int16_out",
     internallength = 4,
-    alignment = int4 ,
+    alignment = int2,
     send = "id_int16_send",
     receive = "id_int16_recv"
 );
@@ -159,7 +159,7 @@ create type "id_int16_int32"
     input = "id_int16_int32_in",
     output = "id_int16_int32_out",
     internallength = 6,
-    alignment = int2 ,
+    alignment = int4,
     send = "id_int16_int32_send",
     receive = "id_int16_int32_recv"
 );
@@ -292,7 +292,7 @@ create type "id_int16_int64"
     input = "id_int16_int64_in",
     output = "id_int16_int64_out",
     internallength = 10,
-    alignment = int2 ,
+    alignment = double,
     send = "id_int16_int64_send",
     receive = "id_int16_int64_recv"
 );
@@ -425,7 +425,7 @@ create type "id_int32_int16"
     input = "id_int32_int16_in",
     output = "id_int32_int16_out",
     internallength = 6,
-    alignment = int2 ,
+    alignment = int4,
     send = "id_int32_int16_send",
     receive = "id_int32_int16_recv"
 );
@@ -558,7 +558,7 @@ create type "id_int32"
     input = "id_int32_in",
     output = "id_int32_out",
     internallength = 8,
-    alignment = double ,
+    alignment = int4,
     send = "id_int32_send",
     receive = "id_int32_recv"
 );
@@ -691,7 +691,7 @@ create type "id_int32_int64"
     input = "id_int32_int64_in",
     output = "id_int32_int64_out",
     internallength = 12,
-    alignment = int4 ,
+    alignment = double,
     send = "id_int32_int64_send",
     receive = "id_int32_int64_recv"
 );
@@ -824,7 +824,7 @@ create type "id_int64_int16"
     input = "id_int64_int16_in",
     output = "id_int64_int16_out",
     internallength = 10,
-    alignment = int2 ,
+    alignment = double,
     send = "id_int64_int16_send",
     receive = "id_int64_int16_recv"
 );
@@ -957,7 +957,7 @@ create type "id_int64_int32"
     input = "id_int64_int32_in",
     output = "id_int64_int32_out",
     internallength = 12,
-    alignment = int4 ,
+    alignment = double,
     send = "id_int64_int32_send",
     receive = "id_int64_int32_recv"
 );
@@ -1090,7 +1090,7 @@ create type "id_int64"
     input = "id_int64_in",
     output = "id_int64_out",
     internallength = 16,
-    alignment = double ,
+    alignment = double,
     send = "id_int64_send",
     receive = "id_int64_recv"
 );

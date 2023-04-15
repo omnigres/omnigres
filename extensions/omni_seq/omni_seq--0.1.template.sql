@@ -4,10 +4,18 @@
 --## set typenames = {"int16": "int2", "int32": "int4", "int64": "int8"}
 --## for prefix_type in ["int16","int32","int64"]
 --## for value_type in  ["int16","int32","int64"]
+--## set prefix_size = at(sizes, prefix_type)
+--## set value_size = at(sizes, value_type)
 --## if prefix_type == value_type
 --## set name = "id_" + prefix_type
 --## else
 --## set name = "id_" + prefix_type + "_" + value_type
+--## endif
+--## set alignments = ["invalid", "invalid", "int2", "invalid", "int4", "invalid", "invalid", "invalid", "double"]
+--## if prefix_size >= value_size
+--## set alignment = at(alignments, prefix_size)
+--## else
+--## set alignment = at(alignments, value_size)
 --## endif
 --## set len = at(sizes, prefix_type) + at(sizes, value_type)
 create type "/*{{ name }}*/";
@@ -37,7 +45,7 @@ create type "/*{{ name }}*/"
     input = "/*{{ name }}*/_in",
     output = "/*{{ name }}*/_out",
     internallength = /*{{ len  }}*/,
-    alignment = /*{% if divisibleBy(len, 8) -%}*/ double /*{% else if divisibleBy(len, 4) -%}*/ int4 /*{% else -%}*/ int2 /*{% endif %}*/,
+    alignment = /*{{ alignment }}*/,
     send = "/*{{ name }}*/_send",
     receive = "/*{{ name }}*/_recv"
 );
