@@ -45,3 +45,6 @@ plugins:
   - search
   - monorepo
   - include-markdown
+
+extra_css:
+  - stylesheets/extra.css
