@@ -134,3 +134,17 @@ psql=# table my_table;
 ```
 
 1. The actual number you will see will be different
+
+!!! danger "If you already have replicas"
+
+    __The database schema and DDL commands are not replicated.__
+
+    Therefore it is important to ensure that you perform the above _before_ having a production setup. 
+    Otherwise, take appropriate steps to ensure the above changes are applied on all replicas in sync
+    and due caution is exercised to ensure the upgrade is atomic.
+
+    ---
+
+    _We want to have a better answer to this. Please consider [contributing](https://github.com/omnigres/omnigres/pulls)
+    your suggestions on how to handle this case._
+    
