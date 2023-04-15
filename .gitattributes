@@ -1,2 +1,5 @@
 cmake/* linguist-vendored
+misc/inja/.*hpp linguist-vendored
+misc/inja/*.hpp linguist-vendored
+misc/inja/nlohmann/*.hpp linguist-vendored
 .doxygen/* linguist-vendored

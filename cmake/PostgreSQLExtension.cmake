@@ -88,6 +88,7 @@
 #
 # NAME_update_results Updates pg_regress test expectations to match results
 # test_verbose_NAME Runs tests verbosely
+include(Inja)
 find_program(PGCLI pgcli)
 
 function(add_postgresql_extension NAME)
