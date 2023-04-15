@@ -23,42 +23,42 @@ Datum system_identifier(PG_FUNCTION_ARGS) { PG_RETURN_INT64(GetSystemIdentifier(
 #define PREFIX_SIZE 16
 #define VAL_SIZE 16
 
-#include "prefix_seq.h"
+#include "id.h"
 
 #define VAL_SIZE 32
 
-#include "prefix_seq.h"
+#include "id.h"
 
 #define VAL_SIZE 64
 
-#include "prefix_seq.h"
+#include "id.h"
 
 #undef PREFIX_SIZE
 
 #define PREFIX_SIZE 32
 #define VAL_SIZE 16
 
-#include "prefix_seq.h"
+#include "id.h"
 
 #define VAL_SIZE 32
 
-#include "prefix_seq.h"
+#include "id.h"
 
 #define VAL_SIZE 64
 
-#include "prefix_seq.h"
+#include "id.h"
 
 #undef PREFIX_SIZE
 
 #define PREFIX_SIZE 64
 #define VAL_SIZE 16
 
-#include "prefix_seq.h"
+#include "id.h"
 
 #define VAL_SIZE 32
 
-#include "prefix_seq.h"
+#include "id.h"
 
 #define VAL_SIZE 64
 
-#include "prefix_seq.h"
+#include "id.h"

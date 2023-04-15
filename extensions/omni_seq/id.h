@@ -86,9 +86,9 @@ StaticAssertDecl(offsetof(make_name(st, PREFIX_TYPE, VAL_TYPE), prefix) % aligno
 StaticAssertDecl(offsetof(make_name(st, PREFIX_TYPE, VAL_TYPE), val) % alignof(VAL_TYPE) == 0,
                  "val must self-align");
 
-PG_FUNCTION_INFO_V1(make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _in));
+PG_FUNCTION_INFO_V1(make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _in));
 
-Datum make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _in)(PG_FUNCTION_ARGS) {
+Datum make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _in)(PG_FUNCTION_ARGS) {
   if (PG_ARGISNULL(0)) {
     PG_RETURN_NULL();
   }
@@ -112,9 +112,9 @@ Datum make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _in)(PG_FUNCTION_ARGS) {
   PG_RETURN_POINTER(val);
 }
 
-PG_FUNCTION_INFO_V1(make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _out));
+PG_FUNCTION_INFO_V1(make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _out));
 
-Datum make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _out)(PG_FUNCTION_ARGS) {
+Datum make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _out)(PG_FUNCTION_ARGS) {
   if (PG_ARGISNULL(0)) {
     PG_RETURN_NULL();
   }
@@ -127,7 +127,7 @@ Datum make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _out)(PG_FUNCTION_ARGS) {
   PG_RETURN_CSTRING(out);
 }
 
-PG_FUNCTION_INFO_V1(make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _recv));
+PG_FUNCTION_INFO_V1(make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _recv));
 
 #ifndef pg_ntoh_int16
 #define pg_ntoh_int16 pg_ntoh16
@@ -141,7 +141,7 @@ PG_FUNCTION_INFO_V1(make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _recv));
 #define pg_ntoh_int64 pg_ntoh64
 #endif
 
-Datum make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _recv)(PG_FUNCTION_ARGS) {
+Datum make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _recv)(PG_FUNCTION_ARGS) {
   if (PG_ARGISNULL(0)) {
     PG_RETURN_NULL();
   }
@@ -161,7 +161,7 @@ Datum make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _recv)(PG_FUNCTION_ARGS) 
   PG_RETURN_POINTER(val);
 }
 
-PG_FUNCTION_INFO_V1(make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _send));
+PG_FUNCTION_INFO_V1(make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _send));
 
 #ifndef pg_hton_int16
 #define pg_hton_int16 pg_hton16
@@ -175,7 +175,7 @@ PG_FUNCTION_INFO_V1(make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _send));
 #define pg_hton_int64 pg_hton64
 #endif
 
-Datum make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _send)(PG_FUNCTION_ARGS) {
+Datum make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _send)(PG_FUNCTION_ARGS) {
   if (PG_ARGISNULL(0)) {
     PG_RETURN_NULL();
   }
@@ -196,9 +196,9 @@ Datum make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _send)(PG_FUNCTION_ARGS) 
   PG_RETURN_BYTEA_P(bytes);
 }
 
-PG_FUNCTION_INFO_V1(make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _eq));
+PG_FUNCTION_INFO_V1(make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _eq));
 
-Datum make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _eq)(PG_FUNCTION_ARGS) {
+Datum make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _eq)(PG_FUNCTION_ARGS) {
   if (PG_ARGISNULL(0) || PG_ARGISNULL(1)) {
     PG_RETURN_NULL();
   }
@@ -211,9 +211,9 @@ Datum make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _eq)(PG_FUNCTION_ARGS) {
   PG_RETURN_BOOL(val1->prefix == val2->prefix && val1->val == val2->val);
 }
 
-PG_FUNCTION_INFO_V1(make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _neq));
+PG_FUNCTION_INFO_V1(make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _neq));
 
-Datum make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _neq)(PG_FUNCTION_ARGS) {
+Datum make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _neq)(PG_FUNCTION_ARGS) {
   if (PG_ARGISNULL(0) || PG_ARGISNULL(1)) {
     PG_RETURN_NULL();
   }
@@ -226,9 +226,9 @@ Datum make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _neq)(PG_FUNCTION_ARGS) {
   PG_RETURN_BOOL(!(val1->prefix == val2->prefix && val1->val == val2->val));
 }
 
-PG_FUNCTION_INFO_V1(make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _leq));
+PG_FUNCTION_INFO_V1(make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _leq));
 
-Datum make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _leq)(PG_FUNCTION_ARGS) {
+Datum make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _leq)(PG_FUNCTION_ARGS) {
   if (PG_ARGISNULL(0) || PG_ARGISNULL(1)) {
     PG_RETURN_NULL();
   }
@@ -241,9 +241,9 @@ Datum make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _leq)(PG_FUNCTION_ARGS) {
   PG_RETURN_BOOL(val1->prefix <= val2->prefix && val1->val <= val2->val);
 }
 
-PG_FUNCTION_INFO_V1(make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _lt));
+PG_FUNCTION_INFO_V1(make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _lt));
 
-Datum make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _lt)(PG_FUNCTION_ARGS) {
+Datum make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _lt)(PG_FUNCTION_ARGS) {
   if (PG_ARGISNULL(0) || PG_ARGISNULL(1)) {
     PG_RETURN_NULL();
   }
@@ -256,9 +256,9 @@ Datum make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _lt)(PG_FUNCTION_ARGS) {
   PG_RETURN_BOOL(val1->prefix < val2->prefix && val1->val < val2->val);
 }
 
-PG_FUNCTION_INFO_V1(make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _geq));
+PG_FUNCTION_INFO_V1(make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _geq));
 
-Datum make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _geq)(PG_FUNCTION_ARGS) {
+Datum make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _geq)(PG_FUNCTION_ARGS) {
   if (PG_ARGISNULL(0) || PG_ARGISNULL(1)) {
     PG_RETURN_NULL();
   }
@@ -271,9 +271,9 @@ Datum make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _geq)(PG_FUNCTION_ARGS) {
   PG_RETURN_BOOL(val1->prefix >= val2->prefix && val1->val >= val2->val);
 }
 
-PG_FUNCTION_INFO_V1(make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _gt));
+PG_FUNCTION_INFO_V1(make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _gt));
 
-Datum make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _gt)(PG_FUNCTION_ARGS) {
+Datum make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _gt)(PG_FUNCTION_ARGS) {
   if (PG_ARGISNULL(0) || PG_ARGISNULL(1)) {
     PG_RETURN_NULL();
   }
@@ -286,9 +286,9 @@ Datum make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _gt)(PG_FUNCTION_ARGS) {
   PG_RETURN_BOOL(val1->prefix > val2->prefix && val1->val > val2->val);
 }
 
-PG_FUNCTION_INFO_V1(make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _cmp));
+PG_FUNCTION_INFO_V1(make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _cmp));
 
-Datum make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _cmp)(PG_FUNCTION_ARGS) {
+Datum make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _cmp)(PG_FUNCTION_ARGS) {
   if (PG_ARGISNULL(0) || PG_ARGISNULL(1)) {
     PG_RETURN_NULL();
   }
@@ -313,9 +313,9 @@ Datum make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _cmp)(PG_FUNCTION_ARGS) {
   }
 }
 
-PG_FUNCTION_INFO_V1(make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _nextval));
+PG_FUNCTION_INFO_V1(make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _nextval));
 
-Datum make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _nextval)(PG_FUNCTION_ARGS) {
+Datum make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _nextval)(PG_FUNCTION_ARGS) {
   if (PG_ARGISNULL(0) || PG_ARGISNULL(1)) {
     PG_RETURN_NULL();
   }
@@ -330,9 +330,9 @@ Datum make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _nextval)(PG_FUNCTION_ARG
   PG_RETURN_POINTER(val);
 }
 
-PG_FUNCTION_INFO_V1(make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _make));
+PG_FUNCTION_INFO_V1(make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _make));
 
-Datum make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _make)(PG_FUNCTION_ARGS) {
+Datum make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _make)(PG_FUNCTION_ARGS) {
   if (PG_ARGISNULL(0) || PG_ARGISNULL(1)) {
     PG_RETURN_NULL();
   }

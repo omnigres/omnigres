@@ -1,5 +1,5 @@
 begin;
-select omni_seq.prefix_seq_int64_int64_make(100, 1);
+select omni_seq.id_int64_int64_make(100, 1);
 end;
 
 begin;
@@ -10,8 +10,8 @@ select
 create sequence seq;
 create table t
 (
-    id omni_seq.prefix_seq_int64_int64 primary key not null default
-        omni_seq.prefix_seq_int64_int64_nextval(10, 'seq')
+    id omni_seq.id_int64_int64 primary key not null default
+        omni_seq.id_int64_int64_nextval(10, 'seq')
 );
 
 insert

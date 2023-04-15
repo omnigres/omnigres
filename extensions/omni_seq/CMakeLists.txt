@@ -17,5 +17,5 @@ add_postgresql_extension(
         RELOCATABLE false
         SCRIPTS omni_seq--0.1.sql
         SOURCES omni_seq.c
-        REGRESS prefix_seq
+        REGRESS id
 )

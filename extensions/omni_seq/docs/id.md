@@ -1,9 +1,9 @@
 ---
-title: Prefixed Sequences
+title: Distributed IDs
 ---
 
 <!-- @formatter:off -->
-# Prefixed Sequences
+# Sequences and Distributed IDs
 
 You may have learned that one of the current limitations of Postgres logical replication is
 that [sequence data is not replicated](https://www.postgresql.org/docs/current/logical-replication-restrictions.html):
@@ -21,11 +21,12 @@ This may be an undesirable behavior in some scenarios. Indeed, if there was a sw
 was to continue with the insertion of new records, it'll start failing with primary key constraint violation
 because sequence counters ("sequence data") has not been replicated.
 
-In this extension, you can work around this limitation by using one of the _prefixed sequence_ types.
+In this extension, you can work around this limitation by using one of the _distributed_ (or _prefixed_) identifier types.
+The core of the idea is that every ID should contain a __node identifier (_prefix_)__ and an __identifier__ itself.
 
 ## Types
 
-These types are named using the following pattern: __`omni_seq.prefix_seq_<TYPE>_<TYPE>`__, where `TYPE` is one
+These types are named using the following pattern: __`omni_seq.id_<TYPE>_<TYPE>`__, where `TYPE` is one
 of the following:
 
 * `int16`
@@ -40,8 +41,8 @@ One can use it as a default value for a primary key, with an explicitly created 
 create sequence seq;
 create table t
 (
-  id omni_seq.prefix_seq_int64_int64 primary key not null default
-     omni_seq.prefix_seq_int64_int64_nextval(NODE_ID, 'seq') -- (1)
+  id omni_seq.id_int64_int64 primary key not null default
+     omni_seq.id_int64_int64_nextval(node_id, 'seq') -- (1)
 );
 ```
 
@@ -64,7 +65,7 @@ using __`omni_seq.system_identifier()`__[^system_identifier] function)
 
 ## Migration Guide
 
-If you already have a table that you might need to prepare for prefixed sequences, this guide
+If you already have a table that you might need to prepare for prefixed identifiers, this guide
 will show how it can be done relatively easily.
 
 Let's assume we have a table with an `integer` primary key:
@@ -77,7 +78,9 @@ create table my_table (
 insert into my_table select from generate_series(1, 10);
 ```
 
-Now we want to add a 64-bit prefixed sequence, reusing the existing sequence locally.
+Now we want to add a 64-bit[^why-64] prefixed identifier, reusing the existing sequence locally.
+
+[^why-64]: Postgres unique system identifier is a 64-bit integer, see [^system_identifier]
 
 ```postgresql
 create extension if not exists omni_seq;
@@ -91,10 +94,10 @@ alter table my_table
 create sequence my_table_id_seq;
 
 alter table my_table
-    alter column id type omni_seq.prefix_seq_int64_int32 
-        using omni_seq.prefix_seq_int64_int32_make(0, id), -- (2)
+    alter column id type omni_seq.id_int64_int32 
+        using omni_seq.id_int64_int32_make(0, id), -- (2)
     alter column id 
-        set default omni_seq.prefix_seq_int64_int32_nextval(
+        set default omni_seq.id_int64_int32_nextval(
             omni_seq.system_identifier(), 'my_table_id_seq');
 commit;
 ```
