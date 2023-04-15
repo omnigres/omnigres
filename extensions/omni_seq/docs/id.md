@@ -45,7 +45,7 @@ create sequence seq;
 create table t
 (
   id omni_seq.id_int64 primary key not null default
-     omni_seq.id_int64_nextval(node_id, 'seq') -- (1)
+     omni_seq.id_int64_nextval(NODE_ID, 'seq') -- (1)
 );
 ```
 
