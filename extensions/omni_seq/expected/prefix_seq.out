@@ -1,5 +1,14 @@
 begin;
-select (omni_seq.system_identifier() = omni_seq.system_identifier() and omni_seq.system_identifier() is not null) as valid;
+select omni_seq.prefix_seq_int64_int64_make(100, 1);
+ prefix_seq_int64_int64_make 
+-----------------------------
+ 100:1
+(1 row)
+
+end;
+begin;
+select
+    (omni_seq.system_identifier() = omni_seq.system_identifier() and omni_seq.system_identifier() is not null) as valid;
  valid 
 -------
  t
@@ -11,7 +20,12 @@ create table t
     id omni_seq.prefix_seq_int64_int64 primary key not null default
         omni_seq.prefix_seq_int64_int64_nextval(10, 'seq')
 );
-insert into t select from generate_series(0,10);
+insert
+into
+    t
+select
+from
+    generate_series(0, 10);
 table t;
   id   
 -------

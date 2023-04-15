@@ -56,6 +56,9 @@ create function "prefix_seq_int16_int16_cmp"("prefix_seq_int16_int16", "prefix_s
 create function "prefix_seq_int16_int16_nextval"("int2", "regclass") returns "prefix_seq_int16_int16" as
 'MODULE_PATHNAME' language c;
 
+create function "prefix_seq_int16_int16_make"("int2", "int2") returns "prefix_seq_int16_int16" as
+'MODULE_PATHNAME' language c;
+
 create operator = (
     procedure = "prefix_seq_int16_int16_eq",
     leftarg = "prefix_seq_int16_int16",
@@ -185,6 +188,9 @@ create function "prefix_seq_int16_int32_cmp"("prefix_seq_int16_int32", "prefix_s
                              strict;
 
 create function "prefix_seq_int16_int32_nextval"("int2", "regclass") returns "prefix_seq_int16_int32" as
+'MODULE_PATHNAME' language c;
+
+create function "prefix_seq_int16_int32_make"("int2", "int4") returns "prefix_seq_int16_int32" as
 'MODULE_PATHNAME' language c;
 
 create operator = (
@@ -318,6 +324,9 @@ create function "prefix_seq_int16_int64_cmp"("prefix_seq_int16_int64", "prefix_s
 create function "prefix_seq_int16_int64_nextval"("int2", "regclass") returns "prefix_seq_int16_int64" as
 'MODULE_PATHNAME' language c;
 
+create function "prefix_seq_int16_int64_make"("int2", "int8") returns "prefix_seq_int16_int64" as
+'MODULE_PATHNAME' language c;
+
 create operator = (
     procedure = "prefix_seq_int16_int64_eq",
     leftarg = "prefix_seq_int16_int64",
@@ -447,6 +456,9 @@ create function "prefix_seq_int32_int16_cmp"("prefix_seq_int32_int16", "prefix_s
                              strict;
 
 create function "prefix_seq_int32_int16_nextval"("int4", "regclass") returns "prefix_seq_int32_int16" as
+'MODULE_PATHNAME' language c;
+
+create function "prefix_seq_int32_int16_make"("int4", "int2") returns "prefix_seq_int32_int16" as
 'MODULE_PATHNAME' language c;
 
 create operator = (
@@ -580,6 +592,9 @@ create function "prefix_seq_int32_int32_cmp"("prefix_seq_int32_int32", "prefix_s
 create function "prefix_seq_int32_int32_nextval"("int4", "regclass") returns "prefix_seq_int32_int32" as
 'MODULE_PATHNAME' language c;
 
+create function "prefix_seq_int32_int32_make"("int4", "int4") returns "prefix_seq_int32_int32" as
+'MODULE_PATHNAME' language c;
+
 create operator = (
     procedure = "prefix_seq_int32_int32_eq",
     leftarg = "prefix_seq_int32_int32",
@@ -709,6 +724,9 @@ create function "prefix_seq_int32_int64_cmp"("prefix_seq_int32_int64", "prefix_s
                              strict;
 
 create function "prefix_seq_int32_int64_nextval"("int4", "regclass") returns "prefix_seq_int32_int64" as
+'MODULE_PATHNAME' language c;
+
+create function "prefix_seq_int32_int64_make"("int4", "int8") returns "prefix_seq_int32_int64" as
 'MODULE_PATHNAME' language c;
 
 create operator = (
@@ -842,6 +860,9 @@ create function "prefix_seq_int64_int16_cmp"("prefix_seq_int64_int16", "prefix_s
 create function "prefix_seq_int64_int16_nextval"("int8", "regclass") returns "prefix_seq_int64_int16" as
 'MODULE_PATHNAME' language c;
 
+create function "prefix_seq_int64_int16_make"("int8", "int2") returns "prefix_seq_int64_int16" as
+'MODULE_PATHNAME' language c;
+
 create operator = (
     procedure = "prefix_seq_int64_int16_eq",
     leftarg = "prefix_seq_int64_int16",
@@ -973,6 +994,9 @@ create function "prefix_seq_int64_int32_cmp"("prefix_seq_int64_int32", "prefix_s
 create function "prefix_seq_int64_int32_nextval"("int8", "regclass") returns "prefix_seq_int64_int32" as
 'MODULE_PATHNAME' language c;
 
+create function "prefix_seq_int64_int32_make"("int8", "int4") returns "prefix_seq_int64_int32" as
+'MODULE_PATHNAME' language c;
+
 create operator = (
     procedure = "prefix_seq_int64_int32_eq",
     leftarg = "prefix_seq_int64_int32",
@@ -1102,6 +1126,9 @@ create function "prefix_seq_int64_int64_cmp"("prefix_seq_int64_int64", "prefix_s
                              strict;
 
 create function "prefix_seq_int64_int64_nextval"("int8", "regclass") returns "prefix_seq_int64_int64" as
+'MODULE_PATHNAME' language c;
+
+create function "prefix_seq_int64_int64_make"("int8", "int8") returns "prefix_seq_int64_int64" as
 'MODULE_PATHNAME' language c;
 
 create operator = (

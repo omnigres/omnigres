@@ -63,6 +63,9 @@ create function "/*{{ name }}*/_cmp"("/*{{ name }}*/", "/*{{ name }}*/") returns
 create function "/*{{ name }}*/_nextval"("/*{{ at(typenames, prefix_type) }}*/", "regclass") returns "/*{{ name }}*/" as
 'MODULE_PATHNAME' language c;
 
+create function "/*{{ name }}*/_make"("/*{{ at(typenames, prefix_type) }}*/", "/*{{ at(typenames, value_type) }}*/") returns "/*{{ name }}*/" as
+'MODULE_PATHNAME' language c;
+
 create operator = (
     procedure = "/*{{ name }}*/_eq",
     leftarg = "/*{{ name }}*/",

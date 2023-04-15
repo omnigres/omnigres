@@ -57,8 +57,74 @@ using __`omni_seq.system_identifier()`__[^system_identifier] function)
     We also can't use generated columns at all, as "the generation expression can only use immutable functions",
     and `nextval` is volatile as it increments the sequence counter.
 
-
 [^system_identifier]: 
 
       An integer contained in the pg_control file providing a reasonably unique database cluster identifier. 
       The function is effectively a simplified version of `SELECT system_identifier FROM pg_control_system()`
+
+## Migration Guide
+
+If you already have a table that you might need to prepare for prefixed sequences, this guide
+will show how it can be done relatively easily.
+
+Let's assume we have a table with an `integer` primary key:
+
+```postgresql
+create table my_table (
+    id integer primary key generated always as identity
+);
+
+insert into my_table select from generate_series(1, 10);
+```
+
+Now we want to add a 64-bit prefixed sequence, reusing the existing sequence locally.
+
+```postgresql
+create extension if not exists omni_seq;
+begin;
+
+lock table my_table; -- (1)
+
+alter table my_table
+    alter column id drop identity if exists;
+
+create sequence my_table_id_seq;
+
+alter table my_table
+    alter column id type omni_seq.prefix_seq_int64_int32 
+        using omni_seq.prefix_seq_int64_int32_make(0, id), -- (2)
+    alter column id 
+        set default omni_seq.prefix_seq_int64_int32_nextval(
+            omni_seq.system_identifier(), 'my_table_id_seq');
+commit;
+```
+
+1. Do the migration while locking other clients out.
+2. `0` here signifies migrated rows.
+
+When we insert into and query the table again, we'll see this:
+
+```postgresql
+psql=# insert into my_table values (default) returning id;
+      id           
+-----------------------
+ 7222168279780171472:1 -- (1)
+(1 row)
+psql=# table my_table;
+      id           
+-----------------------
+ 0:1
+ 0:2
+ 0:3
+ 0:4
+ 0:5
+ 0:6
+ 0:7
+ 0:8
+ 0:9
+ 0:10
+ 7222168279780171472:1
+(11 rows)
+```
+
+1. The actual number you will see will be different

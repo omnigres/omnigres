@@ -330,6 +330,19 @@ Datum make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _nextval)(PG_FUNCTION_ARG
   PG_RETURN_POINTER(val);
 }
 
+PG_FUNCTION_INFO_V1(make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _make));
+
+Datum make_fun_name(prefix_seq, PREFIX_TYPE, VAL_TYPE, _make)(PG_FUNCTION_ARGS) {
+  if (PG_ARGISNULL(0) || PG_ARGISNULL(1)) {
+    PG_RETURN_NULL();
+  }
+
+  make_name(st, PREFIX_TYPE, VAL_TYPE) *val = palloc(sizeof(*val));
+  val->prefix = make_name(PG_GETARG, PREFIX_TYPE, )(0);
+  val->val = (VAL_TYPE)PG_GETARG_INT64(1);
+  PG_RETURN_POINTER(val);
+}
+
 #undef stringify
 #undef _stringify
 #undef make_name_
