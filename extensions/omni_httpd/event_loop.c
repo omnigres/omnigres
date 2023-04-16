@@ -30,6 +30,7 @@ typedef struct {
   size_t bufcnt;
   h2o_send_state_t state;
   h2o_sendvec_t vecs;
+  bool abort;
 } send_message_t;
 
 // Implemented in from http_worker.c
@@ -49,6 +50,7 @@ static void h2o_queue_send(request_message_t *msg, h2o_iovec_t *bufs, size_t buf
   message->reqmsg = msg;
   message->bufcnt = bufcnt;
   message->state = state;
+  message->abort = false;
 
   for (i = 0; i != bufcnt; ++i)
     h2o_sendvec_init_raw(&message->vecs + i, bufs[i].base, bufs[i].len);
@@ -80,6 +82,23 @@ void h2o_queue_send_inline(request_message_t *msg, const char *body, size_t len)
     h2o_queue_send(msg, &buf, 1, H2O_SEND_STATE_FINAL);
 }
 
+void h2o_queue_abort(request_message_t *msg) {
+  h2o_req_t *req = msg->req;
+  if (req == NULL) {
+    // The connection is gone, bail
+    return;
+  }
+
+  send_message_t *message = malloc(sizeof(*message));
+  size_t i;
+  message->reqmsg = msg;
+  message->abort = true;
+
+  message->super = (h2o_multithread_message_t){{NULL}};
+
+  h2o_multithread_send_message(&event_loop_receiver, &message->super);
+}
+
 static void on_message(h2o_multithread_receiver_t *receiver, h2o_linklist_t *messages) {
   while (!h2o_linklist_is_empty(messages)) {
     h2o_multithread_message_t *message =
@@ -95,7 +114,15 @@ static void on_message(h2o_multithread_receiver_t *receiver, h2o_linklist_t *mes
       free(reqmsg);
       goto done;
     }
-    h2o_sendvec(reqmsg->req, &send_msg->vecs, send_msg->bufcnt, send_msg->state);
+    if (send_msg->abort) {
+      // Abort requested, however I am not currently sure what's the best way
+      // to do this with libh2o, so just sending an empty response. (TODO/FIXME)
+      reqmsg->req->res.status = 201;
+      reqmsg->req->res.content_length = 0;
+      h2o_send_inline(reqmsg->req, NULL, 0);
+    } else {
+      h2o_sendvec(reqmsg->req, &send_msg->vecs, send_msg->bufcnt, send_msg->state);
+    }
   done:
     pthread_mutex_unlock(&reqmsg->mutex);
     h2o_linklist_unlink(&message->link);

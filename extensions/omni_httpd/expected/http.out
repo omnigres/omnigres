@@ -22,6 +22,7 @@ with
        FROM request
        INNER JOIN users ON string_to_array(request.path,'/', '') = array[NULL, 'users', users.handle]
       $$, 1),
+                 ('abort', $$select omni_httpd.abort() from request where request.path = '/abort'$$, 1),
                  ('headers',
                   $$SELECT omni_httpd.http_response(body => request.headers::text) FROM request WHERE request.path = '/headers'$$,
                   1),
@@ -67,6 +68,7 @@ Hello, <b>John</b>!
 200
 Content-Type: text/html
 
+\! curl --retry-connrefused --retry 10  --retry-max-time 10 --silent -A test-agent http://localhost:9000/abort
 \! curl --retry-connrefused --retry 10  --retry-max-time 10 --silent -A test-agent http://localhost:9000/headers
 {"(user-agent,test-agent,t)","(accept,*/*,t)"}-- Try changing configuration
 begin;

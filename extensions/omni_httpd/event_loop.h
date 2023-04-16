@@ -107,4 +107,10 @@ int event_loop_req_handler(h2o_handler_t *self, h2o_req_t *req);
  */
 void h2o_queue_send_inline(request_message_t *msg, const char *body, size_t len);
 
+/**
+ * Request aborting the connection
+ * @param msg request message
+ */
+void h2o_queue_abort(request_message_t *msg);
+
 #endif // OMNI_HTTPD_EVENT_LOOP_H

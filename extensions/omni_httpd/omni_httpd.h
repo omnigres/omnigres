@@ -14,6 +14,9 @@
 
 Oid http_method_oid();
 Oid http_response_oid();
+
+Oid http_outcome_oid();
+
 Oid http_header_oid();
 
 Oid http_header_array_oid();
