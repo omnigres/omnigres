@@ -727,6 +727,7 @@ static int handler(request_message_t *msg) {
         size_t body_len = VARSIZE_ANY_EXHDR(body_content);
         char *body_cstring = h2o_mem_alloc_pool(&req->pool, char *, body_len + 1);
         text_to_cstring_buffer(body_content, body_cstring, body_len + 1);
+        req->res.content_length = body_len;
         h2o_queue_send_inline(msg, body_cstring, body_len);
       } else {
         h2o_queue_send_inline(msg, "", 0);
