@@ -695,18 +695,22 @@ static int handler(request_message_t *msg) {
             Datum name = GetAttributeByNum(header_tuple, 1, &isnull);
             if (!isnull) {
               text *name_text = DatumGetTextPP(name);
+              size_t name_len = VARSIZE_ANY_EXHDR(name_text);
+              char *name_cstring = h2o_mem_alloc_pool(&req->pool, char *, name_len + 1);
+              text_to_cstring_buffer(name_text, name_cstring, name_len + 1);
               Datum value = GetAttributeByNum(header_tuple, 2, &isnull);
               if (!isnull) {
                 text *value_text = DatumGetTextPP(value);
+                size_t value_len = VARSIZE_ANY_EXHDR(value_text);
+                char *value_cstring = h2o_mem_alloc_pool(&req->pool, char *, value_len + 1);
+                text_to_cstring_buffer(value_text, value_cstring, value_len + 1);
                 Datum append = GetAttributeByNum(header_tuple, 3, &isnull);
                 if (isnull || !DatumGetBool(append)) {
-                  h2o_set_header_by_str(&req->pool, &req->res.headers, VARDATA_ANY(name_text),
-                                        VARSIZE_ANY_EXHDR(name_text), 0, VARDATA_ANY(value_text),
-                                        VARSIZE_ANY_EXHDR(value_text), true);
+                  h2o_set_header_by_str(&req->pool, &req->res.headers, name_cstring, name_len, 0,
+                                        value_cstring, value_len, true);
                 } else {
-                  h2o_add_header_by_str(&req->pool, &req->res.headers, VARDATA_ANY(name_text),
-                                        VARSIZE_ANY_EXHDR(name_text), 0, NULL,
-                                        VARDATA_ANY(value_text), VARSIZE_ANY_EXHDR(value_text));
+                  h2o_add_header_by_str(&req->pool, &req->res.headers, name_cstring, name_len, 0,
+                                        NULL, value_cstring, value_len);
                 }
               }
             }
@@ -720,7 +724,10 @@ static int handler(request_message_t *msg) {
 
       if (!isnull) {
         bytea *body_content = DatumGetByteaPP(body);
-        h2o_queue_send_inline(msg, VARDATA_ANY(body_content), VARSIZE_ANY_EXHDR(body_content));
+        size_t body_len = VARSIZE_ANY_EXHDR(body_content);
+        char *body_cstring = h2o_mem_alloc_pool(&req->pool, char *, body_len + 1);
+        text_to_cstring_buffer(body_content, body_cstring, body_len + 1);
+        h2o_queue_send_inline(msg, body_cstring, body_len);
       } else {
         h2o_queue_send_inline(msg, "", 0);
       }

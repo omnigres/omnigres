@@ -101,7 +101,7 @@ int event_loop_req_handler(h2o_handler_t *self, h2o_req_t *req);
 /**
  * Send inline HTTP response to `worker_event_loop`
  * @param msg request message
- * @param body body
+ * @param body body; must be allocated in the pool
  * @param len length
  */
 void h2o_queue_send_inline(request_message_t *msg, const char *body, size_t len);
