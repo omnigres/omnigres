@@ -744,6 +744,29 @@ static int handler(request_message_t *msg) {
       }
       case HTTP_OUTCOME_ABORT: {
         h2o_queue_abort(msg);
+        break;
+      }
+      case HTTP_OUTCOME_PROXY: {
+        HeapTupleHeader proxy_tuple = (HeapTupleHeader)&variant->data;
+
+        // URL
+        text *url = DatumGetTextPP(GetAttributeByIndex(proxy_tuple, HTTP_PROXY_TUPLE_URL, &isnull));
+        if (isnull) {
+          h2o_queue_abort(msg);
+          goto proxy_done;
+        }
+        // Preserve host
+        int preserve_host =
+            DatumGetBool(GetAttributeByIndex(proxy_tuple, HTTP_PROXY_TUPLE_PRESERVE_HOST, &isnull));
+        if (isnull) {
+          preserve_host = true;
+        }
+        size_t url_len = VARSIZE_ANY_EXHDR(url);
+        char *url_cstring = h2o_mem_alloc_pool(&req->pool, char *, url_len + 1);
+        text_to_cstring_buffer(url, url_cstring, url_len + 1);
+        h2o_queue_proxy(msg, url_cstring, preserve_host);
+      proxy_done:
+        break;
       }
       }
     } else {

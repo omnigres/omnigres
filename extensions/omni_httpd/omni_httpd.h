@@ -36,6 +36,9 @@ static const char *OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE =
 #define HTTP_RESPONSE_TUPLE_STATUS 1
 #define HTTP_RESPONSE_TUPLE_HEADERS 2
 
+#define HTTP_PROXY_TUPLE_URL 0
+#define HTTP_PROXY_TUPLE_PRESERVE_HOST 1
+
 /**
  * Indicates whether this process is `master_worker`
  */

@@ -113,4 +113,12 @@ void h2o_queue_send_inline(request_message_t *msg, const char *body, size_t len)
  */
 void h2o_queue_abort(request_message_t *msg);
 
+/**
+ * Request aborting the connection
+ * @param msg request message
+ * @param url target URL
+ * @param preserve_host whether Host header should be preserved
+ */
+void h2o_queue_proxy(request_message_t *msg, char *url, bool preserve_host);
+
 #endif // OMNI_HTTPD_EVENT_LOOP_H
