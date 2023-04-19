@@ -216,7 +216,7 @@ void http_worker(Datum db_oid) {
       SPI_connect();
 
       int ret = SPI_execute(
-          "select listeners.address, listeners.effective_port, handlers.query, handlers.role_name "
+          "select listeners.address, listeners.effective_port, handlers.query, handlers.role "
           "from "
           "omni_httpd.listeners_handlers "
           "inner join omni_httpd.listeners on listeners.id = listeners_handlers.listener_id "
@@ -240,13 +240,12 @@ void http_worker(Datum db_oid) {
           Oid role_id = InvalidOid;
           bool role_superuser = false;
           {
-            bool role_name_is_null = false;
-            Datum role_name = SPI_getbinval(tuple, tupdesc, 4, &role_name_is_null);
+            bool role_is_null = false;
+            Datum role = SPI_getbinval(tuple, tupdesc, 4, &role_is_null);
 
-            HeapTuple roleTup = SearchSysCache1(AUTHNAME, role_name);
+            HeapTuple roleTup = SearchSysCache1(AUTHOID, DatumGetObjectId(role));
             if (!HeapTupleIsValid(roleTup)) {
-              ereport(WARNING,
-                      errmsg("role \"%s\" does not exist", NameStr(*DatumGetName(role_name))));
+              ereport(WARNING, errmsg("role oid \"%d\" does not exist", DatumGetObjectId(role)));
             } else {
               Form_pg_authid rform = (Form_pg_authid)GETSTRUCT(roleTup);
               role_id = rform->oid;

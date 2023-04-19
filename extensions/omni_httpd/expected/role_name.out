@@ -52,7 +52,7 @@ begin
     return outcome;
 end;
 $$ language plpgsql;
--- Should use current_user as a default role_name
+-- Should use current_user as a default role
 begin;
 with
     listener as (insert into omni_httpd.listeners (address, port) values ('127.0.0.1', 9003) returning id),
@@ -88,13 +88,12 @@ call omni_httpd.wait_for_configuration_reloads(1);
 begin;
 update omni_httpd.handlers
 set
-    role_name = 'some_role'
+    role = 'some_role'::regrole
 where
-    role_name = 'test_user';
-ERROR:  new row for relation "handlers" violates check constraint "handlers_role_name_check"
-DETAIL:  Failing row contains (3, select
-                     (case
-                       when re..., some_role).
+    role = 'test_user'::regrole;
+ERROR:  role "some_role" does not exist
+LINE 3:     role = 'some_role'::regrole
+                   ^
 delete
 from
     omni_httpd.configuration_reloads;
@@ -105,9 +104,9 @@ call omni_httpd.wait_for_configuration_reloads(1);
 begin;
 update omni_httpd.handlers
 set
-    role_name = 'test_user1'
+    role = 'test_user1'::regrole
 where
-    role_name = 'test_user';
+    role = 'test_user'::regrole;
 delete
 from
     omni_httpd.configuration_reloads;
@@ -118,9 +117,9 @@ set role test_user1;
 begin;
 update omni_httpd.handlers
 set
-    role_name = 'test_user1'
+    role = 'test_user1'::regrole
 where
-    role_name = 'test_user';
+    role = 'test_user'::regrole;
 delete
 from
     omni_httpd.configuration_reloads;
@@ -130,9 +129,9 @@ call omni_httpd.wait_for_configuration_reloads(1);
 begin;
 update omni_httpd.handlers
 set
-    role_name = 'anotherrole'
+    role = 'anotherrole'::regrole
 where
-    role_name = 'test_user1';
+    role = 'test_user1'::regrole;
 select current_user;
  current_user 
 --------------
@@ -146,10 +145,10 @@ reset role;
 alter role current_user nosuperuser;
 update omni_httpd.handlers
 set
-    role_name = 'anotherrole'
+    role = 'anotherrole'::regrole
 where
-    role_name = 'test_user1';
-ERROR:  new row for relation "handlers" violates check constraint "handlers_role_name_check"
+    role = 'test_user1'::regrole;
+ERROR:  new row for relation "handlers" violates check constraint "handlers_role_check"
 DETAIL:  Failing row contains (3, select
                      (case
                        when re..., anotherrole).
@@ -159,9 +158,9 @@ test_user1begin;
 reset role;
 update omni_httpd.handlers
 set
-    role_name = 'anotherrole'
+    role = 'anotherrole'::regrole
 where
-    role_name = 'test_user1';
+    role = 'test_user1'::regrole;
 delete
 from
     omni_httpd.configuration_reloads;
