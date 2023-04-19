@@ -26,13 +26,15 @@ add_postgresql_extension(
         RELOCATABLE false
         SCRIPTS omni_httpd--0.1.sql
         SOURCES omni_httpd.c master_worker.c http_worker.c event_loop.c fd.c cascading_query.c
+        REQUIRES omni_types
         TESTS_REQUIRE omni_ext
         REGRESS http role_name cascading_query handler_validity port_selector http_response headers
         http2_reproxy)
 
 set_property(TARGET omni_httpd PROPERTY C_STANDARD 11)
 
-target_link_libraries(omni_httpd libh2o-evloop libpgaug libomnisql libgluepg_stc dynpgext metalang99
+target_link_libraries(omni_httpd libh2o-evloop libpgaug libomnisql libomnitypes
+        libgluepg_stc dynpgext metalang99
         Threads::Threads)
 
 # Disable full macro expansion backtraces for Metalang99.

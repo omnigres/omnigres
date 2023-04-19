@@ -16,6 +16,7 @@
 #include <fmgr.h>
 // clang-format on
 
+#include <catalog/pg_cast.h>
 #include <common/int.h>
 #include <executor/spi.h>
 #include <funcapi.h>
@@ -35,11 +36,16 @@
 #include <utils/jsonb.h>
 #include <utils/memutils.h>
 #include <utils/snapmgr.h>
+
 #if PG_MAJORVERSION_NUM >= 14
+
 #include <utils/wait_event.h>
+
 #else
 #include <pgstat.h>
 #endif
+
+#include <utils/syscache.h>
 
 #include <h2o.h>
 
@@ -63,6 +69,7 @@ DYNPGEXT_MAGIC;
 CACHED_OID(http_header);
 CACHED_OID(http_method);
 CACHED_OID(http_response);
+CACHED_OID(http_outcome);
 
 bool IsOmniHttpdWorker;
 
@@ -259,7 +266,15 @@ Datum http_response(PG_FUNCTION_ARGS) {
                                     values[HTTP_RESPONSE_TUPLE_HEADERS] == 0 ? true : false,
                                 [HTTP_RESPONSE_TUPLE_BODY] = PG_ARGISNULL(ARG_BODY)});
 
-  PG_RETURN_DATUM(HeapTupleGetDatum(response));
+  HeapTuple cast_tuple = SearchSysCache2(CASTSOURCETARGET, ObjectIdGetDatum(http_response_oid()),
+                                         ObjectIdGetDatum(http_outcome_oid()));
+  Assert(HeapTupleIsValid(cast_tuple));
+  Form_pg_cast cast_form = (Form_pg_cast)GETSTRUCT(cast_tuple);
+  Oid cast_func_oid = cast_form->castfunc;
+  Assert(cast_func_oid != InvalidOid);
+  ReleaseSysCache(cast_tuple);
+
+  PG_RETURN_DATUM(OidFunctionCall1(cast_func_oid, HeapTupleGetDatum(response)));
 #undef ARG_STATUS
 #undef ARG_HEADERS
 #undef ARG_BODY

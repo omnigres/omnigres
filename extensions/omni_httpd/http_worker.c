@@ -48,6 +48,7 @@
 
 #include <libpgaug.h>
 #include <omni_sql.h>
+#include <sum_type.h>
 
 #include <dynpgext.h>
 
@@ -665,74 +666,109 @@ static int handler(request_message_t *msg) {
 
     int c = 1;
     for (int i = 0; i < tupdesc->natts; i++) {
-      if (http_response_oid() == tupdesc->attrs[i].atttypid) {
+      if (http_outcome_oid() == tupdesc->attrs[i].atttypid) {
         c = i + 1;
         break; // TODO: continue but issue a warning if another response is found?
       }
     }
 
     bool isnull = false;
-    Datum response = SPI_getbinval(tuple, tupdesc, c, &isnull);
+    Datum outcome = SPI_getbinval(tuple, tupdesc, c, &isnull);
     if (!isnull) {
-      HeapTupleHeader response_tuple = DatumGetHeapTupleHeader(response);
+      // We know that the outcome is a variable-length type
+      struct varlena *outcome_value = (struct varlena *)PG_DETOAST_DATUM_PACKED(outcome);
 
-      // Status
-      req->res.status =
-          DatumGetUInt16(GetAttributeByIndex(response_tuple, HTTP_RESPONSE_TUPLE_STATUS, &isnull));
-      if (isnull) {
-        req->res.status = 200;
-      }
+      VarSizeVariant *variant = (VarSizeVariant *)VARDATA_ANY(outcome_value);
 
-      // Headers
-      Datum array_datum = GetAttributeByIndex(response_tuple, HTTP_RESPONSE_TUPLE_HEADERS, &isnull);
-      if (!isnull) {
-        ArrayType *headers = DatumGetArrayTypeP(array_datum);
-        ArrayIterator iter = array_create_iterator(headers, 0, NULL);
-        Datum header;
-        while (array_iterate(iter, &header, &isnull)) {
-          if (!isnull) {
-            HeapTupleHeader header_tuple = DatumGetHeapTupleHeader(header);
-            Datum name = GetAttributeByNum(header_tuple, 1, &isnull);
+      switch (variant->discriminant) {
+      case HTTP_OUTCOME_RESPONSE: {
+        HeapTupleHeader response_tuple = (HeapTupleHeader)&variant->data;
+
+        // Status
+        req->res.status = DatumGetUInt16(
+            GetAttributeByIndex(response_tuple, HTTP_RESPONSE_TUPLE_STATUS, &isnull));
+        if (isnull) {
+          req->res.status = 200;
+        }
+
+        // Headers
+        Datum array_datum =
+            GetAttributeByIndex(response_tuple, HTTP_RESPONSE_TUPLE_HEADERS, &isnull);
+        if (!isnull) {
+          ArrayType *headers = DatumGetArrayTypeP(array_datum);
+          ArrayIterator iter = array_create_iterator(headers, 0, NULL);
+          Datum header;
+          while (array_iterate(iter, &header, &isnull)) {
             if (!isnull) {
-              text *name_text = DatumGetTextPP(name);
-              size_t name_len = VARSIZE_ANY_EXHDR(name_text);
-              char *name_cstring = h2o_mem_alloc_pool(&req->pool, char *, name_len + 1);
-              text_to_cstring_buffer(name_text, name_cstring, name_len + 1);
-              Datum value = GetAttributeByNum(header_tuple, 2, &isnull);
+              HeapTupleHeader header_tuple = DatumGetHeapTupleHeader(header);
+              Datum name = GetAttributeByNum(header_tuple, 1, &isnull);
               if (!isnull) {
-                text *value_text = DatumGetTextPP(value);
-                size_t value_len = VARSIZE_ANY_EXHDR(value_text);
-                char *value_cstring = h2o_mem_alloc_pool(&req->pool, char *, value_len + 1);
-                text_to_cstring_buffer(value_text, value_cstring, value_len + 1);
-                Datum append = GetAttributeByNum(header_tuple, 3, &isnull);
-                if (isnull || !DatumGetBool(append)) {
-                  h2o_set_header_by_str(&req->pool, &req->res.headers, name_cstring, name_len, 0,
-                                        value_cstring, value_len, true);
-                } else {
-                  h2o_add_header_by_str(&req->pool, &req->res.headers, name_cstring, name_len, 0,
-                                        NULL, value_cstring, value_len);
+                text *name_text = DatumGetTextPP(name);
+                size_t name_len = VARSIZE_ANY_EXHDR(name_text);
+                char *name_cstring = h2o_mem_alloc_pool(&req->pool, char *, name_len + 1);
+                text_to_cstring_buffer(name_text, name_cstring, name_len + 1);
+                Datum value = GetAttributeByNum(header_tuple, 2, &isnull);
+                if (!isnull) {
+                  text *value_text = DatumGetTextPP(value);
+                  size_t value_len = VARSIZE_ANY_EXHDR(value_text);
+                  char *value_cstring = h2o_mem_alloc_pool(&req->pool, char *, value_len + 1);
+                  text_to_cstring_buffer(value_text, value_cstring, value_len + 1);
+                  Datum append = GetAttributeByNum(header_tuple, 3, &isnull);
+                  if (isnull || !DatumGetBool(append)) {
+                    h2o_set_header_by_str(&req->pool, &req->res.headers, name_cstring, name_len, 0,
+                                          value_cstring, value_len, true);
+                  } else {
+                    h2o_add_header_by_str(&req->pool, &req->res.headers, name_cstring, name_len, 0,
+                                          NULL, value_cstring, value_len);
+                  }
                 }
               }
             }
           }
+          array_free_iterator(iter);
         }
-        array_free_iterator(iter);
+
+        Datum body = GetAttributeByIndex(response_tuple, HTTP_RESPONSE_TUPLE_BODY, &isnull);
+
+        if (!isnull) {
+          bytea *body_content = DatumGetByteaPP(body);
+          size_t body_len = VARSIZE_ANY_EXHDR(body_content);
+          char *body_cstring = h2o_mem_alloc_pool(&req->pool, char *, body_len + 1);
+          text_to_cstring_buffer(body_content, body_cstring, body_len + 1);
+          req->res.content_length = body_len;
+          h2o_queue_send_inline(msg, body_cstring, body_len);
+        } else {
+          h2o_queue_send_inline(msg, "", 0);
+        }
+        break;
       }
-
-      // Body
-      Datum body = GetAttributeByIndex(response_tuple, HTTP_RESPONSE_TUPLE_BODY, &isnull);
-
-      if (!isnull) {
-        bytea *body_content = DatumGetByteaPP(body);
-        size_t body_len = VARSIZE_ANY_EXHDR(body_content);
-        char *body_cstring = h2o_mem_alloc_pool(&req->pool, char *, body_len + 1);
-        text_to_cstring_buffer(body_content, body_cstring, body_len + 1);
-        req->res.content_length = body_len;
-        h2o_queue_send_inline(msg, body_cstring, body_len);
-      } else {
-        h2o_queue_send_inline(msg, "", 0);
+      case HTTP_OUTCOME_ABORT: {
+        h2o_queue_abort(msg);
+        break;
       }
+      case HTTP_OUTCOME_PROXY: {
+        HeapTupleHeader proxy_tuple = (HeapTupleHeader)&variant->data;
 
+        // URL
+        text *url = DatumGetTextPP(GetAttributeByIndex(proxy_tuple, HTTP_PROXY_TUPLE_URL, &isnull));
+        if (isnull) {
+          h2o_queue_abort(msg);
+          goto proxy_done;
+        }
+        // Preserve host
+        int preserve_host =
+            DatumGetBool(GetAttributeByIndex(proxy_tuple, HTTP_PROXY_TUPLE_PRESERVE_HOST, &isnull));
+        if (isnull) {
+          preserve_host = true;
+        }
+        size_t url_len = VARSIZE_ANY_EXHDR(url);
+        char *url_cstring = h2o_mem_alloc_pool(&req->pool, char *, url_len + 1);
+        text_to_cstring_buffer(url, url_cstring, url_len + 1);
+        h2o_queue_proxy(msg, url_cstring, preserve_host);
+      proxy_done:
+        break;
+      }
+      }
     } else {
       h2o_queue_send_inline(msg, "", 0);
     }

@@ -142,4 +142,8 @@ static int handler(request_message_t *msg);
 
 static h2o_evloop_t *handler_event_loop;
 
+#define HTTP_OUTCOME_RESPONSE 0
+#define HTTP_OUTCOME_ABORT 1
+#define HTTP_OUTCOME_PROXY 2
+
 #endif // OMNIGRES_HTTP_WORKER_H

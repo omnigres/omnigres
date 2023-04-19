@@ -24,12 +24,23 @@ h2o_multithread_queue_t *event_loop_queue;
 
 static size_t requests_in_flight = 0;
 
+typedef enum { MSG_KIND_SEND, MSG_KIND_ABORT, MSG_KIND_PROXY } send_message_kind;
+
 typedef struct {
   h2o_multithread_message_t super;
   request_message_t *reqmsg;
-  size_t bufcnt;
-  h2o_send_state_t state;
-  h2o_sendvec_t vecs;
+  send_message_kind kind;
+  union {
+    struct send_payload {
+      size_t bufcnt;
+      h2o_send_state_t state;
+      h2o_sendvec_t vecs;
+    } send;
+    struct {
+      char *url;
+      bool preserve_host;
+    } proxy;
+  } payload;
 } send_message_t;
 
 // Implemented in from http_worker.c
@@ -47,11 +58,12 @@ static void h2o_queue_send(request_message_t *msg, h2o_iovec_t *bufs, size_t buf
   send_message_t *message = malloc(sizeof(*message) - (sizeof(h2o_sendvec_t) * (bufcnt - 1)));
   size_t i;
   message->reqmsg = msg;
-  message->bufcnt = bufcnt;
-  message->state = state;
+  message->kind = MSG_KIND_SEND;
+  message->payload.send.bufcnt = bufcnt;
+  message->payload.send.state = state;
 
   for (i = 0; i != bufcnt; ++i)
-    h2o_sendvec_init_raw(&message->vecs + i, bufs[i].base, bufs[i].len);
+    h2o_sendvec_init_raw(&message->payload.send.vecs + i, bufs[i].base, bufs[i].len);
 
   message->super = (h2o_multithread_message_t){{NULL}};
 
@@ -80,6 +92,52 @@ void h2o_queue_send_inline(request_message_t *msg, const char *body, size_t len)
     h2o_queue_send(msg, &buf, 1, H2O_SEND_STATE_FINAL);
 }
 
+void h2o_queue_abort(request_message_t *msg) {
+  h2o_req_t *req = msg->req;
+  if (req == NULL) {
+    // The connection is gone, bail
+    return;
+  }
+
+  send_message_t *message = malloc(sizeof(*message));
+  message->reqmsg = msg;
+  message->kind = MSG_KIND_ABORT;
+
+  message->super = (h2o_multithread_message_t){{NULL}};
+
+  h2o_multithread_send_message(&event_loop_receiver, &message->super);
+}
+
+void h2o_queue_proxy(request_message_t *msg, char *url, bool preserve_host) {
+  h2o_req_t *req = msg->req;
+  if (req == NULL) {
+    // The connection is gone, bail
+    return;
+  }
+
+  send_message_t *message = malloc(sizeof(*message));
+  message->reqmsg = msg;
+  message->kind = MSG_KIND_PROXY;
+  message->payload.proxy.url = url;
+  message->payload.proxy.preserve_host = preserve_host;
+
+  message->super = (h2o_multithread_message_t){{NULL}};
+
+  h2o_multithread_send_message(&event_loop_receiver, &message->super);
+}
+
+static inline void prepare_req_for_reprocess(h2o_req_t *req) {
+  req->conn->ctx->proxy.client_ctx.tunnel_enabled = 1;
+
+  // This line below setting max_buffer_size is currently very important
+  // because
+  // https://github.com/h2o/h2o/blob/b5dca420963928865b28538a315f16cac5ae8251/lib/common/http1client.c#L881
+  // will stop reading from the socket if max_buffer_size == 0 and max_buffer_size == 0
+  // as 0 >= 0:
+  // https://github.com/h2o/h2o/issues/3225
+  req->conn->ctx->proxy.client_ctx.max_buffer_size = H2O_SOCKET_INITIAL_INPUT_BUFFER_SIZE * 2;
+}
+
 static void on_message(h2o_multithread_receiver_t *receiver, h2o_linklist_t *messages) {
   while (!h2o_linklist_is_empty(messages)) {
     h2o_multithread_message_t *message =
@@ -95,7 +153,41 @@ static void on_message(h2o_multithread_receiver_t *receiver, h2o_linklist_t *mes
       free(reqmsg);
       goto done;
     }
-    h2o_sendvec(reqmsg->req, &send_msg->vecs, send_msg->bufcnt, send_msg->state);
+    h2o_req_t *req = reqmsg->req;
+    switch (send_msg->kind) {
+    case MSG_KIND_SEND:
+      h2o_sendvec(req, &send_msg->payload.send.vecs, send_msg->payload.send.bufcnt,
+                  send_msg->payload.send.state);
+      break;
+    case MSG_KIND_ABORT:
+      // Abort requested, however I am not currently sure what's the best way
+      // to do this with libh2o, so just sending an empty response. (TODO/FIXME)
+      req->res.status = 201;
+      req->res.content_length = 0;
+      h2o_send_inline(req, NULL, 0);
+      break;
+    case MSG_KIND_PROXY: {
+      __auto_type proxy = send_msg->payload.proxy;
+      h2o_req_overrides_t *overrides = h2o_mem_alloc_pool(&req->pool, h2o_req_overrides_t, 1);
+
+      *overrides = (h2o_req_overrides_t){NULL};
+
+      overrides->use_proxy_protocol = false;
+      overrides->proxy_preserve_host = proxy.preserve_host;
+      overrides->forward_close_connection = true;
+      overrides->upstream =
+          (h2o_url_t *)h2o_mem_alloc_pool(&req->pool, sizeof(*overrides->upstream), 1);
+
+      h2o_url_parse(proxy.url, strlen(proxy.url), overrides->upstream);
+
+      prepare_req_for_reprocess(req);
+
+      h2o_reprocess_request(req, req->method, overrides->upstream->scheme,
+                            overrides->upstream->authority, overrides->upstream->path, overrides,
+                            0);
+      break;
+    }
+    }
   done:
     pthread_mutex_unlock(&reqmsg->mutex);
     h2o_linklist_unlink(&message->link);
@@ -187,6 +279,8 @@ int event_loop_req_handler(h2o_handler_t *self, h2o_req_t *req) {
     overrides->use_proxy_protocol = false;
     overrides->proxy_preserve_host = true;
     overrides->forward_close_connection = true;
+
+    prepare_req_for_reprocess(req);
 
     // request reprocess (note: path may become an empty string, to which one of the target URL
     // within the socketpool will be right-padded when lib/core/proxy connects to upstream; see

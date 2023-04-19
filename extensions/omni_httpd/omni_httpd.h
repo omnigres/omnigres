@@ -14,6 +14,9 @@
 
 Oid http_method_oid();
 Oid http_response_oid();
+
+Oid http_outcome_oid();
+
 Oid http_header_oid();
 
 Oid http_header_array_oid();
@@ -32,6 +35,9 @@ static const char *OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE =
 #define HTTP_RESPONSE_TUPLE_BODY 0
 #define HTTP_RESPONSE_TUPLE_STATUS 1
 #define HTTP_RESPONSE_TUPLE_HEADERS 2
+
+#define HTTP_PROXY_TUPLE_URL 0
+#define HTTP_PROXY_TUPLE_PRESERVE_HOST 1
 
 /**
  * Indicates whether this process is `master_worker`

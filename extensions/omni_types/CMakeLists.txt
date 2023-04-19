@@ -16,6 +16,9 @@ add_postgresql_extension(
         SCHEMA omni_types
         RELOCATABLE false
         SCRIPTS omni_types--0.1.sql
-        SOURCES sum_type.c
-        REGRESS sum_type
+        SOURCES omni_types.c unit.c sum_type.c
+        REGRESS unit sum_type
 )
+
+add_library(libomnitypes INTERFACE)
+target_include_directories(libomnitypes INTERFACE ${CMAKE_CURRENT_SOURCE_DIR})

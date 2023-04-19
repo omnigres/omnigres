@@ -861,15 +861,51 @@ ERROR:  Sum types can not contain duplicate variants
 CONTEXT:  PL/pgSQL function omni_types.sum_type_unique_variants_trigger_func() line 12 at RAISE
 SQL statement "update omni_types.sum_types set variants = array_append(variants, $1) where typ = $2"
 rollback;
--- Ensure no types are leaked
-\dT;
-     List of data types
- Schema | Name | Description 
---------+------+-------------
-(0 rows)
+-- Sum type with unit
+begin;
+create domain ok as omni_types.unit;
+create domain result as integer;
+select omni_types.sum_type('sum_type', 'ok', 'result');
+ sum_type 
+----------
+ sum_type
+(1 row)
+
+\dT
+       List of data types
+ Schema |   Name   | Description 
+--------+----------+-------------
+ public | ok       | 
+ public | result   | 
+ public | sum_type | 
+(3 rows)
 
 :dump_types;
- typname | variants 
----------+----------
-(0 rows)
+ typname  |  variants   
+----------+-------------
+ sum_type | {ok,result}
+(1 row)
+
+select sum_type_from_ok(omni_types.unit());
+ sum_type_from_ok 
+------------------
+ ok()
+(1 row)
+
+end;
+-- Ensure no types are leaked
+\dT;
+       List of data types
+ Schema |   Name   | Description 
+--------+----------+-------------
+ public | ok       | 
+ public | result   | 
+ public | sum_type | 
+(3 rows)
+
+:dump_types;
+ typname  |  variants   
+----------+-------------
+ sum_type | {ok,result}
+(1 row)
 

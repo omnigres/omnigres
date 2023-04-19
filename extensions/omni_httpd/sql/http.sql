@@ -24,11 +24,16 @@ with
        FROM request
        INNER JOIN users ON string_to_array(request.path,'/', '') = array[NULL, 'users', users.handle]
       $$, 1),
+                 ('abort', $$select omni_httpd.abort() from request where request.path = '/abort'$$, 1),
                  ('headers',
                   $$SELECT omni_httpd.http_response(body => request.headers::text) FROM request WHERE request.path = '/headers'$$,
                   1),
                  ('echo',
                   $$SELECT omni_httpd.http_response(body => request.body) FROM request WHERE request.path = '/echo'$$,
+                  1),
+                 -- proxy proxies to /
+                 ('proxy',
+                  $$select omni_httpd.http_proxy('http://127.0.0.1:9000/') from request where request.path = '/proxy'$$,
                   1),
                  -- This validates that `request CTE` can be casted to http_request
                  ('http_request',
@@ -64,7 +69,13 @@ call omni_httpd.wait_for_configuration_reloads(1);
 
 \! curl --retry-connrefused --retry 10  --retry-max-time 10 --silent -w '\n%{response_code}\nContent-Type: %header{content-type}\n\n' http://localhost:9000/users/johndoe
 
+\! curl --retry-connrefused --retry 10  --retry-max-time 10 --silent -A test-agent http://localhost:9000/abort
+
 \! curl --retry-connrefused --retry 10  --retry-max-time 10 --silent -A test-agent http://localhost:9000/headers
+
+\! curl --retry-connrefused --retry 10  --retry-max-time 10 --silent -A test-agent http://localhost:9000/proxy
+
+\! echo
 
 -- Try changing configuration
 

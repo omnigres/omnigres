@@ -1,3 +1,5 @@
+create domain port integer check (value >= 0 and value <= 65535);
+
 create type http_method as enum ('GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'CONNECT', 'OPTIONS', 'TRACE', 'PATCH');
 
 create type http_header as
@@ -49,6 +51,7 @@ create type http_request as
     headers      http_headers
 );
 
+
 create type http_response as
 (
     body    bytea,
@@ -56,18 +59,37 @@ create type http_response as
     headers http_headers
 );
 
+create type http_proxy as
+(
+    url           text,
+    preserve_host boolean
+);
+
+create domain abort as omni_types.unit;
+
+select omni_types.sum_type('http_outcome', 'http_response', 'abort', 'http_proxy');
+
+create function abort() returns http_outcome as
+$$
+select omni_httpd.http_outcome_from_abort(omni_types.unit())
+$$ language sql;
+
+create function http_proxy(url text, preserve_host boolean default true) returns http_outcome as
+$$
+select omni_httpd.http_outcome_from_http_proxy(row (url, preserve_host))
+$$ language sql;
+
+
 create function http_response(
     body anycompatible default null,
     status int default 200,
     headers http_headers default null
 )
-    returns http_response
+    returns http_outcome
 as
 'MODULE_PATHNAME',
 'http_response'
     language c;
-
-create domain port integer check (value >= 0 and value <= 65535);
 
 create type http_protocol as enum ('http', 'https');
 
@@ -189,7 +211,7 @@ create aggregate cascading_query (name text, query text) (
     stype = internal
     );
 
-create function default_page(request http_request) returns setof http_response as
+create function default_page(request http_request) returns setof http_outcome as
 $$
 begin
     return query (with

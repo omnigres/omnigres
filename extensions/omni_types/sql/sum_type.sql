@@ -304,6 +304,16 @@ select omni_types.add_variant('sum_type', 'int4');
 
 rollback;
 
+-- Sum type with unit
+begin;
+create domain ok as omni_types.unit;
+create domain result as integer;
+select omni_types.sum_type('sum_type', 'ok', 'result');
+\dT
+:dump_types;
+
+select sum_type_from_ok(omni_types.unit());
+end;
 
 -- Ensure no types are leaked
 \dT;
