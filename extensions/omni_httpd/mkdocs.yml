@@ -4,4 +4,5 @@ nav:
   - Intro: 'intro.md'
   - Headers: 'headers.md'
   - Architecture: 'architecture.md'
+  - Security: 'security.md'
   - Reverse Proxy: 'reverse_proxy.md'
