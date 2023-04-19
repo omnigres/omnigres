@@ -11,7 +11,7 @@ from
     request
 ```
 
-The above will simply redirect all incoming requests to 127.0.0.1
+The above will simply redirect all incoming requests to `127.0.0.1` (port `9000`)
 over plain HTTP with the request path being sent as-is.
 
 This approach retrieving the target for proxying dynamically based
