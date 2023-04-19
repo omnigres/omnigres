@@ -92,6 +92,19 @@ static void sigterm() {
 }
 
 /**
+ * HTTP worker starts with this user, and it's retrieved after initializing
+ * the database.
+ */
+static Oid TopUser = InvalidOid;
+/**
+ * This is the current user used by the handler.
+ *
+ * Resets every time HTTP worker reloads configuration to allow for superuser
+ * privileges during the reload.
+ */
+static Oid CurrentHandlerUser = InvalidOid;
+
+/**
  * HTTP worker entry point
  *
  * This is where everything starts. The worker is responsible for accepting connections (when
@@ -118,6 +131,7 @@ void http_worker(Datum db_oid) {
 
   // Connect worker to the database
   BackgroundWorkerInitializeConnectionByOid(db_oid, InvalidOid, 0);
+  TopUser = GetAuthenticatedUserId();
 
   listener_contexts = clist_listener_contexts_init();
 
@@ -128,6 +142,11 @@ void http_worker(Datum db_oid) {
   while (atomic_load(&worker_running)) {
     bool worker_reload_test = true;
     if (atomic_compare_exchange_strong(&worker_reload, &worker_reload_test, false)) {
+
+      // Reset to TopUser
+      SetUserIdAndSecContext(TopUser, 0);
+      CurrentHandlerUser = TopUser;
+
       pg_atomic_add_fetch_u32(semaphore, 1);
 
       cvec_fd fds = accept_fds(MyBgworkerEntry->bgw_extra);
@@ -325,7 +344,7 @@ void http_worker(Datum db_oid) {
 
                   // Get role
                   iter.ref->role_id = role_id;
-                  iter.ref->role_supervisor = role_superuser;
+                  iter.ref->role_is_superuser = role_superuser;
 
                   // We have to keep the plan as we're going to disconnect from SPI
                   int keepret = SPI_keepplan(plan);
@@ -575,12 +594,12 @@ static int handler(request_message_t *msg) {
 
   int ret;
 
-  // Stores OID of the last used role name (InvalidOid initially) in this process
-  // to enable on-demand role switching.
-  static Oid role_id = InvalidOid;
-  if (role_id != lctx->role_id) {
-    role_id = lctx->role_id;
-    SetCurrentRoleId(role_id, lctx->role_supervisor);
+  // If the current handler user is not the requested one,
+  // set it to the requested one.
+  if (CurrentHandlerUser != lctx->role_id) {
+    CurrentHandlerUser = lctx->role_id;
+    SetUserIdAndSecContext(CurrentHandlerUser,
+                           lctx->role_is_superuser ? 0 : SECURITY_RESTRICTED_OPERATION);
   }
 
   // Execute listener's query
