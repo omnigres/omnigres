@@ -100,7 +100,6 @@ void h2o_queue_abort(request_message_t *msg) {
   }
 
   send_message_t *message = malloc(sizeof(*message));
-  size_t i;
   message->reqmsg = msg;
   message->kind = MSG_KIND_ABORT;
 
@@ -117,7 +116,6 @@ void h2o_queue_proxy(request_message_t *msg, char *url, bool preserve_host) {
   }
 
   send_message_t *message = malloc(sizeof(*message));
-  size_t i;
   message->reqmsg = msg;
   message->kind = MSG_KIND_PROXY;
   message->payload.proxy.url = url;
