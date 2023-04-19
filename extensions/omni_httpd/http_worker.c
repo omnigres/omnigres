@@ -599,7 +599,7 @@ static int handler(request_message_t *msg) {
   if (CurrentHandlerUser != lctx->role_id) {
     CurrentHandlerUser = lctx->role_id;
     SetUserIdAndSecContext(CurrentHandlerUser,
-                           lctx->role_is_superuser ? 0 : SECURITY_RESTRICTED_OPERATION);
+                           lctx->role_is_superuser ? 0 : SECURITY_LOCAL_USERID_CHANGE);
   }
 
   // Execute listener's query
