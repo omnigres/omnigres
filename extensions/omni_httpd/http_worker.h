@@ -35,7 +35,7 @@ typedef struct st_listener_ctx {
   /**
    * @brief Is role a superuser?
    */
-  bool role_supervisor;
+  bool role_is_superuser;
   /**
    * @brief Associated socket
    *
