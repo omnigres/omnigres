@@ -1,0 +1,59 @@
+tests:
+
+- name: simple query
+  query: select true as result
+  results:
+  - result: t
+
+- name: failure
+  query: selec 1
+  success: false
+
+- name: error
+  query: selec 1
+  success: false
+  error:
+    severity: ERROR
+    message: syntax error at or near "selec"
+
+# This test should not affect the one below, as it is wrapped
+# into a transaction by default
+- name: create a table
+  query: create table a()
+
+# See above
+- name: the table should not exist
+  query: select count(*) = 1 as exists from pg_class where relname = 'a'
+  results:
+  - exists: f
+
+- name: save value as anchor
+  query: select 1 as v
+  results:
+  - v: &v 1
+
+- name: use a reference to test against previously set value
+  query: select 1 as v
+  results:
+  - v: *v
+
+- name: query parameters
+  query: select $1 as v
+  params:
+  - &p text
+  results:
+  - v: *p
+
+- name: multistep
+  steps:
+  - name: create table
+    query: create table tab as (select generate_series(1,10) as i);
+  - name: query table
+    query: select count(*) from tab
+    results:
+    - count: 10
+
+- name: null
+  query: select null::integer as result
+  results:
+  - result: null

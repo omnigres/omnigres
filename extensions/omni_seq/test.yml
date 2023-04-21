@@ -1,0 +1,39 @@
+instances:
+  default:
+    init:
+    - create extension omni_seq
+
+tests:
+- name: creating a distributed ID
+  query: select omni_seq.id_int64_make(100, 1)
+  results:
+    - id_int64_make: 100:1
+
+- name: system_identifier
+  query: |
+    select
+    (omni_seq.system_identifier() = omni_seq.system_identifier() and omni_seq.system_identifier() is not null) as valid
+  results:
+    - valid: t
+
+- name: smoke test
+  steps:
+    - query: create sequence seq
+    - query: |
+        create table t (
+          id omni_seq.id_int64 primary key not null default
+          omni_seq.id_int64_nextval(10, 'seq')
+        )
+    - query: |
+        insert into t select from generate_series(1, 10) returning id
+      results:
+        - id: 10:1
+        - id: 10:2
+        - id: 10:3
+        - id: 10:4
+        - id: 10:5
+        - id: 10:6
+        - id: 10:7
+        - id: 10:8
+        - id: 10:9
+        - id: 10:10
