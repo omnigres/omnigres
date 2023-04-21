@@ -62,6 +62,16 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
       fy_node_mapping_append(test->node, fy_node_create_scalar(test->doc, STRLIT("success")),
                              fy_node_create_scalar(test->doc, STRLIT("false")));
 
+      fy_node_mapping_append(test->node, fy_node_create_scalar(test->doc, STRLIT("success")),
+                             fy_node_create_scalar(test->doc, STRLIT("false")));
+
+      // Remove `results`
+      struct fy_node *results_key =
+          fy_node_mapping_lookup_key_by_string(test->node, STRLIT("results"));
+      if (results_key != NULL) {
+        fy_node_mapping_remove_by_key(test->node, results_key);
+      }
+
       struct fy_node *error_key = fy_node_create_scalar(test->doc, STRLIT("error"));
 
       // If `error` is present, replace it
