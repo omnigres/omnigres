@@ -61,7 +61,7 @@ sequenceDiagram
     O ->> P: Update listeners and/or handlers
 ```
 
-??? tip "What to know more?"
+??? tip "Want to know more?"
 
     * :two: Master worker opens the listening socket and shares it with HTTP
        workers over a UNIX socket (using `SCM_RIGHTS`). More work needs to
