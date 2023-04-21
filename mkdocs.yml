@@ -3,9 +3,10 @@ INHERIT: mkdocs.base.yml
 site_name: Omnigres documentation
 
 nav:
-  - Intro: 'index.md'
-  - Quick Start: 'quick_start.md'
-  - Examples:
-      - 'MOTD service': 'examples/motd.md'
-  - Dynpgext: '!include ./dynpgext/mkdocs.yml'
-  - Extensions: '*include ./extensions/*/mkdocs.yml'
+- Intro: 'index.md'
+- Quick Start: 'quick_start.md'
+- Examples:
+  - 'MOTD service': 'examples/motd.md'
+- Development: '*include ./pg_yregress/mkdocs.yml'
+- Dynpgext: '!include ./dynpgext/mkdocs.yml'
+- Extensions: '*include ./extensions/*/mkdocs.yml'
