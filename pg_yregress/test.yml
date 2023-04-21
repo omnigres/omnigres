@@ -43,3 +43,12 @@ tests:
   - &p text
   results:
   - v: *p
+
+- name: multistep
+  steps:
+  - name: create table
+    query: create table tab as (select generate_series(1,10) as i);
+  - name: query table
+    query: select count(*) from tab
+    results:
+    - count: 10

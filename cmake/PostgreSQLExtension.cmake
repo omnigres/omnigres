@@ -319,6 +319,12 @@ ${_loadextensions} \
             )
         endif()
 
+        if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test.yml")
+            add_test(NAME ${NAME}_yregress WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+                    COMMAND "$<TARGET_FILE:pg_yregress>" "${CMAKE_CURRENT_SOURCE_DIR}/test.yml")
+            set_property(TEST ${NAME}_yregress PROPERTY ENVIRONMENT "PGCONFIG=${PG_CONFIG};PGSHAREDIR=${_share_dir}")
+        endif()
+
         add_custom_target(
                 ${NAME}_update_results
                 COMMAND

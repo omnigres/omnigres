@@ -4,18 +4,26 @@
 
 #include "pg_yregress.h"
 
-void ytest_run(ytest *test) {
+bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) {
+  bool success = true;
   assert(test->instance != NULL);
-  if (!test->instance->ready) {
-    yinstance_start(test->instance);
+  PGconn *conn;
+  if (default_conn == NULL) {
+    if (!test->instance->ready) {
+      yinstance_start(test->instance);
+    }
+    conn = test->instance->conn;
+  } else {
+    conn = default_conn;
   }
-  PGconn *conn = test->instance->conn;
   assert(conn != NULL);
   switch (test->kind) {
   case ytest_kind_query: {
 
-    PGresult *begin_result = PQexec(conn, "BEGIN");
-    PQclear(begin_result);
+    if (!in_transaction) {
+      PGresult *begin_result = PQexec(conn, "BEGIN");
+      PQclear(begin_result);
+    }
 
     // Prepare the query
     char *query;
@@ -49,6 +57,7 @@ void ytest_run(ytest *test) {
 
     // If it failed:
     if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK) {
+      success = false;
       // Change `success` to `false`
       fy_node_mapping_append(test->node, fy_node_create_scalar(test->doc, STRLIT("success")),
                              fy_node_create_scalar(test->doc, STRLIT("false")));
@@ -104,15 +113,32 @@ void ytest_run(ytest *test) {
     // We are not releasing (`PQclear(result)`) the results of the query as
     // those will be used to print the result YAML file.
 
-    PGresult *rollback_result = PQexec(conn, "ROLLBACK");
-    PQclear(rollback_result);
+    if (!in_transaction) {
+      PGresult *rollback_result = PQexec(conn, "ROLLBACK");
+      PQclear(rollback_result);
+    }
 
     break;
+  }
+  case ytest_kind_steps: {
+    struct fy_node *steps = fy_node_mapping_lookup_by_string(test->node, STRLIT("steps"));
+    void *iter = NULL;
+    struct fy_node *step;
+    while ((step = fy_node_sequence_iterate(steps, &iter))) {
+      bool step_success = ytest_run_internal(conn, (ytest *)fy_node_get_meta(step), true);
+      // Stop proceeding further if the step has failed
+      if (!step_success) {
+        break;
+      }
+    }
   }
   default:
     break;
   }
+  return success;
 }
+
+void ytest_run(ytest *test) { ytest_run_internal(NULL, test, false); }
 
 iovec_t ytest_name(ytest *test) {
   if (test->name.base != NULL) {

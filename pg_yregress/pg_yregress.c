@@ -82,10 +82,6 @@ static void populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
         return;
       }
 
-      {
-        fprintf(stderr, "Steps are not supported yet");
-        return;
-      }
       if (!fy_node_is_sequence(steps)) {
         fprintf(stderr, "test steps must be a sequence, got: %s",
                 fy_emit_node_to_string(test, FYECF_DEFAULT));
@@ -98,6 +94,8 @@ static void populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
       while ((step = fy_node_sequence_iterate(steps, &iter)) != NULL) {
         populate_ytest_from_fy_node(fyd, step, instances);
       }
+
+      y_test->kind = ytest_kind_steps;
     }
 
     break;
@@ -210,7 +208,6 @@ static int execute_document(struct fy_document *fyd, FILE *out) {
 
     while ((test = fy_node_sequence_iterate(tests, &iter)) != NULL) {
       ytest *y_test = fy_node_get_meta(test);
-      printf("* %.*s\n", (int)IOVEC_STRLIT(ytest_name(y_test)));
       ytest_run(y_test);
     }
   }
