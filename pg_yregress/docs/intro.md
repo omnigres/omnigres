@@ -4,8 +4,9 @@ title: Regression Testing
 
 # Intro to pg_yregress
 
-This tool takes original inspiration from `pg_regress` but addresses some
-of the issues it has, such as:
+`pg_yregress` is a regression testing tool for Postgres.
+
+This tool takes original inspiration from `pg_regress` but addresses some of the issues it has, such as:
 
 * Unstructured tests [^psql-capture]
 * Single Postgres instance operation [^single-instance]

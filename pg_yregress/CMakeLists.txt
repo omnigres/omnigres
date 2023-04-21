@@ -1,9 +1,15 @@
 cmake_minimum_required(VERSION 3.25.1)
 project(pg_yregress)
 
-find_package(PostgreSQL REQUIRED)
+if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
+    # Top-level
+    list(PREPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
+else()
+    list(PREPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/../cmake)
+endif()
 
-list(PREPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/../cmake)
+find_package(PostgreSQL REQUIRED)
+find_program(PG_CONFIG pg_config REQUIRED)
 
 include(CPM)
 CPMAddPackage(GITHUB_REPOSITORY "pantoniou/libfyaml" GIT_TAG "v0.8" OPTIONS "BUILD_SHARED_LIBS OFF")
