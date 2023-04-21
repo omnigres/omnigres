@@ -36,3 +36,10 @@ tests:
   query: select 1 as v
   results:
   - v: *v
+
+- name: query parameters
+  query: select $1 as v
+  params:
+  - &p text
+  results:
+  - v: *p

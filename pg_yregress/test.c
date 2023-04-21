@@ -21,7 +21,30 @@ void ytest_run(ytest *test) {
     char *query;
     asprintf(&query, "%.*s", (int)IOVEC_STRLIT(test->info.query.query));
     // Execute the query
-    PGresult *result = PQexec(conn, query);
+
+    PGresult *result;
+
+    struct fy_node *params = fy_node_mapping_lookup_by_string(test->node, STRLIT("params"));
+
+    if (params == NULL) {
+      result = PQexec(conn, query);
+    } else if (fy_node_is_sequence(params)) {
+      int nparams = fy_node_sequence_item_count(params);
+      const char **values = calloc(nparams, sizeof(char *));
+      for (int i = 0; i < nparams; i++) {
+        struct fy_node *param_node = fy_node_sequence_get_by_index(params, i);
+        switch (fy_node_get_type(param_node)) {
+        case FYNT_SCALAR:
+          values[i] = fy_node_get_scalar(param_node, NULL);
+          break;
+        default:
+          // FXIME: handle unsupported type
+          break;
+        }
+      }
+      result = PQexecParams(conn, query, nparams, NULL, (const char **)values, NULL, NULL, 0);
+    }
+
     ExecStatusType status = PQresultStatus(result);
 
     // If it failed:
