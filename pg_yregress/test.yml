@@ -52,3 +52,8 @@ tests:
     query: select count(*) from tab
     results:
     - count: 10
+
+- name: null
+  query: select null::integer as result
+  results:
+  - result: null

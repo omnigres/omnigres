@@ -105,8 +105,9 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
         for (int row = 0; row < PQntuples(result); row++) {
           struct fy_node *row_map = fy_node_create_mapping(test->doc);
           for (int column = 0; column < ncolumns; column++) {
-            struct fy_node *value =
-                fy_node_create_scalar(test->doc, STRLIT(PQgetvalue(result, row, column)));
+            char *str_value =
+                PQgetisnull(result, row, column) ? "null" : PQgetvalue(result, row, column);
+            struct fy_node *value = fy_node_create_scalar(test->doc, STRLIT(str_value));
 
             fy_node_mapping_append(
                 row_map, fy_node_create_scalar(test->doc, STRLIT(PQfname(result, column))), value);
