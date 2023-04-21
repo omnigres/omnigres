@@ -53,6 +53,19 @@ tests:
     results:
     - count: 10
 
+- name: multistep's table should not exist
+  query: select count(*) = 1 as exists from pg_class where relname = 'tab'
+  results:
+  - exists: f
+
+- name: nested multistep
+  steps:
+  - steps:
+    - query: create table nested_tab()
+  - query: select count(*) = 1 as exists from pg_class where relname = 'nested_tab'
+    results:
+    - exists: t
+
 - name: null
   query: select null::integer as result
   results:

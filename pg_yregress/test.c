@@ -21,7 +21,7 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
   case ytest_kind_query: {
 
     if (!in_transaction) {
-      PGresult *begin_result = PQexec(conn, "BEGIN");
+      PGresult *begin_result = PQexec(conn, "begin");
       PQclear(begin_result);
     }
 
@@ -125,7 +125,7 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
     // those will be used to print the result YAML file.
 
     if (!in_transaction) {
-      PGresult *rollback_result = PQexec(conn, "ROLLBACK");
+      PGresult *rollback_result = PQexec(conn, "rollback");
       PQclear(rollback_result);
     }
 
@@ -135,12 +135,23 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
     struct fy_node *steps = fy_node_mapping_lookup_by_string(test->node, STRLIT("steps"));
     void *iter = NULL;
     struct fy_node *step;
+
+    if (!in_transaction) {
+      PGresult *begin_result = PQexec(conn, "begin");
+      PQclear(begin_result);
+    }
+
     while ((step = fy_node_sequence_iterate(steps, &iter))) {
       bool step_success = ytest_run_internal(conn, (ytest *)fy_node_get_meta(step), true);
       // Stop proceeding further if the step has failed
       if (!step_success) {
         break;
       }
+    }
+
+    if (!in_transaction) {
+      PGresult *rollback_result = PQexec(conn, "rollback");
+      PQclear(rollback_result);
     }
   }
   default:
