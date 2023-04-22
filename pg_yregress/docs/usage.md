@@ -143,7 +143,7 @@ tests:
   - test 2
 ```
 
-One can also check a `steps`-based test for acumulative sequence of notices
+One can also check a `steps`-based test the accumulated sequence of notices
 (although testing individually in `query` steps is still possible):
 
 ```yaml
