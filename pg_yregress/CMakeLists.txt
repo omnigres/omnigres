@@ -12,7 +12,7 @@ find_package(PostgreSQL REQUIRED)
 find_program(PG_CONFIG pg_config REQUIRED)
 
 include(CPM)
-CPMAddPackage(GITHUB_REPOSITORY "pantoniou/libfyaml" GIT_TAG "v0.8" OPTIONS "BUILD_SHARED_LIBS OFF")
+CPMAddPackage(GITHUB_REPOSITORY "pantoniou/libfyaml" GIT_TAG "v0.8" EXCLUDE_FROM_ALL YES OPTIONS "BUILD_SHARED_LIBS OFF")
 
 include(CTest)
 
@@ -30,3 +30,5 @@ target_link_directories(pg_yregress PRIVATE ${PostgreSQL_LIBRARY_DIRS})
 enable_testing()
 add_test(NAME pg_yregress COMMAND "$<TARGET_FILE:pg_yregress>" "${CMAKE_CURRENT_LIST_DIR}/test.yml")
 set_property(TEST pg_yregress PROPERTY ENVIRONMENT "PGCONFIG=${PG_CONFIG}")
+
+install(TARGETS pg_yregress)
