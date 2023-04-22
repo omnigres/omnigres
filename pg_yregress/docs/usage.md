@@ -121,3 +121,45 @@ tests:
     back at the end to ensure it does not interfere with other items. Within `steps`,
     every item is not wrapped into a transaction and the results of each step are visible 
     in the next step.
+
+## Notices
+
+One can also check their tests for notices:
+
+```yaml
+- name: notices
+  query: |
+    do $$
+      begin
+        raise notice 'test 1';
+        raise notice 'test 2';
+      end;
+    $$ language plpgsql
+  notices:
+  - test 1
+  - test 2
+```
+
+One can also check a `steps`-based test for acumulative sequence of notices
+(although testing individually in `query` steps is still possible):
+
+```yaml
+- name: multi-step notices (individual)
+  steps:
+  - query: |
+      do $$
+        begin
+          raise notice 'test 1';
+        end;
+      $$ language plpgsql
+    notices:
+    - test 1
+  - query: |
+      do $$
+        begin
+          raise notice 'test 2';
+        end;
+      $$ language plpgsql
+    notices:
+    - test 2
+```
