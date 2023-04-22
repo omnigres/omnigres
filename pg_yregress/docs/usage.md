@@ -129,6 +129,7 @@ tests:
 One can also check their tests for notices:
 
 ```yaml
+tests:
 - name: notices
   query: |
     do $$
@@ -146,6 +147,7 @@ One can also check a `steps`-based test for acumulative sequence of notices
 (although testing individually in `query` steps is still possible):
 
 ```yaml
+tests:
 - name: multi-step notices (individual)
   steps:
   - query: |
