@@ -87,4 +87,9 @@ void register_sighandler();
 
 void trim_trailing_whitespace(char *str);
 
+// YAML
+bool fy_node_is_boolean(struct fy_node *node);
+
+bool fy_node_get_boolean(struct fy_node *node);
+
 #endif // PG_YREGRESS_H
