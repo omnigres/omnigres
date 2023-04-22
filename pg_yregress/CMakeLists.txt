@@ -16,7 +16,7 @@ CPMAddPackage(GITHUB_REPOSITORY "pantoniou/libfyaml" GIT_TAG "v0.8" EXCLUDE_FROM
 
 include(CTest)
 
-add_executable(pg_yregress pg_yregress.c instance.c test.c sighandler.c str.c)
+add_executable(pg_yregress pg_yregress.c instance.c test.c sighandler.c str.c yaml.c)
 target_link_libraries(pg_yregress PRIVATE fyaml pq)
 
 # Enable GNU extensions for `asprintf`, `nftw`, etc.

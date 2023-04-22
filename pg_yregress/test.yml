@@ -121,3 +121,42 @@ tests:
     - test 2
   # Ensure no notices get here
   notices: [ ]
+
+- name: binary format
+  query: select true as value
+  binary: true
+  results:
+  - value: 0x01
+
+- name: binary format
+  query: select $1::bool as value
+  binary: true
+  params:
+  - 0x01
+  results:
+  - value: 0x01
+
+- name: binary format for params
+  query: select $1::bool as value
+  binary: params
+  params:
+  - 0x01
+  results:
+  - value: t
+
+- name: binary format for results
+  query: select $1::bool as value
+  binary: results
+  params:
+  - true
+  results:
+  - value: 0x01
+
+- name: non-hexadecimal binary format for params
+  query: select $1::text as value
+  binary: params
+  params:
+  # This is supplied as a binary, but it's not hex
+  - hello
+  results:
+  - value: hello

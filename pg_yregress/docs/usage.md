@@ -167,3 +167,42 @@ tests:
     notices:
     - test 2
 ```
+
+## Binary format
+
+Sometimes there's a need to test binary encoding of types[^send-recv]. `pg_yregress`
+allows this to be done by manipulating the `binary` property of the `query` test.
+
+| Value | Description |
+|------|-------------|
+| `true` | Both `params` and `results` are binary |
+| `params` | `params` are binary |
+| `results` | `results` are binary |
+
+Binary encodings are done using hexadecimal notiation prefixed by `0x`.
+
+This will return results as binary:
+
+```yaml
+tests:
+- name: binary format
+  query: select true as value
+  binary: true
+  results:
+  - value: 0x01
+```
+
+And this will return results as characters but take parameters as binary:
+
+```yaml
+tests:
+- name: binary format for params
+  query: select $1::bool as value
+  binary: params
+  params:
+  - 0x01
+  results:
+  - value: t
+```
+
+[^send-recv]: The encoding that is used by `SEND` and `RECEIVE` functions of the type.
