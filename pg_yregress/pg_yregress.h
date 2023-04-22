@@ -70,7 +70,6 @@ typedef struct {
     } query;
   } info;
   struct fy_node *node;
-  struct fy_document *doc;
 } ytest;
 
 void ytest_run(ytest *test);

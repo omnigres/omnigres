@@ -8,7 +8,6 @@ static void populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
                                         struct fy_node *instances) {
   ytest *y_test = calloc(sizeof(*y_test), 1);
   y_test->node = test;
-  y_test->doc = fyd;
   switch (fy_node_get_type(test)) {
   case FYNT_MAPPING:
     y_test->name.base =
