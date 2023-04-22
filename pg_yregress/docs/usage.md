@@ -6,6 +6,8 @@ title: Usage of pg_yregress
 
 Despite being inspired by `pg_regress`, `pg_yregress` is not in any way compatible with `pg_regress` as it has a different workflow and an execution model.
 
+{% include-markdown "_install.md" heading-offset=1 %}
+
 ## Basic workflow
 
 This tool uses YAML to describe tests. Let's start with
