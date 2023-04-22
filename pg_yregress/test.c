@@ -25,7 +25,7 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
   assert(conn != NULL);
 
   // We will store notices here
-  struct fy_node *notices = fy_node_create_sequence(test->doc);
+  struct fy_node *notices = fy_node_create_sequence(fy_node_document(test->node));
   PQnoticeReceiver prev_notice_receiver = PQsetNoticeReceiver(conn, NULL, NULL);
   assert(prev_notice_receiver != NULL);
   // Subscribe to notices
@@ -73,11 +73,13 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
     if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK) {
       success = false;
       // Change `success` to `false`
-      fy_node_mapping_append(test->node, fy_node_create_scalar(test->doc, STRLIT("success")),
-                             fy_node_create_scalar(test->doc, STRLIT("false")));
+      fy_node_mapping_append(test->node,
+                             fy_node_create_scalar(fy_node_document(test->node), STRLIT("success")),
+                             fy_node_create_scalar(fy_node_document(test->node), STRLIT("false")));
 
-      fy_node_mapping_append(test->node, fy_node_create_scalar(test->doc, STRLIT("success")),
-                             fy_node_create_scalar(test->doc, STRLIT("false")));
+      fy_node_mapping_append(test->node,
+                             fy_node_create_scalar(fy_node_document(test->node), STRLIT("success")),
+                             fy_node_create_scalar(fy_node_document(test->node), STRLIT("false")));
 
       // Remove `results`
       struct fy_node *results_key =
@@ -86,7 +88,8 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
         fy_node_mapping_remove_by_key(test->node, results_key);
       }
 
-      struct fy_node *error_key = fy_node_create_scalar(test->doc, STRLIT("error"));
+      struct fy_node *error_key =
+          fy_node_create_scalar(fy_node_document(test->node), STRLIT("error"));
 
       // If `error` is present, replace it
       if (fy_node_mapping_lookup_key_by_key(test->node, error_key) != NULL) {
@@ -94,42 +97,51 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
         trim_trailing_whitespace(errmsg);
         char *severity = strdup(PQresultErrorField(result, PG_DIAG_SEVERITY));
 
-        struct fy_node *error = fy_node_create_scalar(test->doc, STRLIT(errmsg));
-        struct fy_node *error_severity = fy_node_create_scalar(test->doc, STRLIT(severity));
-        fy_node_mapping_remove_by_key(test->node, fy_node_copy(test->doc, error_key));
+        struct fy_node *error = fy_node_create_scalar(fy_node_document(test->node), STRLIT(errmsg));
+        struct fy_node *error_severity =
+            fy_node_create_scalar(fy_node_document(test->node), STRLIT(severity));
+        fy_node_mapping_remove_by_key(test->node,
+                                      fy_node_copy(fy_node_document(test->node), error_key));
 
-        struct fy_node *error_node = fy_node_create_mapping(test->doc);
-        fy_node_mapping_append(error_node, fy_node_create_scalar(test->doc, STRLIT("severity")),
-                               error_severity);
-        fy_node_mapping_append(error_node, fy_node_create_scalar(test->doc, STRLIT("message")),
-                               error);
+        struct fy_node *error_node = fy_node_create_mapping(fy_node_document(test->node));
+        fy_node_mapping_append(
+            error_node, fy_node_create_scalar(fy_node_document(test->node), STRLIT("severity")),
+            error_severity);
+        fy_node_mapping_append(
+            error_node, fy_node_create_scalar(fy_node_document(test->node), STRLIT("message")),
+            error);
 
         fy_node_mapping_append(test->node, error_key, error_node);
       }
     } else {
-      struct fy_node *results_key = fy_node_create_scalar(test->doc, STRLIT("results"));
+      struct fy_node *results_key =
+          fy_node_create_scalar(fy_node_document(test->node), STRLIT("results"));
 
       // If `results` are present, include them
       if (fy_node_mapping_lookup_key_by_key(test->node, results_key) != NULL) {
 
-        struct fy_node *results = fy_node_create_sequence(test->doc);
+        struct fy_node *results = fy_node_create_sequence(fy_node_document(test->node));
 
         int ncolumns = PQnfields(result);
 
         for (int row = 0; row < PQntuples(result); row++) {
-          struct fy_node *row_map = fy_node_create_mapping(test->doc);
+          struct fy_node *row_map = fy_node_create_mapping(fy_node_document(test->node));
           for (int column = 0; column < ncolumns; column++) {
             char *str_value =
                 PQgetisnull(result, row, column) ? "null" : PQgetvalue(result, row, column);
-            struct fy_node *value = fy_node_create_scalar(test->doc, STRLIT(str_value));
+            struct fy_node *value =
+                fy_node_create_scalar(fy_node_document(test->node), STRLIT(str_value));
 
-            fy_node_mapping_append(
-                row_map, fy_node_create_scalar(test->doc, STRLIT(PQfname(result, column))), value);
+            fy_node_mapping_append(row_map,
+                                   fy_node_create_scalar(fy_node_document(test->node),
+                                                         STRLIT(PQfname(result, column))),
+                                   value);
           }
           fy_node_sequence_append(results, row_map);
         }
 
-        fy_node_mapping_remove_by_key(test->node, fy_node_copy(test->doc, results_key));
+        fy_node_mapping_remove_by_key(test->node,
+                                      fy_node_copy(fy_node_document(test->node), results_key));
         fy_node_mapping_append(test->node, results_key, results);
       }
     }
@@ -172,13 +184,15 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
     break;
   }
 
-  struct fy_node *notices_key = fy_node_create_scalar(test->doc, STRLIT("notices"));
+  struct fy_node *notices_key =
+      fy_node_create_scalar(fy_node_document(test->node), STRLIT("notices"));
 
   // If there are notices and `notices` key is declared
   if (!fy_node_sequence_is_empty(notices) &&
       fy_node_mapping_lookup_key_by_key(test->node, notices_key) != NULL) {
     // Replace `notices` with received notices
-    fy_node_mapping_remove_by_key(test->node, fy_node_copy(test->doc, notices_key));
+    fy_node_mapping_remove_by_key(test->node,
+                                  fy_node_copy(fy_node_document(test->node), notices_key));
     fy_node_mapping_append(test->node, notices_key, notices);
   }
 
