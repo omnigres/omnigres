@@ -4,7 +4,7 @@
 
 void meta_free(struct fy_node *fyn, void *meta, void *user) { free(user); }
 
-static void populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node *test,
+static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node *test,
                                         struct fy_node *instances) {
   ytest *y_test = calloc(sizeof(*y_test), 1);
   y_test->node = test;
@@ -23,7 +23,7 @@ static void populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
         fprintf(stderr, "Test %.*s instance reference is not a scalar: %s",
                 (int)IOVEC_STRLIT(y_test->name),
                 fy_emit_node_to_string(instance_ref, FYECF_DEFAULT));
-        return;
+        return false;
       }
 
       // Try to find the instance
@@ -32,7 +32,7 @@ static void populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
       if (instance == NULL) {
         fprintf(stderr, "Test %.*s refers to an unknown instance %.*s",
                 (int)IOVEC_STRLIT(y_test->name), (int)IOVEC_STRLIT(y_test->name));
-        return;
+        return false;
       } else {
         y_test->instance = (yinstance *)fy_node_get_meta(instance);
       }
@@ -43,14 +43,14 @@ static void populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
       case default_instance_not_found:
         fprintf(stderr, "Test %.*s has no default instance to choose from",
                 (int)IOVEC_STRLIT(y_test->name));
-        return;
+        return false;
       case default_instance_found:
         break;
 
       case default_instance_ambiguous:
         fprintf(stderr, "Test %.*s has instance specified to choose from multiple instances",
                 (int)IOVEC_STRLIT(y_test->name));
-        return;
+        return false;
       }
     }
 
@@ -64,7 +64,7 @@ static void populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
       if (!fy_node_is_scalar(query)) {
         fprintf(stderr, "query must be a scalar, got: %s",
                 fy_emit_node_to_string(query, FYECF_DEFAULT));
-        return;
+        return false;
       }
       y_test->kind = ytest_kind_query;
       y_test->info.query.query.base = fy_node_get_scalar(query, &y_test->info.query.query.len);
@@ -78,23 +78,32 @@ static void populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
       // Can't have two instructions
       if (instruction_found) {
         fprintf(stderr, "Test %.*s has conflicting type", (int)IOVEC_STRLIT(y_test->name));
-        return;
+        return false;
       }
 
       if (!fy_node_is_sequence(steps)) {
         fprintf(stderr, "test steps must be a sequence, got: %s",
                 fy_emit_node_to_string(test, FYECF_DEFAULT));
-        return;
+        return false;
       }
 
       void *iter = NULL;
       struct fy_node *step;
 
       while ((step = fy_node_sequence_iterate(steps, &iter)) != NULL) {
-        populate_ytest_from_fy_node(fyd, step, instances);
+        if (!populate_ytest_from_fy_node(fyd, step, instances)) {
+          return false;
+        }
       }
 
       y_test->kind = ytest_kind_steps;
+      instruction_found = true;
+    }
+
+    if (!instruction_found) {
+      fprintf(stderr, "Test %.*s doesn't have a valid instruction (any of: query, step)",
+              (int)IOVEC_STRLIT(ytest_name(y_test)));
+      return false;
     }
 
     break;
@@ -104,6 +113,7 @@ static void populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
   }
   fy_node_set_meta(test, y_test);
   fy_document_register_meta(fyd, meta_free, NULL);
+  return true;
 }
 
 struct fy_node *instances;
@@ -196,7 +206,9 @@ static int execute_document(struct fy_document *fyd, FILE *out) {
     void *iter = NULL;
     struct fy_node *test;
     while ((test = fy_node_sequence_iterate(tests, &iter)) != NULL) {
-      populate_ytest_from_fy_node(fyd, test, instances);
+      if (!populate_ytest_from_fy_node(fyd, test, instances)) {
+        return 1;
+      }
     }
   }
 
