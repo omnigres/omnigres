@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <errno.h>
 #include <ftw.h>
 #include <netinet/in.h>
 #include <stdint.h>
@@ -130,7 +131,6 @@ void yinstance_start(yinstance *instance) {
     char *createdb_command;
     asprintf(&createdb_command, "%s/createdb -U yregress -O yregress -p %d yregress", bindir,
              instance->info.managed.port);
-    ;
     system(createdb_command);
 
     // Wait until it is ready
@@ -144,6 +144,23 @@ void yinstance_start(yinstance *instance) {
 
     char *heap_datadir = strdup(datadir);
     instance->info.managed.datadir = (iovec_t){.base = heap_datadir, .len = strlen(heap_datadir)};
+
+    // Get postmaster PID
+    {
+      char *pid_filename;
+      asprintf(&pid_filename, "%s/postmaster.pid", datadir);
+      FILE *fp = fopen(pid_filename, "r");
+      assert(fp);
+      char pid_str[32];
+      assert(fgets(pid_str, sizeof(pid_str), fp));
+      instance->pid = atol(pid_str);
+      assert(errno == 0);
+      free(pid_filename);
+      fclose(fp);
+    }
+
+    // Link postmaster into our process group
+    setpgid(instance->pid, pgid);
 
     instance->ready = true;
   }

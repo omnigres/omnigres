@@ -1,8 +1,15 @@
 #ifndef PG_YREGRESS_H
 #define PG_YREGRESS_H
 
+#include <unistd.h>
+
 #include <libfyaml.h>
 #include <libpq-fe.h>
+
+/**
+ * pg_yregress' process group
+ */
+extern pid_t pgid;
 
 typedef struct {
   const char *base;
@@ -30,6 +37,7 @@ typedef struct {
     } unmanaged;
   } info;
   PGconn *conn;
+  pid_t pid;
   struct fy_node *node;
 } yinstance;
 
