@@ -255,9 +255,14 @@ static void get_path_from_popen(char *cmd, char *path) {
   }
 }
 
+pid_t pgid;
+
 int main(int argc, char **argv) {
 
   if (argc >= 2) {
+    // Get a process group
+    pgid = getpgrp();
+
     // Hanle signals for cleanup, etc.
     register_sighandler();
 
