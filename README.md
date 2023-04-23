@@ -16,6 +16,10 @@ Omnigres makes PostgreSQL a complete application platform. You can deploy a sing
 * Automagic remote **APIs** and **form** handling
 * **Live** data updates
 
+## Blogs and Publications
+
+* [Omnigres maintainer's blog](https://yrashk.com/blog/category/omnigres/)
+
 ## :runner: Quick start
 
 The fastest way to try Omnigres out is by using
