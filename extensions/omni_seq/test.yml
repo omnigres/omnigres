@@ -7,14 +7,116 @@ tests:
 - name: creating a distributed ID
   query: select omni_seq.id_int64_make(100, 1)
   results:
-    - id_int64_make: 100:1
+  - id_int64_make: 100:1
+
+- name: binary encoding
+  steps:
+  - query: select omni_seq.id_int16_make(100::int2, 100::int2) as encoding
+    binary: results
+    results:
+    - encoding: 0x00640064
+  - query: select omni_seq.id_int16_int32_make(100::int2, 100::int4) as encoding
+    binary: results
+    results:
+    - encoding: 0x006400000064
+  - query: select omni_seq.id_int16_int64_make(100::int2, 100) as encoding
+    binary: results
+    results:
+    - encoding: 0x00640000000000000064
+  - query: select omni_seq.id_int32_int16_make(100, 100::int2) as encoding
+    binary: results
+    results:
+    - encoding: 0x000000640064
+  - query: select omni_seq.id_int32_make(100, 100::int4) as encoding
+    binary: results
+    results:
+    - encoding: 0x0000006400000064
+  - query: select omni_seq.id_int32_int64_make(100, 100) as encoding
+    binary: results
+    results:
+    - encoding: 0x000000640000000000000064
+  - query: select omni_seq.id_int64_int16_make(100, 100::int2) as encoding
+    binary: results
+    results:
+    - encoding: 0x00000000000000640064
+  - query: select omni_seq.id_int64_int32_make(100, 100::int4) as encoding
+    binary: results
+    results:
+    - encoding: 0x000000000000006400000064
+  - query: select omni_seq.id_int64_make(100, 100) as encoding
+    binary: results
+    results:
+    - encoding: 0x00000000000000640000000000000064
+
+- name: binary decoding
+  steps:
+  - name: invalid decoding
+    query: select $1::omni_seq.id_int16 as decoding
+    binary: params
+    params:
+    - 0x00
+    success: false
+  - query: select $1::omni_seq.id_int16 as decoding
+    binary: params
+    params:
+    - 0x00640064
+    results:
+    - decoding: 100:100
+  - query: select $1::omni_seq.id_int16_int32 as decoding
+    binary: params
+    params:
+    - 0x006400000064
+    results:
+    - decoding: 100:100
+  - query: select $1::omni_seq.id_int16_int64 as decoding
+    binary: params
+    params:
+    - 0x00640000000000000064
+    results:
+    - decoding: 100:100
+  - query: select $1::omni_seq.id_int32_int16 as decoding
+    binary: params
+    params:
+    - 0x000000640064
+    results:
+    - decoding: 100:100
+  - query: select $1::omni_seq.id_int32 as decoding
+    binary: params
+    params:
+    - 0x0000006400000064
+    results:
+    - decoding: 100:100
+  - query: select $1::omni_seq.id_int32_int64 as decoding
+    binary: params
+    params:
+    - 0x000000640000000000000064
+    results:
+    - decoding: 100:100
+  - query: select $1::omni_seq.id_int64_int16 as decoding
+    binary: params
+    params:
+    - 0x00000000000000640064
+    results:
+    - decoding: 100:100
+  - query: select $1::omni_seq.id_int64_int32 as decoding
+    binary: params
+    params:
+    - 0x000000000000006400000064
+    results:
+    - decoding: 100:100
+  - query: select $1::omni_seq.id_int64 as decoding
+    binary: params
+    params:
+    - 0x00000000000000640000000000000064
+    results:
+    - decoding: 100:100
 
 - name: system_identifier
   query: |
     select
     (omni_seq.system_identifier() = omni_seq.system_identifier() and omni_seq.system_identifier() is not null) as valid
   results:
-    - valid: t
+  - valid: t
 
 - name: smoke test
   steps:

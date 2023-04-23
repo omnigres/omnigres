@@ -153,17 +153,21 @@ Datum make_fun_name(id, PREFIX_TYPE, VAL_TYPE, _recv)(PG_FUNCTION_ARGS) {
     PG_RETURN_NULL();
   }
 
-  bytea *input = PG_GETARG_BYTEA_PP(0);
-  if (VARSIZE_ANY_EXHDR(input) != sizeof(PREFIX_TYPE) + sizeof(VAL_TYPE)) {
+  StringInfo input = (StringInfo)PG_GETARG_POINTER(0);
+
+  if (input->len != sizeof(PREFIX_TYPE) + sizeof(VAL_TYPE)) {
     ereport(ERROR, errmsg("input length is incorrect"),
-            errdetail("expected %ld bytes, got %ld bytes", sizeof(PREFIX_TYPE) + sizeof(VAL_TYPE),
-                      VARSIZE_ANY_EXHDR(input)));
+            errdetail("expected %ld bytes, got %d bytes", sizeof(PREFIX_TYPE) + sizeof(VAL_TYPE),
+                      input->len));
   }
 
   make_name(st, PREFIX_TYPE, VAL_TYPE) *val = palloc(sizeof(make_name(st, PREFIX_TYPE, VAL_TYPE)));
-  val->prefix = concat(pg_ntoh_, PREFIX_TYPE)((PREFIX_TYPE) * (PREFIX_TYPE *)VARDATA_ANY(input));
-  val->val = concat(pg_ntoh_,
-                    VAL_TYPE)((VAL_TYPE) * (VAL_TYPE *)(VARDATA_ANY(input) + sizeof(PREFIX_TYPE)));
+  val->prefix = concat(pg_ntoh_, PREFIX_TYPE)((PREFIX_TYPE) * (PREFIX_TYPE *)input->data);
+  val->val =
+      concat(pg_ntoh_, VAL_TYPE)((VAL_TYPE) * (VAL_TYPE *)(input->data + sizeof(PREFIX_TYPE)));
+
+  // Make sure we indicate it as consumed
+  input->cursor = input->len;
 
   PG_RETURN_POINTER(val);
 }
