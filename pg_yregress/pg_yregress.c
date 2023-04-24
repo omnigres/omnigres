@@ -1,5 +1,6 @@
 #include <stdio.h>
 
+#include "inja.h"
 #include "pg_yregress.h"
 
 void meta_free(struct fy_node *fyn, void *meta, void *user) { free(user); }
@@ -289,12 +290,15 @@ int main(int argc, char **argv) {
         .flags = FYPCF_PARSE_COMMENTS | FYPCF_RESOLVE_DOCUMENT | FYPCF_COLLECT_DIAG,
         .diag = fy_diag_create(&diag_cfg),
     };
-    struct fy_document *fyd = fy_document_build_from_file(&parse_cfg, argv[1]);
+    char *rendered_template = render_yaml_file(argv[1]);
+    struct fy_document *fyd = fy_document_build_from_malloc_string(&parse_cfg, rendered_template,
+                                                                   strlen(rendered_template));
 
     if (fyd != NULL) {
       FILE *out = argc >= 3 ? fopen(argv[2], "w") : stdout;
       int result = execute_document(fyd, out);
       fclose(out);
+
       return result;
     }
   } else {

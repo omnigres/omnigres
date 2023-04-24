@@ -16,7 +16,12 @@ CPMAddPackage(GITHUB_REPOSITORY "pantoniou/libfyaml" GIT_TAG "v0.8" EXCLUDE_FROM
 
 include(CTest)
 
-add_executable(pg_yregress pg_yregress.c instance.c test.c sighandler.c str.c yaml.c)
+add_executable(pg_yregress pg_yregress.c instance.c test.c sighandler.c str.c yaml.c inja.cpp)
+
+# inja, nlohmann/json
+set_property(TARGET pg_yregress PROPERTY CXX_STANDARD 17)
+target_include_directories(pg_yregress PRIVATE "${CMAKE_CURRENT_LIST_DIR}/deps")
+
 target_link_libraries(pg_yregress PRIVATE fyaml pq)
 
 # Enable GNU extensions for `asprintf`, `nftw`, etc.
@@ -30,5 +35,7 @@ target_link_directories(pg_yregress PRIVATE ${PostgreSQL_LIBRARY_DIRS})
 enable_testing()
 add_test(NAME pg_yregress COMMAND "$<TARGET_FILE:pg_yregress>" "${CMAKE_CURRENT_LIST_DIR}/test.yml")
 set_property(TEST pg_yregress PROPERTY ENVIRONMENT "PGCONFIG=${PG_CONFIG}")
+add_test(NAME pg_yregress_templated COMMAND "$<TARGET_FILE:pg_yregress>" "${CMAKE_CURRENT_LIST_DIR}/templated-test.yml")
+set_property(TEST pg_yregress_templated PROPERTY ENVIRONMENT "PGCONFIG=${PG_CONFIG}")
 
 install(TARGETS pg_yregress)

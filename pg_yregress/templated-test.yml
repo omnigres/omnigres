@@ -1,0 +1,10 @@
+tests:
+
+## for value in [1,2,3]
+- name: testing {{ value }}
+  query: select $1::int as value
+  params:
+  - {{ value }}
+  results:
+  - value: {{ value }}
+## endfor
