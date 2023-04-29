@@ -214,6 +214,14 @@ Tests may have one more instances they run on. By default, `pg_yregress` will pr
 
 ```yaml
 instances:
+  configured:
+    # Can be configured with a mapping
+    config:
+      log_connections: yes
+  configured_1:
+    # Can be configured with a string using `postgresql.conf` format
+    config: |
+      log_connections = yes
   default:
     init:
     # Executes a sequence of queries

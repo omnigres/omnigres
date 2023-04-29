@@ -1,11 +1,19 @@
 instances:
   main:
     default: true
-  aux:
+  restarted:
     init:
     # This will be tested
     - alter system set shared_buffers = '193MB'
     - restart:
+  configured_text:
+    config: |
+      shared_buffers = '194MB'
+      log_connections = yes
+  configured_mapping:
+    config:
+      shared_buffers: 195MB
+      log_connections: yes
 
 tests:
 
@@ -171,7 +179,25 @@ tests:
   - value: hello
 
 - name: init restart
-  instance: aux
+  instance: restarted
   query: select current_setting('shared_buffers')
   results:
   - current_setting: 193MB
+
+- name: configured (text)
+  instance: configured_text
+  query: |
+    select current_setting('shared_buffers') as shared_buffers,
+           current_setting('log_connections') as log_connections
+  results:
+  - shared_buffers: 194MB
+    log_connections: on
+
+- name: configured (mapping)
+  instance: configured_mapping
+  query: |
+    select current_setting('shared_buffers') as shared_buffers,
+           current_setting('log_connections') as log_connections
+  results:
+  - shared_buffers: 195MB
+    log_connections: on
