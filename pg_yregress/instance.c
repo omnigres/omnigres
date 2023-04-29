@@ -78,9 +78,9 @@ static uint16_t get_available_inet_port() {
   return port;
 }
 
-PGconn *yinstance_connect(yinstance *instance) {
+yinstance_connect_result yinstance_connect(yinstance *instance) {
   if (instance->conn != NULL && PQstatus(instance->conn) != CONNECTION_BAD) {
-    return instance->conn;
+    return yinstance_connect_success;
   }
   if (instance->managed) {
     char *conninfo;
@@ -98,26 +98,48 @@ PGconn *yinstance_connect(yinstance *instance) {
           {
             void *iter = NULL;
             struct fy_node *step;
+            int cur_step = 0;
             while ((step = fy_node_sequence_iterate(init, &iter)) != NULL) {
-              if (fy_node_is_scalar(step)) {
-                // Statement
-                size_t len;
-                const char *stmt0 = fy_node_get_scalar(step, &len);
-                char *stmt;
-                asprintf(&stmt, "%.*s", (int)len, stmt0);
-                if (PQresultStatus(PQexec(instance->conn, stmt)) != PGRES_COMMAND_OK) {
-                  // TODO: error
+              if (cur_step >= instance->init_step) {
+                switch (fy_node_get_type(step)) {
+                case FYNT_SCALAR: {
+                  // Statement
+                  size_t len;
+                  const char *stmt0 = fy_node_get_scalar(step, &len);
+                  char *stmt;
+                  asprintf(&stmt, "%.*s", (int)len, stmt0);
+                  if (PQresultStatus(PQexec(instance->conn, stmt)) != PGRES_COMMAND_OK) {
+                    // TODO: error
+                  }
+                  break;
+                }
+                case FYNT_MAPPING: {
+                  struct fy_node *restart =
+                      fy_node_mapping_lookup_by_string(step, STRLIT("restart"));
+                  if (restart != NULL && fy_node_is_scalar(restart)) {
+                    PQfinish(instance->conn);
+                    instance->conn = NULL;
+                    // Restart from the next step
+                    instance->init_step++;
+                    return yinstance_connect_restart;
+                  }
+                  break;
+                }
+                default: {
+                  // do nothing
+                }
                 }
               }
+              cur_step++;
             }
           }
         }
       }
     }
-    return instance->conn;
+    return yinstance_connect_success;
   }
 
-  return NULL;
+  return yinstance_connect_failure;
 }
 
 void yinstance_start(yinstance *instance) {
@@ -136,6 +158,10 @@ void yinstance_start(yinstance *instance) {
     // Start the database
     instance->info.managed.port = get_available_inet_port();
 
+    // Prepare to initialize from the beginning. If restart is requested,
+    // this will be used to resume from a different step.
+    instance->init_step = 0;
+
     char *start_command;
     asprintf(&start_command, "%s/pg_ctl start -o '-c port=%d' -D %s -s", bindir,
              instance->info.managed.port, datadir);
@@ -149,10 +175,25 @@ void yinstance_start(yinstance *instance) {
 
     // Wait until it is ready
     ConnStatusType status;
-    while ((status = PQstatus(yinstance_connect(instance))) != CONNECTION_OK) {
-      if (status == CONNECTION_BAD) {
-        fprintf(stderr, "can't connect: %s\n", PQerrorMessage(yinstance_connect(instance)));
+    bool ready = false;
+    while (!ready) {
+      switch (yinstance_connect(instance)) {
+      case yinstance_connect_success:
+        ready = true;
         break;
+      case yinstance_connect_failure:
+        if (PQstatus(instance->conn) == CONNECTION_BAD) {
+          fprintf(stderr, "can't connect: %s\n", PQerrorMessage(instance->conn));
+          ready = true;
+          break;
+        }
+        break;
+      case yinstance_connect_restart: {
+        char *restart_command;
+        asprintf(&restart_command, "%s/pg_ctl restart -o '-c port=%d' -D %s -s", bindir,
+                 instance->info.managed.port, datadir);
+        system(restart_command);
+      }
       }
     }
 

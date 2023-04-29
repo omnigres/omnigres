@@ -2,6 +2,11 @@ instances:
   main:
     default: true
   aux:
+    init:
+    # This will be tested
+    - alter system set shared_buffers = '193MB'
+    - restart:
+
 tests:
 
 - name: simple query
@@ -164,3 +169,9 @@ tests:
   - hello
   results:
   - value: hello
+
+- name: init restart
+  instance: aux
+  query: select current_setting('shared_buffers')
+  results:
+  - current_setting: 193MB
