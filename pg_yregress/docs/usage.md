@@ -206,3 +206,25 @@ tests:
 ```
 
 [^send-recv]: The encoding that is used by `SEND` and `RECEIVE` functions of the type.
+
+## Configuring instances
+
+Tests may have one more instances they run on. By default, `pg_yregress` will provision one. However, if you want to configure the instance or add more than one, you can use
+`instances` configuration which is a mapping of names to the configuration dictionaries:
+
+```yaml
+instances:
+  default:
+    init:
+    # Executes a sequence of queries
+    - create extension my_extension
+    # One instance may be specified as default 
+    default: yes
+  other:
+    init:
+    - alter system set config_param = '...'
+    # Initialization may require restarting the instance
+    - restart: true
+```
+
+Each test will run on a default instance, unless `instance` property is specified and the name of the instance is referenced.
