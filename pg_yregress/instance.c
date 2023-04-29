@@ -155,6 +155,35 @@ void yinstance_start(yinstance *instance) {
              datadir);
     system(initdb_command);
 
+    // Add configuration
+    struct fy_node *config = fy_node_mapping_lookup_by_string(instance->node, STRLIT("config"));
+    if (config != NULL) {
+      char *config_file;
+      asprintf(&config_file, "%s/postgresql.auto.conf", datadir);
+      if (fy_node_is_scalar(config)) {
+        FILE *cfg = fopen(config_file, "w");
+        fprintf(cfg, "%s\n", fy_node_get_scalar(config, NULL));
+        fclose(cfg);
+      } else if (fy_node_is_mapping(config)) {
+        FILE *cfg = fopen(config_file, "w");
+        {
+          void *iter = NULL;
+          struct fy_node_pair *cfg_pair;
+          while ((cfg_pair = fy_node_mapping_iterate(config, &iter)) != NULL) {
+            struct fy_node *key = fy_node_pair_key(cfg_pair);
+            struct fy_node *value = fy_node_pair_value(cfg_pair);
+            size_t keylen, valuelen;
+            if (fy_node_is_scalar(key) && fy_node_is_scalar(value)) {
+              const char *keystring = fy_node_get_scalar(key, &keylen);
+              const char *valuestring = fy_node_get_scalar(value, &valuelen);
+              fprintf(cfg, "%.*s = '%.*s'\n", (int)keylen, keystring, (int)valuelen, valuestring);
+            }
+          }
+        }
+        fclose(cfg);
+      }
+    }
+
     // Start the database
     instance->info.managed.port = get_available_inet_port();
 
