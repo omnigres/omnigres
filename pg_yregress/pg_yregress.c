@@ -244,6 +244,20 @@ static int execute_document(struct fy_document *fyd, FILE *out) {
     }
   }
 
+  // Remove `env`
+  {
+    struct fy_node *env = fy_node_mapping_lookup_key_by_string(root, STRLIT("env"));
+    if (env != NULL) {
+      fy_node_mapping_remove_by_key(root, env);
+    }
+  }
+  {
+    struct fy_node *env = fy_node_mapping_lookup_key_by_string(original_root, STRLIT("env"));
+    if (env != NULL) {
+      fy_node_mapping_remove_by_key(original_root, env);
+    }
+  }
+
   // Output the result sheet
   fy_emit_document_to_fp(
       fyd, FYECF_MODE_ORIGINAL | FYECF_OUTPUT_COMMENTS | FYECF_INDENT_2 | FYECF_WIDTH_80, out);
@@ -278,6 +292,8 @@ static void get_path_from_popen(char *cmd, char *path) {
 
 pid_t pgid;
 
+extern char **environ;
+
 int main(int argc, char **argv) {
 
   if (argc >= 2) {
@@ -306,11 +322,31 @@ int main(int argc, char **argv) {
     fy_diag_cfg_default(&diag_cfg);
     diag_cfg.colorize = true;
     diag_cfg.show_position = true;
+
+    // Read the document without resolving aliases (yet)
     struct fy_parse_cfg parse_cfg = {
-        .flags = FYPCF_PARSE_COMMENTS | FYPCF_RESOLVE_DOCUMENT | FYPCF_COLLECT_DIAG,
+        .flags = FYPCF_PARSE_COMMENTS | FYPCF_YPATH_ALIASES | FYPCF_COLLECT_DIAG,
         .diag = fy_diag_create(&diag_cfg),
     };
+
     struct fy_document *fyd = fy_document_build_from_file(&parse_cfg, argv[1]);
+
+    // Prepare `env` dictionary
+    struct fy_node *root = fy_document_root(fyd);
+    struct fy_node *env = fy_node_create_mapping(fyd);
+
+    for (char **var = environ; *var != NULL; var++) {
+      struct fy_node *value = fy_node_create_scalar(fyd, STRLIT(strchr(*var, '=') + 1));
+      int varname_len = (int)(strchr(*var, '=') - *var);
+      fy_node_set_anchorf(value, "ENV(%.*s)", varname_len, *var);
+      fy_node_mapping_append(env, fy_node_create_scalar(fyd, *var, varname_len), value);
+    }
+
+    // Add it to the root
+    fy_node_mapping_prepend(root, fy_node_create_scalar(fyd, STRLIT("env")), env);
+
+    // Resolve aliases
+    fy_document_resolve(fyd);
 
     if (fyd != NULL) {
       FILE *out = argc >= 3 ? fopen(argv[2], "w") : stdout;

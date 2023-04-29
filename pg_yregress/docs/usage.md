@@ -236,3 +236,18 @@ instances:
 ```
 
 Each test will run on a default instance, unless `instance` property is specified and the name of the instance is referenced.
+
+## Configuring test suite
+
+In certain cases, it may be useful to pass some configuration information to the test suite itself. While it is generally recommended to avoid this, sometimes it's right answer.
+
+All test suites receive an implicit `env` mapping at the root that contains a mapping of all environment variables. Using YAML Path (YPath) notation, one can retrieve configuration specified through environment variables:
+
+```yaml
+- name: env
+  query: select $1::text as user
+  params:
+  - */env/USER
+  results:
+  - user: */env/USER
+```

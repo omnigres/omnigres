@@ -201,3 +201,10 @@ tests:
   results:
   - shared_buffers: 195MB
     log_connections: on
+
+- name: env
+  query: select $1::text as user
+  params:
+  - */env/USER
+  results:
+  - user: */env/USER
