@@ -1,3 +1,7 @@
+instances:
+  main:
+    default: true
+  aux:
 tests:
 
 - name: simple query

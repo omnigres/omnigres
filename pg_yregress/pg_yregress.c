@@ -147,6 +147,7 @@ static int execute_document(struct fy_document *fyd, FILE *out) {
 
   // Prepare instance metadata
   {
+    bool have_default = false;
     void *iter = NULL;
     struct fy_node_pair *instance_pair;
     while ((instance_pair = fy_node_mapping_iterate(instances, &iter)) != NULL) {
@@ -176,6 +177,26 @@ static int execute_document(struct fy_document *fyd, FILE *out) {
             return 1;
           }
         }
+
+        struct fy_node *is_default =
+            fy_node_mapping_lookup_by_string(y_instance->node, STRLIT("default"));
+
+        if (is_default != NULL) {
+          // Ensure `default` is a boolean
+          if (!fy_node_is_boolean(is_default)) {
+            fprintf(stderr, "instance.default must be a boolean, got: %s",
+                    fy_emit_node_to_string(instance, FYECF_DEFAULT));
+            return 1;
+          }
+          // Ensure no default has been picked already
+          if (have_default) {
+            fprintf(stderr, "instance.default must be set only for one instance");
+            return 1;
+          }
+          have_default = true;
+          y_instance->is_default = fy_node_get_boolean(is_default);
+        }
+
         break;
       default:
         fprintf(stderr, "instance member has an unsupported shape: %s",
