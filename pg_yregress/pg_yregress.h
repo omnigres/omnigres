@@ -39,6 +39,7 @@ typedef struct {
   PGconn *conn;
   pid_t pid;
   struct fy_node *node;
+  bool is_default;
 } yinstance;
 
 typedef enum {

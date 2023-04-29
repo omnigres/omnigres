@@ -21,6 +21,20 @@ default_yinstance_result default_instance(struct fy_node *instances, yinstance *
 
   default:
     // There are more than one instance to choose from
+    {
+      // Try to see if any is set as default
+      void *iter = NULL;
+
+      struct fy_node_pair *instance_pair;
+      while ((instance_pair = fy_node_mapping_iterate(instances, &iter)) != NULL) {
+        struct fy_node *instance_node = fy_node_pair_value(instance_pair);
+        yinstance *y_instance = (yinstance *)fy_node_get_meta(instance_node);
+        if (y_instance->is_default) {
+          *instance = y_instance;
+          return default_instance_found;
+        }
+      }
+    }
     return default_instance_ambiguous;
   }
 }
