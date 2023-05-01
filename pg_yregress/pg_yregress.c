@@ -9,6 +9,25 @@ static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
   ytest *y_test = calloc(sizeof(*y_test), 1);
   y_test->node = test;
   switch (fy_node_get_type(test)) {
+  case FYNT_SCALAR:
+    y_test->name.base = fy_node_get_scalar(test, &y_test->name.len);
+    y_test->kind = ytest_kind_query;
+    y_test->info.query.query.base = fy_node_get_scalar(test, &y_test->info.query.query.len);
+
+    // Find default instance
+    switch (default_instance(instances, &y_test->instance)) {
+    case default_instance_not_found:
+      fprintf(stderr, "Test %.*s has no default instance to choose from",
+              (int)IOVEC_STRLIT(y_test->name));
+      return false;
+    case default_instance_found:
+      break;
+    case default_instance_ambiguous:
+      fprintf(stderr, "There's no default instance for test `%.*s` to use",
+              (int)IOVEC_STRLIT(y_test->name));
+      return false;
+    }
+    break;
   case FYNT_MAPPING:
     y_test->name.base =
         fy_node_mapping_lookup_scalar_by_simple_key(test, &y_test->name.len, STRLIT("name"));
@@ -241,6 +260,13 @@ static int execute_document(struct fy_document *fyd, FILE *out) {
     while ((test = fy_node_sequence_iterate(tests, &iter)) != NULL) {
       ytest *y_test = fy_node_get_meta(test);
       ytest_run(y_test);
+      // Currently, ytest_run() may change the node by replacing node of one type
+      // with another, and we need to continue from there on.
+      // This is a little hacky and exploits the internal knowledge of how the
+      // iterator works.
+      // See https://github.com/pantoniou/libfyaml/issues/84, if something will
+      // come out of this, it'll make this better
+      iter = y_test->node;
     }
   }
 

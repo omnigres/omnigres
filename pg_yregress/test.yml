@@ -208,3 +208,8 @@ tests:
   - */env/USER
   results:
   - user: */env/USER
+
+# Success test
+- select true
+# We are not testing this as it'll change the node type
+# - select tru

@@ -123,6 +123,31 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
 
     // If it failed:
     if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK) {
+      // If current test is a scalar, change it to mapping to indicate
+      // the error
+      if (fy_node_is_scalar(test->node)) {
+        struct fy_node *parent = fy_node_get_parent(test->node);
+        assert(fy_node_is_sequence(parent));
+        struct fy_node *new_node = fy_node_create_mapping(fy_node_document(parent));
+        fy_node_set_meta(new_node, test);
+
+        // TODO: This is not perfect
+        // See https://github.com/pantoniou/libfyaml/issues/84
+        fy_node_sequence_insert_after(parent, test->node, new_node);
+        fy_node_sequence_remove(parent, test->node);
+
+        // Add the query itself once it has been detached (otherwise this will error out)
+        {
+          int rc = fy_node_mapping_append(
+              new_node, fy_node_create_scalar(fy_node_document(parent), STRLIT("query")),
+              test->node);
+          // This assertion helps ensuring that the above code is in the right place
+          assert(rc == 0);
+        }
+
+        test->node = new_node;
+      }
+
       success = false;
       // Change `success` to `false`
       fy_node_mapping_append(test->node,
