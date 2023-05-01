@@ -2,7 +2,19 @@
 
 #include "pg_yregress.h"
 
-static void signal_handler(int signum) { instances_cleanup(); }
+static struct sigaction *prev_interrupt_handler, *prev_term_handler, *prev_abort_handler;
+
+static void signal_handler(int signum) {
+  instances_cleanup();
+  if (signum == SIGINT && prev_interrupt_handler) {
+    prev_interrupt_handler->sa_handler(signum);
+  } else if (signum == SIGTERM && prev_term_handler) {
+    prev_term_handler->sa_handler(signum);
+  } else if (signum == SIGABRT && prev_abort_handler) {
+    prev_abort_handler->sa_handler(signum);
+  }
+  exit(1);
+}
 
 void register_sighandler() {
   struct sigaction sa;
@@ -10,7 +22,7 @@ void register_sighandler() {
   sigemptyset(&sa.sa_mask);
   sa.sa_flags = 0;
 
-  sigaction(SIGINT, &sa, NULL);  // For Ctrl+C
-  sigaction(SIGTERM, &sa, NULL); // For termination request
-  sigaction(SIGABRT, &sa, NULL); // For abort
+  sigaction(SIGINT, &sa, prev_interrupt_handler); // For Ctrl+C
+  sigaction(SIGTERM, &sa, prev_term_handler);     // For termination request
+  sigaction(SIGABRT, &sa, prev_abort_handler);    // For abort
 }
