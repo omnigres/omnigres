@@ -15,9 +15,20 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
   assert(test->instance != NULL);
   PGconn *conn;
   if (default_conn == NULL) {
-    if (!test->instance->ready) {
+    struct fy_node *test_container = fy_node_get_parent(test->node);
+    assert(fy_node_is_sequence(test_container));
+    struct fy_node *maybe_instance = fy_node_get_parent(test_container);
+    // It is either a root or an instance
+    assert(fy_node_is_mapping(maybe_instance));
+
+    // If instance is not ready, start it
+    // (unless this test is part of the initialization sequence)
+    if (!test->instance->ready && maybe_instance != test->instance->node) {
       yinstance_start(test->instance);
     }
+    // Ensure we always try to connect. It'll cache the connection
+    // when reasonable
+    yinstance_connect(test->instance);
     conn = test->instance->conn;
   } else {
     conn = default_conn;
@@ -123,6 +134,31 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
 
     // If it failed:
     if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK) {
+      // If current test is a scalar, change it to mapping to indicate
+      // the error
+      if (fy_node_is_scalar(test->node)) {
+        struct fy_node *parent = fy_node_get_parent(test->node);
+        assert(fy_node_is_sequence(parent));
+        struct fy_node *new_node = fy_node_create_mapping(fy_node_document(parent));
+        fy_node_set_meta(new_node, test);
+
+        // TODO: This is not perfect
+        // See https://github.com/pantoniou/libfyaml/issues/84
+        fy_node_sequence_insert_after(parent, test->node, new_node);
+        fy_node_sequence_remove(parent, test->node);
+
+        // Add the query itself once it has been detached (otherwise this will error out)
+        {
+          int rc = fy_node_mapping_append(
+              new_node, fy_node_create_scalar(fy_node_document(parent), STRLIT("query")),
+              test->node);
+          // This assertion helps ensuring that the above code is in the right place
+          assert(rc == 0);
+        }
+
+        test->node = new_node;
+      }
+
       success = false;
       // Change `success` to `false`
       fy_node_mapping_append(test->node,
@@ -247,6 +283,13 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
       PGresult *rollback_result = PQexec(conn, "rollback");
       PQclear(rollback_result);
     }
+    break;
+  }
+  case ytest_kind_restart: {
+    PQfinish(conn);
+    test->instance->conn = NULL;
+    restart_instance(test->instance);
+    return true;
   }
   default:
     break;
@@ -269,6 +312,7 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
 }
 
 void ytest_run(ytest *test) { ytest_run_internal(NULL, test, false); }
+void ytest_run_without_transaction(ytest *test) { ytest_run_internal(NULL, test, true); }
 
 iovec_t ytest_name(ytest *test) {
   if (test->name.base != NULL) {

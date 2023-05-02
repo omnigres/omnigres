@@ -34,6 +34,16 @@ tests:
   query: select 1 as value
 ```
 
+??? tip "The above test can be further simplified"
+
+    There's a reduced syntax for checking whether query is successful
+    without naming it. You can even drop the `query` key and simply write the query
+    as a test:
+
+    ```yaml
+    - select 1 as value
+    ```
+
 Nothing very interesting. Now, let's amend this test to test the result of this query. For a moment, let's assume we don't know what results are to be returned.
 
 ```yaml

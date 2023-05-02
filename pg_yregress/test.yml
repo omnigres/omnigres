@@ -7,6 +7,10 @@ instances:
     - alter system set shared_buffers = '193MB'
     - restart:
   configured_text:
+    init:
+    # Test that we can init using usual test
+    - query: select tru
+      success: false
     config: |
       shared_buffers = '194MB'
       log_connections = yes
@@ -208,3 +212,11 @@ tests:
   - */env/USER
   results:
   - user: */env/USER
+
+- name: restart
+  restart: true
+
+# Success test
+- select true
+# We are not testing this as it'll change the node type
+# - select tru

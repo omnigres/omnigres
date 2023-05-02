@@ -40,7 +40,7 @@ typedef struct {
   pid_t pid;
   struct fy_node *node;
   bool is_default;
-  int init_step;
+  bool restarted;
 } yinstance;
 
 typedef enum {
@@ -51,17 +51,15 @@ typedef enum {
 
 void yinstance_start(yinstance *instance);
 
-typedef enum {
-  yinstance_connect_success,
-  yinstance_connect_failure,
-  yinstance_connect_restart
-} yinstance_connect_result;
+typedef enum { yinstance_connect_success, yinstance_connect_failure } yinstance_connect_result;
 
 yinstance_connect_result yinstance_connect(yinstance *instance);
 
 default_yinstance_result default_instance(struct fy_node *instances, yinstance **instance);
 
 iovec_t yinstance_name(yinstance *instance);
+
+void restart_instance(yinstance *instance);
 
 /**
  * List of all instances
@@ -73,7 +71,7 @@ extern struct fy_node *instances;
  */
 void instances_cleanup();
 
-typedef enum { ytest_kind_none, ytest_kind_query, ytest_kind_steps } ytest_kind;
+typedef enum { ytest_kind_none, ytest_kind_query, ytest_kind_steps, ytest_kind_restart } ytest_kind;
 
 typedef struct {
   iovec_t name;
@@ -89,6 +87,7 @@ typedef struct {
 } ytest;
 
 void ytest_run(ytest *test);
+void ytest_run_without_transaction(ytest *test);
 
 iovec_t ytest_name(ytest *test);
 
