@@ -11,6 +11,9 @@ static void notice_receiver(struct fy_node *notices, const PGresult *result) {
 }
 
 bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) {
+  // This will be used for TAP output
+  struct fy_node *original_node = fy_node_copy(fy_node_document(test->node), test->node);
+
   bool success = true;
   assert(test->instance != NULL);
   PGconn *conn;
@@ -308,6 +311,38 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
   }
 
   PQsetNoticeReceiver(conn, prev_notice_receiver, NULL);
+
+  tap_counter++;
+  if (fy_node_compare(test->node, original_node)) {
+    fprintf(tap_file, "ok %d - %.*s\n", tap_counter, (int)IOVEC_STRLIT(ytest_name(test)));
+  } else {
+    fprintf(tap_file, "not ok %d - %.*s\n", tap_counter, (int)IOVEC_STRLIT(ytest_name(test)));
+    fprintf(tap_file, "  ---\n");
+    struct fy_node *report = fy_node_create_mapping(fy_node_document(original_node));
+    fy_node_mapping_append(report,
+                           fy_node_create_scalar(fy_node_document(report), STRLIT("expected")),
+                           fy_node_copy(fy_node_document(original_node), original_node));
+    fy_node_mapping_append(report,
+                           fy_node_create_scalar(fy_node_document(report), STRLIT("result")),
+                           fy_node_copy(fy_node_document(original_node), test->node));
+
+    char *yaml_report = fy_emit_node_to_string(report, FYECF_DEFAULT);
+    FILE *yamlf = fmemopen((void *)yaml_report, strlen(yaml_report), "r");
+
+    char *line = NULL;
+    size_t line_len = 0;
+
+    while (getline(&line, &line_len, yamlf) != -1) {
+      fprintf(tap_file, "  %.*s", (int)line_len, line);
+    }
+
+    free(line);
+    fclose(yamlf);
+
+    fprintf(tap_file, "\n  ...\n");
+  }
+  fflush(tap_file);
+
   return success;
 }
 
@@ -317,6 +352,18 @@ void ytest_run_without_transaction(ytest *test) { ytest_run_internal(NULL, test,
 iovec_t ytest_name(ytest *test) {
   if (test->name.base != NULL) {
     return test->name;
+  } else if (test->kind == ytest_kind_query) {
+    char *query = strndup(test->info.query.query.base, test->info.query.query.len);
+    // get rid of newlines and hashes
+    for (char *str = query; *str != '\0'; ++str) {
+      if (*str == '\n') {
+        *str = ' ';
+      }
+      if (*str == '#') {
+        *str = '%';
+      }
+    }
+    return (iovec_t){.base = query, .len = test->info.query.query.len};
   } else {
     char *path = fy_node_get_path(test->node);
     return (iovec_t){.base = path, .len = strlen(path)};

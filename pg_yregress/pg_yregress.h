@@ -107,4 +107,8 @@ bool fy_node_is_boolean(struct fy_node *node);
 
 bool fy_node_get_boolean(struct fy_node *node);
 
+// TAP
+extern FILE *tap_file;
+extern int tap_counter;
+
 #endif // PG_YREGRESS_H

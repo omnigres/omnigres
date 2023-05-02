@@ -1,6 +1,10 @@
+#include <assert.h>
 #include <stdio.h>
 
 #include "pg_yregress.h"
+
+FILE *tap_file;
+int tap_counter = 0;
 
 void meta_free(struct fy_node *fyn, void *meta, void *user) { free(user); }
 
@@ -144,6 +148,23 @@ static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
 
 struct fy_node *instances;
 
+static int count_tests(struct fy_node *tests) {
+  assert(fy_node_is_sequence(tests));
+  void *iter = NULL;
+  struct fy_node *test;
+  int i = 0;
+  while ((test = fy_node_sequence_iterate(tests, &iter)) != NULL) {
+    i++;
+    ytest *y_test = (ytest *)fy_node_get_meta(test);
+    if (y_test->kind == ytest_kind_steps) {
+      struct fy_node *steps = fy_node_mapping_lookup_by_string(test, STRLIT("steps"));
+      assert(steps != NULL);
+      i += count_tests(steps);
+    }
+  }
+  return i;
+}
+
 static int execute_document(struct fy_document *fyd, FILE *out) {
   struct fy_node *root = fy_document_root(fyd);
   struct fy_node *original_root = fy_node_copy(fyd, root);
@@ -275,6 +296,10 @@ static int execute_document(struct fy_document *fyd, FILE *out) {
   }
 
   // Run tests
+  int test_count = 1 + count_tests(tests); // count from 1, so add 1
+  fprintf(tap_file, "TAP version 14\n");
+  fprintf(tap_file, "1..%d\n", test_count);
+
   {
     void *iter = NULL;
     struct fy_node *test;
@@ -342,9 +367,17 @@ pid_t pgid;
 
 extern char **environ;
 
+#define FD_TAP 1001
+
 int main(int argc, char **argv) {
 
   if (argc >= 2) {
+    // Before starting, we try to open special FD for tap file
+    tap_file = fdopen(FD_TAP, "w");
+    // If not available, write to /dev/null
+    if (tap_file == NULL) {
+      tap_file = fopen("/dev/null", "w");
+    }
     // Get a process group
     pgid = getpgrp();
 

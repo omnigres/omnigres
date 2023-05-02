@@ -261,3 +261,19 @@ All test suites receive an implicit `env` mapping at the root that contains a ma
   results:
   - user: */env/USER
 ```
+
+## TAP output
+
+`pg_yregress` can also provide a [TAP](https://testanything.org), Test Anything Protocol for human or machine consumption.
+
+It is currently
+_hidden_ in an output to file descriptor 1001 (if one is defined), and if you want to collect or print it, simply pipe that out to a program processing it (like `tapview'):
+
+```shell
+# Bash
+$ pg_yregress test.yml 1001> >(tapview) 1>/dev/null 2>/dev/null
+# Fish
+$ pg_yregress test.yml 1>/dev/null 2>/dev/null 1001>|tapview
+```
+
+As the tool will evolve, there will likely be another way to activate this.
