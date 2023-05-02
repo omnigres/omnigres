@@ -119,6 +119,13 @@ static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
       instruction_found = true;
     }
 
+    // Are we restarting?
+    struct fy_node *restart = fy_node_mapping_lookup_by_string(test, STRLIT("restart"));
+    if (restart != NULL) {
+      y_test->kind = ytest_kind_restart;
+      instruction_found = true;
+    }
+
     if (!instruction_found) {
       fprintf(stderr, "Test %.*s doesn't have a valid instruction (any of: query, step)",
               (int)IOVEC_STRLIT(ytest_name(y_test)));
@@ -179,13 +186,12 @@ static int execute_document(struct fy_document *fyd, FILE *out) {
       y_instance->ready = false;
       y_instance->node = instance;
 
+      y_instance->name.base = fy_node_get_scalar(name, &y_instance->name.len);
       switch (fy_node_get_type(instance)) {
       case FYNT_SCALAR:
-        y_instance->name.base = fy_node_get_scalar(name, &y_instance->name.len);
         break;
       case FYNT_MAPPING:
-        y_instance->name.base = fy_node_mapping_lookup_scalar_by_simple_key(
-            instance, &y_instance->name.len, STRLIT("name"));
+        y_instance->name.base = fy_node_get_scalar(name, &y_instance->name.len);
 
         struct fy_node *init = fy_node_mapping_lookup_by_string(y_instance->node, STRLIT("init"));
         if (init != NULL) {
@@ -194,6 +200,22 @@ static int execute_document(struct fy_document *fyd, FILE *out) {
                     fy_emit_node_to_string(instance, FYECF_DEFAULT));
 
             return 1;
+          }
+
+          // Init steps are the same as tests
+          {
+            void *init_iter = NULL;
+            struct fy_node *init_step;
+            while ((init_step = fy_node_sequence_iterate(init, &init_iter)) != NULL) {
+              if (!populate_ytest_from_fy_node(fyd, init_step, instances)) {
+                return 1;
+              }
+              // Ensure it points to the correct instance
+              // (otherwise it will either get a default or will try to use
+              //  a specified instance, which doesn't make sense in this context)
+              ytest *y_init_step = (ytest *)fy_node_get_meta(init_step);
+              y_init_step->instance = y_instance;
+            }
           }
         }
 

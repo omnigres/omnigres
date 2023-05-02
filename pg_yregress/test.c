@@ -15,9 +15,20 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
   assert(test->instance != NULL);
   PGconn *conn;
   if (default_conn == NULL) {
-    if (!test->instance->ready) {
+    struct fy_node *test_container = fy_node_get_parent(test->node);
+    assert(fy_node_is_sequence(test_container));
+    struct fy_node *maybe_instance = fy_node_get_parent(test_container);
+    // It is either a root or an instance
+    assert(fy_node_is_mapping(maybe_instance));
+
+    // If instance is not ready, start it
+    // (unless this test is part of the initialization sequence)
+    if (!test->instance->ready && maybe_instance != test->instance->node) {
       yinstance_start(test->instance);
     }
+    // Ensure we always try to connect. It'll cache the connection
+    // when reasonable
+    yinstance_connect(test->instance);
     conn = test->instance->conn;
   } else {
     conn = default_conn;
@@ -272,6 +283,13 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
       PGresult *rollback_result = PQexec(conn, "rollback");
       PQclear(rollback_result);
     }
+    break;
+  }
+  case ytest_kind_restart: {
+    PQfinish(conn);
+    test->instance->conn = NULL;
+    restart_instance(test->instance);
+    return true;
   }
   default:
     break;
@@ -294,6 +312,7 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
 }
 
 void ytest_run(ytest *test) { ytest_run_internal(NULL, test, false); }
+void ytest_run_without_transaction(ytest *test) { ytest_run_internal(NULL, test, true); }
 
 iovec_t ytest_name(ytest *test) {
   if (test->name.base != NULL) {

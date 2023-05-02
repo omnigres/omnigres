@@ -8,6 +8,22 @@
 
 #include "pg_yregress.h"
 
+static void retrieve_postmaster_pid(yinstance *instance) {
+  if (instance->managed) {
+    char *pid_filename;
+    asprintf(&pid_filename, "%.*s/postmaster.pid",
+             (int)IOVEC_STRLIT(instance->info.managed.datadir));
+    FILE *fp = fopen(pid_filename, "r");
+    assert(fp);
+    char pid_str[32];
+    assert(fgets(pid_str, sizeof(pid_str), fp));
+    instance->pid = atol(pid_str);
+    assert(errno == 0);
+    free(pid_filename);
+    fclose(fp);
+  }
+}
+
 default_yinstance_result default_instance(struct fy_node *instances, yinstance **instance) {
   switch (fy_node_mapping_item_count(instances)) {
   case 0:
@@ -79,6 +95,9 @@ static uint16_t get_available_inet_port() {
 }
 
 yinstance_connect_result yinstance_connect(yinstance *instance) {
+  int init_step = 0;
+connect:
+  instance->restarted = false;
   if (instance->conn != NULL && PQstatus(instance->conn) != CONNECTION_BAD) {
     return yinstance_connect_success;
   }
@@ -96,38 +115,17 @@ yinstance_connect_result yinstance_connect(yinstance *instance) {
         if (init != NULL) {
           assert(fy_node_is_sequence(init));
           {
+            int cur_step = 0;
             void *iter = NULL;
             struct fy_node *step;
-            int cur_step = 0;
             while ((step = fy_node_sequence_iterate(init, &iter)) != NULL) {
-              if (cur_step >= instance->init_step) {
-                switch (fy_node_get_type(step)) {
-                case FYNT_SCALAR: {
-                  // Statement
-                  size_t len;
-                  const char *stmt0 = fy_node_get_scalar(step, &len);
-                  char *stmt;
-                  asprintf(&stmt, "%.*s", (int)len, stmt0);
-                  if (PQresultStatus(PQexec(instance->conn, stmt)) != PGRES_COMMAND_OK) {
-                    // TODO: error
-                  }
-                  break;
-                }
-                case FYNT_MAPPING: {
-                  struct fy_node *restart =
-                      fy_node_mapping_lookup_by_string(step, STRLIT("restart"));
-                  if (restart != NULL && fy_node_is_scalar(restart)) {
-                    PQfinish(instance->conn);
-                    instance->conn = NULL;
-                    // Restart from the next step
-                    instance->init_step++;
-                    return yinstance_connect_restart;
-                  }
-                  break;
-                }
-                default: {
-                  // do nothing
-                }
+              if (cur_step >= init_step) {
+                // We want to keep the effects of these steps and therefore we don't
+                // wrap them into a rolled back transaction.
+                ytest_run_without_transaction((ytest *)fy_node_get_meta(step));
+                if (instance->restarted) {
+                  init_step = cur_step + 1;
+                  goto connect;
                 }
               }
               cur_step++;
@@ -185,11 +183,8 @@ void yinstance_start(yinstance *instance) {
     }
 
     // Start the database
+    instance->restarted = false;
     instance->info.managed.port = get_available_inet_port();
-
-    // Prepare to initialize from the beginning. If restart is requested,
-    // this will be used to resume from a different step.
-    instance->init_step = 0;
 
     char *start_command;
     asprintf(&start_command, "%s/pg_ctl start -o '-c port=%d' -D %s -s", bindir,
@@ -201,6 +196,11 @@ void yinstance_start(yinstance *instance) {
     asprintf(&createdb_command, "%s/createdb -U yregress -O yregress -p %d yregress", bindir,
              instance->info.managed.port);
     system(createdb_command);
+
+    // Important to capture datadir before we try to start as init steps may restart the instance
+    // and it'll need the path
+    char *heap_datadir = strdup(datadir);
+    instance->info.managed.datadir = (iovec_t){.base = heap_datadir, .len = strlen(heap_datadir)};
 
     // Wait until it is ready
     ConnStatusType status;
@@ -217,31 +217,11 @@ void yinstance_start(yinstance *instance) {
           break;
         }
         break;
-      case yinstance_connect_restart: {
-        char *restart_command;
-        asprintf(&restart_command, "%s/pg_ctl restart -o '-c port=%d' -D %s -s", bindir,
-                 instance->info.managed.port, datadir);
-        system(restart_command);
-      }
       }
     }
-
-    char *heap_datadir = strdup(datadir);
-    instance->info.managed.datadir = (iovec_t){.base = heap_datadir, .len = strlen(heap_datadir)};
 
     // Get postmaster PID
-    {
-      char *pid_filename;
-      asprintf(&pid_filename, "%s/postmaster.pid", datadir);
-      FILE *fp = fopen(pid_filename, "r");
-      assert(fp);
-      char pid_str[32];
-      assert(fgets(pid_str, sizeof(pid_str), fp));
-      instance->pid = atol(pid_str);
-      assert(errno == 0);
-      free(pid_filename);
-      fclose(fp);
-    }
+    retrieve_postmaster_pid(instance);
 
     // Link postmaster into our process group
     setpgid(instance->pid, pgid);
@@ -281,3 +261,18 @@ void instances_cleanup() {
 }
 
 void register_instances_cleanup() { atexit(instances_cleanup); }
+
+void restart_instance(yinstance *instance) {
+  if (instance->managed) {
+    char *restart_command;
+    asprintf(&restart_command, "%s/pg_ctl restart -o '-c port=%d' -D %.*s -s", bindir,
+             instance->info.managed.port, (int)IOVEC_STRLIT(instance->info.managed.datadir));
+    system(restart_command);
+    // Capture new PID
+    retrieve_postmaster_pid(instance);
+
+    // Link new postmaster into our process group
+    setpgid(instance->pid, pgid);
+  }
+  instance->restarted = true;
+}
