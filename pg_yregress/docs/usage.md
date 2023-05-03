@@ -82,6 +82,34 @@ return zero again (thus, signal that the specification is executed as expected.)
     Every `query` item is executed within an individual transaction that is rolled back
     at the end to ensure it does not interfere with other items.
 
+## Handling JSON and JSONB
+
+`pg_yregress` supports JSON types.
+
+* If a supplied query parameter is a mapping or a sequence, it will be automatically converted to JSON strings
+* If result value is of a JSON type, it will be converted to YAML value.
+
+```yaml
+- name: json and jsonb params
+  query: select $1::json as json, $2::jsonb as jsonb
+  params:
+  - hello: 1
+  - hello: 2
+  results:
+  - json:
+      hello: 1
+    jsonb:
+      hello: 2
+
+- name: json and jsonb results
+  query: select json_build_object('hello', 1), jsonb_build_object('hello', 2)
+  results:
+  - json_build_object:
+      hello: 1
+    jsonb_build_object:
+      hello: 2
+```
+
 ## Testing for failures
 
 You can simply test that a certain query will fail:

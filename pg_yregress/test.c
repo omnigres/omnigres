@@ -28,6 +28,11 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
     // (unless this test is part of the initialization sequence)
     if (!test->instance->ready && maybe_instance != test->instance->node) {
       yinstance_start(test->instance);
+      // If instance is still not ready, it means there was a recoverable error
+      if (!test->instance->ready) {
+        // We can't do much about it, bail.
+        return false;
+      }
     }
     // Ensure we always try to connect. It'll cache the connection
     // when reasonable
@@ -90,6 +95,12 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
         param_formats[i] = binary_params ? 1 : 0;
         struct fy_node *param_node = fy_node_sequence_get_by_index(params, i);
         switch (fy_node_get_type(param_node)) {
+        case FYNT_MAPPING:
+        case FYNT_SEQUENCE: {
+          char *json = fy_emit_node_to_string(param_node, FYECF_MODE_JSON_ONELINE);
+          values[i] = json;
+          break;
+        }
         case FYNT_SCALAR: {
           size_t len;
           values[i] = fy_node_get_scalar(param_node, &len);
@@ -218,6 +229,7 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
         for (int row = 0; row < PQntuples(result); row++) {
           struct fy_node *row_map = fy_node_create_mapping(fy_node_document(test->node));
           for (int column = 0; column < ncolumns; column++) {
+            Oid column_type = PQftype(result, column);
             char *str_value =
                 PQgetisnull(result, row, column) ? "null" : PQgetvalue(result, row, column);
             struct fy_node *value;
@@ -236,7 +248,12 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
               value = fy_node_create_scalar_copy(fy_node_document(test->node), hex, sz - 1);
               free(hex);
             } else {
-              value = fy_node_create_scalar(fy_node_document(test->node), STRLIT(str_value));
+              if (column_type == test->instance->types.json ||
+                  column_type == test->instance->types.jsonb) {
+                value = fy_node_build_from_string(fy_node_document(test->node), STRLIT(str_value));
+              } else {
+                value = fy_node_create_scalar(fy_node_document(test->node), STRLIT(str_value));
+              }
             }
 
             fy_node_mapping_append(row_map,

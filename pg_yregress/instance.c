@@ -94,6 +94,31 @@ static uint16_t get_available_inet_port() {
   return port;
 }
 
+static bool fetch_types(yinstance *instance) {
+  const char *query = "select oid, typname from pg_type";
+
+  PGresult *result = PQexec(instance->conn, query);
+
+  if (PQresultStatus(result) != PGRES_TUPLES_OK) {
+    fprintf(stderr, "Failed to fetch type name: %s", PQerrorMessage(instance->conn));
+    PQclear(result);
+    return false;
+  }
+
+  for (int row = 0; row < PQntuples(result); row++) {
+    const char *oids = PQgetvalue(result, row, 0);
+    Oid oid = (Oid)atoi(oids);
+    const char *type_name = PQgetvalue(result, row, 1);
+    if (strncmp(type_name, "json", strlen(type_name)) == 0) {
+      instance->types.json = oid;
+    } else if (strncmp(type_name, "jsonb", strlen(type_name)) == 0) {
+      instance->types.jsonb = oid;
+    }
+  }
+  PQclear(result);
+  return true;
+}
+
 yinstance_connect_result yinstance_connect(yinstance *instance) {
   int init_step = 0;
 connect:
@@ -134,7 +159,8 @@ connect:
         }
       }
     }
-    return yinstance_connect_success;
+
+    return fetch_types(instance) ? yinstance_connect_success : yinstance_connect_error;
   }
 
   return yinstance_connect_failure;
@@ -217,6 +243,9 @@ void yinstance_start(yinstance *instance) {
           break;
         }
         break;
+      case yinstance_connect_error: {
+        return;
+      }
       }
     }
 

@@ -220,3 +220,22 @@ tests:
 - select true
 # We are not testing this as it'll change the node type
 # - select tru
+
+- name: json and jsonb params
+  query: select $1::json as json, $2::jsonb as jsonb
+  params:
+  - hello: 1
+  - hello: 2
+  results:
+  - json:
+      hello: 1
+    jsonb:
+      hello: 2
+
+- name: json and jsonb results
+  query: select json_build_object('hello', 1), jsonb_build_object('hello', 2)
+  results:
+  - json_build_object:
+      hello: 1
+    jsonb_build_object:
+      hello: 2
