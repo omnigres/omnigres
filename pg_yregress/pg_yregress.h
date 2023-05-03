@@ -41,6 +41,10 @@ typedef struct {
   struct fy_node *node;
   bool is_default;
   bool restarted;
+  struct {
+    Oid json;
+    Oid jsonb;
+  } types;
 } yinstance;
 
 typedef enum {
@@ -51,7 +55,11 @@ typedef enum {
 
 void yinstance_start(yinstance *instance);
 
-typedef enum { yinstance_connect_success, yinstance_connect_failure } yinstance_connect_result;
+typedef enum {
+  yinstance_connect_success,
+  yinstance_connect_failure,
+  yinstance_connect_error
+} yinstance_connect_result;
 
 yinstance_connect_result yinstance_connect(yinstance *instance);
 
