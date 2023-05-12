@@ -20,7 +20,7 @@ with
         from
             (values
                  ('hello',
-                  $$SELECT omni_httpd.http_response(headers => array[omni_httpd.http_header('content-type', 'text/html')], body => 'Hello, <b>' || users.name || '</b>!')
+                  $$SELECT omni_httpd.http_response(headers => array[omni_http.http_header('content-type', 'text/html')], body => 'Hello, <b>' || users.name || '</b>!')
        FROM request
        INNER JOIN users ON string_to_array(request.path,'/', '') = array[NULL, 'users', users.handle]
       $$, 1),

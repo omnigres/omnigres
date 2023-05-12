@@ -1,0 +1,24 @@
+instances:
+  default:
+    init:
+    - create extension omni_http cascade
+
+tests:
+- name: get header
+  query: select omni_http.http_header_get(array [omni_http.http_header('Host', 'omnihost')], 'Host')
+  results:
+  - http_header_get: omnihost
+
+- name: get header (lower case)
+  query: select omni_http.http_header_get(array [omni_http.http_header('Host', 'omnihost')], 'host')
+  results:
+  - http_header_get: omnihost
+
+- name: get all headers
+  query: |
+    select omni_http.http_header_get_all(
+            array [omni_http.http_header('Accept', 'application/xml'),
+                   omni_http.http_header('Accept', 'application/json')], 'accept')
+  results:
+  - http_header_get_all: application/xml
+  - http_header_get_all: application/json

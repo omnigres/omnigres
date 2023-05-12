@@ -25,20 +25,20 @@ select omni_httpd.http_response(status => 404);
 
 -- Specifying headers
 select
-    omni_httpd.http_response(headers => array [omni_httpd.http_header('test', 'value')]::omni_httpd.http_header[],
+    omni_httpd.http_response(headers => array [omni_http.http_header('test', 'value')]::omni_http.http_header[],
                              body => null);
 
 -- Merging headers with inferred ones
 select
-    omni_httpd.http_response(headers => array [omni_httpd.http_header('test', 'value')]::omni_httpd.http_header[],
+    omni_httpd.http_response(headers => array [omni_http.http_header('test', 'value')]::omni_http.http_header[],
                              body => 'test');
 
 -- Overriding content type
 select
-    omni_httpd.http_response(headers => array [omni_httpd.http_header('content-type', 'text/html')], body => 'test');
+    omni_httpd.http_response(headers => array [omni_http.http_header('content-type', 'text/html')], body => 'test');
 -- Overriding content type, with a different case
 select
-    omni_httpd.http_response(headers => array [omni_httpd.http_header('Content-Type', 'text/html')], body => 'test');
+    omni_httpd.http_response(headers => array [omni_http.http_header('Content-Type', 'text/html')], body => 'test');
 
 --- Shortcut syntax with body first
 select omni_httpd.http_response('test');

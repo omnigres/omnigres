@@ -18,7 +18,7 @@ with
         from
             (values
                  ('hello',
-                  $$SELECT omni_httpd.http_response(headers => array[omni_httpd.http_header('content-type', 'text/html')], body => 'Hello, <b>' || users.name || '</b>!')
+                  $$SELECT omni_httpd.http_response(headers => array[omni_http.http_header('content-type', 'text/html')], body => 'Hello, <b>' || users.name || '</b>!')
        FROM request
        INNER JOIN users ON string_to_array(request.path,'/', '') = array[NULL, 'users', users.handle]
       $$, 1),
@@ -74,7 +74,7 @@ Content-Type: text/html
 
 \! curl --retry-connrefused --retry 10  --retry-max-time 10 --silent -A test-agent http://localhost:9000/abort
 \! curl --retry-connrefused --retry 10  --retry-max-time 10 --silent -A test-agent http://localhost:9000/headers
-{"(user-agent,test-agent,t)","(accept,*/*,t)"}\! curl --retry-connrefused --retry 10  --retry-max-time 10 --silent -A test-agent http://localhost:9000/proxy
+{"(user-agent,test-agent)","(accept,*/*)"}\! curl --retry-connrefused --retry 10  --retry-max-time 10 --silent -A test-agent http://localhost:9000/proxy
 {"method" : "GET", "path" : "/", "query_string" : null}\! echo
 
 -- Try changing configuration

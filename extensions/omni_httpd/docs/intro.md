@@ -115,11 +115,11 @@ come from? This is actually a CTE that `omni_httpd` supplies in runtime that has
 signature:
 
 ```postgresql
-method omni_httpd.http_method,
+method omni_http.http_method,
 path text,
 query_string text,
 body bytea,
-headers omni_httpd.http_header[]
+headers omni_http.http_header[]
 ```
 
 !!! tip
