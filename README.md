@@ -131,4 +131,4 @@ make psql_<COMPONENT_NAME> # for example, `psql_omni_containers`
 CTEST_PARALLEL_LEVEL=$(nproc) make -j $(nproc) all test
 ```
 
-[Discord]: https://discord.gg/Jghrq588qS
+[Discord]: https://discord.omnigr.es
