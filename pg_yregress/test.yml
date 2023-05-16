@@ -239,3 +239,43 @@ tests:
       hello: 1
     jsonb_build_object:
       hello: 2
+
+- name: committed query
+  query: create table this_table_will_exist()
+  commit: true
+
+- name: check committed query
+  query: table this_table_will_exist
+
+- name: committed steps
+  steps:
+  - query: create table committed_step1()
+    commit: true
+  - create table committed_step2()
+
+- name: commit uncommitted steps
+  steps:
+  - query: create table committed_step1_1()
+    commit: true
+  - create table committed_step1_2()
+  commit: true
+
+- name: nested committed steps
+  steps:
+  - steps:
+    - query: create table committed_step2_1()
+      commit: true
+    - query: create table committed_step2_2()
+      commit: false
+  commit: true
+
+- name: check committed steps
+  steps:
+  - table committed_step1
+  - query: table committed_step2
+    success: false
+  - table committed_step_1_1
+  - table committed_step_1_2
+  - table committed_step2_1
+  # this will work because nested transactions commit everything
+  - table committed_step2_2

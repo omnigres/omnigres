@@ -162,6 +162,19 @@ tests:
     every item is not wrapped into a transaction and the results of each step are visible 
     in the next step.
 
+## Committing Tests
+
+By default, all tests are rolled back to ensure clean environment. However, in some cases, tests need to commit (for example, to test deferred constraints).
+
+When this is necessary, the `commit` property of a test should be set to `false`:
+
+```yaml
+- query: insert into table values (...)
+  commit: true
+```
+
+This can be also used for multi-step tests. If any of the steps is committed but the multi-step test itself isn't, it'll roll back the uncommitted steps.
+
 ## Notices
 
 One can also check their tests for notices:
