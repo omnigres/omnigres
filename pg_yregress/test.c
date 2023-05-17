@@ -198,7 +198,6 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
       if (existing_error != NULL) {
         char *errmsg = strdup(PQresultErrorField(result, PG_DIAG_MESSAGE_PRIMARY));
         trim_trailing_whitespace(errmsg);
-        char *severity = strdup(PQresultErrorField(result, PG_DIAG_SEVERITY));
 
         struct fy_node *error = fy_node_create_scalar(fy_node_document(test->node), STRLIT(errmsg));
 
@@ -208,6 +207,7 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
         if (fy_node_is_scalar(existing_error)) {
           fy_node_mapping_append(test->node, error_key, error);
         } else {
+          char *severity = strdup(PQresultErrorField(result, PG_DIAG_SEVERITY));
           struct fy_node *error_severity =
               fy_node_create_scalar(fy_node_document(test->node), STRLIT(severity));
 
@@ -218,6 +218,18 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
           fy_node_mapping_append(
               error_node, fy_node_create_scalar(fy_node_document(test->node), STRLIT("message")),
               error);
+
+          // Add `detail` only if it is present
+          if (fy_node_mapping_lookup_key_by_string(existing_error, STRLIT("detail")) != NULL) {
+            char *maybe_detail = PQresultErrorField(result, PG_DIAG_MESSAGE_DETAIL);
+            char *detail = maybe_detail ? strdup(maybe_detail) : "";
+            struct fy_node *error_detail =
+                fy_node_create_scalar(fy_node_document(test->node), STRLIT(detail));
+
+            fy_node_mapping_append(
+                error_node, fy_node_create_scalar(fy_node_document(test->node), STRLIT("detail")),
+                error_detail);
+          }
 
           fy_node_mapping_append(test->node, error_key, error_node);
         }

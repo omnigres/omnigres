@@ -147,12 +147,14 @@ error: syntax error at or near "selec"
 
 When passed as a scalar value, error message will be compared with the provided one.
 
-### Error message with severity
+### Full error form
 
 ```yaml
 error:
   severity: ERROR
-  message: syntax error at or near "selec"
+  message: <error message>
+  # Optional
+  detail: <error details>
 ```
 
 In this form, both severity and message can be specified.

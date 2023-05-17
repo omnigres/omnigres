@@ -42,6 +42,19 @@ tests:
   success: false
   error: syntax error at or near "selec"
 
+- name: error message detail
+  query: |
+    do $$
+    begin
+      raise exception 'custom error' using detail = 'custom detail';
+    end;
+    $$
+  success: false
+  error:
+    severity: ERROR
+    message: custom error
+    detail: custom detail
+
 # This test should not affect the one below, as it is wrapped
 # into a transaction by default
 - name: create a table
