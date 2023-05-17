@@ -275,8 +275,8 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
     // those will be used to print the result YAML file.
 
     if (!in_transaction) {
-      PGresult *rollback_result = PQexec(conn, "rollback");
-      PQclear(rollback_result);
+      PGresult *txend_result = PQexec(conn, test->commit ? "commit" : "rollback");
+      PQclear(txend_result);
     }
 
     break;
@@ -292,16 +292,26 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
     }
 
     while ((step = fy_node_sequence_iterate(steps, &iter))) {
-      bool step_success = ytest_run_internal(conn, (ytest *)fy_node_get_meta(step), true);
+      ytest *y_test = (ytest *)fy_node_get_meta(step);
+      bool step_success = ytest_run_internal(conn, y_test, true);
       // Stop proceeding further if the step has failed
       if (!step_success) {
         break;
       }
+      if (!in_transaction && y_test->commit) {
+        // Commit current transaction
+        PGresult *txend_result = PQexec(conn, "commit");
+        PQclear(txend_result);
+
+        // Start a new transaction
+        PGresult *begin_result = PQexec(conn, "begin");
+        PQclear(begin_result);
+      }
     }
 
     if (!in_transaction) {
-      PGresult *rollback_result = PQexec(conn, "rollback");
-      PQclear(rollback_result);
+      PGresult *txend_result = PQexec(conn, test->commit ? "commit" : "rollback");
+      PQclear(txend_result);
     }
     break;
   }

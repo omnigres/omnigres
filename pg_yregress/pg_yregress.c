@@ -36,6 +36,19 @@ static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
     y_test->name.base =
         fy_node_mapping_lookup_scalar_by_simple_key(test, &y_test->name.len, STRLIT("name"));
 
+    struct fy_node *commit = fy_node_mapping_lookup_by_string(test, STRLIT("commit"));
+
+    if (commit != NULL) {
+      if (!fy_node_is_boolean(commit)) {
+        fprintf(stderr, "commit should be a boolean, got: %s",
+                fy_emit_node_to_string(commit, FYECF_DEFAULT));
+        return false;
+      }
+      y_test->commit = fy_node_get_boolean(commit);
+    } else {
+      y_test->commit = false;
+    }
+
     // Determine the instance to run
 
     // Is it explicitly specified?

@@ -92,6 +92,7 @@ typedef struct {
     } query;
   } info;
   struct fy_node *node;
+  bool commit;
 } ytest;
 
 void ytest_run(ytest *test);
