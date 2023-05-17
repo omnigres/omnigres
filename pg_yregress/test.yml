@@ -292,8 +292,8 @@ tests:
   - table committed_step1
   - query: table committed_step2
     success: false
-  - table committed_step_1_1
-  - table committed_step_1_2
+  - table committed_step1_1
+  - table committed_step1_2
   - table committed_step2_1
   # this will work because nested transactions commit everything
   - table committed_step2_2
