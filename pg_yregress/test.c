@@ -194,26 +194,33 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
           fy_node_create_scalar(fy_node_document(test->node), STRLIT("error"));
 
       // If `error` is present, replace it
-      if (fy_node_mapping_lookup_key_by_key(test->node, error_key) != NULL) {
+      struct fy_node *existing_error = fy_node_mapping_lookup_value_by_key(test->node, error_key);
+      if (existing_error != NULL) {
         char *errmsg = strdup(PQresultErrorField(result, PG_DIAG_MESSAGE_PRIMARY));
         trim_trailing_whitespace(errmsg);
         char *severity = strdup(PQresultErrorField(result, PG_DIAG_SEVERITY));
 
         struct fy_node *error = fy_node_create_scalar(fy_node_document(test->node), STRLIT(errmsg));
-        struct fy_node *error_severity =
-            fy_node_create_scalar(fy_node_document(test->node), STRLIT(severity));
+
         fy_node_mapping_remove_by_key(test->node,
                                       fy_node_copy(fy_node_document(test->node), error_key));
 
-        struct fy_node *error_node = fy_node_create_mapping(fy_node_document(test->node));
-        fy_node_mapping_append(
-            error_node, fy_node_create_scalar(fy_node_document(test->node), STRLIT("severity")),
-            error_severity);
-        fy_node_mapping_append(
-            error_node, fy_node_create_scalar(fy_node_document(test->node), STRLIT("message")),
-            error);
+        if (fy_node_is_scalar(existing_error)) {
+          fy_node_mapping_append(test->node, error_key, error);
+        } else {
+          struct fy_node *error_severity =
+              fy_node_create_scalar(fy_node_document(test->node), STRLIT(severity));
 
-        fy_node_mapping_append(test->node, error_key, error_node);
+          struct fy_node *error_node = fy_node_create_mapping(fy_node_document(test->node));
+          fy_node_mapping_append(
+              error_node, fy_node_create_scalar(fy_node_document(test->node), STRLIT("severity")),
+              error_severity);
+          fy_node_mapping_append(
+              error_node, fy_node_create_scalar(fy_node_document(test->node), STRLIT("message")),
+              error);
+
+          fy_node_mapping_append(test->node, error_key, error_node);
+        }
       }
     } else {
       struct fy_node *results_key =

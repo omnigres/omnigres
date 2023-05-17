@@ -37,6 +37,11 @@ tests:
     severity: ERROR
     message: syntax error at or near "selec"
 
+- name: error message literal
+  query: selec 1
+  success: false
+  error: syntax error at or near "selec"
+
 # This test should not affect the one below, as it is wrapped
 # into a transaction by default
 - name: create a table

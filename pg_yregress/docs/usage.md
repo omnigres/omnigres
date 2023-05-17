@@ -137,6 +137,26 @@ tests:
 
 The above will pass as this is the error this test fails with.
 
+Multiple forms of `error` report are supported:
+
+### Error message
+
+```yaml
+error: syntax error at or near "selec"
+```
+
+When passed as a scalar value, error message will be compared with the provided one.
+
+### Error message with severity
+
+```yaml
+error:
+  severity: ERROR
+  message: syntax error at or near "selec"
+```
+
+In this form, both severity and message can be specified.
+
 ## Multi-step tests
 
 Some test inolve more than one query and we need to check for more than just the final result, so simply executing all statements and queries delimited by a semicolon wouldn't be great.
