@@ -10,11 +10,10 @@ static void notice_receiver(struct fy_node *notices, const PGresult *result) {
   fy_node_sequence_append(notices, fy_node_create_scalar(doc, STRLIT(notice)));
 }
 
-bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) {
+bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction, bool *errored) {
   // This will be used for TAP output
   struct fy_node *original_node = fy_node_copy(fy_node_document(test->node), test->node);
 
-  bool success = true;
   assert(test->instance != NULL);
   PGconn *conn;
   if (default_conn == NULL) {
@@ -173,8 +172,10 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
         test->node = new_node;
       }
 
-      success = false;
       // Change `success` to `false`
+      if (errored != NULL) {
+        *errored = true;
+      }
       fy_node_mapping_append(test->node,
                              fy_node_create_scalar(fy_node_document(test->node), STRLIT("success")),
                              fy_node_create_scalar(fy_node_document(test->node), STRLIT("false")));
@@ -310,21 +311,40 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
       PQclear(begin_result);
     }
 
+    bool step_failed = false;
+
     while ((step = fy_node_sequence_iterate(steps, &iter))) {
       ytest *y_test = (ytest *)fy_node_get_meta(step);
-      bool step_success = ytest_run_internal(conn, y_test, true);
-      // Stop proceeding further if the step has failed
-      if (!step_success) {
-        break;
-      }
-      if (!in_transaction && y_test->commit) {
-        // Commit current transaction
-        PGresult *txend_result = PQexec(conn, "commit");
-        PQclear(txend_result);
+      if (!step_failed) {
+        bool errored = false;
+        bool step_success = ytest_run_internal(conn, y_test, true, &errored);
 
-        // Start a new transaction
-        PGresult *begin_result = PQexec(conn, "begin");
-        PQclear(begin_result);
+        // Stop proceeding further if the step has failed
+        if (!step_success) {
+          step_failed = true;
+        } else {
+          if (errored) {
+            // Reset the transaction
+            PGresult *txend_result = PQexec(conn, "rollback");
+            PQclear(txend_result);
+
+            // Start a new transaction
+            PGresult *begin_result = PQexec(conn, "begin");
+            PQclear(begin_result);
+          } else if (!in_transaction && y_test->commit) {
+            // Commit current transaction
+            PGresult *txend_result = PQexec(conn, "commit");
+            PQclear(txend_result);
+
+            // Start a new transaction
+            PGresult *begin_result = PQexec(conn, "begin");
+            PQclear(begin_result);
+          }
+        }
+      } else {
+        tap_counter++;
+        fprintf(tap_file, "ok %d - %.*s # SKIP\n", tap_counter,
+                (int)IOVEC_STRLIT(ytest_name(y_test)));
       }
     }
 
@@ -359,7 +379,8 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
   PQsetNoticeReceiver(conn, prev_notice_receiver, NULL);
 
   tap_counter++;
-  if (fy_node_compare(test->node, original_node)) {
+  bool differ = false;
+  if ((differ = fy_node_compare(test->node, original_node))) {
     fprintf(tap_file, "ok %d - %.*s\n", tap_counter, (int)IOVEC_STRLIT(ytest_name(test)));
   } else {
     fprintf(tap_file, "not ok %d - %.*s\n", tap_counter, (int)IOVEC_STRLIT(ytest_name(test)));
@@ -389,11 +410,11 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction) 
   }
   fflush(tap_file);
 
-  return success;
+  return differ;
 }
 
-void ytest_run(ytest *test) { ytest_run_internal(NULL, test, false); }
-void ytest_run_without_transaction(ytest *test) { ytest_run_internal(NULL, test, true); }
+void ytest_run(ytest *test) { ytest_run_internal(NULL, test, false, NULL); }
+void ytest_run_without_transaction(ytest *test) { ytest_run_internal(NULL, test, true, NULL); }
 
 iovec_t ytest_name(ytest *test) {
   if (test->name.base != NULL) {
