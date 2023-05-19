@@ -80,3 +80,24 @@ tests:
       qs: q=1
       headers: '{"(x-test,x-test)","(user-agent,omni_httpc/0.1)"}'
       body: ""
+
+- name: sending body
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+           omni_httpc.http_request('http://127.0.0.1:' ||
+                                   (select effective_port from omni_httpd.listeners) || '/test?q=1', 
+                                    body => 'test', method => 'POST')))
+    select
+      response.status,
+      response.headers,
+      convert_from(response.body, 'utf-8')::json as body
+      from response
+  results:
+  - status: 200
+    headers: '{"(connection,keep-alive)","(content-length,117)","(server,omni_httpd-0.1)","(content-type,text/json)"}'
+    body:
+      method: POST
+      path: /test
+      qs: q=1
+      headers: '{"(user-agent,omni_httpc/0.1)"}'
+      body: test

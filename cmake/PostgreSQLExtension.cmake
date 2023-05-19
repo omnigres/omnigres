@@ -91,6 +91,19 @@
 include(Inja)
 find_program(PGCLI pgcli)
 
+function(find_pg_yregress_tests dir)
+    file(GLOB files RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${dir}/*)
+    list(SORT files)
+    foreach(file ${files})
+        add_test(NAME ${NAME}/${file} WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+                COMMAND "$<TARGET_FILE:pg_yregress>" "${dir}/../${file}")
+        set_property(TEST ${NAME}/${file} PROPERTY ENVIRONMENT
+                "PGCONFIG=${PG_CONFIG};PGSHAREDIR=${_share_dir};OMNI_EXT_SO=$<TARGET_FILE:omni_ext>")
+    endforeach()
+    # Ensure changes in `tests` force a re-run of `cmake`
+    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${dir})
+endfunction()
+
 function(add_postgresql_extension NAME)
     set(_optional SHARED_PRELOAD PRIVATE UNVERSIONED_SO)
     set(_single VERSION ENCODING SCHEMA RELOCATABLE)
@@ -348,12 +361,7 @@ ${_loadextensions} \
         add_dependencies(update_test_results ${NAME}_update_results)
     endif()
 
-    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test.yml")
-        add_test(NAME ${NAME}_yregress WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-                COMMAND "$<TARGET_FILE:pg_yregress>" "${CMAKE_CURRENT_SOURCE_DIR}/test.yml")
-        set_property(TEST ${NAME}_yregress PROPERTY ENVIRONMENT "PGCONFIG=${PG_CONFIG};PGSHAREDIR=${_share_dir};OMNI_EXT_SO=$<TARGET_FILE:omni_ext>")
-    endif()
-
+    find_pg_yregress_tests("${CMAKE_CURRENT_SOURCE_DIR}/tests")
 
     if(INITDB AND CREATEDB AND (PSQL OR PGCLI) AND PG_CTL)
         if(PGCLI)

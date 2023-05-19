@@ -179,6 +179,7 @@ static void init() {
 }
 
 struct request {
+  h2o_iovec_t request_body;
   StringInfoData body;
   bool done;
   h2o_url_t url;
@@ -265,7 +266,7 @@ static h2o_httpclient_head_cb on_connect(h2o_httpclient_t *client, const char *e
   *num_headers = req->num_headers;
   *headers = (h2o_header_t *)req->headers;
   *url = req->url;
-  *body = h2o_iovec_init(NULL, 0);
+  *body = req->request_body;
   *proceed_req_cb = NULL;
   return on_head;
 }
@@ -277,6 +278,8 @@ Datum http_execute(PG_FUNCTION_ARGS) {
 
   h2o_mem_pool_t *pool = (h2o_mem_pool_t *)palloc(sizeof(*pool));
   h2o_mem_init_pool(pool);
+
+  struct request *request = palloc(sizeof(struct request));
 
   HeapTupleHeader arg_request = PG_GETARG_HEAPTUPLEHEADER(0);
   bool isnull = false;
@@ -304,6 +307,15 @@ Datum http_execute(PG_FUNCTION_ARGS) {
 
     method = h2o_iovec_init(enumval->enumlabel.data, strlen(enumval->enumlabel.data));
     ReleaseSysCache(tup);
+  }
+
+  // Request body
+  Datum arg_request_body = GetAttributeByName(arg_request, "body", &isnull);
+  if (!isnull) {
+    struct varlena *varlena = PG_DETOAST_DATUM_PACKED(arg_request_body);
+    request->request_body = h2o_iovec_init(VARDATA_ANY(varlena), VARSIZE_ANY_EXHDR(varlena));
+  } else {
+    request->request_body = h2o_iovec_init(NULL, 0);
   }
 
   // Headers
@@ -341,6 +353,13 @@ Datum http_execute(PG_FUNCTION_ARGS) {
   h2o_add_header_by_str(pool, &headers_vec, H2O_STRLIT("user-agent"), 1, NULL,
                         H2O_STRLIT("omni_httpc/" EXT_VERSION));
 
+  // Ensure content length is set
+  char clbuf[10];
+  if (request->request_body.len > 0) {
+    int clbuf_len = pg_ultoa_n(request->request_body.len, clbuf);
+    h2o_add_header(pool, &headers_vec, H2O_TOKEN_CONTENT_LENGTH, NULL, clbuf, clbuf_len);
+  }
+
   headers = (h2o_header_t **)headers_vec.entries;
   num_headers = headers_vec.size;
 
@@ -360,7 +379,6 @@ Datum http_execute(PG_FUNCTION_ARGS) {
   h2o_socketpool_set_ssl_ctx(sockpool, ssl_ctx);
   SSL_CTX_free(ssl_ctx);
 
-  struct request *request = palloc(sizeof(struct request));
   request->done = false;
   request->url = url;
   request->method = method;
