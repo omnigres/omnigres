@@ -57,10 +57,10 @@ if(NOT PGVER)
 endif()
 
 # If the version is not known, try resolving the alias
-set(PGVER_ALIAS_15 15.2)
-set(PGVER_ALIAS_14 14.7)
-set(PGVER_ALIAS_13 13.10)
-set(PGVER_ALIAS_12 12.14)
+set(PGVER_ALIAS_15 15.3)
+set(PGVER_ALIAS_14 14.8)
+set(PGVER_ALIAS_13 13.11)
+set(PGVER_ALIAS_12 12.15)
 
 if("${PGVER}" MATCHES "[0-9]+.[0-9]+")
     set(PGVER_ALIAS "${PGVER}")
