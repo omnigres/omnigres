@@ -11,8 +11,37 @@ static void notice_receiver(struct fy_node *notices, const PGresult *result) {
 }
 
 bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction, bool *errored) {
+
   // This will be used for TAP output
   struct fy_node *original_node = fy_node_copy(fy_node_document(test->node), test->node);
+
+  struct fy_node *skip = fy_node_mapping_lookup_by_string(test->node, STRLIT("skip"));
+
+  if (skip != NULL) {
+    bool allocated = false;
+    iovec_t reason = {.base = "", .len = 0};
+    if (fy_node_is_boolean(skip)) {
+      if (!fy_node_get_boolean(skip)) {
+        goto proceed;
+      }
+    } else if (fy_node_is_scalar(skip)) {
+      reason.base = fy_node_get_scalar(skip, &reason.len);
+    } else {
+      reason.base = fy_emit_node_to_string(skip, FYECF_NO_ENDING_NEWLINE | FYECF_WIDTH_INF |
+                                                     FYECF_MODE_FLOW_ONELINE);
+      reason.len = strlen(reason.base);
+      allocated = true;
+    }
+    tap_counter++;
+    fprintf(tap_file, "ok %d - %.*s # SKIP %.*s\n", tap_counter,
+            (int)IOVEC_STRLIT(ytest_name(test)), (int)IOVEC_STRLIT(reason));
+    if (allocated) {
+      free((void *)reason.base);
+    }
+    return true;
+  }
+
+proceed:
 
   assert(test->instance != NULL);
   PGconn *conn;

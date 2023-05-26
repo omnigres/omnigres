@@ -297,3 +297,30 @@ tests:
   - table committed_step2_1
   # this will work because nested transactions commit everything
   - table committed_step2_2
+
+- name: skip
+  skip: reason
+  query: broken
+
+- name: skip (rich)
+  skip:
+    message: msg
+    details: details
+  query: broken
+
+- name: skip (bool)
+  skip: false
+  query: broken
+  success: false
+
+- name: skip (bool, true)
+  skip: true
+  query: broken
+
+- name: skip (without instruction)
+  skip: true
+
+- name: skip in steps
+  steps:
+  - skip: true
+  - select 1

@@ -143,8 +143,16 @@ static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
       instruction_found = true;
     }
 
+    // Is this test being skipped?
+    struct fy_node *skip = fy_node_mapping_lookup_by_string(test, STRLIT("skip"));
+    if (skip != NULL) {
+      if (!(fy_node_is_boolean(skip) && !fy_node_get_boolean(skip))) {
+        instruction_found = true;
+      }
+    }
+
     if (!instruction_found) {
-      fprintf(stderr, "Test %.*s doesn't have a valid instruction (any of: query, step)",
+      fprintf(stderr, "Test %.*s doesn't have a valid instruction (any of: query, step, skip)",
               (int)IOVEC_STRLIT(ytest_name(y_test)));
       return false;
     }
