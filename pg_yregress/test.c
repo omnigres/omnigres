@@ -11,8 +11,37 @@ static void notice_receiver(struct fy_node *notices, const PGresult *result) {
 }
 
 bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction, bool *errored) {
+
   // This will be used for TAP output
   struct fy_node *original_node = fy_node_copy(fy_node_document(test->node), test->node);
+
+  struct fy_node *skip = fy_node_mapping_lookup_by_string(test->node, STRLIT("skip"));
+
+  if (skip != NULL) {
+    bool allocated = false;
+    iovec_t reason = {.base = "", .len = 0};
+    if (fy_node_is_boolean(skip)) {
+      if (!fy_node_get_boolean(skip)) {
+        goto proceed;
+      }
+    } else if (fy_node_is_scalar(skip)) {
+      reason.base = fy_node_get_scalar(skip, &reason.len);
+    } else {
+      reason.base = fy_emit_node_to_string(skip, FYECF_NO_ENDING_NEWLINE | FYECF_WIDTH_INF |
+                                                     FYECF_MODE_FLOW_ONELINE);
+      reason.len = strlen(reason.base);
+      allocated = true;
+    }
+    tap_counter++;
+    fprintf(tap_file, "ok %d - %.*s # SKIP %.*s\n", tap_counter,
+            (int)IOVEC_STRLIT(ytest_name(test)), (int)IOVEC_STRLIT(reason));
+    if (allocated) {
+      free((void *)reason.base);
+    }
+    return true;
+  }
+
+proceed:
 
   assert(test->instance != NULL);
   PGconn *conn;
@@ -378,12 +407,45 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction, 
 
   PQsetNoticeReceiver(conn, prev_notice_receiver, NULL);
 
+  // Handle `todo` tests
+  struct fy_node *todo = fy_node_mapping_lookup_by_string(test->node, STRLIT("todo"));
+
+  bool todo_allocated = false;
+  iovec_t todo_reason = {.base = "", .len = 0};
+  bool is_todo = false;
+  if (todo != NULL) {
+    if (fy_node_is_boolean(todo)) {
+      if (!fy_node_get_boolean(todo)) {
+        goto report;
+      }
+    } else if (fy_node_is_scalar(todo)) {
+      todo_reason.base = fy_node_get_scalar(todo, &todo_reason.len);
+    } else {
+      todo_reason.base = fy_emit_node_to_string(todo, FYECF_NO_ENDING_NEWLINE | FYECF_WIDTH_INF |
+                                                          FYECF_MODE_FLOW_ONELINE);
+      todo_reason.len = strlen(todo_reason.base);
+      todo_allocated = true;
+    }
+    is_todo = true;
+  }
+
+report:
   tap_counter++;
   bool differ = false;
   if ((differ = fy_node_compare(test->node, original_node))) {
-    fprintf(tap_file, "ok %d - %.*s\n", tap_counter, (int)IOVEC_STRLIT(ytest_name(test)));
+    if (is_todo) {
+      fprintf(tap_file, "ok %d - %.*s # TODO %*.s\n", tap_counter,
+              (int)IOVEC_STRLIT(ytest_name(test)), (int)IOVEC_STRLIT(todo_reason));
+    } else {
+      fprintf(tap_file, "ok %d - %.*s\n", tap_counter, (int)IOVEC_STRLIT(ytest_name(test)));
+    }
   } else {
-    fprintf(tap_file, "not ok %d - %.*s\n", tap_counter, (int)IOVEC_STRLIT(ytest_name(test)));
+    if (is_todo) {
+      fprintf(tap_file, "not ok %d - %.*s # TODO %*.s\n", tap_counter,
+              (int)IOVEC_STRLIT(ytest_name(test)), (int)IOVEC_STRLIT(todo_reason));
+    } else {
+      fprintf(tap_file, "not ok %d - %.*s\n", tap_counter, (int)IOVEC_STRLIT(ytest_name(test)));
+    }
     fprintf(tap_file, "  ---\n");
     struct fy_node *report = fy_node_create_mapping(fy_node_document(original_node));
     fy_node_mapping_append(report,
@@ -410,10 +472,14 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction, 
   }
   fflush(tap_file);
 
-  return differ;
+  if (todo_allocated) {
+    free((void *)todo_reason.base);
+  }
+
+  return is_todo ? true : differ;
 }
 
-void ytest_run(ytest *test) { ytest_run_internal(NULL, test, false, NULL); }
+bool ytest_run(ytest *test) { return ytest_run_internal(NULL, test, false, NULL); }
 void ytest_run_without_transaction(ytest *test) { ytest_run_internal(NULL, test, true, NULL); }
 
 iovec_t ytest_name(ytest *test) {

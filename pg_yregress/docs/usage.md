@@ -280,6 +280,30 @@ tests:
 
 [^send-recv]: The encoding that is used by `SEND` and `RECEIVE` functions of the type.
 
+## Skipping tests
+
+If a test not meant to be executed, one can use `skip` directive to suppress its execution. Given a boolean scalar, if it is positive, the test will be skipped. If a negative boolean scalar will be given, it will not be skipped. If any other scalar will be given, it will be used as a reason for skipping the test.
+
+```yaml
+tests:
+- name: skip this
+  skip: true
+- name: skip this for a reason
+  skip: reason
+```
+
+Skipped tests don't need to have a valid instruction (`query` or `steps`).
+
+If a skipped test is meant to be executed but shouldn't fail the execution of test suite in case if it fails,
+`todo` directive can be used instead of `skip`.
+
+```yaml
+tests:
+- name: WIP
+  todo: true
+  query: select
+```
+
 ## Configuring instances
 
 Tests may have one more instances they run on. By default, `pg_yregress` will provision one. However, if you want to configure the instance or add more than one, you can use

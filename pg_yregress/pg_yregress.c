@@ -143,8 +143,25 @@ static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
       instruction_found = true;
     }
 
+    // Is this test being skipped?
+    struct fy_node *skip = fy_node_mapping_lookup_by_string(test, STRLIT("skip"));
+    if (skip != NULL) {
+      if (!(fy_node_is_boolean(skip) && !fy_node_get_boolean(skip))) {
+        instruction_found = true;
+      }
+    }
+
+    // Is this test being developed?
+    struct fy_node *todo = fy_node_mapping_lookup_by_string(test, STRLIT("todo"));
+    if (todo != NULL) {
+      if (!(fy_node_is_boolean(todo) && !fy_node_get_boolean(todo))) {
+        instruction_found = true;
+      }
+    }
+
     if (!instruction_found) {
-      fprintf(stderr, "Test %.*s doesn't have a valid instruction (any of: query, step)",
+      fprintf(stderr,
+              "Test %.*s doesn't have a valid instruction (any of: query, step, skip, todo)",
               (int)IOVEC_STRLIT(ytest_name(y_test)));
       return false;
     }
@@ -310,6 +327,7 @@ static int execute_document(struct fy_document *fyd, FILE *out) {
 
   // Run tests
   int test_count = 1 + count_tests(tests); // count from 1, so add 1
+  bool succeeded = true;
   fprintf(tap_file, "TAP version 14\n");
   fprintf(tap_file, "1..%d\n", test_count);
 
@@ -319,7 +337,9 @@ static int execute_document(struct fy_document *fyd, FILE *out) {
 
     while ((test = fy_node_sequence_iterate(tests, &iter)) != NULL) {
       ytest *y_test = fy_node_get_meta(test);
-      ytest_run(y_test);
+      if (!ytest_run(y_test)) {
+        succeeded = false;
+      }
       // Currently, ytest_run() may change the node by replacing node of one type
       // with another, and we need to continue from there on.
       // This is a little hacky and exploits the internal knowledge of how the
@@ -348,7 +368,7 @@ static int execute_document(struct fy_document *fyd, FILE *out) {
   fy_emit_document_to_fp(
       fyd, FYECF_MODE_ORIGINAL | FYECF_OUTPUT_COMMENTS | FYECF_INDENT_2 | FYECF_WIDTH_80, out);
 
-  return fy_node_compare(original_root, root) ? 0 : 1;
+  return succeeded ? 0 : 1;
 }
 
 char *pg_config;
