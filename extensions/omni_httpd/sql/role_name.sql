@@ -61,7 +61,7 @@ end;
 $$ language plpgsql;
 
 
--- Should use current_user as a default role_name
+-- Should use current_user as a default role
 begin;
 with
     listener as (insert into omni_httpd.listeners (address, port) values ('127.0.0.1', 9003) returning id),
@@ -99,9 +99,9 @@ call omni_httpd.wait_for_configuration_reloads(1);
 begin;
 update omni_httpd.handlers
 set
-    role_name = 'some_role'
+    role = 'some_role'::regrole
 where
-    role_name = 'test_user';
+    role = 'test_user'::regrole;
 delete
 from
     omni_httpd.configuration_reloads;
@@ -112,9 +112,9 @@ call omni_httpd.wait_for_configuration_reloads(1);
 begin;
 update omni_httpd.handlers
 set
-    role_name = 'test_user1'
+    role = 'test_user1'::regrole
 where
-    role_name = 'test_user';
+    role = 'test_user'::regrole;
 delete
 from
     omni_httpd.configuration_reloads;
@@ -126,9 +126,9 @@ set role test_user1;
 begin;
 update omni_httpd.handlers
 set
-    role_name = 'test_user1'
+    role = 'test_user1'::regrole
 where
-    role_name = 'test_user';
+    role = 'test_user'::regrole;
 delete
 from
     omni_httpd.configuration_reloads;
@@ -139,9 +139,9 @@ call omni_httpd.wait_for_configuration_reloads(1);
 begin;
 update omni_httpd.handlers
 set
-    role_name = 'anotherrole'
+    role = 'anotherrole'::regrole
 where
-    role_name = 'test_user1';
+    role = 'test_user1'::regrole;
 select current_user;
 rollback;
 
@@ -151,9 +151,9 @@ reset role;
 alter role current_user nosuperuser;
 update omni_httpd.handlers
 set
-    role_name = 'anotherrole'
+    role = 'anotherrole'::regrole
 where
-    role_name = 'test_user1';
+    role = 'test_user1'::regrole;
 rollback;
 
 \! curl --retry-connrefused --retry 10  --retry-max-time 10 --silent http://localhost:9003/
@@ -163,9 +163,9 @@ begin;
 reset role;
 update omni_httpd.handlers
 set
-    role_name = 'anotherrole'
+    role = 'anotherrole'::regrole
 where
-    role_name = 'test_user1';
+    role = 'test_user1'::regrole;
 
 delete
 from

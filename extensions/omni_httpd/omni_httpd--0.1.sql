@@ -102,7 +102,7 @@ create table listeners
     protocol       http_protocol not null default 'http'
 );
 
-create function check_if_role_accessible_to_current_user(role name) returns boolean
+create function check_if_role_accessible_to_current_user(role regrole) returns boolean
 as
 $$
 declare
@@ -124,9 +124,9 @@ $$ language plpgsql;
 
 create table handlers
 (
-    id        integer primary key generated always as identity,
-    query     text not null,
-    role_name name not null default current_user check (check_if_role_accessible_to_current_user(role_name))
+    id    integer primary key generated always as identity,
+    query text    not null,
+    role  regrole not null default current_user::regrole check (check_if_role_accessible_to_current_user(role))
 );
 
 create function handlers_query_validity_trigger() returns trigger

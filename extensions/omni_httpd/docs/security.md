@@ -1,3 +1,5 @@
+<!-- @formatter:off -->
+
 # Security
 
 
@@ -17,7 +19,7 @@
 ## Handler Queries
 
 The security model behind handler query execution relies on the
-`role_name` column in the `handlers` table. It can be set only
+`role` column in the `handlers` table. It can be set only
 to the role that is "accessible" to the current user (meaning either
 it is the same role or the current user can set this role given its
 permissions.)
