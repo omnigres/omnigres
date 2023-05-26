@@ -324,3 +324,29 @@ tests:
   steps:
   - skip: true
   - select 1
+
+- name: todo
+  todo: true
+  query: broken
+
+- name: todo (reason)
+  todo: reason
+  query: broken
+
+- name: todo (bool)
+  todo: false
+  query: broken
+  success: false
+
+- name: todo (without instruction)
+  todo: true
+
+- name: todo (rich)
+  todo:
+    message: msg
+    details: details
+
+- name: todo in steps
+  steps:
+  - todo: true
+  - select 1

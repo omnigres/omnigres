@@ -95,7 +95,7 @@ typedef struct {
   bool commit;
 } ytest;
 
-void ytest_run(ytest *test);
+bool ytest_run(ytest *test);
 void ytest_run_without_transaction(ytest *test);
 
 iovec_t ytest_name(ytest *test);

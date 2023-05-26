@@ -294,6 +294,16 @@ tests:
 
 Skipped tests don't need to have a valid instruction (`query` or `steps`).
 
+If a skipped test is meant to be executed but shouldn't fail the execution of test suite in case if it fails,
+`todo` directive can be used instead of `skip`.
+
+```yaml
+tests:
+- name: WIP
+  todo: true
+  query: select
+```
+
 ## Configuring instances
 
 Tests may have one more instances they run on. By default, `pg_yregress` will provision one. However, if you want to configure the instance or add more than one, you can use
