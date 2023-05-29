@@ -258,12 +258,6 @@ static h2o_httpclient_body_cb on_head(h2o_httpclient_t *client, const char *errs
     return NULL;
   }
 
-  // End of stream, complete the request
-  if (errstr == h2o_httpclient_error_is_eos) {
-    (*req->done)++;
-    return NULL;
-  }
-
   // Collect information from the head
   req->version = args->version;
   req->status = args->status;
@@ -284,6 +278,13 @@ static h2o_httpclient_body_cb on_head(h2o_httpclient_t *client, const char *errs
                         (bool[2]){false, false});
     req->response_headers[i] = HeapTupleGetDatum(header);
   }
+
+  // End of stream, complete the request
+  if (errstr == h2o_httpclient_error_is_eos) {
+    (*req->done)++;
+    return NULL;
+  }
+
   return on_body;
 }
 

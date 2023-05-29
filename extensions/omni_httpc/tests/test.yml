@@ -40,6 +40,21 @@ tests:
       headers: '{"(user-agent,omni_httpc/0.1)"}'
       body: ""
 
+- name: HEAD request
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+           omni_httpc.http_request('http://127.0.0.1:' ||
+                                   (select effective_port from omni_httpd.listeners) || '/test?q=1', method => 'HEAD')))
+    select
+      response.status,
+      response.headers,
+      convert_from(response.body, 'utf-8') as body
+      from response
+  results:
+  - status: 200
+    headers: '{"(connection,keep-alive)","(content-length,113)","(server,omni_httpd-0.1)","(content-type,text/json)"}'
+    body: ''
+
 - name: POST request
   query: |
     with response as (select * from omni_httpc.http_execute(
