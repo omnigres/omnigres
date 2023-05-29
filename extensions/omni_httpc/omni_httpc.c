@@ -44,6 +44,10 @@ static h2o_httpclient_ctx_t ctx;
 static h2o_multithread_queue_t *queue;
 static h2o_multithread_receiver_t getaddr_receiver;
 
+static h2o_httpclient_connection_pool_t *connpool;
+static h2o_socketpool_t *sockpool;
+static h2o_socketpool_target_t **targets;
+
 static struct {
   ptls_iovec_t token;
   ptls_iovec_t ticket;
@@ -175,21 +179,30 @@ static void init() {
   queue = h2o_multithread_create_queue(ctx.loop);
   h2o_multithread_register_receiver(queue, ctx.getaddr_receiver, h2o_hostinfo_getaddr_receiver);
 
+  connpool = h2o_mem_alloc(sizeof(*connpool));
+  sockpool = h2o_mem_alloc(sizeof(*sockpool));
+  h2o_socketpool_set_timeout(sockpool, IO_TIMEOUT);
+  h2o_socketpool_register_loop(sockpool, ctx.loop);
+
+  h2o_httpclient_connection_pool_init(connpool, sockpool);
+
   initialized = true;
 }
 
 struct request {
   h2o_iovec_t request_body;
   StringInfoData body;
-  bool done;
+  int *done;
   h2o_url_t url;
   const char *errstr;
   h2o_iovec_t method;
   size_t num_headers;
-  h2o_header_t **headers;
+  h2o_header_t *headers;
   int status;
   Datum *response_headers;
   size_t num_response_headers;
+  int version;
+  bool connected;
 };
 
 static int on_body(h2o_httpclient_t *client, const char *errstr) {
@@ -198,7 +211,7 @@ static int on_body(h2o_httpclient_t *client, const char *errstr) {
   if (errstr != NULL) {
     if (errstr != h2o_httpclient_error_is_eos) {
       req->errstr = errstr;
-      req->done = true;
+      (*req->done)++;
       return -1;
     }
   }
@@ -206,9 +219,8 @@ static int on_body(h2o_httpclient_t *client, const char *errstr) {
   h2o_buffer_consume(&(*client->buf), (*client->buf)->size);
 
   if (errstr == h2o_httpclient_error_is_eos) {
-    h2o_mem_clear_pool(client->pool);
     SET_VARSIZE(req->body.data, req->body.len);
-    req->done = true;
+    (*req->done)++;
   }
 
   return 0;
@@ -220,15 +232,16 @@ static h2o_httpclient_body_cb on_head(h2o_httpclient_t *client, const char *errs
 
   if (errstr != NULL && errstr != h2o_httpclient_error_is_eos) {
     req->errstr = errstr;
-    req->done = true;
+    (*req->done)++;
     return NULL;
   }
 
   if (errstr == h2o_httpclient_error_is_eos) {
-    req->done = true;
+    (*req->done)++;
     return NULL;
   }
 
+  req->version = args->version;
   req->status = args->status;
 
   req->num_response_headers = args->num_headers;
@@ -257,14 +270,15 @@ static h2o_httpclient_head_cb on_connect(h2o_httpclient_t *client, const char *e
                                          h2o_httpclient_proceed_req_cb *proceed_req_cb,
                                          h2o_httpclient_properties_t *props, h2o_url_t *origin) {
   struct request *req = (struct request *)client->data;
+  req->connected = true;
   if (errstr != NULL) {
     req->errstr = errstr;
-    req->done = true;
+    (*req->done)++;
     return NULL;
   }
   *_method = req->method;
   *num_headers = req->num_headers;
-  *headers = (h2o_header_t *)req->headers;
+  *headers = req->headers;
   *url = req->url;
   *body = req->request_body;
   *proceed_req_cb = NULL;
@@ -276,144 +290,275 @@ PG_FUNCTION_INFO_V1(http_execute);
 Datum http_execute(PG_FUNCTION_ARGS) {
   init();
 
+  int done = 0;
+
+  ReturnSetInfo *rsinfo = (ReturnSetInfo *)fcinfo->resultinfo;
+  rsinfo->returnMode = SFRM_Materialize;
+
+  MemoryContext per_query_ctx = rsinfo->econtext->ecxt_per_query_memory;
+  MemoryContext oldcontext = MemoryContextSwitchTo(per_query_ctx);
+
   h2o_mem_pool_t *pool = (h2o_mem_pool_t *)palloc(sizeof(*pool));
   h2o_mem_init_pool(pool);
 
-  struct request *request = palloc(sizeof(struct request));
+  // Options
+  {
+    HeapTupleHeader options = PG_GETARG_HEAPTUPLEHEADER(0);
+    bool isnull;
 
-  HeapTupleHeader arg_request = PG_GETARG_HEAPTUPLEHEADER(0);
-  bool isnull = false;
+    // H2/H3 ratio
+    Datum option_http2_ratio = GetAttributeByName(options, "http2_ratio", &isnull);
+    int http2_ratio = 0;
+    if (!isnull) {
+      http2_ratio = DatumGetInt32(option_http2_ratio);
+    }
 
-  // URL
-  text *arg_url = (text *)PG_DETOAST_DATUM_PACKED(GetAttributeByName(arg_request, "url", &isnull));
+    Datum option_http3_ratio = GetAttributeByName(options, "http3_ratio", &isnull);
+    int http3_ratio = 0;
+    if (!isnull) {
+      http3_ratio = DatumGetInt32(option_http3_ratio);
+    }
 
-  if (isnull) {
-    ereport(ERROR, errmsg("URL can't be NULL"));
+    if (http2_ratio < 0 || http2_ratio > 100) {
+      ereport(ERROR, errmsg("invalid option"), errdetail("http2_ratio"),
+              errhint("must be within 0..100"));
+    }
+
+    if (http3_ratio < 0 || http3_ratio > 100) {
+      ereport(ERROR, errmsg("invalid option"), errdetail("http3_ratio"),
+              errhint("must be within 0..100"));
+    }
+
+    if (http2_ratio + http3_ratio > 100) {
+      ereport(ERROR, errmsg("invalid option"), errdetail("http2_ratio+http3_ratio"),
+              errhint("this sum must be within 0..100"));
+    }
+
+    ctx.protocol_selector.ratio.http2 = http2_ratio;
+    ctx.protocol_selector.ratio.http3 = http3_ratio;
+
+    // Clear text HTTP2
+    Datum option_force_cleartext_http2 =
+        GetAttributeByName(options, "force_cleartext_http2", &isnull);
+    if (!isnull && DatumGetBool(option_force_cleartext_http2)) {
+      ctx.force_cleartext_http2 = 1;
+    }
   }
 
-  h2o_url_t url;
-  if (h2o_url_parse(VARDATA_ANY(arg_url), VARSIZE_ANY_EXHDR(arg_url), &url) == -1) {
-    ereport(ERROR, errmsg("can't parse URL"), errdetail("%s", text_to_cstring(arg_url)));
-  }
+  ArrayType *requests_array = PG_GETARG_ARRAYTYPE_P(1);
+  ArrayIterator request_iter = array_create_iterator(requests_array, 0, NULL);
 
-  // Method
-  h2o_iovec_t method = h2o_iovec_init(H2O_STRLIT("GET"));
-  Oid arg_method = DatumGetObjectId(GetAttributeByName(arg_request, "method", &isnull));
-  if (!isnull) {
-    HeapTuple tup = SearchSysCache1(ENUMOID, arg_method);
-    assert(HeapTupleIsValid(tup));
+  int num_requests = ArrayGetNItems(ARR_NDIM(requests_array), ARR_DIMS(requests_array));
+  struct request *requests = palloc_array(struct request, num_requests);
 
-    Form_pg_enum enumval = (Form_pg_enum)GETSTRUCT(tup);
+  bool ssl_targets = false;
+  for (int req_i = 0; req_i < num_requests; req_i++) {
 
-    method = h2o_iovec_init(enumval->enumlabel.data, strlen(enumval->enumlabel.data));
-    ReleaseSysCache(tup);
-  }
+    Datum request_datum;
+    bool isnull;
 
-  // Request body
-  Datum arg_request_body = GetAttributeByName(arg_request, "body", &isnull);
-  if (!isnull) {
-    struct varlena *varlena = PG_DETOAST_DATUM_PACKED(arg_request_body);
-    request->request_body = h2o_iovec_init(VARDATA_ANY(varlena), VARSIZE_ANY_EXHDR(varlena));
-  } else {
-    request->request_body = h2o_iovec_init(NULL, 0);
-  }
+    if (!array_iterate(request_iter, &request_datum, &isnull)) {
+      break;
+    }
 
-  // Headers
-  Datum arg_headers = GetAttributeByName(arg_request, "headers", &isnull);
-  static h2o_iovec_t user_agent_header_name = (h2o_iovec_t){H2O_STRLIT("user-agent")};
-  h2o_header_t **headers;
-  size_t num_headers = 0;
-  h2o_headers_t headers_vec = {NULL};
+    // Skip NULL requests
+    if (isnull) {
+      continue;
+    }
+    struct request *request = &requests[req_i];
+    HeapTupleHeader arg_request = DatumGetHeapTupleHeader(request_datum);
 
-  if (!isnull) {
-    TupleDesc tupdesc = TypeGetTupleDesc(http_header_oid(), NULL);
-    BlessTupleDesc(tupdesc);
+    // URL
+    text *arg_url =
+        (text *)PG_DETOAST_DATUM_PACKED(GetAttributeByName(arg_request, "url", &isnull));
 
-    ArrayIterator it = array_create_iterator(DatumGetArrayTypeP(arg_headers), 0, NULL);
-    Datum value;
-    while (array_iterate(it, &value, &isnull)) {
-      if (!isnull) {
-        HeapTupleHeader tuple = DatumGetHeapTupleHeader(value);
-        Datum name = GetAttributeByNum(tuple, 1, &isnull);
+    if (isnull) {
+      ereport(ERROR, errmsg("URL can't be NULL"));
+    }
+
+    if (h2o_url_parse(VARDATA_ANY(arg_url), VARSIZE_ANY_EXHDR(arg_url), &request->url) == -1) {
+      ereport(ERROR, errmsg("can't parse URL"), errdetail("%s", text_to_cstring(arg_url)));
+    }
+
+    // Method
+    Oid arg_method = DatumGetObjectId(GetAttributeByName(arg_request, "method", &isnull));
+    if (!isnull) {
+      HeapTuple tup = SearchSysCache1(ENUMOID, arg_method);
+      assert(HeapTupleIsValid(tup));
+
+      Form_pg_enum enumval = (Form_pg_enum)GETSTRUCT(tup);
+
+      request->method =
+          h2o_iovec_init(pstrdup(enumval->enumlabel.data), strlen(enumval->enumlabel.data));
+      ReleaseSysCache(tup);
+    } else {
+      request->method = h2o_iovec_init(H2O_STRLIT("GET"));
+    }
+
+    // Request body
+    Datum arg_request_body = GetAttributeByName(arg_request, "body", &isnull);
+    if (!isnull) {
+      struct varlena *varlena = PG_DETOAST_DATUM_PACKED(arg_request_body);
+      request->request_body = h2o_iovec_init(VARDATA_ANY(varlena), VARSIZE_ANY_EXHDR(varlena));
+    } else {
+      request->request_body = h2o_iovec_init(NULL, 0);
+    }
+
+    // Headers
+    Datum arg_headers = GetAttributeByName(arg_request, "headers", &isnull);
+    h2o_headers_t *headers_vec = (h2o_headers_t *)palloc0(sizeof(*headers_vec));
+
+    if (!isnull) {
+      TupleDesc tupdesc = TypeGetTupleDesc(http_header_oid(), NULL);
+      BlessTupleDesc(tupdesc);
+
+      ArrayIterator it = array_create_iterator(DatumGetArrayTypeP(arg_headers), 0, NULL);
+      Datum value;
+      while (array_iterate(it, &value, &isnull)) {
         if (!isnull) {
-          text *name_str = DatumGetTextPP(name);
-          Datum value = GetAttributeByNum(tuple, 1, &isnull);
+          HeapTupleHeader tuple = DatumGetHeapTupleHeader(value);
+          Datum name = GetAttributeByNum(tuple, 1, &isnull);
           if (!isnull) {
-            text *value_str = DatumGetTextPP(value);
-            h2o_add_header_by_str(pool, &headers_vec, VARDATA_ANY(name_str),
-                                  VARSIZE_ANY_EXHDR(name_str), 1, NULL, VARDATA_ANY(value_str),
-                                  VARSIZE_ANY_EXHDR(value_str));
+            text *name_str = DatumGetTextPP(name);
+            Datum value = GetAttributeByNum(tuple, 1, &isnull);
+            if (!isnull) {
+              text *value_str = DatumGetTextPP(value);
+              h2o_add_header_by_str(pool, headers_vec, VARDATA_ANY(name_str),
+                                    VARSIZE_ANY_EXHDR(name_str), 1, NULL, VARDATA_ANY(value_str),
+                                    VARSIZE_ANY_EXHDR(value_str));
+            }
           }
         }
       }
+      array_free_iterator(it);
     }
-    array_free_iterator(it);
+
+    h2o_add_header_by_str(pool, headers_vec, H2O_STRLIT("user-agent"), 1, NULL,
+                          H2O_STRLIT("omni_httpc/" EXT_VERSION));
+
+    // Ensure content length is set
+    char clbuf[10];
+    if (request->request_body.len > 0) {
+      int clbuf_len = pg_ultoa_n(request->request_body.len, clbuf);
+      h2o_add_header(pool, headers_vec, H2O_TOKEN_CONTENT_LENGTH, NULL, clbuf, clbuf_len);
+    }
+
+    // If request requires SSL, take a note of that
+    if (request->url.scheme->is_ssl) {
+      ssl_targets = true;
+    }
+
+    request->done = &done;
+    request->errstr = NULL;
+    request->num_headers = headers_vec->size;
+    request->headers = headers_vec->entries;
+    request->connected = false;
+    initStringInfo(&request->body);
+    appendStringInfoSpaces(&request->body, sizeof(struct varlena));
+    SET_VARSIZE(request->body.data, VARHDRSZ);
+  }
+  array_free_iterator(request_iter);
+
+  static bool sockpool_initialized = false;
+  if (!sockpool_initialized) {
+    h2o_socketpool_init_global(sockpool, num_requests);
+    sockpool_initialized = true;
+  } else {
+    sockpool->capacity = Max(num_requests, sockpool->capacity);
   }
 
-  h2o_add_header_by_str(pool, &headers_vec, H2O_STRLIT("user-agent"), 1, NULL,
-                        H2O_STRLIT("omni_httpc/" EXT_VERSION));
-
-  // Ensure content length is set
-  char clbuf[10];
-  if (request->request_body.len > 0) {
-    int clbuf_len = pg_ultoa_n(request->request_body.len, clbuf);
-    h2o_add_header(pool, &headers_vec, H2O_TOKEN_CONTENT_LENGTH, NULL, clbuf, clbuf_len);
+  if (ssl_targets && sockpool->_ssl_ctx == NULL) {
+    SSL_CTX *ssl_ctx = SSL_CTX_new(TLS_client_method());
+    assert(load_ca_bundle(ssl_ctx, ca_bundle) == 1);
+    SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
+    h2o_socketpool_set_ssl_ctx(sockpool, ssl_ctx);
+    SSL_CTX_free(ssl_ctx);
   }
 
-  headers = (h2o_header_t **)headers_vec.entries;
-  num_headers = headers_vec.size;
+  for (int i = 0; i < num_requests; i++) {
+    struct request *request = &requests[i];
+    h2o_httpclient_connect(NULL, pool, request, &ctx, connpool, &request->url, NULL, on_connect);
 
-  h2o_httpclient_connection_pool_t *connpool;
+    while (!request->connected) {
+      CHECK_FOR_INTERRUPTS();
+      h2o_evloop_run(ctx.loop, INT32_MAX);
+    }
+  }
 
-  connpool = palloc(sizeof(*connpool));
-  h2o_socketpool_t *sockpool = h2o_mem_alloc(sizeof(*sockpool));
-  h2o_socketpool_target_t *target = h2o_socketpool_create_target(&url, NULL);
-  h2o_socketpool_init_specific(sockpool, 1, &target, 1, NULL);
-  h2o_socketpool_set_timeout(sockpool, IO_TIMEOUT);
-  h2o_socketpool_register_loop(sockpool, ctx.loop);
-  h2o_httpclient_connection_pool_init(connpool, sockpool);
-
-  SSL_CTX *ssl_ctx = SSL_CTX_new(TLS_client_method());
-  assert(load_ca_bundle(ssl_ctx, ca_bundle) == 1);
-  SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
-  h2o_socketpool_set_ssl_ctx(sockpool, ssl_ctx);
-  SSL_CTX_free(ssl_ctx);
-
-  request->done = false;
-  request->url = url;
-  request->method = method;
-  request->errstr = NULL;
-  request->num_headers = num_headers;
-  request->headers = headers;
-  initStringInfo(&request->body);
-  appendStringInfoSpaces(&request->body, sizeof(struct varlena));
-  SET_VARSIZE(request->body.data, VARHDRSZ);
-
-  h2o_httpclient_connect(NULL, pool, request, &ctx, connpool, &url, NULL, on_connect);
-
-  while (!request->done) {
+  while (done < num_requests) {
     CHECK_FOR_INTERRUPTS();
-    h2o_evloop_run(ctx.loop, 0);
+    h2o_evloop_run(ctx.loop, INT32_MAX);
   }
 
-  h2o_socketpool_unregister_loop(sockpool, ctx.loop);
+  Tuplestorestate *tupstore = tuplestore_begin_heap(false, false, work_mem);
+  rsinfo->setResult = tupstore;
 
-  if (request->errstr != NULL) {
-    ereport(ERROR, errmsg("%s", request->errstr),
-            errdetail("url: %.*s", (int)VARSIZE_ANY_EXHDR(arg_url), VARDATA_ANY(arg_url)));
+  for (int i = 0; i < num_requests; i++) {
+    struct request *request = &requests[i];
+
+    TupleDesc response_tupledesc = rsinfo->expectedDesc;
+
+    if (request->errstr != NULL) {
+      bool isnull[5] = {[0 ... 3] = true, [4] = false};
+      Datum values[5] = {0, 0, 0, 0, PointerGetDatum(cstring_to_text(request->errstr))};
+      tuplestore_putvalues(tupstore, response_tupledesc, values, isnull);
+    } else {
+      ArrayType *response_headers = construct_md_array(
+          request->response_headers, NULL, 1, (int[1]){request->num_response_headers}, (int[1]){1},
+          http_header_oid(), -1, false, TYPALIGN_DOUBLE);
+
+      Datum values[5] = {Int16GetDatum(request->version), Int16GetDatum(request->status),
+                         PointerGetDatum(response_headers), PointerGetDatum(request->body.data),
+                         PointerGetDatum(NULL)};
+      bool isnull[5] = {[0 ... 3] = false, [4] = true};
+      tuplestore_putvalues(tupstore, response_tupledesc, values, isnull);
+    }
   }
 
-  TupleDesc response_tupledesc = TypeGetTupleDesc(http_response_oid(), NULL);
-  BlessTupleDesc(response_tupledesc);
+  tuplestore_donestoring(tupstore);
 
-  ArrayType *response_headers = construct_md_array(
-      request->response_headers, NULL, 1, (int[1]){request->num_response_headers}, (int[1]){1},
-      http_header_oid(), -1, false, TYPALIGN_DOUBLE);
+  MemoryContextSwitchTo(oldcontext);
+  PG_RETURN_NULL();
+}
 
-  Datum values[3] = {Int16GetDatum(request->status), PointerGetDatum(response_headers),
-                     PointerGetDatum(request->body.data)};
+PG_FUNCTION_INFO_V1(http_connections);
 
-  HeapTuple response = heap_form_tuple(response_tupledesc, values, (bool[3]){false, false, false});
+Datum http_connections(PG_FUNCTION_ARGS) {
+  init();
 
-  PG_RETURN_DATUM(HeapTupleGetDatum(response));
+  ReturnSetInfo *rsinfo = (ReturnSetInfo *)fcinfo->resultinfo;
+  rsinfo->returnMode = SFRM_Materialize;
+
+  MemoryContext per_query_ctx = rsinfo->econtext->ecxt_per_query_memory;
+  MemoryContext oldcontext = MemoryContextSwitchTo(per_query_ctx);
+
+  Tuplestorestate *tupstore = tuplestore_begin_heap(false, false, work_mem);
+  rsinfo->setResult = tupstore;
+
+  for (h2o_linklist_t *l = connpool->http2.conns.next; l != &connpool->http2.conns; l = l->next) {
+    struct st_h2o_httpclient__h2_conn_t *conn =
+        H2O_STRUCT_FROM_MEMBER(struct st_h2o_httpclient__h2_conn_t, link, l);
+
+    text *url =
+        cstring_to_text_with_len(conn->origin_url.authority.base, conn->origin_url.authority.len);
+    Datum values[2] = {Int16GetDatum(2), PointerGetDatum(url)};
+    bool isnull[2] = {false, false};
+    tuplestore_putvalues(tupstore, rsinfo->expectedDesc, values, isnull);
+  }
+
+  for (h2o_linklist_t *l = connpool->http3.conns.next; l != &connpool->http3.conns; l = l->next) {
+    struct st_h2o_httpclient__h3_conn_t *conn =
+        H2O_STRUCT_FROM_MEMBER(struct st_h2o_httpclient__h3_conn_t, link, l);
+
+    text *url = cstring_to_text_with_len(conn->server.origin_url.authority.base,
+                                         conn->server.origin_url.authority.len);
+    Datum values[2] = {Int16GetDatum(3), PointerGetDatum(url)};
+    bool isnull[2] = {false, false};
+    tuplestore_putvalues(tupstore, rsinfo->expectedDesc, values, isnull);
+  }
+
+  tuplestore_donestoring(tupstore);
+
+  MemoryContextSwitchTo(oldcontext);
+  PG_RETURN_NULL();
 }

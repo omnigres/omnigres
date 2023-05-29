@@ -1,0 +1,143 @@
+instances:
+  default:
+    config:
+      shared_preload_libraries: */env/OMNI_EXT_SO
+      max_worker_processes: 64
+    init:
+    - |
+      create table users
+      (
+          id     integer primary key generated always as identity,
+          handle text,
+          name   text
+      )
+    - |
+      insert
+      into
+          users (handle, name)
+      values
+          ('johndoe', 'John')
+    - set session omni_httpd.no_init = true
+    - create extension omni_httpd cascade
+    - create extension omni_httpc cascade
+    - delete from omni_httpd.configuration_reloads
+    - |
+      with
+       listener as (insert into omni_httpd.listeners (address, port) values ('127.0.0.1', 0) returning id),
+       handler as (insert into omni_httpd.handlers (query)
+           select
+               omni_httpd.cascading_query(name, query order by priority desc nulls last)
+           from
+               (values
+                    ('hello',
+                     $$SELECT omni_httpd.http_response(headers => array[omni_http.http_header('content-type', 'text/html')], body => 'Hello, <b>' || users.name || '</b>!')
+          FROM request
+          INNER JOIN users ON string_to_array(request.path,'/', '') = array[NULL, 'users', users.handle]
+         $$, 1),
+                    ('abort', $$select omni_httpd.abort() from request where request.path = '/abort'$$, 1),
+                    ('headers',
+                     $$SELECT omni_httpd.http_response(body => request.headers::text) FROM request WHERE request.path = '/headers'$$,
+                     1),
+                    ('echo',
+                     $$SELECT omni_httpd.http_response(body => request.body) FROM request WHERE request.path = '/echo'$$,
+                     1),
+                    -- proxy proxies to /
+                    ('proxy',
+                     $$select omni_httpd.http_proxy('http://127.0.0.1:' || (select effective_port from omni_httpd.listeners where port = 0)) from request where request.path = '/proxy'$$,
+                     1),
+                    -- This validates that `request CTE` can be casted to http_request
+                    ('http_request',
+                     $$SELECT omni_httpd.http_response(body => request.*::omni_httpd.http_request::text) FROM request WHERE request.path = '/http_request'$$,
+                     1),
+                    ('not_found',
+                     $$SELECT omni_httpd.http_response(status => 404, body => json_build_object('method', request.method, 'path', request.path, 'query_string', request.query_string))
+          FROM request$$, 0)) as routes(name, query, priority)
+           returning id)
+      insert
+      into
+       omni_httpd.listeners_handlers (listener_id, handler_id)
+      select
+       listener.id,
+       handler.id
+      from
+       listener,
+       handler
+    - call omni_httpd.wait_for_configuration_reloads(1)
+
+tests:
+- name: query dump
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+      omni_httpc.http_request('http://127.0.0.1:' ||
+      (select effective_port from omni_httpd.listeners where port = 0) || '/test?q=1')))
+    select
+    response.status,
+    convert_from(response.body, 'utf-8')::json as body
+    from response
+  results:
+  - status: 404
+    body:
+      method: GET
+      path: /test
+      query_string: q=1
+- name: username
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+      omni_httpc.http_request('http://127.0.0.1:' ||
+      (select effective_port from omni_httpd.listeners where port = 0) || '/users/johndoe')))
+    select
+    response.status,
+    response.headers,
+    convert_from(response.body, 'utf-8') as body
+    from response
+  results:
+  - status: 200
+    # Check for content-type
+    headers: '{"(connection,keep-alive)","(content-length,19)","(server,omni_httpd-0.1)","(content-type,text/html)"}'
+    body: Hello, <b>John</b>!
+- name: echo
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+      omni_httpc.http_request('http://127.0.0.1:' ||
+      (select effective_port from omni_httpd.listeners where port = 0) || '/echo', method => 'POST',
+       body => 'hello world')))
+    select
+    response.status,
+    response.headers,
+    convert_from(response.body, 'utf-8') as body
+    from response
+  results:
+  - status: 200
+    # Check for content-type
+    headers: '{"(connection,keep-alive)","(content-length,11)","(server,omni_httpd-0.1)","(content-type,application/octet-stream)"}'
+    body: hello world
+- name: headers
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+      omni_httpc.http_request('http://127.0.0.1:' ||
+      (select effective_port from omni_httpd.listeners where port = 0) || '/headers')))
+    select
+    response.status,
+    convert_from(response.body, 'utf-8') as body
+    from response
+  results:
+  - status: 200
+    body: '{"(user-agent,omni_httpc/0.1)"}'
+- name: proxy
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+      omni_httpc.http_request('http://127.0.0.1:' ||
+      (select effective_port from omni_httpd.listeners where port = 0) || '/proxy')))
+    select
+    response.status,
+    convert_from(response.body, 'utf-8')::json as body
+    from response
+  results:
+  - status: 404
+    body:
+      method: GET
+      path: /
+      query_string: null
+
+# Previous version of this test also tested reloading configuration. Should we repeat that
+# here?

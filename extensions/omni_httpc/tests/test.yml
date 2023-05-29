@@ -101,3 +101,59 @@ tests:
       qs: q=1
       headers: '{"(user-agent,omni_httpc/0.1)"}'
       body: test
+
+- name: executing multiple requests
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+           omni_httpc.http_request('http://127.0.0.1:' || (select effective_port from omni_httpd.listeners) || '/test?q=1'),
+           omni_httpc.http_request('http://127.0.0.1:' || (select effective_port from omni_httpd.listeners) || '/test?q=2')
+    ))
+    select
+      response.status,
+      response.headers,
+      convert_from(response.body, 'utf-8')::json as body
+      from response
+  results:
+  - status: 200
+    headers: '{"(connection,keep-alive)","(content-length,112)","(server,omni_httpd-0.1)","(content-type,text/json)"}'
+    body:
+      method: GET
+      path: /test
+      qs: q=1
+      headers: '{"(user-agent,omni_httpc/0.1)"}'
+      body: ""
+  - status: 200
+    headers: '{"(connection,keep-alive)","(content-length,112)","(server,omni_httpd-0.1)","(content-type,text/json)"}'
+    body:
+      method: GET
+      path: /test
+      qs: q=2
+      headers: '{"(user-agent,omni_httpc/0.1)"}'
+      body: ""
+
+- name: protocol selector (H1)
+  query: |
+    with response as (select * from omni_httpc.http_execute_with_options(
+           omni_httpc.http_execute_options(http2_ratio => 0), 
+           omni_httpc.http_request('http://127.0.0.1:' ||
+                                   (select effective_port from omni_httpd.listeners) || '/test?q=1')))
+    select
+      response.version >> 8 as http_version
+      from response
+  results:
+  - http_version: 1
+
+- name: protocol selector (H2)
+  query: |
+    with response as (select * from omni_httpc.http_execute_with_options(
+           omni_httpc.http_execute_options(force_cleartext_http2 => true, http2_ratio => 100), 
+           omni_httpc.http_request('http://127.0.0.1:' ||
+                                   (select effective_port from omni_httpd.listeners) || '/test?q=1')))
+    select
+      response.version >> 8 as http_version
+      from response
+  results:
+  - http_version: 2
+
+- name: protocol selector (H3)
+  todo: pending working H3 support in omni_httpd

@@ -1,0 +1,243 @@
+instances:
+  default:
+    config:
+      shared_preload_libraries: */env/OMNI_EXT_SO
+      max_worker_processes: 64
+    init:
+    - set session omni_httpd.no_init = true
+    - create extension omni_httpd cascade
+    - create extension omni_httpc cascade
+    - create role test_user inherit in role current_user
+    - create role test_user1 inherit in role current_user
+    - create role anotherrole inherit in role current_user
+    - alter role anotherrole nosuperuser
+    - create role another_superuser superuser
+    - set role test_user
+    - |
+      create function reset_role() returns omni_httpd.http_outcome
+      as
+      $$
+       declare
+           outcome omni_httpd.http_outcome;
+       begin
+           begin
+               reset role;
+               select omni_httpd.http_response('ok') into outcome;
+           exception
+               when others then
+                   select omni_httpd.http_response('failed resetting') into outcome;
+           end;
+           return outcome;
+       end;
+       $$ language plpgsql
+    - |
+      create function set_role_none() returns omni_httpd.http_outcome
+      as
+      $$
+      declare
+          outcome omni_httpd.http_outcome;
+      begin
+          begin
+              set role none;
+              select omni_httpd.http_response('ok') into outcome;
+          exception
+              when others then
+                  select omni_httpd.http_response('failed setting to none') into outcome;
+          end;
+          return outcome;
+      end;
+      $$ language plpgsql
+    - |
+      create function set_superuser_role() returns omni_httpd.http_outcome
+      as
+      $$
+      declare
+          outcome omni_httpd.http_outcome;
+      begin
+          begin
+              set role another_superuser;
+              select omni_httpd.http_response('ok') into outcome;
+          exception
+              when others then
+                  select omni_httpd.http_response('failed setting superuser role') into outcome;
+          end;
+          return outcome;
+      end;
+      $$ language plpgsql
+    - delete from omni_httpd.configuration_reloads
+    - |
+      with
+          listener as (insert into omni_httpd.listeners (address, port) values ('127.0.0.1', 0) returning id),
+          handler as (insert into omni_httpd.handlers (query)
+              values
+                  ($$select
+                           (case
+                             when request.path = '/' then
+                               omni_httpd.http_response(body => current_user::text)
+                             when request.path = '/reset-role' then
+                               reset_role()
+                             when request.path = '/set-role-none' then
+                               set_role_none()
+                             when request.path = '/superuser-role' then
+                               set_superuser_role()
+                            end)
+                          from request$$) returning id)
+      insert
+      into
+          omni_httpd.listeners_handlers (listener_id, handler_id)
+      select
+          listener.id,
+          handler.id
+      from
+          listener,
+          handler
+    - call omni_httpd.wait_for_configuration_reloads(1)
+    # FIXME: this shouldn't be here, but it doesn't work without it
+    - select pg_sleep(1)
+
+tests:
+- name: Can't update it to an arbitrary name
+  query: update omni_httpd.handlers set role_name = 'some_role' where role_name = 'test_user'
+  success: false
+  error: 'new row for relation "handlers" violates check constraint "handlers_role_name_check"'
+
+- name: Can update it to a name that is not a current user if it is accessible
+  query: update omni_httpd.handlers set role_name = 'test_user1' where role_name = 'test_user'
+  commit: true
+
+- name: Change user role
+  query: set session role test_user1
+  commit: true
+
+- name: Can update it to a name that is a current user
+  query: update omni_httpd.handlers set role_name = 'test_user1' where role_name = 'test_user'
+
+- name: After checking permissions, should not change to the new role
+  steps:
+  - query: update omni_httpd.handlers set role_name = 'anotherrole' where role_name = 'test_user1'
+  - query: select current_user
+    results:
+    - current_user: test_user1
+
+- name: Can't update it to a name that is not a current user if it is not accessible
+  steps:
+    - reset role
+    - alter role current_user nosuperuser
+    - query: update omni_httpd.handlers set role_name = 'anotherrole' where role_name = 'test_user1'
+      success: false
+      error: 'new row for relation "handlers" violates check constraint "handlers_role_name_check"'
+
+- name: check current role through the service
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+      omni_httpc.http_request('http://127.0.0.1:' ||
+      (select effective_port from omni_httpd.listeners where port = 0))))
+    select status, convert_from(body, 'utf-8') as body from response
+  results:
+  - status: 200
+    body: test_user1
+
+- name: Ensure 'anotherrole' is not a superuser (sanity check)
+  query: select rolsuper from pg_roles where rolname = 'anotherrole'
+  results:
+  - rolsuper: f
+
+- name: set another role
+  steps:
+  - reset role
+  - update omni_httpd.handlers set role_name = 'anotherrole' where role_name = 'test_user1'
+  - delete from omni_httpd.configuration_reloads
+  commit: true
+
+- name: wait for reload
+  query: call omni_httpd.wait_for_configuration_reloads(1)
+
+- name: Check current role
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+      omni_httpc.http_request('http://127.0.0.1:' ||
+      (select effective_port from omni_httpd.listeners where port = 0))))
+    select status, convert_from(body, 'utf-8') as body from response
+  results:
+  - status: 200
+    body: anotherrole
+
+- name: Ensure it's not possible to reset session to superuser
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+      omni_httpc.http_request('http://127.0.0.1:' ||
+      (select effective_port from omni_httpd.listeners where port = 0) || '/reset-role')))
+    select status, convert_from(body, 'utf-8') as body from response
+  results:
+  - status: 200
+    body: failed resetting
+
+- name: Ensure it's not possible to set session to superuser
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+      omni_httpc.http_request('http://127.0.0.1:' ||
+      (select effective_port from omni_httpd.listeners where port = 0) || '/superuser-role')))
+    select status, convert_from(body, 'utf-8') as body from response
+  results:
+  - status: 200
+    body: failed setting superuser role
+
+- name: Ensure it's not possible to set session to none
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+      omni_httpc.http_request('http://127.0.0.1:' ||
+      (select effective_port from omni_httpd.listeners where port = 0) || '/set-role-none')))
+    select status, convert_from(body, 'utf-8') as body from response
+  results:
+  - status: 200
+    body: failed setting to none
+
+- name: Make `anotherrole` a superuser
+  steps:
+  - alter role anotherrole superuser
+  - delete from omni_httpd.configuration_reloads
+  - select omni_httpd.reload_configuration()
+  commit: true
+
+- name: wait for reload
+  query: call omni_httpd.wait_for_configuration_reloads(1)
+
+- name: Check current role
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+      omni_httpc.http_request('http://127.0.0.1:' ||
+      (select effective_port from omni_httpd.listeners where port = 0))))
+    select status, convert_from(body, 'utf-8') as body from response
+  results:
+  - status: 200
+    body: anotherrole
+
+- name: Ensure it's possible to reset session to superuser
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+      omni_httpc.http_request('http://127.0.0.1:' ||
+      (select effective_port from omni_httpd.listeners where port = 0) || '/reset-role')))
+    select status, convert_from(body, 'utf-8') as body from response
+  results:
+  - status: 200
+    body: ok
+
+- name: Ensure it's possible to set session to superuser
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+      omni_httpc.http_request('http://127.0.0.1:' ||
+      (select effective_port from omni_httpd.listeners where port = 0) || '/superuser-role')))
+    select status, convert_from(body, 'utf-8') as body from response
+  results:
+  - status: 200
+    body: ok
+
+- name: Ensure it's possible to set session to none
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+      omni_httpc.http_request('http://127.0.0.1:' ||
+      (select effective_port from omni_httpd.listeners where port = 0) || '/set-role-none')))
+    select status, convert_from(body, 'utf-8') as body from response
+  results:
+  - status: 200
+    body: ok

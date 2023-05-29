@@ -1,0 +1,188 @@
+instances:
+  default:
+    config:
+      shared_preload_libraries: */env/OMNI_EXT_SO
+      max_worker_processes: 64
+    init:
+    - create extension omni_httpd cascade
+
+tests:
+- name: NULL status
+  query: |
+    with response as
+      (select (omni_httpd.http_response(status => null, body => 'test')::omni_httpd.http_response).*)
+    select status, (select json_agg(json_build_object(h.name, h.value)) from unnest(headers) h) as headers,
+           convert_from(body, 'utf-8') as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-type: text/plain; charset=utf-8
+    body: test
+
+- name: NULL headers
+  query: |
+    with response as
+      (select (omni_httpd.http_response(headers => null, body => 'test')::omni_httpd.http_response).*)
+    select status, (select json_agg(json_build_object(h.name, h.value)) from unnest(headers) h) as headers,
+           convert_from(body, 'utf-8') as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-type: text/plain; charset=utf-8
+    body: test
+
+- name: NULL body
+  query: |
+    with response as
+      (select (omni_httpd.http_response(body => null)::omni_httpd.http_response).*)
+    select status, (select json_agg(json_build_object(h.name, h.value)) from unnest(headers) h) as headers,
+           convert_from(body, 'utf-8') as body
+    from response
+  results:
+  - status: 200
+    headers: null
+    body: null
+
+- name: NULL body (implicit)
+  query: |
+    with response as
+      (select (omni_httpd.http_response()::omni_httpd.http_response).*)
+    select status, (select json_agg(json_build_object(h.name, h.value)) from unnest(headers) h) as headers,
+           convert_from(body, 'utf-8') as body
+    from response
+  results:
+  - status: 200
+    headers: null
+    body: null
+
+- name: Text body
+  query: |
+    with response as
+      (select (omni_httpd.http_response(body => 'text')::omni_httpd.http_response).*)
+    select status, (select json_agg(json_build_object(h.name, h.value)) from unnest(headers) h) as headers,
+           convert_from(body, 'utf-8') as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-type: text/plain; charset=utf-8
+    body: text
+
+- name: JSON body
+  query: |
+    with response as
+      (select (omni_httpd.http_response(body => '{}'::json)::omni_httpd.http_response).*)
+    select status, (select json_agg(json_build_object(h.name, h.value)) from unnest(headers) h) as headers,
+           convert_from(body, 'utf-8')::json as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-type: text/json
+    body: { }
+
+- name: JSONB body
+  query: |
+    with response as
+      (select (omni_httpd.http_response(body => '{}'::jsonb)::omni_httpd.http_response).*)
+    select status, (select json_agg(json_build_object(h.name, h.value)) from unnest(headers) h) as headers,
+           convert_from(body, 'utf-8')::jsonb as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-type: text/json
+    body: { }
+
+- name: Binary body
+  query: |
+    with response as
+      (select (omni_httpd.http_response(body => convert_to('binary', 'utf-8'))::omni_httpd.http_response).*)
+    select status, (select json_agg(json_build_object(h.name, h.value)) from unnest(headers) h) as headers,
+           convert_from(body, 'utf-8') as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-type: application/octet-stream
+    body: binary
+
+- name: Specifying status
+  query: |
+    with response as
+      (select (omni_httpd.http_response(status => 404)::omni_httpd.http_response).*)
+    select status, (select json_agg(json_build_object(h.name, h.value)) from unnest(headers) h) as headers,
+           convert_from(body, 'utf-8') as body
+    from response
+  results:
+  - status: 404
+    headers: null
+    body: null
+
+- name: Specifying headers
+  query: |
+    with response as
+      (select (omni_httpd.http_response(headers => array [omni_http.http_header('test', 'value')]::omni_http.http_header[])::omni_httpd.http_response).*)
+    select status, (select json_agg(json_build_object(h.name, h.value)) from unnest(headers) h) as headers,
+           convert_from(body, 'utf-8') as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - test: value
+    body: null
+
+- name: Merging headers with inferred ones
+  query: |
+    with response as
+      (select (omni_httpd.http_response(body => 'test', headers => array [omni_http.http_header('test', 'value')]::omni_http.http_header[])::omni_httpd.http_response).*)
+    select status, (select json_agg(json_build_object(h.name, h.value)) from unnest(headers) h) as headers,
+           convert_from(body, 'utf-8') as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - test: value
+    - content-type: text/plain; charset=utf-8
+    body: test
+
+- name: Overriding content type
+  query: |
+    with response as
+      (select (omni_httpd.http_response(body => 'test', headers => array [omni_http.http_header('content-type', 'text/html')]::omni_http.http_header[])::omni_httpd.http_response).*)
+    select status, (select json_agg(json_build_object(h.name, h.value)) from unnest(headers) h) as headers,
+           convert_from(body, 'utf-8') as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-type: text/html
+    body: test
+
+- name: Overriding content type, with a different case
+  query: |
+    with response as
+      (select (omni_httpd.http_response(body => 'test', headers => array [omni_http.http_header('Content-Type', 'text/html')]::omni_http.http_header[])::omni_httpd.http_response).*)
+    select status, (select json_agg(json_build_object(h.name, h.value)) from unnest(headers) h) as headers,
+           convert_from(body, 'utf-8') as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - Content-Type: text/html
+    body: test
+
+- name: Shortcut syntax with body first
+  query: |
+    with response as
+      (select (omni_httpd.http_response('test')::omni_httpd.http_response).*)
+    select status, (select json_agg(json_build_object(h.name, h.value)) from unnest(headers) h) as headers,
+           convert_from(body, 'utf-8') as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-type: text/plain; charset=utf-8
+    body: test

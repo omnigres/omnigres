@@ -129,6 +129,9 @@ void h2o_queue_proxy(request_message_t *msg, char *url, bool preserve_host) {
 static inline void prepare_req_for_reprocess(h2o_req_t *req) {
   req->conn->ctx->proxy.client_ctx.tunnel_enabled = 1;
 
+  // Ensure we attempt H2
+  req->conn->ctx->proxy.client_ctx.protocol_selector.ratio.http2 = 100;
+
   // This line below setting max_buffer_size is currently very important
   // because
   // https://github.com/h2o/h2o/blob/b5dca420963928865b28538a315f16cac5ae8251/lib/common/http1client.c#L881
