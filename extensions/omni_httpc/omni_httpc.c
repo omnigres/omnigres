@@ -40,13 +40,16 @@ CACHED_OID(http_response);
 
 #define IO_TIMEOUT 5000
 
+//
+// Global variables below are used to share information across requests
+//
+
 static h2o_httpclient_ctx_t ctx;
 static h2o_multithread_queue_t *queue;
 static h2o_multithread_receiver_t getaddr_receiver;
 
 static h2o_httpclient_connection_pool_t *connpool;
 static h2o_socketpool_t *sockpool;
-static h2o_socketpool_target_t **targets;
 
 static struct {
   ptls_iovec_t token;
@@ -189,25 +192,39 @@ static void init() {
   initialized = true;
 }
 
+// Contains request and its outcome
 struct request {
+  // Request body
   h2o_iovec_t request_body;
+  // Response body
   StringInfoData body;
+  // Pointer to a counter of completed requests
   int *done;
+  // Request URL
   h2o_url_t url;
+  // Error (NULL if none)
   const char *errstr;
+  // Request method
   h2o_iovec_t method;
+  // Request headers
   size_t num_headers;
   h2o_header_t *headers;
+  // Response status
   int status;
+  // Response headers
   Datum *response_headers;
   size_t num_response_headers;
+  // HTTP version
   int version;
+  // Signals that the authority has been connected to for this request
   bool connected;
 };
 
+// Called when response body chunk is being received
 static int on_body(h2o_httpclient_t *client, const char *errstr) {
   struct request *req = (struct request *)client->data;
 
+  // If there's an error, report it
   if (errstr != NULL) {
     if (errstr != h2o_httpclient_error_is_eos) {
       req->errstr = errstr;
@@ -215,9 +232,12 @@ static int on_body(h2o_httpclient_t *client, const char *errstr) {
       return -1;
     }
   }
+
+  // Append the body
   appendBinaryStringInfo(&req->body, (*client->buf)->bytes, (*client->buf)->size);
   h2o_buffer_consume(&(*client->buf), (*client->buf)->size);
 
+  // End of stream, complete the request
   if (errstr == h2o_httpclient_error_is_eos) {
     SET_VARSIZE(req->body.data, req->body.len);
     (*req->done)++;
@@ -226,21 +246,25 @@ static int on_body(h2o_httpclient_t *client, const char *errstr) {
   return 0;
 }
 
+// Called when response head has been received
 static h2o_httpclient_body_cb on_head(h2o_httpclient_t *client, const char *errstr,
                                       h2o_httpclient_on_head_t *args) {
   struct request *req = (struct request *)client->data;
 
+  // If there's an error, report it
   if (errstr != NULL && errstr != h2o_httpclient_error_is_eos) {
     req->errstr = errstr;
     (*req->done)++;
     return NULL;
   }
 
+  // End of stream, complete the request
   if (errstr == h2o_httpclient_error_is_eos) {
     (*req->done)++;
     return NULL;
   }
 
+  // Collect information from the head
   req->version = args->version;
   req->status = args->status;
 
@@ -263,6 +287,7 @@ static h2o_httpclient_body_cb on_head(h2o_httpclient_t *client, const char *errs
   return on_body;
 }
 
+// Called when request is connected to the authority
 static h2o_httpclient_head_cb on_connect(h2o_httpclient_t *client, const char *errstr,
                                          h2o_iovec_t *_method, h2o_url_t *url,
                                          const h2o_header_t **headers, size_t *num_headers,
@@ -271,11 +296,13 @@ static h2o_httpclient_head_cb on_connect(h2o_httpclient_t *client, const char *e
                                          h2o_httpclient_properties_t *props, h2o_url_t *origin) {
   struct request *req = (struct request *)client->data;
   req->connected = true;
+  // If there's an error, report it
   if (errstr != NULL) {
     req->errstr = errstr;
     (*req->done)++;
     return NULL;
   }
+  // Provide H2O client with necessary request payload
   *_method = req->method;
   *num_headers = req->num_headers;
   *headers = req->headers;
@@ -292,12 +319,14 @@ Datum http_execute(PG_FUNCTION_ARGS) {
 
   int done = 0;
 
+  // Prepare to return the set
   ReturnSetInfo *rsinfo = (ReturnSetInfo *)fcinfo->resultinfo;
   rsinfo->returnMode = SFRM_Materialize;
 
   MemoryContext per_query_ctx = rsinfo->econtext->ecxt_per_query_memory;
   MemoryContext oldcontext = MemoryContextSwitchTo(per_query_ctx);
 
+  // Initialize a memory pool
   h2o_mem_pool_t *pool = (h2o_mem_pool_t *)palloc(sizeof(*pool));
   h2o_mem_init_pool(pool);
 
@@ -351,13 +380,17 @@ Datum http_execute(PG_FUNCTION_ARGS) {
   int num_requests = ArrayGetNItems(ARR_NDIM(requests_array), ARR_DIMS(requests_array));
   struct request *requests = palloc_array(struct request, num_requests);
 
+  // Indicates if any target requires SSL
   bool ssl_targets = false;
+
+  // For every request:
   for (int req_i = 0; req_i < num_requests; req_i++) {
 
     Datum request_datum;
     bool isnull;
 
     if (!array_iterate(request_iter, &request_datum, &isnull)) {
+      // Bail if we're done iterating
       break;
     }
 
@@ -365,6 +398,7 @@ Datum http_execute(PG_FUNCTION_ARGS) {
     if (isnull) {
       continue;
     }
+
     struct request *request = &requests[req_i];
     HeapTupleHeader arg_request = DatumGetHeapTupleHeader(request_datum);
 
@@ -433,6 +467,7 @@ Datum http_execute(PG_FUNCTION_ARGS) {
       array_free_iterator(it);
     }
 
+    // User agent
     h2o_add_header_by_str(pool, headers_vec, H2O_STRLIT("user-agent"), 1, NULL,
                           H2O_STRLIT("omni_httpc/" EXT_VERSION));
 
@@ -454,11 +489,14 @@ Datum http_execute(PG_FUNCTION_ARGS) {
     request->headers = headers_vec->entries;
     request->connected = false;
     initStringInfo(&request->body);
+    // Prepend the response with varlena's header so that we can populate it
+    // in the end, when the ull length is known.
     appendStringInfoSpaces(&request->body, sizeof(struct varlena));
     SET_VARSIZE(request->body.data, VARHDRSZ);
   }
   array_free_iterator(request_iter);
 
+  // Initialize the socket pool if necessary
   static bool sockpool_initialized = false;
   if (!sockpool_initialized) {
     h2o_socketpool_init_global(sockpool, num_requests);
@@ -467,6 +505,7 @@ Datum http_execute(PG_FUNCTION_ARGS) {
     sockpool->capacity = Max(num_requests, sockpool->capacity);
   }
 
+  // Load CA bundle if necessary
   if (ssl_targets && sockpool->_ssl_ctx == NULL) {
     SSL_CTX *ssl_ctx = SSL_CTX_new(TLS_client_method());
     assert(load_ca_bundle(ssl_ctx, ca_bundle) == 1);
@@ -475,34 +514,42 @@ Datum http_execute(PG_FUNCTION_ARGS) {
     SSL_CTX_free(ssl_ctx);
   }
 
+  // Send off all requests
   for (int i = 0; i < num_requests; i++) {
     struct request *request = &requests[i];
     h2o_httpclient_connect(NULL, pool, request, &ctx, connpool, &request->url, NULL, on_connect);
 
+    // Wait until this request has been connected so that following requests can re-use the
+    // connection
     while (!request->connected) {
       CHECK_FOR_INTERRUPTS();
       h2o_evloop_run(ctx.loop, INT32_MAX);
     }
   }
 
+  // Run the event loop until all requests have been completed
   while (done < num_requests) {
     CHECK_FOR_INTERRUPTS();
     h2o_evloop_run(ctx.loop, INT32_MAX);
   }
 
+  // Start populating the result set
   Tuplestorestate *tupstore = tuplestore_begin_heap(false, false, work_mem);
   rsinfo->setResult = tupstore;
 
+  // For every request
   for (int i = 0; i < num_requests; i++) {
     struct request *request = &requests[i];
 
     TupleDesc response_tupledesc = rsinfo->expectedDesc;
 
     if (request->errstr != NULL) {
+      // Return an error if there's one
       bool isnull[5] = {[0 ... 3] = true, [4] = false};
       Datum values[5] = {0, 0, 0, 0, PointerGetDatum(cstring_to_text(request->errstr))};
       tuplestore_putvalues(tupstore, response_tupledesc, values, isnull);
     } else {
+      // Return the response with no error
       ArrayType *response_headers = construct_md_array(
           request->response_headers, NULL, 1, (int[1]){request->num_response_headers}, (int[1]){1},
           http_header_oid(), -1, false, TYPALIGN_DOUBLE);
@@ -535,6 +582,7 @@ Datum http_connections(PG_FUNCTION_ARGS) {
   Tuplestorestate *tupstore = tuplestore_begin_heap(false, false, work_mem);
   rsinfo->setResult = tupstore;
 
+  // Scan H2 connections
   for (h2o_linklist_t *l = connpool->http2.conns.next; l != &connpool->http2.conns; l = l->next) {
     struct st_h2o_httpclient__h2_conn_t *conn =
         H2O_STRUCT_FROM_MEMBER(struct st_h2o_httpclient__h2_conn_t, link, l);
@@ -546,6 +594,7 @@ Datum http_connections(PG_FUNCTION_ARGS) {
     tuplestore_putvalues(tupstore, rsinfo->expectedDesc, values, isnull);
   }
 
+  // Scan H3 connections
   for (h2o_linklist_t *l = connpool->http3.conns.next; l != &connpool->http3.conns; l = l->next) {
     struct st_h2o_httpclient__h3_conn_t *conn =
         H2O_STRUCT_FROM_MEMBER(struct st_h2o_httpclient__h3_conn_t, link, l);
