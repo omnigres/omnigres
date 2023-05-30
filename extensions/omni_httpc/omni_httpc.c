@@ -166,13 +166,11 @@ static void init() {
     int fd;
     struct sockaddr_in sin;
     if ((fd = socket(PF_INET, SOCK_DGRAM, 0)) == -1) {
-      perror("failed to create UDP socket");
-      exit(EXIT_FAILURE);
+      ereport(ERROR, errmsg("failed to create UDP socket"));
     }
     memset(&sin, 0, sizeof(sin));
     if (bind(fd, (void *)&sin, sizeof(sin)) != 0) {
-      perror("failed to bind bind UDP socket");
-      exit(EXIT_FAILURE);
+      ereport(ERROR, errmsg("failed to bind bind UDP socket"));
     }
     h2o_socket_t *sock = h2o_evloop_socket_create(ctx.loop, fd, H2O_SOCKET_FLAG_DONT_READ);
     h2o_quic_init_context(&h3ctx.h3, ctx.loop, sock, &h3ctx.quic, NULL,
