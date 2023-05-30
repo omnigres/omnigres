@@ -184,6 +184,12 @@ static void init() {
 
   connpool = h2o_mem_alloc(sizeof(*connpool));
   sockpool = h2o_mem_alloc(sizeof(*sockpool));
+
+  // NB: It is very important to init the sockpool *prior* to
+  // registering it in the loop as it will initialize its
+  // content with zeroes.
+  h2o_socketpool_init_global(sockpool, 1);
+
   h2o_socketpool_set_timeout(sockpool, IO_TIMEOUT);
   h2o_socketpool_register_loop(sockpool, ctx.loop);
 
@@ -497,14 +503,8 @@ Datum http_execute(PG_FUNCTION_ARGS) {
   }
   array_free_iterator(request_iter);
 
-  // Initialize the socket pool if necessary
-  static bool sockpool_initialized = false;
-  if (!sockpool_initialized) {
-    h2o_socketpool_init_global(sockpool, num_requests);
-    sockpool_initialized = true;
-  } else {
-    sockpool->capacity = Max(num_requests, sockpool->capacity);
-  }
+  // Adjust the socket pool capacity if necessary
+  sockpool->capacity = Max(num_requests, sockpool->capacity);
 
   // Load CA bundle if necessary
   if (ssl_targets && sockpool->_ssl_ctx == NULL) {
