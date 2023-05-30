@@ -509,7 +509,8 @@ Datum http_execute(PG_FUNCTION_ARGS) {
   // Load CA bundle if necessary
   if (ssl_targets && sockpool->_ssl_ctx == NULL) {
     SSL_CTX *ssl_ctx = SSL_CTX_new(TLS_client_method());
-    assert(load_ca_bundle(ssl_ctx, ca_bundle) == 1);
+    int bundle_loaded = load_ca_bundle(ssl_ctx, ca_bundle);
+    assert(bundle_loaded == 1);
     SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
     h2o_socketpool_set_ssl_ctx(sockpool, ssl_ctx);
     SSL_CTX_free(ssl_ctx);
