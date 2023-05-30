@@ -92,16 +92,19 @@ include(Inja)
 find_program(PGCLI pgcli)
 
 function(find_pg_yregress_tests dir)
-    file(GLOB files RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} ${dir}/*)
-    list(SORT files)
-    foreach(file ${files})
-        add_test(NAME ${NAME}/${file} WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-                COMMAND "$<TARGET_FILE:pg_yregress>" "${dir}/../${file}")
-        set_property(TEST ${NAME}/${file} PROPERTY ENVIRONMENT
-                "PGCONFIG=${PG_CONFIG};PGSHAREDIR=${_share_dir};OMNI_EXT_SO=$<TARGET_FILE:omni_ext>")
-    endforeach()
-    # Ensure changes in `tests` force a re-run of `cmake`
-    set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${dir})
+    file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${NAME}_FindRegressTests.cmake"
+            CONTENT "
+file(GLOB files RELATIVE ${CMAKE_CURRENT_LIST_DIR} ${dir}/*)
+list(SORT files)
+foreach(file \${files})
+    add_test(\"${NAME}/\${file}\" \"$<TARGET_FILE:pg_yregress>\" \"${dir}/../\${file}\")
+    set_tests_properties(\"${NAME}/\${file}\" PROPERTIES
+    WORKING_DIRECTORY \"${CMAKE_CURRENT_BINARY_DIR}\"
+    ENVIRONMENT \"PGCONFIG=${PG_CONFIG};PGSHAREDIR=${_share_dir};OMNI_EXT_SO=$<TARGET_FILE:omni_ext>\")
+endforeach()
+")
+    get_directory_property(current_includes TEST_INCLUDE_FILES)
+    set_directory_properties(PROPERTIES TEST_INCLUDE_FILES "${current_includes};${CMAKE_CURRENT_BINARY_DIR}/${NAME}_FindRegressTests.cmake")
 endfunction()
 
 function(add_postgresql_extension NAME)
