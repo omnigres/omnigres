@@ -445,6 +445,10 @@ int main(int argc, char **argv) {
 
     struct fy_document *fyd = fy_document_build_from_file(&parse_cfg, argv[1]);
 
+    if (fyd == NULL) {
+      exit(1);
+    }
+
     // Prepare `env` dictionary
     struct fy_node *root = fy_document_root(fyd);
     struct fy_node *env = fy_node_create_mapping(fyd);
