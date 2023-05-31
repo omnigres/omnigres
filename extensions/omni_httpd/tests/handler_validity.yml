@@ -1,0 +1,33 @@
+instances:
+  default:
+    config:
+      shared_preload_libraries: */env/OMNI_EXT_SO
+      max_worker_processes: 64
+    init:
+    - create extension omni_httpd cascade
+
+tests:
+  - query: insert into omni_httpd.handlers (query) values ($$select * from no_such_table$$)
+    error:
+      severity: ERROR
+      message: invalid query
+      detail: relation "no_such_table" does not exist
+  - query: insert into omni_httpd.handlers (query) values ($$select request.pth from request$$)
+    error:
+      severity:
+      message: invalid query
+      detail: column request.pth does not exist
+  - query: insert into omni_httpd.handlers (query) values ($$$$)
+    error:
+      severity: ERROR
+      message: query can only contain one statement
+  - query: insert into omni_httpd.handlers (query) values ($$select; select$$);
+    error:
+      severity: ERROR
+      message: query can only contain one statement
+  - name: valid at the end of the transaction
+    steps:
+    - query: |
+        insert into omni_httpd.handlers (query) values ($$select * from no_such_table$$);
+    - query: create table no_such_table ()
+    commit: true

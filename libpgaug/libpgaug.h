@@ -59,13 +59,15 @@ void __with_temp_memcxt_cleanup(struct __with_temp_memcxt *s);
  * The result is cached (as can be implied from the name of the macro)
  *
  */
-#define CACHED_OID(name)                                                                           \
+
+#define CACHED_OID_2(ext, name)                                                                    \
   static Oid oid_##name = InvalidOid;                                                              \
   static Oid oid_array_##name = InvalidOid;                                                        \
   Oid name##_oid() {                                                                               \
     if (oid_##name == InvalidOid) {                                                                \
       SPI_connect();                                                                               \
-      if (SPI_exec("SELECT NULL::" EXT_SCHEMA "." _PGEXT_STRINGIZE(name), 0) == SPI_OK_SELECT) {   \
+      if (SPI_exec("SELECT NULL::" _PGEXT_STRINGIZE(ext) "." _PGEXT_STRINGIZE(name), 0) ==         \
+          SPI_OK_SELECT) {                                                                         \
         TupleDesc tupdesc = SPI_tuptable->tupdesc;                                                 \
         oid_##name = tupdesc->attrs[0].atttypid;                                                   \
       }                                                                                            \
@@ -76,7 +78,7 @@ void __with_temp_memcxt_cleanup(struct __with_temp_memcxt *s);
   Oid name##_array_oid() {                                                                         \
     if (oid_array_##name == InvalidOid) {                                                          \
       SPI_connect();                                                                               \
-      if (SPI_exec("SELECT array[]::" EXT_SCHEMA "." _PGEXT_STRINGIZE(name) "[]", 0) ==            \
+      if (SPI_exec("SELECT array[]::" _PGEXT_STRINGIZE(ext) "." _PGEXT_STRINGIZE(name) "[]", 0) == \
           SPI_OK_SELECT) {                                                                         \
         TupleDesc tupdesc = SPI_tuptable->tupdesc;                                                 \
         oid_array_##name = tupdesc->attrs[0].atttypid;                                             \
@@ -85,6 +87,11 @@ void __with_temp_memcxt_cleanup(struct __with_temp_memcxt *s);
     }                                                                                              \
     return oid_array_##name;                                                                       \
   }
+
+#define CACHED_OID_1(name) CACHED_OID_2(EXT_SCHEMA, name)
+
+#define CACHED_OID_GET_MACRO(_1, _2, NAME, ...) NAME
+#define CACHED_OID(...) CACHED_OID_GET_MACRO(__VA_ARGS__, CACHED_OID_2, CACHED_OID_1)(__VA_ARGS__)
 
 #define GetAttributeByIndex(t, index, isnull) GetAttributeByNum(t, index + 1, isnull)
 

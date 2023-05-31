@@ -1,5 +1,8 @@
 if(APPLE)
-    execute_process(COMMAND brew --prefix openssl
+    # TODO: reassess pinning to 3.0 as this is a temporary workaround for this issue:
+    # https://github.com/openssl/openssl/issues/20753
+
+    execute_process(COMMAND brew --prefix openssl@3.0
         OUTPUT_VARIABLE OPENSSL_PREIX RESULT_VARIABLE OPENSSL_RC
         OUTPUT_STRIP_TRAILING_WHITESPACE)
 

@@ -42,14 +42,7 @@ jobs:
         HOMEBREW_NO_INSTALL_CLEANUP: "1"
       run: |
         brew update
-        brew install openssl@3 coreutils
-
-    - name: Install recent curl on Linux
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        wget --retry-on-http-error=42 --retry-connrefused -c https://github.com/moparisthebest/static-curl/releases/download/v7.87.0/curl-amd64
-        chmod +x curl-amd64
-        mv curl-amd64 curl
+        brew install openssl@3.0 coreutils
 
     - name: Setup Docker on macOS using Colima, Lima-VM, and Homebrew.
       uses: douglascamata/setup-docker-macos-action@v1-alpha
@@ -81,7 +74,7 @@ jobs:
 
     - name: Test
       working-directory: ${{github.workspace}}/build
-      run: env PATH=${{github.workspace}}:$PATH TMPDIR=$RUNNER_TEMP ctest -timeout 1000 --force-new-ctest-process --verbose --output-on-failure -j $(nproc) -C ${{matrix.build_type}}
+      run: TMPDIR=$RUNNER_TEMP ctest -timeout 1000 --force-new-ctest-process --verbose --output-on-failure -j $(nproc) -C ${{matrix.build_type}}
 
     - uses: actions/upload-artifact@v3
       if: failure()

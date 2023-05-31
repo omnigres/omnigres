@@ -1,50 +1,8 @@
 create domain port integer check (value >= 0 and value <= 65535);
 
-create type http_method as enum ('GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'CONNECT', 'OPTIONS', 'TRACE', 'PATCH');
-
-create type http_header as
-(
-    name   text,
-    value  text,
-    append bool
-);
-
-create domain http_headers as http_header[];
-
-create function http_header(name text, value text, append bool default false) returns http_header as
-$$
-select row (name, value, append) as result;
-$$
-    language sql;
-
-create function http_header_get_all(headers http_headers, header_name text) returns setof text
-    strict immutable
-as
-$$
-select
-    header.value
-from
-    unnest(headers) header(name, value, append)
-where
-    lower(header.name) = lower(header_name)
-$$
-    language sql;
-
-create function http_header_get(headers http_headers, name text) returns text
-    strict immutable
-as
-$$
-select
-    http_header_get_all
-from
-    omni_httpd.http_header_get_all(headers, name)
-limit 1
-$$
-    language sql;
-
 create type http_request as
 (
-    method       http_method,
+    method       omni_http.http_method,
     path         text,
     query_string text,
     body         bytea,
@@ -218,7 +176,7 @@ begin
                       stats as (select * from pg_catalog.pg_stat_database where datname = current_database())
                   select *
                   from
-                      omni_httpd.http_response(headers => array [omni_httpd.http_header('content-type', 'text/html')],
+                      omni_httpd.http_response(headers => array [omni_http.http_header('content-type', 'text/html')],
                                                body => $html$
        <!DOCTYPE html>
        <html>

@@ -1,0 +1,41 @@
+instances:
+  default:
+    config:
+      shared_preload_libraries: */env/OMNI_EXT_SO
+      max_worker_processes: 64
+    init:
+    - create extension omni_httpd cascade
+    - create extension omni_httpc cascade
+    - |
+      create table routes
+      (
+          name     text not null,
+          query    text not null,
+          priority int  not null
+      )
+    - |
+      insert
+      into
+          routes (name, query, priority)
+      values
+          ('test', $$SELECT omni_httpd.http_response(body => 'test') FROM request WHERE request.path = '/test'$$, 1),
+          ('ping', $$SELECT omni_httpd.http_response(body => 'pong') FROM request WHERE request.path = '/ping'$$, 1);
+
+
+tests:
+- name: preview
+  query: |
+    select
+      omni_httpd.cascading_query(name, query order by priority desc nulls last) as query
+    from
+    routes
+  results:
+  - query: "WITH test AS (SELECT omni_httpd.http_response(body := 'test') FROM request
+        WHERE request.path = '/test'), ping AS (SELECT omni_httpd.http_response(body := 'pong')
+        FROM request WHERE request.path = '/ping') SELECT * FROM test UNION ALL SELECT * FROM
+        ping WHERE NOT EXISTS (SELECT FROM test)"
+
+# Previous version of this test included testing the above query, but
+# I now suspect that this is unnecessary if we test responding. The above query
+# is pretty easy to understand and check. TODO: maybe when we have `with stub-request`
+# functionality, we can test it that way?

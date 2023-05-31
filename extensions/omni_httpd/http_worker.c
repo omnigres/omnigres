@@ -311,7 +311,7 @@ void http_worker(Datum db_oid) {
               char *request_cte = psprintf(
                   // clang-format off
                                   "select " "$" REQUEST_PLAN_PARAM(
-                                          REQUEST_PLAN_METHOD) "::text::omni_httpd.http_method AS method, "
+                                          REQUEST_PLAN_METHOD) "::text::omni_http.http_method AS method, "
                                   "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_PATH) " as path, "
                                   "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_QUERY_STRING) " as query_string, "
                                   "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_BODY) " as body, "
@@ -644,14 +644,13 @@ static int handler(request_message_t *msg) {
                 header_nulls[i] = 0;
                 HeapTuple header_tuple =
                     heap_form_tuple(header_tupledesc,
-                                    (Datum[3]){
+                                    (Datum[2]){
                                         PointerGetDatum(cstring_to_text_with_len(header.name->base,
                                                                                  header.name->len)),
                                         PointerGetDatum(cstring_to_text_with_len(header.value.base,
                                                                                  header.value.len)),
-                                        BoolGetDatum(true),
                                     },
-                                    (bool[3]){false, false, false});
+                                    (bool[2]){false, false});
                 elems[i] = HeapTupleGetDatum(header_tuple);
               }
               ArrayType *result =

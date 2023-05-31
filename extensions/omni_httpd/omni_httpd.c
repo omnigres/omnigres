@@ -66,8 +66,8 @@ DYNPGEXT_MAGIC;
 #error "Extension version (VERSION) is not defined!"
 #endif
 
-CACHED_OID(http_header);
-CACHED_OID(http_method);
+CACHED_OID(omni_http, http_header);
+CACHED_OID(omni_http, http_method);
 CACHED_OID(http_response);
 CACHED_OID(http_outcome);
 
@@ -139,12 +139,11 @@ static inline Datum add_header(Datum headers, char *name, char *value, bool appe
   BlessTupleDesc(header_tupledesc);
 
   HeapTuple header = heap_form_tuple(header_tupledesc,
-                                     (Datum[3]){
+                                     (Datum[2]){
                                          PointerGetDatum(cstring_to_text(name)),
                                          PointerGetDatum(cstring_to_text(value)),
-                                         BoolGetDatum(append),
                                      },
-                                     (bool[3]){false, false, false});
+                                     (bool[2]){false, false});
 
   // If there are no headers yet
   if (headers == 0) {
@@ -296,8 +295,8 @@ Datum handlers_query_validity_trigger(PG_FUNCTION_ARGS) {
       ereport(ERROR, errmsg("query can only contain one statement"));
     }
     List *request_cte = omni_sql_parse_statement(
-        "SELECT NULL::omni_httpd.http_method AS method, NULL::text AS path, NULL::text AS "
-        "query_string, NULL::bytea AS body, NULL::omni_httpd.http_header[] AS headers");
+        "SELECT NULL::omni_http.http_method AS method, NULL::text AS path, NULL::text AS "
+        "query_string, NULL::bytea AS body, NULL::omni_http.http_header[] AS headers");
     omni_sql_add_cte(stmts, "request", request_cte, false, true);
     char *err;
     if (!omni_sql_is_valid(stmts, &err)) {

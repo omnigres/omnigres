@@ -60,11 +60,11 @@
 #
 # COMMENT Comment for the control file. Optional.
 #
-# SOURCES List of source files to compile for the extension.
+# SOURCES List of source files to compile for the extension. Optional.
 #
-# REQUIRES List of extensions that are required by this extension.
+# REQUIRES List of extensions that are required by this extension. Optional.
 #
-# TESTS_REQUIRE List of extensions that are required by tests.
+# TESTS_REQUIRE List of extensions that are required by tests. Optional.
 #
 # SCRIPTS Script files.
 #
@@ -91,6 +91,22 @@
 include(Inja)
 find_program(PGCLI pgcli)
 
+function(find_pg_yregress_tests dir)
+    file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${NAME}_FindRegressTests.cmake"
+            CONTENT "
+file(GLOB files RELATIVE ${CMAKE_CURRENT_LIST_DIR} ${dir}/*)
+list(SORT files)
+foreach(file \${files})
+    add_test(\"${NAME}/\${file}\" \"$<TARGET_FILE:pg_yregress>\" \"${dir}/../\${file}\")
+    set_tests_properties(\"${NAME}/\${file}\" PROPERTIES
+    WORKING_DIRECTORY \"${CMAKE_CURRENT_BINARY_DIR}\"
+    ENVIRONMENT \"PGCONFIG=${PG_CONFIG};PGSHAREDIR=${_share_dir};OMNI_EXT_SO=$<TARGET_FILE:omni_ext>\")
+endforeach()
+")
+    get_directory_property(current_includes TEST_INCLUDE_FILES)
+    set_directory_properties(PROPERTIES TEST_INCLUDE_FILES "${current_includes};${CMAKE_CURRENT_BINARY_DIR}/${NAME}_FindRegressTests.cmake")
+endfunction()
+
 function(add_postgresql_extension NAME)
     set(_optional SHARED_PRELOAD PRIVATE UNVERSIONED_SO)
     set(_single VERSION ENCODING SCHEMA RELOCATABLE)
@@ -101,12 +117,11 @@ function(add_postgresql_extension NAME)
         message(FATAL_ERROR "Extension version not set")
     endif()
 
-    # Here we are assuming that there is at least one source file, which is
-    # strictly speaking not necessary for an extension. If we do not have source
-    # files, we need to create a custom target and attach properties to that. We
-    # expect the user to be able to add target properties after creating the
-    # extension.
-    add_library(${NAME} MODULE ${_ext_SOURCES})
+    if(NOT _ext_SOURCES)
+        add_custom_target(${NAME})
+    else()
+        add_library(${NAME} MODULE ${_ext_SOURCES})
+    endif()
 
     # Proactively support dynpgext so that its caching late bound calls most efficiently
     # on macOS
@@ -117,14 +132,18 @@ function(add_postgresql_extension NAME)
 #include <dynpgext.h>
     ]=])
         target_sources(${NAME} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/dynpgext.c")
-        target_link_libraries(${NAME} dynpgext)
-        target_compile_definitions(${NAME} PUBLIC DYNPGEXT_SUPPLEMENTARY)
+        if(_ext_SOURCES)
+            target_link_libraries(${NAME} dynpgext)
+            target_compile_definitions(${NAME} PUBLIC DYNPGEXT_SUPPLEMENTARY)
+        endif()
     endif()
 
-    target_compile_definitions(${NAME} PUBLIC "$<$<NOT:$<STREQUAL:${CMAKE_BUILD_TYPE},Release>>:DEBUG>")
-    target_compile_definitions(${NAME} PUBLIC "$<$<NOT:$<STREQUAL:${CMAKE_BUILD_TYPE},Release>>:USE_ASSERT_CHECKING>")
-    target_compile_definitions(${NAME} PUBLIC "EXT_VERSION=\"${_ext_VERSION}\"")
-    target_compile_definitions(${NAME} PUBLIC "EXT_SCHEMA=\"${_ext_SCHEMA}\"")
+    if(_ext_SOURCES)
+        target_compile_definitions(${NAME} PUBLIC "$<$<NOT:$<STREQUAL:${CMAKE_BUILD_TYPE},Release>>:DEBUG>")
+        target_compile_definitions(${NAME} PUBLIC "$<$<NOT:$<STREQUAL:${CMAKE_BUILD_TYPE},Release>>:USE_ASSERT_CHECKING>")
+        target_compile_definitions(${NAME} PUBLIC "EXT_VERSION=\"${_ext_VERSION}\"")
+        target_compile_definitions(${NAME} PUBLIC "EXT_SCHEMA=\"${_ext_SCHEMA}\"")
+    endif()
 
     set(_link_flags "${PostgreSQL_SHARED_LINK_OPTIONS}")
 
@@ -133,7 +152,9 @@ function(add_postgresql_extension NAME)
     endforeach()
 
     set(_share_dir "${CMAKE_BINARY_DIR}/pg-share")
-    file(COPY "${_pg_sharedir}/" DESTINATION "${_share_dir}")
+    if(_pg_sharedir)
+        file(COPY "${_pg_sharedir}/" DESTINATION "${_share_dir}")
+    endif()
     set(_ext_dir "${_share_dir}/extension")
     file(MAKE_DIRECTORY ${_ext_dir})
 
@@ -162,51 +183,57 @@ function(add_postgresql_extension NAME)
         set(_suffix ".so")
     endif()
 
-    set_target_properties(
-        ${NAME}
-        PROPERTIES
-        PREFIX ""
-        SUFFIX "${_suffix}"
-        LINK_FLAGS "${_link_flags}"
-        POSITION_INDEPENDENT_CODE ON)
+    if(_ext_SOURCES)
+        set_target_properties(
+                ${NAME}
+                PROPERTIES
+                PREFIX ""
+                SUFFIX "${_suffix}"
+                LINK_FLAGS "${_link_flags}"
+                POSITION_INDEPENDENT_CODE ON)
 
-    target_include_directories(
-        ${NAME}
-        PRIVATE ${PostgreSQL_SERVER_INCLUDE_DIRS}
-        PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+        target_include_directories(
+                ${NAME}
+                PRIVATE ${PostgreSQL_SERVER_INCLUDE_DIRS}
+                PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+    endif()
 
     set(_pkg_dir "${CMAKE_BINARY_DIR}/packaged")
+
+    if(_ext_SOURCES)
+        set(_target_file_name $<TARGET_FILE_NAME:${NAME}>)
+    endif()
 
     # Generate control file at build time (which is when GENERATE evaluate the
     # contents). We do not know the target file name until then.
     set(_control_file "${_ext_dir}/${NAME}--${_ext_VERSION}.control")
     file(
-        GENERATE
-        OUTPUT ${_control_file}
-        CONTENT
-        "module_pathname = '${CMAKE_CURRENT_BINARY_DIR}/$<TARGET_FILE_NAME:${NAME}>'
+            GENERATE
+            OUTPUT ${_control_file}
+            CONTENT
+            "$<$<NOT:$<BOOL:${_ext_SOURCES}>>:#>module_pathname = '${CMAKE_CURRENT_BINARY_DIR}/${_target_file_name}'
 $<$<NOT:$<BOOL:${_ext_COMMENT}>>:#>comment = '${_ext_COMMENT}'
 $<$<NOT:$<BOOL:${_ext_ENCODING}>>:#>encoding = '${_ext_ENCODING}'
 $<$<NOT:$<BOOL:${_ext_REQUIRES}>>:#>requires = '$<JOIN:${_ext_REQUIRES},$<COMMA>>'
 $<$<NOT:$<BOOL:${_ext_SCHEMA}>>:#>schema = ${_ext_SCHEMA}
-$<$<NOT:$<BOOL:${_ext_RELOCATABLE}>>:#>relocatable = ${_ext_RELOCATABLE}
-")
-    # Pacaged control file
+            $<$<NOT:$<BOOL:${_ext_RELOCATABLE}>>:#>relocatable = ${_ext_RELOCATABLE}
+            ")
+    # Packaged control file
     if(NOT ${_ext_PRIVATE})
       set(_packaged_control_file "${_pkg_dir}/extension/${NAME}--${_ext_VERSION}.control")
       file(
-        GENERATE
-        OUTPUT ${_packaged_control_file}
-        CONTENT
-        "module_pathname = '$libdir/$<TARGET_FILE_NAME:${NAME}>'
+              GENERATE
+              OUTPUT ${_packaged_control_file}
+              CONTENT
+              "$<$<NOT:$<BOOL:${_ext_SOURCES}>>:#>module_pathname = '${CMAKE_CURRENT_BINARY_DIR}/${_target_file_name}'
 $<$<NOT:$<BOOL:${_ext_COMMENT}>>:#>comment = '${_ext_COMMENT}'
 $<$<NOT:$<BOOL:${_ext_ENCODING}>>:#>encoding = '${_ext_ENCODING}'
 $<$<NOT:$<BOOL:${_ext_REQUIRES}>>:#>requires = '$<JOIN:${_ext_REQUIRES},$<COMMA>>'
 $<$<NOT:$<BOOL:${_ext_SCHEMA}>>:#>schema = ${_ext_SCHEMA}
-$<$<NOT:$<BOOL:${_ext_RELOCATABLE}>>:#>relocatable = ${_ext_RELOCATABLE}
-")
+              $<$<NOT:$<BOOL:${_ext_RELOCATABLE}>>:#>relocatable = ${_ext_RELOCATABLE}
+              ")
     endif()
- 
+
     # Default control file
     set(_default_control_file "${_ext_dir}/${NAME}.control")
     file(
@@ -217,21 +244,23 @@ $<$<NOT:$<BOOL:${_ext_RELOCATABLE}>>:#>relocatable = ${_ext_RELOCATABLE}
 ")
     # Packaged default control file
     if(NOT ${_ext_PRIVATE})
-      set(_packaged_default_control_file "${_pkg_dir}/extension/${NAME}.control")
-      file(
-        GENERATE
-        OUTPUT ${_packaged_default_control_file}
-        CONTENT
-        "default_version = '${_ext_VERSION}'
+        set(_packaged_default_control_file "${_pkg_dir}/extension/${NAME}.control")
+        file(
+                GENERATE
+                OUTPUT ${_packaged_default_control_file}
+                CONTENT
+                "default_version = '${_ext_VERSION}'
 ")
-   endif()
+    endif()
 
-   add_custom_target(package_${NAME}_extension
-            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-            COMMAND
-            ${CMAKE_COMMAND} -E copy_if_different
-            "${CMAKE_CURRENT_BINARY_DIR}/$<TARGET_FILE_NAME:${NAME}>"
-            ${_pkg_dir})
+    if(_ext_SOURCES)
+        add_custom_target(package_${NAME}_extension
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                COMMAND
+                ${CMAKE_COMMAND} -E copy_if_different
+                "${CMAKE_CURRENT_BINARY_DIR}/$<TARGET_FILE_NAME:${NAME}>"
+                ${_pkg_dir})
+    endif()
 
     add_custom_target(package_${NAME}_scripts
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
@@ -241,10 +270,14 @@ $<$<NOT:$<BOOL:${_ext_RELOCATABLE}>>:#>relocatable = ${_ext_RELOCATABLE}
             ${_pkg_dir}/extension)
 
     if(NOT TARGET package)
-            add_custom_target(package)
+        add_custom_target(package)
     endif()
     if(NOT ${_ext_PRIVATE})
+        if(_ext_SOURCES)
             add_dependencies(package package_${NAME}_extension package_${NAME}_scripts)
+        else()
+            add_dependencies(package package_${NAME}_scripts)
+        endif()
     endif()
 
 
@@ -298,7 +331,7 @@ export tmpdir=$(mktemp -d)
 echo local all all trust > \"$tmpdir/pg_hba.conf\"
 echo host all all all trust >> \"$tmpdir/pg_hba.conf\"
 echo hba_file=\\\'$tmpdir/pg_hba.conf\\\' > \"$tmpdir/postgresql.conf\"
-$<IF:$<BOOL:${_ext_SHARED_PRELOAD}>,echo shared_preload_libraries='${CMAKE_CURRENT_BINARY_DIR}/$<TARGET_FILE_NAME:${NAME}>',echo> >> $tmpdir/postgresql.conf
+$<IF:$<BOOL:${_ext_SHARED_PRELOAD}>,echo shared_preload_libraries='${CMAKE_CURRENT_BINARY_DIR}/${_target_file_name}',echo> >> $tmpdir/postgresql.conf
 echo ${_extra_config} >> $tmpdir/postgresql.conf
 echo max_worker_processes = 64 >> $tmpdir/postgresql.conf
 PGSHAREDIR=${_share_dir} \
@@ -319,12 +352,6 @@ ${_loadextensions} \
             )
         endif()
 
-        if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/test.yml")
-            add_test(NAME ${NAME}_yregress WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-                    COMMAND "$<TARGET_FILE:pg_yregress>" "${CMAKE_CURRENT_SOURCE_DIR}/test.yml")
-            set_property(TEST ${NAME}_yregress PROPERTY ENVIRONMENT "PGCONFIG=${PG_CONFIG};PGSHAREDIR=${_share_dir}")
-        endif()
-
         add_custom_target(
                 ${NAME}_update_results
                 COMMAND
@@ -336,6 +363,8 @@ ${_loadextensions} \
         endif()
         add_dependencies(update_test_results ${NAME}_update_results)
     endif()
+
+    find_pg_yregress_tests("${CMAKE_CURRENT_SOURCE_DIR}/tests")
 
     if(INITDB AND CREATEDB AND (PSQL OR PGCLI) AND PG_CTL)
         if(PGCLI)
@@ -363,11 +392,11 @@ export SOCKDIR=$(mktemp -d)
 echo host all all all trust >>  \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}/pg_hba.conf\"
 PGSHAREDIR=${_share_dir} \
 ${PG_CTL} start -D \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" \
--o \"-c max_worker_processes=64 -c listen_addresses=* -c port=$PGPORT $<IF:$<BOOL:${_ext_SHARED_PRELOAD}>,-c shared_preload_libraries='$<TARGET_FILE:${NAME}>$<COMMA>$<TARGET_FILE:omni_ext>',-c shared_preload_libraries='$<TARGET_FILE:omni_ext>'>\" \
+-o \"-c max_worker_processes=64 -c listen_addresses=* -c port=$PGPORT $<IF:$<BOOL:${_ext_SHARED_PRELOAD}>,-c shared_preload_libraries='${_target_file_name}$<COMMA>$<TARGET_FILE:omni_ext>',-c shared_preload_libraries='$<TARGET_FILE:omni_ext>'>\" \
 -o -F -o -k -o \"$SOCKDIR\"
 ${CREATEDB} -h \"$SOCKDIR\" ${NAME}
-${_cli} -h \"$SOCKDIR\" ${NAME}
-${PG_CTL} stop -D  \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" -m smart
+        ${_cli} -h \"$SOCKDIR\" ${NAME}
+        ${PG_CTL} stop -D  \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" -m smart
 "
             FILE_PERMISSIONS OWNER_EXECUTE OWNER_READ OWNER_WRITE
         )

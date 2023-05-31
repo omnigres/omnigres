@@ -1,0 +1,62 @@
+instances:
+  default:
+    config:
+      shared_preload_libraries: */env/OMNI_EXT_SO
+      max_worker_processes: 64
+      omni_httpd.http_workers: 2
+    init:
+    - set session omni_httpd.no_init = true
+    - create extension omni_httpd cascade
+    - create extension omni_httpc cascade
+    - delete from omni_httpd.configuration_reloads
+    - |
+      with
+        listener as (insert into omni_httpd.listeners (address, port) values ('127.0.0.1', 0) returning id),
+        handler as (insert into omni_httpd.handlers (query)
+                    select
+                      omni_httpd.cascading_query(name, query order by priority desc nulls last)
+                    from
+                      (values
+                      ('sleep',
+                      $$select omni_httpd.http_response(pg_backend_pid()::text || pg_sleep(2)::text) from request where request.path = '/sleep'$$, 1),
+                      ('other',
+                      $$select omni_httpd.http_response(pg_backend_pid()::text)$$,
+                      1)) as routes(name, query, priority)
+                      returning id)
+      insert into
+        omni_httpd.listeners_handlers (listener_id, handler_id)
+      select
+        listener.id,
+        handler.id
+      from
+        listener,
+        handler
+    - call omni_httpd.wait_for_configuration_reloads(1)
+
+tests:
+  - steps:
+    - query: select count(*) from omni_httpc.http_connections()
+      results:
+      - count: 0
+    - set local statement_timeout = 2500
+    - query: |
+        with response as (select * from omni_httpc.http_execute_with_options(
+        omni_httpc.http_execute_options(force_cleartext_http2 => true, http2_ratio => 100),
+        omni_httpc.http_request('http://127.0.0.1:' || (select effective_port from omni_httpd.listeners where port = 0) || '/sleep'),
+        omni_httpc.http_request('http://127.0.0.1:' || (select effective_port from omni_httpd.listeners where port = 0) || '/sleep')
+        ))
+        select
+        response.version >> 8 as http_version,
+        response.status,
+        dense_rank() over (order by convert_from(response.body, 'utf-8')::integer) as pid
+        from response
+      results:
+      - http_version: 2
+        status: 200
+        pid: 1
+      - http_version: 2
+        status: 200
+        pid: 2
+    - query: select count(*) from omni_httpc.http_connections()
+      results:
+      - count: 1

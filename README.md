@@ -102,8 +102,9 @@ Below is the current list of components being worked on, experimented with and d
 
 | Name                                                                                        | Status                                                                  | Description                                           |
 |---------------------------------------------------------------------------------------------|-------------------------------------------------------------------------|-------------------------------------------------------|
+| [omni_http](extensions/omni_http/README.md)                                                 | :white_check_mark: First release candidate                              |   Common HTTP types library                           |
 | [omni_httpd](extensions/omni_httpd/README.md) and [omni_web](extensions/omni_web/README.md) | :white_check_mark: First release candidate                              | Serving HTTP in Postgres and building services in SQL |
-| omni_httpclient                                                                             | :spiral_calendar: Haven't started yet                                   | Postgres HTTP client                                  |
+| [omni_httpc](extensions/omni_httpc/README.md)                                               | :white_check_mark: First release candidate                              | HTTP client                                           |
 | [omni_sql](extensions/omni_sql/README.md)                                                   | :construction: Extremely limited API surface                            | Programmatic SQL manipulation                         |
 | [omni_containers](extensions/omni_containers/README.md)                                     | :ballot_box_with_check: Initial prototype                               | Managing containers                                   |
 | [omni_ext](extensions/omni_ext/README.md) and  [Dynpgext interface](dynpgext/README.md)     | :ballot_box_with_check: Getting ready to become first release candidate | Advanced Postgres extension loader                    |
