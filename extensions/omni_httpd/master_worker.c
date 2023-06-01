@@ -289,13 +289,31 @@ void master_worker(Datum db_oid) {
               port_ready = true;
               // Create a listening socket
               in_port_t effective_port;
-              int sock = create_listening_socket(
-                  ip_family(inet_address) == PGSQL_AF_INET ? AF_INET : AF_INET6, port_no,
-                  address_str, &effective_port);
+              // This will be the listening socket
+              int sock;
+              // We will try listening on this port number. The reason it's separate from
+              // `port_no` is that we might want to update the port number if the address was in use
+              // (`EADDRINUSE`) but report the port change from the original port to the new one
+              // and not from `0`
+              int try_port_no = port_no;
+            try_listen:
+              sock = create_listening_socket(ip_family(inet_address) == PGSQL_AF_INET ? AF_INET
+                                                                                      : AF_INET6,
+                                             try_port_no, address_str, &effective_port);
               if (sock == -1) {
-                int e = errno;
-                ereport(WARNING, errmsg("couldn't create listening socket on port %d: %s", port_no,
-                                        strerror(e)));
+                if (errno == EADDRINUSE) {
+                  ereport(WARNING, errmsg("couldn't create listening socket on port %d: Address "
+                                          "already in use, picking a different port",
+                                          port_no));
+                  // This is where we'll force ourselves to try picking a port
+                  try_port_no = 0;
+                  goto try_listen;
+                } else {
+                  int e = errno;
+                  ereport(WARNING, errmsg("couldn't create listening socket on port %d: %s",
+                                          port_no, strerror(e)));
+                }
+
               } else {
                 if (effective_port != port_no) {
                   ereport(LOG, errmsg("omni_httpd listening port %d was replaced with %d", port_no,
