@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.5
 
 # Version of PostgreSQL
-ARG PG=15.2
+ARG PG=15.3
 # Build type
 ARG BUILD_TYPE=Release
 # User name to be used for builder
