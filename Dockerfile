@@ -76,7 +76,7 @@ RUN git clone https://github.com/tcdi/plrust.git plrust && cd plrust && git chec
 RUN . "$HOME/.cargo/env" && cd plrust/plrustc && ./build.sh && mv ../build/bin/plrustc ~/.cargo/bin && cd ..
 RUN . "$HOME/.cargo/env" && cd plrust/plrust && cargo install cargo-pgrx --locked
 USER root
-RUN apt install -y postgresql-server-dev-15
+RUN PG_VER=${PG%.*} && apt install -y postgresql-server-dev-${PG_VER}
 RUN chown -R postgres /usr/share/postgresql /usr/lib/postgresql
 USER postgres
 RUN PG_VER=${PG%.*} && . "$HOME/.cargo/env" && cargo pgrx init --pg${PG_VER} /usr/bin/pg_config
@@ -107,7 +107,7 @@ RUN apt -y install libclang-dev build-essential crossbuild-essential-arm64 cross
 COPY --from=plrust /var/lib/postgresql/.cargo /var/lib/postgresql/.cargo
 COPY --from=plrust /var/lib/postgresql/.rustup /var/lib/postgresql/.rustup
 ENV PATH="/var/lib/postgresql/.cargo/bin:$PATH"
-RUN apt install -y postgresql-server-dev-15
+RUN PG_VER=${PG%.*} && apt install -y postgresql-server-dev-${PG_VER}
 USER postgres
 RUN PG_VER=${PG%.*} && rustup default 1.67.1 && cargo pgrx init --pg${PG_VER} /usr/bin/pg_config
 # Prime the compiler so it doesn't take forever on first compilation
