@@ -16,7 +16,7 @@ ARG DEBIAN_VER_PG=bullseye
 # Build parallelism
 ARG BUILD_PARALLEL_LEVEL
 # plrust version
-ARG PLRUST_VERSION=1.0.0
+ARG PLRUST_VERSION=1.1.3
 
 # Base builder image
 FROM debian:${DEBIAN_VER}-slim AS builder
@@ -74,15 +74,15 @@ RUN . "$HOME/.cargo/env" && \
 WORKDIR /var/lib/postgresql
 RUN git clone https://github.com/tcdi/plrust.git plrust && cd plrust && git checkout v${PLRUST_VERSION}
 RUN . "$HOME/.cargo/env" && cd plrust/plrustc && ./build.sh && mv ../build/bin/plrustc ~/.cargo/bin && cd ..
-RUN . "$HOME/.cargo/env" && cd plrust/plrust && cargo install cargo-pgx --version 0.7.4 --locked
+RUN . "$HOME/.cargo/env" && cd plrust/plrust && cargo install cargo-pgrx --locked
 USER root
 RUN apt install -y postgresql-server-dev-15
 RUN chown -R postgres /usr/share/postgresql /usr/lib/postgresql
 USER postgres
-RUN PG_VER=${PG%.*} && . "$HOME/.cargo/env" && cargo pgx init --pg${PG_VER} /usr/bin/pg_config
+RUN PG_VER=${PG%.*} && . "$HOME/.cargo/env" && cargo pgrx init --pg${PG_VER} /usr/bin/pg_config
 RUN export USER=postgres && PG_VER=${PG%.*} && . "$HOME/.cargo/env" && cd plrust/plrust && ./build && cd ..
 RUN PG_VER=${PG%.*} && . "$HOME/.cargo/env" && cd plrust/plrust && \
-    cargo pgx package --features "pg${PG_VER} trusted"
+    cargo pgrx package --features "pg${PG_VER} trusted"
 
 # Official slim PostgreSQL build
 FROM postgres:${PG}-${DEBIAN_VER_PG} AS pg-slim
@@ -109,7 +109,7 @@ COPY --from=plrust /var/lib/postgresql/.rustup /var/lib/postgresql/.rustup
 ENV PATH="/var/lib/postgresql/.cargo/bin:$PATH"
 RUN apt install -y postgresql-server-dev-15
 USER postgres
-RUN PG_VER=${PG%.*} && rustup default 1.67.1 && cargo pgx init --pg${PG_VER} /usr/bin/pg_config
+RUN PG_VER=${PG%.*} && rustup default 1.67.1 && cargo pgrx init --pg${PG_VER} /usr/bin/pg_config
 # Prime the compiler so it doesn't take forever on first compilation
 WORKDIR /var/lib/postgresql
 RUN initdb -D prime &&  pg_ctl start -o "-c shared_preload_libraries='plrust' -c plrust.work_dir='/tmp' -c listen_addresses='' " -D prime && \
