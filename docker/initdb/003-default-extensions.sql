@@ -1,2 +1,2 @@
-create extension omni_httpd;
-create extension omni_web;
+create extension omni_httpd cascade;
+create extension omni_web cascade;

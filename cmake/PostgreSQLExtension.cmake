@@ -216,7 +216,7 @@ $<$<NOT:$<BOOL:${_ext_COMMENT}>>:#>comment = '${_ext_COMMENT}'
 $<$<NOT:$<BOOL:${_ext_ENCODING}>>:#>encoding = '${_ext_ENCODING}'
 $<$<NOT:$<BOOL:${_ext_REQUIRES}>>:#>requires = '$<JOIN:${_ext_REQUIRES},$<COMMA>>'
 $<$<NOT:$<BOOL:${_ext_SCHEMA}>>:#>schema = ${_ext_SCHEMA}
-            $<$<NOT:$<BOOL:${_ext_RELOCATABLE}>>:#>relocatable = ${_ext_RELOCATABLE}
+$<$<NOT:$<BOOL:${_ext_RELOCATABLE}>>:#>relocatable = ${_ext_RELOCATABLE}
             ")
     # Packaged control file
     if(NOT ${_ext_PRIVATE})
@@ -225,7 +225,7 @@ $<$<NOT:$<BOOL:${_ext_SCHEMA}>>:#>schema = ${_ext_SCHEMA}
               GENERATE
               OUTPUT ${_packaged_control_file}
               CONTENT
-              "$<$<NOT:$<BOOL:${_ext_SOURCES}>>:#>module_pathname = '${CMAKE_CURRENT_BINARY_DIR}/${_target_file_name}'
+              "$<$<NOT:$<BOOL:${_ext_SOURCES}>>:#>module_pathname = '$libdir/${_target_file_name}'
 $<$<NOT:$<BOOL:${_ext_COMMENT}>>:#>comment = '${_ext_COMMENT}'
 $<$<NOT:$<BOOL:${_ext_ENCODING}>>:#>encoding = '${_ext_ENCODING}'
 $<$<NOT:$<BOOL:${_ext_REQUIRES}>>:#>requires = '$<JOIN:${_ext_REQUIRES},$<COMMA>>'
