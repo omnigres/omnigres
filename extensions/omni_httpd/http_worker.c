@@ -170,10 +170,9 @@ void http_worker(Datum db_oid) {
 
           if (iter.ref->socket != NULL) {
             h2o_socket_t *socket = iter.ref->socket;
-            h2o_socket_read_stop(socket);
             h2o_socket_export_t info;
             h2o_socket_export(socket, &info);
-            close(info.fd);
+            h2o_socket_dispose_export(&info);
           }
           h2o_context_dispose(&iter.ref->context);
           MemoryContextDelete(iter.ref->memory_context);
