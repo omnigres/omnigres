@@ -731,14 +731,8 @@ static int handler(request_message_t *msg) {
                   size_t value_len = VARSIZE_ANY_EXHDR(value_text);
                   char *value_cstring = h2o_mem_alloc_pool(&req->pool, char *, value_len + 1);
                   text_to_cstring_buffer(value_text, value_cstring, value_len + 1);
-                  Datum append = GetAttributeByNum(header_tuple, 3, &isnull);
-                  if (isnull || !DatumGetBool(append)) {
-                    h2o_set_header_by_str(&req->pool, &req->res.headers, name_cstring, name_len, 0,
-                                          value_cstring, value_len, true);
-                  } else {
-                    h2o_add_header_by_str(&req->pool, &req->res.headers, name_cstring, name_len, 0,
-                                          NULL, value_cstring, value_len);
-                  }
+                  h2o_set_header_by_str(&req->pool, &req->res.headers, name_cstring, name_len, 0,
+                                        value_cstring, value_len, true);
                 }
               }
             }
