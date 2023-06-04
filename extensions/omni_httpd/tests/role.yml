@@ -100,6 +100,9 @@ tests:
   success: false
   error: 'new row for relation "handlers" violates check constraint "handlers_role_name_check"'
 
+- query: delete from omni_httpd.configuration_reloads
+  commit: true
+
 - name: Can update it to a name that is not a current user if it is accessible
   query: update omni_httpd.handlers set role_name = 'test_user1' where role_name = 'test_user'
   commit: true
@@ -108,8 +111,15 @@ tests:
   query: set session role test_user1
   commit: true
 
+- query: call omni_httpd.wait_for_configuration_reloads(1)
+  commit: true
+
 - name: Can update it to a name that is a current user
   query: update omni_httpd.handlers set role_name = 'test_user1' where role_name = 'test_user'
+  commit: true
+
+- query: call omni_httpd.wait_for_configuration_reloads(1)
+  commit: true
 
 - name: After checking permissions, should not change to the new role
   steps:
@@ -120,11 +130,11 @@ tests:
 
 - name: Can't update it to a name that is not a current user if it is not accessible
   steps:
-    - reset role
-    - alter role current_user nosuperuser
-    - query: update omni_httpd.handlers set role_name = 'anotherrole' where role_name = 'test_user1'
-      success: false
-      error: 'new row for relation "handlers" violates check constraint "handlers_role_name_check"'
+  - reset role
+  - alter role current_user nosuperuser
+  - query: update omni_httpd.handlers set role_name = 'anotherrole' where role_name = 'test_user1'
+    success: false
+    error: 'new row for relation "handlers" violates check constraint "handlers_role_name_check"'
 
 - name: check current role through the service
   query: |
