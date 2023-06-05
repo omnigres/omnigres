@@ -88,6 +88,9 @@ RUN PG_VER=${PG%.*} && . "$HOME/.cargo/env" && cd plrust/plrust && \
 FROM postgres:${PG}-${DEBIAN_VER_PG} AS pg-slim
 ARG PG
 ENV PG=${PG}
+ENV POSTGRES_DB=omnigres
+ENV POSTGRES_USER=omnigres
+ENV POSTGRES_PASSWORD=omnigres
 COPY --from=build /build/packaged /omni
 COPY docker/initdb-slim/* /docker-entrypoint-initdb.d/
 RUN cp -R /omni/extension $(pg_config --sharedir)/ && cp -R /omni/*.so $(pg_config --pkglibdir)/ && rm -rf /omni
