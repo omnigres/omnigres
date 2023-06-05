@@ -10,8 +10,10 @@ static void notice_receiver(struct fy_node *notices, const PGresult *result) {
   fy_node_sequence_append(notices, fy_node_create_scalar(doc, STRLIT(notice)));
 }
 
-bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction, bool *errored) {
+bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction, int sub_test,
+                        bool *errored) {
 
+#define taprintf(str, ...) fprintf(tap_file, "%*s" str, sub_test * 4, "", ##__VA_ARGS__)
   // This will be used for TAP output
   struct fy_node *original_node = fy_node_copy(fy_node_document(test->node), test->node);
 
@@ -33,8 +35,8 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction, 
       allocated = true;
     }
     tap_counter++;
-    fprintf(tap_file, "ok %d - %.*s # SKIP %.*s\n", tap_counter,
-            (int)IOVEC_STRLIT(ytest_name(test)), (int)IOVEC_STRLIT(reason));
+    taprintf("ok %d - %.*s # SKIP %.*s\n", tap_counter, (int)IOVEC_STRLIT(ytest_name(test)),
+             (int)IOVEC_STRLIT(reason));
     if (allocated) {
       free((void *)reason.base);
     }
@@ -342,11 +344,18 @@ proceed:
 
     bool step_failed = false;
 
+    taprintf("# Subtest: %.*s\n", (int)IOVEC_STRLIT(ytest_name(test)));
+    int saved_tap_counter = tap_counter;
+    tap_counter = 0;
+
+    sub_test++;
+    taprintf("1..%d\n", fy_node_sequence_item_count(steps));
+
     while ((step = fy_node_sequence_iterate(steps, &iter))) {
       ytest *y_test = (ytest *)fy_node_get_meta(step);
       if (!step_failed) {
         bool errored = false;
-        bool step_success = ytest_run_internal(conn, y_test, true, &errored);
+        bool step_success = ytest_run_internal(conn, y_test, true, sub_test, &errored);
 
         // Stop proceeding further if the step has failed
         if (!step_success) {
@@ -372,10 +381,13 @@ proceed:
         }
       } else {
         tap_counter++;
-        fprintf(tap_file, "ok %d - %.*s # SKIP\n", tap_counter,
-                (int)IOVEC_STRLIT(ytest_name(y_test)));
+        taprintf("ok %d - %.*s # SKIP\n", tap_counter, (int)IOVEC_STRLIT(ytest_name(y_test)));
       }
     }
+
+    sub_test--;
+
+    tap_counter = saved_tap_counter;
 
     if (!in_transaction) {
       PGresult *txend_result = PQexec(conn, test->commit ? "commit" : "rollback");
@@ -434,19 +446,19 @@ report:
   bool differ = false;
   if ((differ = fy_node_compare(test->node, original_node))) {
     if (is_todo) {
-      fprintf(tap_file, "ok %d - %.*s # TODO %*.s\n", tap_counter,
-              (int)IOVEC_STRLIT(ytest_name(test)), (int)IOVEC_STRLIT(todo_reason));
+      taprintf("ok %d - %.*s # TODO %*.s\n", tap_counter, (int)IOVEC_STRLIT(ytest_name(test)),
+               (int)IOVEC_STRLIT(todo_reason));
     } else {
-      fprintf(tap_file, "ok %d - %.*s\n", tap_counter, (int)IOVEC_STRLIT(ytest_name(test)));
+      taprintf("ok %d - %.*s\n", tap_counter, (int)IOVEC_STRLIT(ytest_name(test)));
     }
   } else {
     if (is_todo) {
-      fprintf(tap_file, "not ok %d - %.*s # TODO %*.s\n", tap_counter,
-              (int)IOVEC_STRLIT(ytest_name(test)), (int)IOVEC_STRLIT(todo_reason));
+      taprintf("not ok %d - %.*s # TODO %*.s\n", tap_counter, (int)IOVEC_STRLIT(ytest_name(test)),
+               (int)IOVEC_STRLIT(todo_reason));
     } else {
-      fprintf(tap_file, "not ok %d - %.*s\n", tap_counter, (int)IOVEC_STRLIT(ytest_name(test)));
+      taprintf("not ok %d - %.*s\n", tap_counter, (int)IOVEC_STRLIT(ytest_name(test)));
     }
-    fprintf(tap_file, "  ---\n");
+    taprintf("  ---\n");
     struct fy_node *report = fy_node_create_mapping(fy_node_document(original_node));
     fy_node_mapping_append(report,
                            fy_node_create_scalar(fy_node_document(report), STRLIT("expected")),
@@ -462,13 +474,13 @@ report:
     size_t line_len = 0;
 
     while (getline(&line, &line_len, yamlf) != -1) {
-      fprintf(tap_file, "  %.*s", (int)line_len, line);
+      taprintf("  %.*s", (int)line_len, line);
     }
 
     free(line);
     fclose(yamlf);
 
-    fprintf(tap_file, "\n  ...\n");
+    taprintf("\n  ...\n");
   }
   fflush(tap_file);
 
@@ -477,10 +489,11 @@ report:
   }
 
   return is_todo ? true : differ;
+#undef taprintf
 }
 
-bool ytest_run(ytest *test) { return ytest_run_internal(NULL, test, false, NULL); }
-void ytest_run_without_transaction(ytest *test) { ytest_run_internal(NULL, test, true, NULL); }
+bool ytest_run(ytest *test) { return ytest_run_internal(NULL, test, false, 0, NULL); }
+void ytest_run_without_transaction(ytest *test) { ytest_run_internal(NULL, test, true, 0, NULL); }
 
 iovec_t ytest_name(ytest *test) {
   if (test->name.base != NULL) {

@@ -178,23 +178,6 @@ static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
 
 struct fy_node *instances;
 
-static int count_tests(struct fy_node *tests) {
-  assert(fy_node_is_sequence(tests));
-  void *iter = NULL;
-  struct fy_node *test;
-  int i = 0;
-  while ((test = fy_node_sequence_iterate(tests, &iter)) != NULL) {
-    i++;
-    ytest *y_test = (ytest *)fy_node_get_meta(test);
-    if (y_test->kind == ytest_kind_steps) {
-      struct fy_node *steps = fy_node_mapping_lookup_by_string(test, STRLIT("steps"));
-      assert(steps != NULL);
-      i += count_tests(steps);
-    }
-  }
-  return i;
-}
-
 static int execute_document(struct fy_document *fyd, FILE *out) {
   struct fy_node *root = fy_document_root(fyd);
   struct fy_node *original_root = fy_node_copy(fyd, root);
@@ -326,7 +309,7 @@ static int execute_document(struct fy_document *fyd, FILE *out) {
   }
 
   // Run tests
-  int test_count = 1 + count_tests(tests); // count from 1, so add 1
+  int test_count = 1 + fy_node_sequence_item_count(tests);
   bool succeeded = true;
   fprintf(tap_file, "TAP version 14\n");
   fprintf(tap_file, "1..%d\n", test_count);
