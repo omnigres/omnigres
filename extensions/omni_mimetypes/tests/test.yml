@@ -1,0 +1,89 @@
+instances:
+  default:
+    init:
+    - create extension omni_mimetypes
+
+tests:
+
+- name: presence of mime types
+  query: select count(*) > 2000 as present from omni_mimetypes.mime_types
+  results:
+  - present: t
+
+- name: presence of file extensions
+  query: select count(*) > 1000 as present from omni_mimetypes.mime_types
+  results:
+  - present: t
+
+- name: smoke test
+  query: |
+    select name from omni_mimetypes.mime_types 
+    inner join omni_mimetypes.mime_types_file_extensions mtfe on mtfe.mime_type_id = mime_types.id
+    inner join omni_mimetypes.file_extensions on mtfe.file_extension_id = file_extensions.id
+    where file_extensions.extension = 'js'
+  results:
+  - name: application/javascript
+
+- name: importing new types from mime-db compatible database
+  steps:
+    - query: select omni_mimetypes.import_mime_db($1::jsonb)
+      params:
+      - application/vnd.custom-1:
+          extensions:
+            - custom
+    - query: |
+        select name from omni_mimetypes.mime_types 
+        inner join omni_mimetypes.mime_types_file_extensions mtfe on mtfe.mime_type_id = mime_types.id
+        inner join omni_mimetypes.file_extensions on mtfe.file_extension_id = file_extensions.id
+        where file_extensions.extension = 'custom'
+      results:
+      - name: application/vnd.custom-1
+
+- name: importing new types from mime-db compatible database (JSON instead of JSONB)
+  steps:
+  - query: select omni_mimetypes.import_mime_db($1::json)
+    params:
+    - application/vnd.custom-1:
+        extensions:
+        - custom
+  - query: |
+      select name from omni_mimetypes.mime_types 
+      inner join omni_mimetypes.mime_types_file_extensions mtfe on mtfe.mime_type_id = mime_types.id
+      inner join omni_mimetypes.file_extensions on mtfe.file_extension_id = file_extensions.id
+      where file_extensions.extension = 'custom'
+    results:
+    - name: application/vnd.custom-1
+
+
+- name: updating existing types from mime-db compatible database
+  steps:
+  - query: select omni_mimetypes.import_mime_db($1::jsonb)
+    params:
+    - application/bdoc:
+        extensions:
+        - bdoc
+        - bdc
+    error:
+  - query: |
+      select name from omni_mimetypes.mime_types 
+      inner join omni_mimetypes.mime_types_file_extensions mtfe on mtfe.mime_type_id = mime_types.id
+      inner join omni_mimetypes.file_extensions on mtfe.file_extension_id = file_extensions.id
+      where file_extensions.extension IN ('bdc', 'bdoc')
+    results:
+    - name: application/bdoc
+    - name: application/bdoc
+
+- name: updating existing types from mime-db compatible database and removing an extension
+  steps:
+  - query: select omni_mimetypes.import_mime_db($1::jsonb)
+    params:
+    - application/bdoc:
+        extensions:
+        - bdc
+  - query: |
+      select name from omni_mimetypes.mime_types
+      inner join omni_mimetypes.mime_types_file_extensions mtfe on mtfe.mime_type_id = mime_types.id
+      inner join omni_mimetypes.file_extensions on mtfe.file_extension_id = file_extensions.id
+      where file_extensions.extension IN ('bdc', 'bdoc')
+    results:
+    - name: application/bdoc
