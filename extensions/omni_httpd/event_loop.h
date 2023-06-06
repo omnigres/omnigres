@@ -121,4 +121,14 @@ void h2o_queue_abort(request_message_t *msg);
  */
 void h2o_queue_proxy(request_message_t *msg, char *url, bool preserve_host);
 
+/**
+ * Registers event loop receiver. Must be done prior to starting
+ * event loop's thread.
+ *
+ * An internal implementation detail.
+ *
+ * TODO: redesign event_loop <-> http_worker interaction to simplify this
+ */
+void event_loop_register_receiver();
+
 #endif // OMNI_HTTPD_EVENT_LOOP_H

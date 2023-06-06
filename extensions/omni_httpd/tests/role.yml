@@ -6,6 +6,8 @@ instances:
     init:
     - set session omni_httpd.no_init = true
     - create extension omni_httpd cascade
+    - call omni_httpd.wait_for_configuration_reloads(1)
+    - delete from omni_httpd.configuration_reloads
     - create extension omni_httpc cascade
     - create role test_user inherit in role current_user
     - create role test_user1 inherit in role current_user
@@ -64,7 +66,6 @@ instances:
           return outcome;
       end;
       $$ language plpgsql
-    - delete from omni_httpd.configuration_reloads
     - |
       with
           listener as (insert into omni_httpd.listeners (address, port) values ('127.0.0.1', 0) returning id),
@@ -92,14 +93,15 @@ instances:
           listener,
           handler
     - call omni_httpd.wait_for_configuration_reloads(1)
-    # FIXME: this shouldn't be here, but it doesn't work without it
-    - select pg_sleep(1)
 
 tests:
 - name: Can't update it to an arbitrary name
   query: update omni_httpd.handlers set role_name = 'some_role' where role_name = 'test_user'
   success: false
   error: 'new row for relation "handlers" violates check constraint "handlers_role_name_check"'
+
+- query: delete from omni_httpd.configuration_reloads
+  commit: true
 
 - name: Can update it to a name that is not a current user if it is accessible
   query: update omni_httpd.handlers set role_name = 'test_user1' where role_name = 'test_user'
@@ -109,8 +111,15 @@ tests:
   query: set session role test_user1
   commit: true
 
+- query: call omni_httpd.wait_for_configuration_reloads(1)
+  commit: true
+
 - name: Can update it to a name that is a current user
   query: update omni_httpd.handlers set role_name = 'test_user1' where role_name = 'test_user'
+  commit: true
+
+- query: call omni_httpd.wait_for_configuration_reloads(1)
+  commit: true
 
 - name: After checking permissions, should not change to the new role
   steps:
@@ -121,11 +130,11 @@ tests:
 
 - name: Can't update it to a name that is not a current user if it is not accessible
   steps:
-    - reset role
-    - alter role current_user nosuperuser
-    - query: update omni_httpd.handlers set role_name = 'anotherrole' where role_name = 'test_user1'
-      success: false
-      error: 'new row for relation "handlers" violates check constraint "handlers_role_name_check"'
+  - reset role
+  - alter role current_user nosuperuser
+  - query: update omni_httpd.handlers set role_name = 'anotherrole' where role_name = 'test_user1'
+    success: false
+    error: 'new row for relation "handlers" violates check constraint "handlers_role_name_check"'
 
 - name: check current role through the service
   query: |

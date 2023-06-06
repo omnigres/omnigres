@@ -198,12 +198,14 @@ static void on_message(h2o_multithread_receiver_t *receiver, h2o_linklist_t *mes
   }
 }
 
+void event_loop_register_receiver() {
+  h2o_multithread_register_receiver(event_loop_queue, &event_loop_receiver, on_message);
+}
+
 void *event_loop(void *arg) {
   assert(worker_event_loop != NULL);
   assert(handler_queue != NULL);
   assert(event_loop_queue != NULL);
-
-  h2o_multithread_register_receiver(event_loop_queue, &event_loop_receiver, on_message);
 
   bool running = atomic_load(&worker_running);
   bool reload = atomic_load(&worker_reload);

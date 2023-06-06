@@ -127,6 +127,8 @@ void http_worker(Datum db_oid) {
   // configuration reloads and calling handlers.
   pthread_t event_loop_thread;
   event_loop_suspended = true;
+
+  event_loop_register_receiver(); // This MUST happen before starting event_loop
   pthread_create(&event_loop_thread, NULL, event_loop, NULL);
 
   // Connect worker to the database
@@ -147,9 +149,42 @@ void http_worker(Datum db_oid) {
       SetUserIdAndSecContext(TopUser, 0);
       CurrentHandlerUser = TopUser;
 
+      SetCurrentStatementStartTimestamp();
+      StartTransactionCommand();
+      PushActiveSnapshot(GetTransactionSnapshot());
+
+      SPI_connect();
+
+      // The idea here is that we get handlers sorted by listener id the same way they were
+      // sorted in the master worker (`by id asc`) and since they will arrive in the same order
+      // in the list of fds, we can simply get them by the index.
+      //
+      // This table is locked by the master worker and thus the order of listeners will not change
+
+      int handlers_query_rc = SPI_execute(
+          "select listeners.id, handlers.query, handlers.role_name "
+          "from omni_httpd.listeners "
+          "left join omni_httpd.listeners_handlers on listeners.id = "
+          "listeners_handlers.listener_id "
+          "left join omni_httpd.handlers handlers on handlers.id = listeners_handlers.handler_id "
+          "order by listeners.id asc",
+          false, 0);
+
+      // Now that we have this information, we can let the master worker commit its update and
+      // release the lock on the table.
+
       pg_atomic_add_fetch_u32(semaphore, 1);
 
+      // When all HTTP workers will do the same, the master worker will start serving the
+      // socket list.
+
       cvec_fd fds = accept_fds(MyBgworkerEntry->bgw_extra);
+      if (cvec_fd_empty(&fds)) {
+        SPI_finish();
+        PopActiveSnapshot();
+        AbortCurrentTransaction();
+        continue;
+      }
 
       // Disposing allocated listener/query pairs and their associated data
       // (such as sockets)
@@ -206,41 +241,40 @@ void http_worker(Datum db_oid) {
         }
       }
 
-      cvec_fd_drop(&fds);
+      // Now we're ready to work with the results of the query we made earlier:
+      if (handlers_query_rc == SPI_OK_SELECT) {
 
-      SetCurrentStatementStartTimestamp();
-      StartTransactionCommand();
-      PushActiveSnapshot(GetTransactionSnapshot());
+        // Here we have to track what was the last listener id
+        int last_id = 0;
+        // Here we have to track what was the last index
+        int index = -1;
 
-      SPI_connect();
-
-      int ret = SPI_execute(
-          "select listeners.address, listeners.effective_port, handlers.query, handlers.role_name "
-          "from "
-          "omni_httpd.listeners_handlers "
-          "inner join omni_httpd.listeners on listeners.id = listeners_handlers.listener_id "
-          "inner join omni_httpd.handlers handlers on handlers.id = listeners_handlers.handler_id",
-          false, 0);
-      if (ret == SPI_OK_SELECT) {
         TupleDesc tupdesc = SPI_tuptable->tupdesc;
         SPITupleTable *tuptable = SPI_tuptable;
         for (int i = 0; i < tuptable->numvals; i++) {
           HeapTuple tuple = tuptable->vals[i];
-          bool addr_is_null = false;
-          Datum addr = SPI_getbinval(tuple, tupdesc, 1, &addr_is_null);
-          bool port_is_null = false;
-          Datum port = SPI_getbinval(tuple, tupdesc, 2, &port_is_null);
-
-          int port_no = DatumGetInt32(port);
+          bool id_is_null = false;
+          Datum id = SPI_getbinval(tuple, tupdesc, 1, &id_is_null);
 
           bool query_is_null = false;
-          Datum query = SPI_getbinval(tuple, tupdesc, 3, &query_is_null);
+          Datum query = SPI_getbinval(tuple, tupdesc, 2, &query_is_null);
+
+          // Figure out socket index
+          if (last_id != DatumGetInt32(id)) {
+            last_id = DatumGetInt32(id);
+            index++;
+          }
+
+          // If no handler has matched, continue to the next row
+          if (query_is_null) {
+            continue;
+          }
 
           Oid role_id = InvalidOid;
           bool role_superuser = false;
           {
             bool role_name_is_null = false;
-            Datum role_name = SPI_getbinval(tuple, tupdesc, 4, &role_name_is_null);
+            Datum role_name = SPI_getbinval(tuple, tupdesc, 3, &role_name_is_null);
 
             HeapTuple roleTup = SearchSysCache1(AUTHNAME, role_name);
             if (!HeapTupleIsValid(roleTup)) {
@@ -254,131 +288,91 @@ void http_worker(Datum db_oid) {
             ReleaseSysCache(roleTup);
           }
 
-          c_FOREACH(iter, clist_listener_contexts, listener_contexts) {
-            int fd = iter.ref->fd;
-            struct sockaddr_in sin;
-            socklen_t len = sizeof(sin);
-            struct sockaddr_in6 sin6;
-            socklen_t len6 = sizeof(sin6);
-
-            socklen_t socklen;
-            void *sockaddr;
-
-            const char *fdaddr;
-
-            char _address[MAX_ADDRESS_SIZE];
-            char _address1[MAX_ADDRESS_SIZE];
-
-            int family = 0;
-            if (getsockname(fd, (struct sockaddr *)&sin, &len) == 0) {
-              family = sin.sin_family;
-            }
-
-            if (family == AF_INET) {
-              sockaddr = &sin;
-              socklen = len;
-            } else if (family == AF_INET6) {
-              sockaddr = &sin6;
-              socklen = len6;
-            } else {
-              continue;
-            }
-
-            int sock_port_no = 0;
-            if (getsockname(fd, (struct sockaddr *)sockaddr, &len) == 0) {
-              if (family == AF_INET) {
-                sock_port_no = ntohs(sin.sin_port);
-                fdaddr = inet_ntop(AF_INET, &sin.sin_addr, _address, sizeof(_address));
-              } else if (family == AF_INET6) {
-                sock_port_no = ntohs(sin6.sin6_port);
-                fdaddr = inet_ntop(AF_INET6, &sin6.sin6_addr, _address, sizeof(_address));
-              } else {
-                continue;
-              }
-            } else {
-              continue;
-            }
-
-            inet *inet_address = DatumGetInetPP(addr);
-            char *address = pg_inet_net_ntop(ip_family(inet_address), ip_addr(inet_address),
-                                             ip_bits(inet_address), _address1, sizeof(_address1));
-
-            if (strncmp(address, fdaddr, strlen(address)) == 0 && port_no == sock_port_no) {
-              // Found matching socket
-              char *query_string = text_to_cstring(DatumGetTextPP(query));
-              MemoryContext memory_context = CurrentMemoryContext;
-              char *request_cte = psprintf(
-                  // clang-format off
-                                  "select " "$" REQUEST_PLAN_PARAM(
-                                          REQUEST_PLAN_METHOD) "::text::omni_http.http_method AS method, "
-                                  "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_PATH) " as path, "
-                                  "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_QUERY_STRING) " as query_string, "
-                                  "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_BODY) " as body, "
-                                  "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_HEADERS) " as headers "
-                  // clang-format on
-              );
-
-              List *query_stmt = omni_sql_parse_statement(query_string);
-              if (omni_sql_is_parameterized(query_stmt)) {
-                ereport(WARNING, errmsg("Listener query is parameterized and is rejected:\n %s",
-                                        query_string));
-              } else {
-                List *request_cte_stmt = omni_sql_parse_statement(request_cte);
-                query_stmt = omni_sql_add_cte(query_stmt, "request", request_cte_stmt, false, true);
-
-                char *query = omni_sql_deparse_statement(query_stmt);
-                list_free_deep(request_cte_stmt);
-                list_free_deep(query_stmt);
-                PG_TRY();
-                {
-                  SPIPlanPtr plan =
-                      SPI_prepare(query, REQUEST_PLAN_PARAMS,
-                                  (Oid[REQUEST_PLAN_PARAMS]){
-                                      [REQUEST_PLAN_METHOD] = TEXTOID,
-                                      [REQUEST_PLAN_PATH] = TEXTOID,
-                                      [REQUEST_PLAN_QUERY_STRING] = TEXTOID,
-                                      [REQUEST_PLAN_BODY] = BYTEAOID,
-                                      [REQUEST_PLAN_HEADERS] = http_header_array_oid(),
-                                  });
-
-                  // Get role
-                  iter.ref->role_id = role_id;
-                  iter.ref->role_is_superuser = role_superuser;
-
-                  // We have to keep the plan as we're going to disconnect from SPI
-                  int keepret = SPI_keepplan(plan);
-                  if (keepret != 0) {
-                    ereport(WARNING,
-                            errmsg("Can't save plan: %s", SPI_result_code_string(keepret)));
-                    iter.ref->plan = NULL;
-                  } else {
-                    iter.ref->plan = plan;
-                  }
-                }
-                PG_CATCH();
-                {
-                  MemoryContextSwitchTo(memory_context);
-                  WITH_TEMP_MEMCXT {
-                    ErrorData *error = CopyErrorData();
-                    ereport(WARNING, errmsg("Error preparing query %s", query),
-                            errdetail("%s: %s", error->message, error->detail));
-                  }
-
-                  FlushErrorState();
-                }
-                PG_END_TRY();
-                pfree(query);
-              }
-              pfree(query_string);
+          const cvec_fd_value *fd = cvec_fd_at(&fds, index);
+          Assert(fd != NULL);
+          listener_ctx *listener_ctx = NULL;
+          c_foreach(iter, clist_listener_contexts, listener_contexts) {
+            if (iter.ref->fd == *fd) {
+              listener_ctx = iter.ref;
+              break;
             }
           }
+          Assert(listener_ctx != NULL);
+
+          char *query_string = text_to_cstring(DatumGetTextPP(query));
+          MemoryContext memory_context = CurrentMemoryContext;
+          char *request_cte = psprintf(
+              // clang-format off
+              "select " "$" REQUEST_PLAN_PARAM(
+                      REQUEST_PLAN_METHOD) "::text::omni_http.http_method AS method, "
+              "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_PATH) " as path, "
+              "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_QUERY_STRING) " as query_string, "
+              "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_BODY) " as body, "
+              "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_HEADERS) " as headers "
+              // clang-format on
+          );
+
+          List *query_stmt = omni_sql_parse_statement(query_string);
+          if (omni_sql_is_parameterized(query_stmt)) {
+            ereport(WARNING,
+                    errmsg("Listener query is parameterized and is rejected:\n %s", query_string));
+          } else {
+            List *request_cte_stmt = omni_sql_parse_statement(request_cte);
+            query_stmt = omni_sql_add_cte(query_stmt, "request", request_cte_stmt, false, true);
+
+            char *query = omni_sql_deparse_statement(query_stmt);
+            list_free_deep(request_cte_stmt);
+            list_free_deep(query_stmt);
+            PG_TRY();
+            {
+              SPIPlanPtr plan = SPI_prepare(query, REQUEST_PLAN_PARAMS,
+                                            (Oid[REQUEST_PLAN_PARAMS]){
+                                                [REQUEST_PLAN_METHOD] = TEXTOID,
+                                                [REQUEST_PLAN_PATH] = TEXTOID,
+                                                [REQUEST_PLAN_QUERY_STRING] = TEXTOID,
+                                                [REQUEST_PLAN_BODY] = BYTEAOID,
+                                                [REQUEST_PLAN_HEADERS] = http_header_array_oid(),
+                                            });
+
+              Assert(plan != NULL);
+              // Get role
+              listener_ctx->role_id = role_id;
+              listener_ctx->role_is_superuser = role_superuser;
+
+              // We have to keep the plan as we're going to disconnect from SPI
+              int keepret = SPI_keepplan(plan);
+              if (keepret != 0) {
+                ereport(WARNING, errmsg("Can't save plan: %s", SPI_result_code_string(keepret)));
+                listener_ctx->plan = NULL;
+              } else {
+                listener_ctx->plan = plan;
+              }
+            }
+            PG_CATCH();
+            {
+              MemoryContextSwitchTo(memory_context);
+              WITH_TEMP_MEMCXT {
+                ErrorData *error = CopyErrorData();
+                ereport(WARNING, errmsg("Error preparing query %s", query),
+                        errdetail("%s: %s", error->message, error->detail));
+              }
+
+              FlushErrorState();
+            }
+            PG_END_TRY();
+            pfree(query);
+          }
+          pfree(query_string);
         }
       } else {
-        ereport(WARNING, errmsg("Error fetching configuration: %s", SPI_result_code_string(ret)));
+        ereport(WARNING, errmsg("Error fetching configuration: %s",
+                                SPI_result_code_string(handlers_query_rc)));
       }
 
       SPI_finish();
+      PopActiveSnapshot();
       AbortCurrentTransaction();
+      cvec_fd_drop(&fds);
     }
 
     event_loop_suspended = false;
@@ -555,6 +549,7 @@ try_connect:
   do {
     errno = 0;
     if (atomic_load(&worker_reload)) {
+      result = cvec_fd_init();
       break;
     }
     result = recv_fds(socket_fd);
@@ -580,7 +575,7 @@ static int handler(request_message_t *msg) {
 
   if (plan == NULL) {
     req->res.status = 500;
-    h2o_queue_send_inline(msg, H2O_STRLIT("Internal server error"));
+    h2o_queue_send_inline(msg, H2O_STRLIT("Internal server error!!"));
     goto release;
   }
 

@@ -110,7 +110,7 @@ static void on_accept(h2o_socket_t *listener, const char *err) {
   int fd = h2o_socket_get_fd(sock);
   if (send_fds(fd, &sockets) != 0) {
     int e = errno;
-    ereport(ERROR, errmsg("error sending listening socket descriptor: %s", strerror(e)));
+    ereport(WARNING, errmsg("error sending listening socket descriptor: %s", strerror(e)));
   }
   h2o_socket_close(sock);
 }
@@ -248,13 +248,21 @@ void master_worker(Datum db_oid) {
     // Get listeners
     while (worker_reload) {
       worker_reload = false;
-      if (SPI_execute(
-              "select listeners.address, listeners.port, listeners.id from "
-              "omni_httpd.listeners_handlers "
-              "inner join omni_httpd.listeners on listeners.id = listeners_handlers.listener_id "
-              "inner join omni_httpd.handlers handlers on handlers.id = "
-              "listeners_handlers.handler_id",
-              false, 0) == SPI_OK_SELECT) {
+
+      // Lock this table until the end of the transaction so that nobody can modify it
+      // and therefore change the order of listeners (this is important for coordination of
+      // the master worker with http workers) as they will use the order of listeners to align
+      // with the vector of sockets sent.
+      {
+        int lock_rc = SPI_execute("lock table omni_httpd.listeners in share mode", false, 0);
+        if (lock_rc != SPI_OK_UTILITY) {
+          ereport(WARNING,
+                  errmsg("can't lock omni_httpd.listeners: %s", SPI_result_code_string(lock_rc)));
+        }
+      }
+
+      if (SPI_execute("select address, port, id from omni_httpd.listeners order by id asc", false,
+                      0) == SPI_OK_SELECT) {
         TupleDesc tupdesc = SPI_tuptable->tupdesc;
         SPITupleTable *tuptable = SPI_tuptable;
         cset_port ports = cset_port_init();
@@ -362,6 +370,17 @@ void master_worker(Datum db_oid) {
       if (port_ready) {
         break;
       }
+      // We're ready to wait for another update, so need to unlock the table
+      // by aborting and restarting the transaction
+      SPI_finish();
+      PopActiveSnapshot();
+      AbortCurrentTransaction();
+      SPI_connect();
+      SetCurrentStatementStartTimestamp();
+      StartTransactionCommand();
+      PushActiveSnapshot(GetTransactionSnapshot());
+
+      // And then waiting
       (void)WaitLatch(MyLatch, WL_LATCH_SET | WL_TIMEOUT | WL_EXIT_ON_PM_DEATH, 1000L,
                       PG_WAIT_EXTENSION);
       ResetLatch(MyLatch);
@@ -373,17 +392,6 @@ void master_worker(Datum db_oid) {
       }
     }
     HandleMainLoopInterrupts();
-
-    // Commit current state for http workers to read
-    SPI_finish();
-    PopActiveSnapshot();
-    CommitTransactionCommand();
-
-    // Prepare transaction for configuration reload notification
-    SPI_connect();
-    SetCurrentStatementStartTimestamp();
-    StartTransactionCommand();
-    PushActiveSnapshot(GetTransactionSnapshot());
 
     // If HTTP workers have already been started, notify them of the change.
     // It is okay to notify them at this time as they will try to connect to the UNIX socket
