@@ -403,16 +403,20 @@ int main(int argc, char **argv) {
     // Retrieve hard-coded Postgres configuration
     pg_config = getenv("PGCONFIG") ?: "pg_config";
 
+    // Code below redirects pg_config's stderr to /dev/null
+    // to avoid reading it. It can be present when pg_config is compiled
+    // with a sanitizer, for example.
+
     char *bindir_cmd;
-    asprintf(&bindir_cmd, "%s --bindir", pg_config);
+    asprintf(&bindir_cmd, "%s --bindir 2>/dev/null", pg_config);
     get_path_from_popen(bindir_cmd, bindir);
 
     char *sharedir_cmd;
-    asprintf(&sharedir_cmd, "%s --sharedir", pg_config);
+    asprintf(&sharedir_cmd, "%s --sharedir 2>/dev/null", pg_config);
     get_path_from_popen(sharedir_cmd, sharedir);
 
     char *pkglibdir_cmd;
-    asprintf(&pkglibdir_cmd, "%s --pkglibdir", pg_config);
+    asprintf(&pkglibdir_cmd, "%s --pkglibdir 2>/dev/null", pg_config);
     get_path_from_popen(pkglibdir_cmd, pkglibdir);
 
     struct fy_diag_cfg diag_cfg;
