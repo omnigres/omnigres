@@ -127,6 +127,8 @@ void http_worker(Datum db_oid) {
   // configuration reloads and calling handlers.
   pthread_t event_loop_thread;
   event_loop_suspended = true;
+
+  event_loop_register_receiver(); // This MUST happen before starting event_loop
   pthread_create(&event_loop_thread, NULL, event_loop, NULL);
 
   // Connect worker to the database
