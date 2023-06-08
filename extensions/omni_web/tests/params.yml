@@ -1,0 +1,51 @@
+instances:
+ default:
+  init:
+  - create extension omni_web
+
+tests:
+
+- name: params type
+  query: select array ['key', 'value']::omni_web.params
+  results:
+  - array: '{key,value}'
+
+- name: invalid params should fail
+  query: select array ['key']::omni_web.params
+  success: false
+  error: value for domain omni_web.params violates check constraint "params_check"
+
+- query: select omni_web.param_get(omni_web.parse_query_string('a=1&a=2'), 'a')
+  results:
+   - param_get: 1
+
+- query: select omni_web.param_get(omni_web.parse_query_string('a&a=2'), 'a')
+  results:
+   - param_get: null
+
+- query: select omni_web.param_get_all(omni_web.parse_query_string('a&a=2'), 'a');
+  results:
+   - param_get_all: null
+   - param_get_all: 2
+
+- name: shortcut param_get API for text
+  query: select omni_web.param_get('a=1', 'a')
+  results:
+  - param_get: 1
+
+- name: shortcut param_get API for binary
+  query: select omni_web.param_get(convert_to('a=1', 'utf8'), 'a');
+  results:
+  - param_get: 1
+
+- name: shortcut param_get_all API for text
+  query: select omni_web.param_get_all('a=1&a=2', 'a');
+  results:
+  - param_get_all: 1
+  - param_get_all: 2
+
+- name: shortcut param_get_all API for binary
+  query: select omni_web.param_get_all(convert_to('a=1&a=2', 'utf8'), 'a');
+  results:
+  - param_get_all: 1
+  - param_get_all: 2
