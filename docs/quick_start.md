@@ -26,52 +26,78 @@ You can access the HTTP server at [localhost:8080](http://localhost:8080)
     This image contains all Omnigres extensions (with omni_httpd and omni_web preinstalled),
     as well as the following languages & extensions:
     
-    * __plrust__ (That's right, you can use Rust!)
-    * uuid-ossp
-    * btree_gin
-    * dict_int
-    * hstore
-    * lo
-    * pg_prewarm
-    * pg_walinspect
-    * refint
-    * tsm_system_rows
     * adminpack
-    * btree_gist
-    * dict_xsyn
-    * insert_username
-    * ltree
-    * pg_stat_statements pgcrypto
-    * seg
-    * tsm_system_time
     * amcheck
-    * citext
-    * earthdistance
-    * intagg
-    * moddatetime
-    * pageinspect
-    * pg_surgery
-    * pgrowlocks
-    * sslinfo
-    * unaccent
     * autoinc
-    * cube
-    * file_fdw
-    * intarray
-    * old_snapshot
-    * pg_buffercache
-    * pg_trgm
-    * pgstattuple
-    * tablefunc
-    * xml2
     * bloom
+    * bool_plperl
+    * bool_plperlu
+    * btree_gin
+    * btree_gist
+    * citext
+    * cube
     * dblink
+    * dict_int
+    * dict_xsyn
+    * earthdistance
+    * file_fdw
     * fuzzystrmatch
+    * hstore
+    * hstore_plperl
+    * hstore_plperlu
+    * hstore_plpython3u
+    * insert_username
+    * intagg
+    * intarray
     * isn
+    * jsonb_plperl
+    * jsonb_plperlu
+    * jsonb_plpython3u
+    * lo
+    * ltree
+    * ltree_plpython3u
+    * moddatetime
+    * old_snapshot
+    * omni_containers
+    * omni_ext
+    * omni_http
+    * omni_httpc
+    * omni_httpd
+    * omni_seq
+    * omni_sql
+    * omni_types
+    * omni_web
+    * pageinspect
+    * pg_buffercache
     * pg_freespacemap
+    * pg_prewarm
+    * pg_stat_statements
+    * pg_surgery
+    * pg_trgm
     * pg_visibility
+    * pg_walinspect
+    * pgcrypto
+    * pgrowlocks
+    * pgstattuple
+    * pljava
+    * plperl
+    * plperlu
+    * plpgsql
+    * plpython3u
+    * plrust
+    * pltcl
+    * pltclu
     * postgres_fdw
+    * refint
+    * seg
+    * sslinfo
+    * tablefunc
     * tcn
+    * tsm_system_rows
+    * tsm_system_time
+    * unaccent
+    * uuid-ossp
+    * xml2
 
 ??? warning "Why is the container image so large?"
 
