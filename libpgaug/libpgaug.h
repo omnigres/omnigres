@@ -93,6 +93,24 @@ void __with_temp_memcxt_cleanup(struct __with_temp_memcxt *s);
 #define CACHED_OID_GET_MACRO(_1, _2, NAME, ...) NAME
 #define CACHED_OID(...) CACHED_OID_GET_MACRO(__VA_ARGS__, CACHED_OID_2, CACHED_OID_1)(__VA_ARGS__)
 
+#define CACHED_ENUM_OID(type, label)                                                               \
+  Oid type##_##label##_oid() {                                                                     \
+    static HeapTuple tup = NULL;                                                                   \
+    static Oid oid = InvalidOid;                                                                   \
+                                                                                                   \
+    if (tup == NULL) {                                                                             \
+      tup = SearchSysCache2(ENUMTYPOIDNAME, ObjectIdGetDatum(type##_oid()),                        \
+                            CStringGetDatum(_PGEXT_STRINGIZE(label)));                             \
+      if (!HeapTupleIsValid(tup)) {                                                                \
+        ereport(ERROR, errmsg("invalid enum label '" _PGEXT_STRINGIZE(                             \
+                           label) "' for type '" _PGEXT_STRINGIZE(type) "'"));                     \
+      }                                                                                            \
+      oid = ((Form_pg_enum)GETSTRUCT(tup))->oid;                                                   \
+      ReleaseSysCache(tup);                                                                        \
+    }                                                                                              \
+    return oid;                                                                                    \
+  }
+
 #define GetAttributeByIndex(t, index, isnull) GetAttributeByNum(t, index + 1, isnull)
 
 #endif // LIBPGAUG_H

@@ -1,0 +1,64 @@
+instances:
+  default:
+    init:
+    - create extension omni_vfs
+
+tests:
+
+- name: can create a local filesystem
+  query: select omni_vfs.local_fs('.')
+
+- name: re-creating a local filesystem doesn't advance the sequence
+  steps:
+  - query: select omni_vfs.local_fs('.')
+  - query: create table seqval as select currval('omni_vfs.local_fs_mounts_id_seq')
+  - query: select omni_vfs.local_fs('.')
+  - query: select true as result from seqval where currval = currval('omni_vfs.local_fs_mounts_id_seq')
+    results:
+    - result: t
+
+- name: can list files
+  query: select * from omni_vfs.list(omni_vfs.local_fs('../../../../extensions/omni_vfs/tests'), '')
+  results:
+  - kind: file
+    name: local_fs.yml
+
+- name: can't list files outside of the mount point
+  query: select * from omni_vfs.list(omni_vfs.local_fs('../../../../extensions/omni_vfs/tests'), '..')
+  error: requested path is outside of the mount point
+  success: false
+
+- name: can't list files outside of the mount point (matching length)
+  query: select * from omni_vfs.list(omni_vfs.local_fs('../../../../extensions/omni_vfs/tests'), '../../omni_seq/tests')
+  error: requested path is outside of the mount point
+  success: false
+
+- name: can get file info
+  query: select size > 0 as result from omni_vfs.file_info(omni_vfs.local_fs('../../../../extensions/omni_vfs/tests'), 'local_fs.yml')
+  results:
+  - result: t
+
+- name: can read file
+  query: select length(convert_from(omni_vfs.read(omni_vfs.local_fs('../../../../extensions/omni_vfs'), 'tests/local_fs.yml'), 'utf8')) > 0 as result
+  results:
+  - result: t
+
+- name: mount point is recorded as an absolute path
+  steps:
+  # ensure there's nothing
+  - delete from omni_vfs.local_fs_mounts
+  - select omni_vfs.local_fs('.')
+  - query: select length(mount) > length('.') as result from omni_vfs.local_fs_mounts
+    results:
+    - result: t
+
+- name: RLS is enforced (can't create a mount)
+  steps:
+  - create role another_user
+  - grant all on all tables in schema omni_vfs to another_user
+  - grant execute on all functions in schema omni_vfs to another_user
+  - grant usage on schema omni_vfs to another_user
+  - set role another_user
+  - query: select omni_vfs.local_fs('.')
+    success: false
+    error: new row violates row-level security policy for table "local_fs_mounts"
