@@ -94,7 +94,7 @@ find_program(PGCLI pgcli)
 function(find_pg_yregress_tests dir)
     file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${NAME}_FindRegressTests.cmake"
             CONTENT "
-file(GLOB files RELATIVE ${CMAKE_CURRENT_LIST_DIR} ${dir}/*)
+file(GLOB_RECURSE files RELATIVE ${CMAKE_CURRENT_LIST_DIR} LIST_DIRECTORIES false ${dir}/*.yml ${dir}/*.yaml)
 list(SORT files)
 foreach(file \${files})
     add_test(\"${NAME}/\${file}\" \"$<TARGET_FILE:pg_yregress>\" \"${dir}/../\${file}\")

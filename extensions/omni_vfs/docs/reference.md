@@ -54,6 +54,88 @@ Results in:
 | omni_vfs--0.1.sql | file | 3073 | 2023-06-08 17:10:55.278702 | 2023-06-08 17:11:04.599535 | 2023-06-08 17:10:55.278702 |
 | omni_vfs.c        | file |  347 | 2023-06-08 14:10:18.743496 | 2023-06-08 14:10:19.40728  | 2023-06-08 14:10:18.743496 |
 
+## API
+
+## `omni_vfs.file` type
+
+Describes a file entry.
+
+|    Field | Type                | Description                                   |
+|---------:|---------------------|-----------------------------------------------|
+| **name** | `text`              | File name                                     |
+| **kind** | `omni_vs.file_kind` | File kind (`file`, `dir`) [^other-file-types] |
+
+[^other-file-types]:
+Other file types (such as sockets) are not currently considered to be of practical use and will be reported as `file`. This may change in the future.
+
+## `omni_vs.file_info` type
+
+Describes file meta information.
+
+|           Field | Type        | Description                           |
+|----------------:|-------------|---------------------------------------|
+|        **size** | `bigint`    | File size                             |
+|  **created_at** | `timestamp` | File creation time (if available)     |
+| **accessed_at** | `timestamp` | File access time (if available)       |
+| **modified_at** | `timestamp` | File modification time (if available) |
+
+## `omni_vfs.list()`
+
+Lists a directory or a single file.
+
+|            Parameter | Type              | Description                                                       |
+|---------------------:|-------------------|-------------------------------------------------------------------|
+|               **fs** | _Filesystem type_ | Filesystem                                                        |
+|             **path** | `text`            | Path to list. If it is a single file, returns that file           |
+| **fail_unpermitted** | `bool`            | Raise an error if directory can't be open. `true` **by default**. |
+
+Returns a set of `omni_vfs.file` values.
+
+## `omni_vfs.list_recursively()`
+
+This is a helper function implemented for all backends that lists all files recursively.
+
+| Parameter | Type              | Description                                                        |
+|----------:|-------------------|--------------------------------------------------------------------|
+|    **fs** | _Filesystem type_ | Filesystem                                                         |
+|  **path** | `text`            | Path to list. If it is a single file, returns that file            |
+|   **max** | `bigint`          | Limit the number of files to be returned. No limit **by default**. |
+
+Returns a set of `omni_vfs.file`
+
+!!! warning "Use caution if the directory might contain a lot of files"
+
+    If there are a lot of files, this function will use a lot of memory and will take a long time. To safeguard
+    against this, use of `max` parameter is **strongly recommended**.
+
+    One of the reasons why this function has a long name is to force its users to use it carefully and sparingly.
+
+## `omni_vfs.file_info()`
+
+Provides file information (similar to POSIX `stat`)
+
+| Parameter | Type              | Description      |
+|----------:|-------------------|------------------|
+|    **fs** | _Filesystem type_ | Filesystem       |
+|  **path** | `text`            | Path to the file |
+
+Returns a value of the `omni_vfs.file_info` type.
+
+## `omni_vfs.read()`
+
+Reads a chunk of the file.
+
+|       Parameter | Type              | Description                                                                        |
+|----------------:|-------------------|------------------------------------------------------------------------------------|
+|          **fs** | _Filesystem type_ | Filesystem                                                                         |
+|        **path** | `text`            | Path to the file                                                                   |
+| **file_offset** | `bigint`          | Offset to read at. Defaults to `0`.                                                |
+|  **chunk_size** | `bigint`          | Number of bytes to read. By default, tries to read to the end [^chunk_size-limit]. |
+
+Returns a `bytea` value
+
+[^chunk_size-limit]: Chunk size is currently limited to 1GB.
+
 ## Backends
 
 Currently, omni_vfs provides the following backends:
