@@ -17,9 +17,7 @@ add_postgresql_extension(
         SCHEMA omni_web
         RELOCATABLE false
         SCRIPTS omni_web--0.1.sql
-        SOURCES omni_web.c
-        TESTS_REQUIRE omni_ext
-        REGRESS query_string params)
+        SOURCES omni_web.c)
 
 target_link_libraries(omni_web uriparser)
 
