@@ -29,6 +29,7 @@ begin
         pg_proc.proname = 'list' and
         pg_proc.proargtypes[0] = type::oid and
         pg_proc.proargtypes[1] = 'text'::regtype and
+        pg_proc.proargtypes[2] = 'bool'::regtype and
         pg_proc.proretset and
         pg_proc.prorettype = 'omni_vfs.file'::regtype;
     if not found then
@@ -60,7 +61,7 @@ begin
         pg_proc.proargtypes[0] = type::oid and
         pg_proc.proargtypes[1] = 'text'::regtype and
         pg_proc.proargtypes[2] = 'bigint'::regtype and
-        pg_proc.proargtypes[3] = 'bigint'::regtype and
+        pg_proc.proargtypes[3] = 'int'::regtype and
         not pg_proc.proretset and
         pg_proc.prorettype = 'bytea'::regtype;
     if not found then
@@ -89,7 +90,7 @@ create type local_fs as
 create function local_fs(mount text) returns local_fs as
 'MODULE_PATHNAME' language c;
 
-create function list(fs local_fs, dir text) returns setof file as
+create function list(fs local_fs, path text, fail_unpermitted boolean default true) returns setof file as
 'MODULE_PATHNAME',
 'local_fs_list' language c;
 
@@ -98,9 +99,35 @@ create function file_info(fs local_fs, path text) returns file_info as
 'local_fs_file_info' language c;
 
 create function read(fs local_fs, path text, file_offset bigint default 0,
-                     chunk_size bigint default null) returns bytea as
+                     chunk_size int default null) returns bytea as
 'MODULE_PATHNAME',
 'local_fs_read' language c;
+
+-- Helpers
+
+create function list_recursively(fs anyelement, path text, max bigint default null) returns setof file as
+$$
+with
+    recursive
+    directory_tree as (select
+                           file
+                       from
+                           lateral omni_vfs.list(fs, path) as file -- Top directory
+                       union all
+                       select
+                           row ((directory_tree.file).name || '/' || sub_file.name,
+                               sub_file.kind)::omni_vfs.file
+                       from
+                           directory_tree,
+                           lateral omni_vfs.list(fs, (directory_tree.file).name, fail_unpermitted => false) as sub_file
+                       where
+                           (directory_tree.file).name != sub_file.name)
+select *
+from
+    directory_tree
+limit max;
+$$
+    language sql;
 
 -- Checks
 

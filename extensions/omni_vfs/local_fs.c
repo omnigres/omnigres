@@ -34,34 +34,28 @@ PG_FUNCTION_INFO_V1(local_fs_read);
 #endif
 
 char *subpath(const char *parent, const char *child) {
-  char absolute_parent[PATH_MAX_];
-  char absolute_child[PATH_MAX_];
+  char *absolute_parent = make_absolute_path(parent);
   char *tmp_parent = palloc(PATH_MAX_);
-
-  strncpy(tmp_parent, parent, PATH_MAX_);
-
-  if (realpath(tmp_parent, absolute_parent) == NULL) {
-    int e = errno;
-    ereport(ERROR, errmsg("can't get a realpath for mount"), errdetail("%s", strerror(e)));
-  }
 
   snprintf(tmp_parent, PATH_MAX_, "%s/%s", absolute_parent, child);
 
-  if (realpath(tmp_parent, absolute_child) == NULL) {
-    int e = errno;
-    ereport(ERROR, errmsg("can't get a realpath for the given path %s", tmp_parent),
-            errdetail("%s", strerror(e)));
-  }
+  char *absolute_child = make_absolute_path(tmp_parent);
+  pfree(tmp_parent);
+  char *subpath = pstrdup(absolute_child);
+  free(absolute_child);
 
   size_t parent_len = strlen(absolute_parent);
-  if (parent_len > strlen(absolute_child)) {
+  if (parent_len > strlen(subpath)) {
     ereport(ERROR, errmsg("requested path is outside of the mount point"));
   }
 
-  if (strncmp(absolute_parent, absolute_child, parent_len) == 0) {
-    return tmp_parent;
+  if (strncmp(absolute_parent, subpath, parent_len) == 0) {
+    free(absolute_parent);
+    return subpath;
   } else {
-    ereport(ERROR, errmsg("requested path is outside of the mount point"));
+    free(absolute_parent);
+    ereport(ERROR, errmsg("requested path is outside of the mount point"),
+            errdetail("mount point: %s, path: %s", absolute_parent, absolute_child));
   }
 }
 
@@ -165,38 +159,72 @@ Datum local_fs_list(PG_FUNCTION_ARGS) {
 
   char *mount_path = get_mount_path(fs_id);
 
-  text *dir = PG_GETARG_TEXT_PP(1);
-  char *path = subpath(mount_path, text_to_cstring(dir));
+  text *given_path = PG_GETARG_TEXT_PP(1);
+  char *path = subpath(mount_path, text_to_cstring(given_path));
 
   Tuplestorestate *tupstore = tuplestore_begin_heap(false, false, work_mem);
   rsinfo->setResult = tupstore;
 
-  DIR *d = opendir(path);
-  struct dirent *dirent;
-
-  if (d) {
-    while ((dirent = readdir(d)) != NULL) {
-#if defined(__APPLE__)
-      uint64_t namlen = dirent->d_namlen;
-#elif defined(_DIRENT_HAVE_D_NAMLEN)
-      unsigned char namlen = dirent->d_namlen;
-#else
-      size_t namlen = strlen(dirent->d_name);
-#endif
-      if (namlen <= 2 && strncmp(dirent->d_name, "..", namlen) == 0)
-        continue;
-      Datum values[2] = {
-          PointerGetDatum(cstring_to_text_with_len(dirent->d_name, namlen)),
-          ObjectIdGetDatum(dirent->d_type == DT_DIR ? file_kind_dir_oid() : file_kind_file_oid())};
-      bool isnull[2] = {false, false};
-      tuplestore_putvalues(tupstore, rsinfo->expectedDesc, values, isnull);
+  // Check if the file is a directory
+  bool is_dir = true;
+  {
+    struct stat s;
+    if (stat(path, &s) == 0) {
+      is_dir = S_ISDIR(s.st_mode);
+    } else {
+      // can't stat the file, ignore it
+      goto done;
     }
-
-    closedir(d);
-  } else {
-    ereport(ERROR, errmsg("can't open directory"), errdetail("%s", path));
   }
 
+  bool fail_unpermitted = true;
+  if (!PG_ARGISNULL(2)) {
+    fail_unpermitted = PG_GETARG_BOOL(2);
+  }
+
+  if (is_dir) {
+
+    DIR *d = opendir(path);
+    struct dirent *dirent;
+
+    if (d) {
+      while ((dirent = readdir(d)) != NULL) {
+#if defined(__APPLE__)
+        uint64_t namlen = dirent->d_namlen;
+#elif defined(_DIRENT_HAVE_D_NAMLEN)
+        unsigned char namlen = dirent->d_namlen;
+#else
+        size_t namlen = strlen(dirent->d_name);
+#endif
+        if (namlen <= 2 && strncmp(dirent->d_name, "..", namlen) == 0)
+          continue;
+        Datum values[2] = {PointerGetDatum(cstring_to_text_with_len(dirent->d_name, namlen)),
+                           ObjectIdGetDatum(dirent->d_type == DT_DIR ? file_kind_dir_oid()
+                                                                     : file_kind_file_oid())};
+        bool isnull[2] = {false, false};
+        tuplestore_putvalues(tupstore, rsinfo->expectedDesc, values, isnull);
+      }
+
+      closedir(d);
+    } else {
+      int e = errno;
+      int report_type = ERROR;
+      if (e == EPERM && !fail_unpermitted) {
+#if PG_MAJORVERSION_NUM > 13
+        report_type = WARNING_CLIENT_ONLY;
+#else
+        report_type = WARNING;
+#endif
+      }
+      ereport(report_type, errmsg("can't open directory: %s", strerror(e)), errdetail("%s", path));
+    }
+  } else {
+    Datum values[2] = {PointerGetDatum(given_path), ObjectIdGetDatum(file_kind_file_oid())};
+    bool isnull[2] = {false, false};
+    tuplestore_putvalues(tupstore, rsinfo->expectedDesc, values, isnull);
+  }
+
+done:
   tuplestore_donestoring(tupstore);
 
   MemoryContextSwitchTo(oldcontext);
@@ -328,7 +356,7 @@ Datum local_fs_read(PG_FUNCTION_ARGS) {
 
   long size;
   if (!PG_ARGISNULL(3)) {
-    size = PG_GETARG_INT64(3);
+    size = PG_GETARG_INT32(3);
   } else {
     if (fseek(fp, 0, SEEK_END) == -1) {
       int e = errno;
