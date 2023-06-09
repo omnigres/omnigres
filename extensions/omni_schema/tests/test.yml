@@ -1,0 +1,79 @@
+instances:
+  default:
+    init:
+    - create extension omni_schema cascade
+
+tests:
+
+- name: function
+  steps:
+  - name: 1
+    query: |
+      select
+        *
+      from 
+        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/function'), '1')
+    results:
+    - load_from_fs: 1/foo.sql
+  - query: select foo()
+    results:
+    - foo: f
+  - name: 2
+    query: |
+      select
+        *
+      from 
+        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/function'), '2')
+    results:
+    - load_from_fs: 2/foo_modified.sql
+  - query: select foo()
+    results:
+    - foo: t
+  - name: 3
+    query: |
+      select
+        *
+      from 
+        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/function'), '3')
+    results:
+    - load_from_fs: 3/foo_new_signature.sql
+  - query: select foo(1)
+    error:
+    results:
+    - foo: t
+  - query: select foo()
+    success: false
+    error: function foo() does not exist
+
+- name: policy
+  steps:
+  - create role test
+  - create table test (i int)
+  - grant select on test to test
+  - alter table test enable row level security
+  - insert into test values (1)
+  - name: 1
+    query: |
+      select
+        *
+      from 
+        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/policy'), '1')
+    results:
+    - load_from_fs: 1/foo.sql
+  - set role test
+  - query: select count(*) from test
+    results:
+    - count: 0
+  - reset role
+  - name: 2
+    query: |
+      select
+        *
+      from 
+        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/policy'), '2')
+    results:
+    - load_from_fs: 2/foo_modified.sql
+  - set role test
+  - query: select count(*) from test
+    results:
+    - count: 1
