@@ -89,15 +89,27 @@ if(NOT EXISTS "${PGDIR_VERSION}/build/bin/postgres")
     file(DOWNLOAD "https://ftp.postgresql.org/pub/source/v${PGVER_ALIAS}/postgresql-${PGVER_ALIAS}.tar.bz2" "${PGDIR}/postgresql-${PGVER_ALIAS}.tar.bz2" SHOW_PROGRESS)
     message(STATUS "Extracting PostgreSQL ${PGVER}")
     file(ARCHIVE_EXTRACT INPUT "${PGDIR}/postgresql-${PGVER_ALIAS}.tar.bz2" DESTINATION ${PGDIR_VERSION})
+
     execute_process(
-        COMMAND ./configure --enable-debug --prefix "${PGDIR_VERSION}/build"
-        WORKING_DIRECTORY "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}")
+            COMMAND ./configure --enable-debug --prefix "${PGDIR_VERSION}/build"
+            WORKING_DIRECTORY "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}"
+            RESULT_VARIABLE pg_configure_result)
+
+    if(NOT pg_configure_result EQUAL 0)
+        message(FATAL_ERROR "Can't configure Postgres, aborting.")
+    endif()
 
     # Replace PGSHAREDIR with `PGSHAREDIR` environment variable so that we don't need to deploy extensions
     # between different builds into the same Postgres
     execute_process(
-        COMMAND make pg_config_paths.h
-        WORKING_DIRECTORY "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}/src/port")
+            COMMAND make pg_config_paths.h
+            WORKING_DIRECTORY "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}/src/port"
+            RESULT_VARIABLE pg_prepare_result)
+
+    if(NOT pg_prepare_result EQUAL 0)
+        message(FATAL_ERROR "Can't patch src/port/pg_config_paths.h in Postgres, aborting.")
+    endif()
+
     file(READ "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}/src/port/pg_config_paths.h" FILE_CONTENTS)
     string(APPEND FILE_CONTENTS "
 #undef PGSHAREDIR
@@ -106,11 +118,16 @@ if(NOT EXISTS "${PGDIR_VERSION}/build/bin/postgres")
     file(WRITE "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}/src/port/pg_config_paths.h" ${FILE_CONTENTS})
 
     execute_process(
-
             # Ensure we always set SHELL to /bin/sh to be used in pg_regress. Otherwise it has been observed to
             # degrade to `sh` (at least, on NixOS) and pg_regress fails to start anything
             COMMAND make SHELL=/bin/sh -j ${CMAKE_BUILD_PARALLEL_LEVEL} install
-            WORKING_DIRECTORY "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}")
+            WORKING_DIRECTORY "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}"
+            RESULT_VARIABLE pg_build_result)
+
+    if(NOT pg_build_result EQUAL 0)
+        message(FATAL_ERROR "Can't build Postgres, aborting.")
+    endif()
+
 endif()
 
 set(PostgreSQL_ROOT "${PGDIR_VERSION}/build")
