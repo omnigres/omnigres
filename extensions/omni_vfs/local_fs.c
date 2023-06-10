@@ -64,8 +64,6 @@ Datum local_fs(PG_FUNCTION_ARGS) {
     ereport(ERROR, errmsg("must must not be NULL"));
   }
 
-  MemoryContext oldcontext = CurrentMemoryContext;
-
   text *absolute_mount = cstring_to_text(subpath(text_to_cstring(PG_GETARG_TEXT_PP(0)), "."));
 
   SPI_connect();
