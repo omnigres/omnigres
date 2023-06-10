@@ -95,12 +95,7 @@ Datum local_fs(PG_FUNCTION_ARGS) {
   TupleDesc tupdesc = SPI_tuptable->tupdesc;
   HeapTuple tuple = SPI_tuptable->vals[0];
   bool isnull;
-  Datum local_fs = SPI_getbinval(tuple, tupdesc, 1, &isnull);
-
-  MemoryContext spi_context = CurrentMemoryContext;
-  MemoryContextSwitchTo(oldcontext);
-  SPI_datumTransfer(local_fs, false, -1);
-  MemoryContextSwitchTo(spi_context);
+  Datum local_fs = SPI_datumTransfer(SPI_getbinval(tuple, tupdesc, 1, &isnull), false, -1);
 
   SPI_finish();
 
