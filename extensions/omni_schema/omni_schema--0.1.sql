@@ -61,3 +61,44 @@ begin
     return;
 end ;
 $$;
+
+--- Migrations
+create table migrations
+(
+    id         integer primary key generated always as identity,
+    name       text      not null,
+    migration  text      not null,
+    applied_at timestamp not null default clock_timestamp()
+);
+
+select pg_catalog.pg_extension_config_dump('migrations', '');
+select pg_catalog.pg_extension_config_dump('migrations_id_seq', '');
+
+create function migrate_from_fs(fs anyelement, path text) returns setof text
+    language plpgsql
+as
+$$
+declare
+    rec record;
+begin
+    for rec in select
+                   path || '/' || files.name                                           as name,
+                   convert_from(omni_vfs.read(fs, path || '/' || files.name), 'utf-8') as code
+               from
+                   omni_vfs.list_recursively(fs, path, max => 10000) as files
+                   left join omni_schema.migrations on migrations.name = (path || '/' || files.name)
+               where
+                   files.name like '%.sql' and
+                   migrations.name is null
+               order by files.name asc
+        loop
+            execute rec.code;
+            return next rec.name;
+            insert
+            into
+                omni_schema.migrations (name, migration)
+            values (rec.name, rec.code);
+        end loop;
+    return;
+end;
+$$;
