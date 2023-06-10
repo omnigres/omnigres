@@ -10,6 +10,12 @@ create table policies as
         pg_policy
     limit 0;
 
+create table class as
+    select *
+    from
+        pg_class
+    limit 0;
+
 create function load_from_fs(fs anyelement, path text) returns setof text
     language plpgsql
 as
@@ -38,6 +44,21 @@ begin
             execute format('drop policy if exists %I on %I', rec.polname, rec.relname);
         end loop;
     delete from omni_schema.policies;
+    -- Supported relations
+    create temporary table if not exists _omni_schema_pg_class on commit drop as
+        select * from pg_class;
+    for rec in select
+                   class.*,
+                   pg_namespace.nspname
+               from
+                   omni_schema.class
+                   inner join pg_namespace on pg_namespace.oid = class.relnamespace
+        loop
+            if rec.relkind = 'v' then
+                execute format('drop view if exists %I.%I cascade', rec.nspname, rec.relname);
+            end if;
+        end loop;
+    delete from omni_schema.class;
     -- Execute
     for rec in select
                    path || '/' || name                                           as name,
@@ -58,6 +79,10 @@ begin
     insert
     into
         omni_schema.policies (select * from pg_policy except select * from _omni_schema_pg_policy);
+    -- New supported relations
+    insert
+    into
+        omni_schema.class (select * from pg_class except select * from _omni_schema_pg_class);
     return;
 end ;
 $$;

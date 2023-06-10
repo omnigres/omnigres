@@ -50,12 +50,47 @@ tests:
     results:
     - load_from_fs: 3/foo_new_signature.sql
   - query: select foo(1)
-    error:
     results:
     - foo: t
   - query: select foo()
     success: false
     error: function foo() does not exist
+
+- name: view
+  steps:
+  - name: 1
+    query: |
+      select
+        *
+      from 
+        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/view'), '1')
+    results:
+    - load_from_fs: 1/view.sql
+  - query: select * from my_view
+    results:
+    - column1: 1
+  - name: 2
+    query: |
+      select
+        *
+      from 
+        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/view'), '2')
+    results:
+    - load_from_fs: 2/view.sql
+  - query: select * from my_view
+    results:
+    - column1: 1
+      column2: 2
+  - name: 3
+    query: |
+      select
+        *
+      from 
+        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/view'), '3')
+    results: [ ]
+  - query: select * from my_view
+    success: false
+    error: relation "my_view" does not exist
 
 - name: policy
   steps:
