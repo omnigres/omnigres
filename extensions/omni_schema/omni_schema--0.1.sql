@@ -16,7 +16,7 @@ create table class as
         pg_class
     limit 0;
 
-create function load_from_fs(fs anyelement, path text) returns setof text
+create function load_from_fs(fs anyelement, path text default '') returns setof text
     language plpgsql
 as
 $$
@@ -61,7 +61,7 @@ begin
     delete from omni_schema.class;
     -- Execute
     for rec in select
-                   path || '/' || name                                           as name,
+                   case when path = '' then '' else path || '/' end || name      as name,
                    convert_from(omni_vfs.read(fs, path || '/' || name), 'utf-8') as code
                from
                    omni_vfs.list_recursively(fs, path, max => 10000)
@@ -99,7 +99,7 @@ create table migrations
 select pg_catalog.pg_extension_config_dump('migrations', '');
 select pg_catalog.pg_extension_config_dump('migrations_id_seq', '');
 
-create function migrate_from_fs(fs anyelement, path text) returns setof text
+create function migrate_from_fs(fs anyelement, path text default '') returns setof text
     language plpgsql
 as
 $$
@@ -107,7 +107,7 @@ declare
     rec record;
 begin
     for rec in select
-                   path || '/' || files.name                                           as name,
+                   case when path = '' then '' else path || '/' end || files.name      as name,
                    convert_from(omni_vfs.read(fs, path || '/' || files.name), 'utf-8') as code
                from
                    omni_vfs.list_recursively(fs, path, max => 10000) as files

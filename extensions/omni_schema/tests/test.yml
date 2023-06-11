@@ -24,9 +24,9 @@ tests:
       select
         *
       from 
-        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/function'), '1')
+        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/function/1'))
     results:
-    - load_from_fs: 1/foo.sql
+    - load_from_fs: foo.sql
   - query: select foo()
     results:
     - foo: f
@@ -35,9 +35,9 @@ tests:
       select
         *
       from 
-        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/function'), '2')
+        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/function/2'))
     results:
-    - load_from_fs: 2/foo_modified.sql
+    - load_from_fs: foo_modified.sql
   - query: select foo()
     results:
     - foo: t
@@ -46,9 +46,9 @@ tests:
       select
         *
       from 
-        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/function'), '3')
+        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/function/3'))
     results:
-    - load_from_fs: 3/foo_new_signature.sql
+    - load_from_fs: foo_new_signature.sql
   - query: select foo(1)
     results:
     - foo: t
@@ -63,9 +63,9 @@ tests:
       select
         *
       from 
-        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/view'), '1')
+        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/view/1'))
     results:
-    - load_from_fs: 1/view.sql
+    - load_from_fs: view.sql
   - query: select * from my_view
     results:
     - column1: 1
@@ -74,9 +74,9 @@ tests:
       select
         *
       from 
-        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/view'), '2')
+        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/view/2'))
     results:
-    - load_from_fs: 2/view.sql
+    - load_from_fs: view.sql
   - query: select * from my_view
     results:
     - column1: 1
@@ -86,7 +86,7 @@ tests:
       select
         *
       from 
-        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/view'), '3')
+        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/view/3'))
     results: [ ]
   - query: select * from my_view
     success: false
@@ -104,9 +104,9 @@ tests:
       select
         *
       from 
-        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/policy'), '1')
+        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/policy/1'))
     results:
-    - load_from_fs: 1/foo.sql
+    - load_from_fs: foo.sql
   - set role test
   - query: select count(*) from test
     results:
@@ -117,9 +117,9 @@ tests:
       select
         *
       from 
-        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/policy'), '2')
+        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/policy/2'))
     results:
-    - load_from_fs: 2/foo_modified.sql
+    - load_from_fs: foo_modified.sql
   - set role test
   - query: select count(*) from test
     results:
@@ -134,24 +134,43 @@ tests:
       select
         *
       from 
-        omni_schema.migrate_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/migrations'), '1')
+        omni_schema.migrate_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/migrations/1'))
     results:
-    - migrate_from_fs: 1/1_create_table_x.sql
-    - migrate_from_fs: 1/2_add_column_to_x.sql
+    - migrate_from_fs: 1_create_table_x.sql
+    - migrate_from_fs: 2_add_column_to_x.sql
   - select a from x
   - query: |
       select
         *
       from 
-        omni_schema.migrate_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/migrations'), '2')
+        omni_schema.migrate_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/migrations/2'))
     results:
-    - migrate_from_fs: 2/3_add_another_column_to_x.sql
+    - migrate_from_fs: 3_add_another_column_to_x.sql
   - select a,b from x
   - query: select name, migration from omni_schema.migrations
     results:
-    - name: 1/1_create_table_x.sql
+    - name: 1_create_table_x.sql
       migration: create table x ();
-    - name: 1/2_add_column_to_x.sql
+    - name: 2_add_column_to_x.sql
       migration: alter table x add column a int;
-    - name: 2/3_add_another_column_to_x.sql
+    - name: 3_add_another_column_to_x.sql
       migration: alter table x add column b int;
+
+- name: load_from_fs supports subpath
+  query: |
+    select
+      *
+    from
+      omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/function'), '1')
+  results:
+  - load_from_fs: 1/foo.sql
+
+- name: migrate_from_fs supports subpath
+  query: |
+    select
+      *
+    from
+      omni_schema.migrate_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/migrations'), '1')
+  results:
+  - migrate_from_fs: 1/1_create_table_x.sql
+  - migrate_from_fs: 1/2_add_column_to_x.sql
