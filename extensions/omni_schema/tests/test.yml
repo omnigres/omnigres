@@ -147,14 +147,17 @@ tests:
     results:
     - migrate_from_fs: 3_add_another_column_to_x.sql
   - select a,b from x
-  - query: select name, migration from omni_schema.migrations
+  - query: select name, migration, dense_rank() over(order by applied_at) as applied_in from omni_schema.migrations
     results:
     - name: 1_create_table_x.sql
       migration: create table x ();
+      applied_in: 1
     - name: 2_add_column_to_x.sql
       migration: alter table x add column a int;
+      applied_in: 1
     - name: 3_add_another_column_to_x.sql
       migration: alter table x add column b int;
+      applied_in: 1
 
 - name: load_from_fs supports subpath
   query: |

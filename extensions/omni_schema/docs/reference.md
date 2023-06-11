@@ -29,12 +29,14 @@ The above invocation is most useful for development environment or deployment th
 
 This function will recursively find all files with `.sql` extension and apply them ordered by path name, excluding those that were already applied before. For this purpose, it maintains the `omni_schema.migrations` table.
 
-|         Column | Type      | Description                      |
-|---------------:|-----------|----------------------------------|
-|         **id** | int       | Unique identifier                |
-|       **name** | text      | Migration (file) name            |
-|  **migration** | text      | The source code of the migration |
-| **applied_at** | timestamp | Time of migration application    |
+|         Column | Type      | Description                               |
+|---------------:|-----------|-------------------------------------------|
+|         **id** | int       | Unique identifier                         |
+|       **name** | text      | Migration (file) name                     |
+|  **migration** | text      | The source code of the migration          |
+| **applied_at** | timestamp | Time of migration application [^grouping] |
+
+[^grouping]: The timestamp defaults to `now()` which means that migrations applied in the same transaction all get the same value of `applied_at`, which can be used for grouping them together.
 
 ## Object reloading
 
