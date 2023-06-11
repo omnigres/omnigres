@@ -1,0 +1,1 @@
+create policy "test policy" on test using (true);

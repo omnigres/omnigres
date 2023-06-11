@@ -1,0 +1,1 @@
+create view my_view as (values (1));

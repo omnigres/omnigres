@@ -1,0 +1,179 @@
+instances:
+  default:
+    init:
+    - create extension omni_schema cascade
+
+tests:
+
+- name: dumping migrations
+  query: |
+    select relname, un.extcondition from pg_extension
+    join lateral (select * from unnest(pg_extension.extconfig, pg_extension.extcondition)) un(extconfig, extcondition) on true 
+    inner join pg_class on pg_class.oid = un.extconfig where extname = 'omni_schema'
+    order by relname
+  results:
+  - relname: migrations
+    extcondition:
+  - relname: migrations_id_seq
+    extcondition:
+
+- name: function
+  steps:
+  - name: 1
+    query: |
+      select
+        *
+      from 
+        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/function/1'))
+    results:
+    - load_from_fs: foo.sql
+  - query: select foo()
+    results:
+    - foo: f
+  - name: 2
+    query: |
+      select
+        *
+      from 
+        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/function/2'))
+    results:
+    - load_from_fs: foo_modified.sql
+  - query: select foo()
+    results:
+    - foo: t
+  - name: 3
+    query: |
+      select
+        *
+      from 
+        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/function/3'))
+    results:
+    - load_from_fs: foo_new_signature.sql
+  - query: select foo(1)
+    results:
+    - foo: t
+  - query: select foo()
+    success: false
+    error: function foo() does not exist
+
+- name: view
+  steps:
+  - name: 1
+    query: |
+      select
+        *
+      from 
+        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/view/1'))
+    results:
+    - load_from_fs: view.sql
+  - query: select * from my_view
+    results:
+    - column1: 1
+  - name: 2
+    query: |
+      select
+        *
+      from 
+        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/view/2'))
+    results:
+    - load_from_fs: view.sql
+  - query: select * from my_view
+    results:
+    - column1: 1
+      column2: 2
+  - name: 3
+    query: |
+      select
+        *
+      from 
+        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/view/3'))
+    results: [ ]
+  - query: select * from my_view
+    success: false
+    error: relation "my_view" does not exist
+
+- name: policy
+  steps:
+  - create role test
+  - create table test (i int)
+  - grant select on test to test
+  - alter table test enable row level security
+  - insert into test values (1)
+  - name: 1
+    query: |
+      select
+        *
+      from 
+        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/policy/1'))
+    results:
+    - load_from_fs: foo.sql
+  - set role test
+  - query: select count(*) from test
+    results:
+    - count: 0
+  - reset role
+  - name: 2
+    query: |
+      select
+        *
+      from 
+        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/policy/2'))
+    results:
+    - load_from_fs: foo_modified.sql
+  - set role test
+  - query: select count(*) from test
+    results:
+    - count: 1
+
+- name: migrations
+  steps:
+  - query: select count(*) from omni_schema.migrations
+    results:
+    - count: 0
+  - query: |
+      select
+        *
+      from 
+        omni_schema.migrate_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/migrations/1'))
+    results:
+    - migrate_from_fs: 1_create_table_x.sql
+    - migrate_from_fs: 2_add_column_to_x.sql
+  - select a from x
+  - query: |
+      select
+        *
+      from 
+        omni_schema.migrate_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/migrations/2'))
+    results:
+    - migrate_from_fs: 3_add_another_column_to_x.sql
+  - select a,b from x
+  - query: select name, migration, dense_rank() over(order by applied_at) as applied_in from omni_schema.migrations
+    results:
+    - name: 1_create_table_x.sql
+      migration: create table x ();
+      applied_in: 1
+    - name: 2_add_column_to_x.sql
+      migration: alter table x add column a int;
+      applied_in: 1
+    - name: 3_add_another_column_to_x.sql
+      migration: alter table x add column b int;
+      applied_in: 1
+
+- name: load_from_fs supports subpath
+  query: |
+    select
+      *
+    from
+      omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/function'), '1')
+  results:
+  - load_from_fs: 1/foo.sql
+
+- name: migrate_from_fs supports subpath
+  query: |
+    select
+      *
+    from
+      omni_schema.migrate_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/migrations'), '1')
+  results:
+  - migrate_from_fs: 1/1_create_table_x.sql
+  - migrate_from_fs: 1/2_add_column_to_x.sql

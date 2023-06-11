@@ -1,0 +1,1 @@
+alter table x add column b int;
