@@ -78,10 +78,11 @@ else()
 endif()
 
 # This is where we manage all PostgreSQL installations
-set(PGDIR "${CMAKE_CURRENT_LIST_DIR}/../.pg/${CMAKE_HOST_SYSTEM_NAME}")
+set(PGDIR "${CMAKE_CURRENT_LIST_DIR}/../.pg/${CMAKE_HOST_SYSTEM_NAME}" CACHE STRING "Path where to manage Postgres builds")
+get_filename_component(pgdir "${PGDIR}" ABSOLUTE)
 
 # This is where we manage selected PostgreSQL version's installations
-set(PGDIR_VERSION "${PGDIR}/${PGVER_ALIAS}")
+set(PGDIR_VERSION "${pgdir}/${PGVER_ALIAS}")
 
 if(NOT EXISTS "${PGDIR_VERSION}/build/bin/postgres")
     file(MAKE_DIRECTORY ${PGDIR})
