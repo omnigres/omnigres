@@ -153,7 +153,7 @@ function(add_postgresql_extension NAME)
 
     set(_share_dir "${CMAKE_BINARY_DIR}/pg-share")
     if(_pg_sharedir)
-        file(COPY "${_pg_sharedir}/" DESTINATION "${_share_dir}")
+        file(COPY "${_pg_sharedir}/" DESTINATION "${_share_dir}" FOLLOW_SYMLINK_CHAIN)
     endif()
     set(_ext_dir "${_share_dir}/extension")
     file(MAKE_DIRECTORY ${_ext_dir})

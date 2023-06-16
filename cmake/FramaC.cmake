@@ -8,10 +8,10 @@ if(FRAMAC)
     # See https://git.frama-c.com/pub/frama-c/-/issues/2641
     #
     # The idea is that we undefine PG_INT128_TYPE if __FRAMAC_ is defined:
-    file(READ ${PostgreSQL_ROOT}/include/postgresql/server/pg_config_manual.h _pg_config_manual)
+    file(READ ${PostgreSQL_INCLUDE_DIRS}/postgresql/server/pg_config_manual.h _pg_config_manual)
 
     if(NOT _pg_config_manual MATCHES __FRAMAC__)
-        file(APPEND ${PostgreSQL_ROOT}/include/postgresql/server/pg_config_manual.h [=[
+        file(APPEND ${PostgreSQL_INCLUDE_DIRS}/postgresql/server/pg_config_manual.h [=[
  #ifdef __FRAMAC__
  #undef PG_INT128_TYPE
  #endif

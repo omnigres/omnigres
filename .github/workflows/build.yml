@@ -91,3 +91,19 @@ jobs:
         find ${{github.workspace}}/build -name postmaster.log -exec echo "=== {}:" \; -exec cat {} \;
         echo "- initdb.log: "
         find ${{github.workspace}}/build -name initdb.log -exec echo "=== {}:" \; -exec cat {} \;
+
+  # Ensure it can be built against externally-supplied Postgres
+  build-external-pg:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install necessary dependencies
+      run: sudo apt install postgresql-server-dev-14
+
+    - name: Configure
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Release -DPG_CONFIG=$(which pg_config)
+
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build --parallel --config Release --target all --target package

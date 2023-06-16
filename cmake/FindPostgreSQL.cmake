@@ -51,105 +51,108 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-# Use latest known version if PGVER is not set
-if(NOT PGVER)
-    set(PGVER 15)
-endif()
+if(NOT DEFINED PG_CONFIG)
 
-# If the version is not known, try resolving the alias
-set(PGVER_ALIAS_15 15.3)
-set(PGVER_ALIAS_14 14.8)
-set(PGVER_ALIAS_13 13.11)
+    # Use latest known version if PGVER is not set
+    if(NOT PGVER)
+        set(PGVER 15)
+    endif()
+
+    # If the version is not known, try resolving the alias
+    set(PGVER_ALIAS_15 15.3)
+    set(PGVER_ALIAS_14 14.8)
+    set(PGVER_ALIAS_13 13.11)
 set(PGVER_ALIAS_12 12.15)
 
-if("${PGVER}" MATCHES "[0-9]+.[0-9]+")
-    set(PGVER_ALIAS "${PGVER}")
+    if("${PGVER}" MATCHES "[0-9]+.[0-9]+")
+        set(PGVER_ALIAS "${PGVER}")
 else()
-    set(PGVER_ALIAS "${PGVER_ALIAS_${PGVER}}")
+        set(PGVER_ALIAS "${PGVER_ALIAS_${PGVER}}")
 
-    # If it still can't be resolved, fail
-    if("${PGVER_ALIAS}" MATCHES "[0-9]+.[0-9]+")
-        if(NOT _POSTGRESQL_ANNOUNCED_${PGVER_ALIAS})
-            message(STATUS "Resolved PostgreSQL version alias ${PGVER} to ${PGVER_ALIAS}")
+        # If it still can't be resolved, fail
+        if("${PGVER_ALIAS}" MATCHES "[0-9]+.[0-9]+")
+            if(NOT _POSTGRESQL_ANNOUNCED_${PGVER_ALIAS})
+                message(STATUS "Resolved PostgreSQL version alias ${PGVER} to ${PGVER_ALIAS}")
+            endif()
+        else()
+            message(FATAL_ERROR "Can't resolve PostgreSQL version ${PGVER}")
         endif()
-    else()
-        message(FATAL_ERROR "Can't resolve PostgreSQL version ${PGVER}")
-    endif()
 endif()
 
-# This is where we manage all PostgreSQL installations
+    # This is where we manage all PostgreSQL installations
 set(PGDIR "${CMAKE_CURRENT_LIST_DIR}/../.pg/${CMAKE_HOST_SYSTEM_NAME}" CACHE STRING "Path where to manage Postgres builds")
 get_filename_component(pgdir "${PGDIR}" ABSOLUTE)
 
-# This is where we manage selected PostgreSQL version's installations
+    # This is where we manage selected PostgreSQL version's installations
 set(PGDIR_VERSION "${pgdir}/${PGVER_ALIAS}")
 
-if(NOT EXISTS "${PGDIR_VERSION}/build/bin/postgres")
-    file(MAKE_DIRECTORY ${PGDIR})
-    message(STATUS "Downloading PostgreSQL ${PGVER}")
-    file(DOWNLOAD "https://ftp.postgresql.org/pub/source/v${PGVER_ALIAS}/postgresql-${PGVER_ALIAS}.tar.bz2" "${PGDIR}/postgresql-${PGVER_ALIAS}.tar.bz2" SHOW_PROGRESS)
-    message(STATUS "Extracting PostgreSQL ${PGVER}")
-    file(ARCHIVE_EXTRACT INPUT "${PGDIR}/postgresql-${PGVER_ALIAS}.tar.bz2" DESTINATION ${PGDIR_VERSION})
+    if(NOT EXISTS "${PGDIR_VERSION}/build/bin/postgres")
+        file(MAKE_DIRECTORY ${PGDIR})
+        message(STATUS "Downloading PostgreSQL ${PGVER}")
+        file(DOWNLOAD "https://ftp.postgresql.org/pub/source/v${PGVER_ALIAS}/postgresql-${PGVER_ALIAS}.tar.bz2" "${PGDIR}/postgresql-${PGVER_ALIAS}.tar.bz2" SHOW_PROGRESS)
+        message(STATUS "Extracting PostgreSQL ${PGVER}")
+        file(ARCHIVE_EXTRACT INPUT "${PGDIR}/postgresql-${PGVER_ALIAS}.tar.bz2" DESTINATION ${PGDIR_VERSION})
 
-    execute_process(
-            COMMAND ./configure --enable-debug --prefix "${PGDIR_VERSION}/build"
-            WORKING_DIRECTORY "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}"
-            RESULT_VARIABLE pg_configure_result)
+        execute_process(
+                COMMAND ./configure --enable-debug --prefix "${PGDIR_VERSION}/build"
+                WORKING_DIRECTORY "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}"
+                RESULT_VARIABLE pg_configure_result)
 
-    if(NOT pg_configure_result EQUAL 0)
-        message(FATAL_ERROR "Can't configure Postgres, aborting.")
-    endif()
+        if(NOT pg_configure_result EQUAL 0)
+            message(FATAL_ERROR "Can't configure Postgres, aborting.")
+        endif()
 
-    # Replace PGSHAREDIR with `PGSHAREDIR` environment variable so that we don't need to deploy extensions
-    # between different builds into the same Postgres
-    execute_process(
-            COMMAND make pg_config_paths.h
-            WORKING_DIRECTORY "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}/src/port"
-            RESULT_VARIABLE pg_prepare_result)
+        # Replace PGSHAREDIR with `PGSHAREDIR` environment variable so that we don't need to deploy extensions
+        # between different builds into the same Postgres
+        execute_process(
+                COMMAND make pg_config_paths.h
+                WORKING_DIRECTORY "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}/src/port"
+                RESULT_VARIABLE pg_prepare_result)
 
-    if(NOT pg_prepare_result EQUAL 0)
-        message(FATAL_ERROR "Can't patch src/port/pg_config_paths.h in Postgres, aborting.")
-    endif()
+        if(NOT pg_prepare_result EQUAL 0)
+            message(FATAL_ERROR "Can't patch src/port/pg_config_paths.h in Postgres, aborting.")
+        endif()
 
-    file(READ "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}/src/port/pg_config_paths.h" FILE_CONTENTS)
-    string(APPEND FILE_CONTENTS "
+        file(READ "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}/src/port/pg_config_paths.h" FILE_CONTENTS)
+        string(APPEND FILE_CONTENTS "
 #undef PGSHAREDIR
 #define PGSHAREDIR (getenv(\"PGSHAREDIR\") ? (const char *)getenv(\"PGSHAREDIR\") : \"${PGDIR_VERSION}/build/share/postgresql\")
 ")
-    file(WRITE "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}/src/port/pg_config_paths.h" ${FILE_CONTENTS})
+        file(WRITE "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}/src/port/pg_config_paths.h" ${FILE_CONTENTS})
 
-    execute_process(
-            # Ensure we always set SHELL to /bin/sh to be used in pg_regress. Otherwise it has been observed to
-            # degrade to `sh` (at least, on NixOS) and pg_regress fails to start anything
-            COMMAND make SHELL=/bin/sh -j ${CMAKE_BUILD_PARALLEL_LEVEL} install
-            WORKING_DIRECTORY "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}"
-            RESULT_VARIABLE pg_build_result)
+        execute_process(
+                # Ensure we always set SHELL to /bin/sh to be used in pg_regress. Otherwise it has been observed to
+                # degrade to `sh` (at least, on NixOS) and pg_regress fails to start anything
+                COMMAND make SHELL=/bin/sh -j ${CMAKE_BUILD_PARALLEL_LEVEL} install
+                WORKING_DIRECTORY "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}"
+                RESULT_VARIABLE pg_build_result)
 
-    if(NOT pg_build_result EQUAL 0)
-        message(FATAL_ERROR "Can't build Postgres, aborting.")
+        if(NOT pg_build_result EQUAL 0)
+            message(FATAL_ERROR "Can't build Postgres, aborting.")
+        endif()
+
+        execute_process(
+                # Ensure we always set SHELL to /bin/sh to be used in pg_regress. Otherwise it has been observed to
+                # degrade to `sh` (at least, on NixOS) and pg_regress fails to start anything
+                COMMAND make SHELL=/bin/sh -j ${CMAKE_BUILD_PARALLEL_LEVEL} install
+                WORKING_DIRECTORY "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}/contrib"
+                RESULT_VARIABLE pg_build_result)
+
+        if(NOT pg_build_result EQUAL 0)
+            message(FATAL_ERROR "Can't build Postgres contribs, aborting.")
+        endif()
+
     endif()
 
-    execute_process(
-            # Ensure we always set SHELL to /bin/sh to be used in pg_regress. Otherwise it has been observed to
-            # degrade to `sh` (at least, on NixOS) and pg_regress fails to start anything
-            COMMAND make SHELL=/bin/sh -j ${CMAKE_BUILD_PARALLEL_LEVEL} install
-            WORKING_DIRECTORY "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}/contrib"
-            RESULT_VARIABLE pg_build_result)
+    set(PostgreSQL_ROOT "${PGDIR_VERSION}/build")
 
-    if(NOT pg_build_result EQUAL 0)
-        message(FATAL_ERROR "Can't build Postgres contribs, aborting.")
-    endif()
-
+    find_program(
+            PG_CONFIG pg_config
+            PATHS ${PostgreSQL_ROOT}
+            REQUIRED
+            NO_DEFAULT_PATH
+            PATH_SUFFIXES bin)
 endif()
-
-set(PostgreSQL_ROOT "${PGDIR_VERSION}/build")
-
-find_program(
-    PG_CONFIG pg_config
-    PATHS ${PostgreSQL_ROOT}
-    REQUIRED
-    NO_DEFAULT_PATH
-    PATH_SUFFIXES bin)
 
 if(NOT PG_CONFIG)
     message(FATAL_ERROR "Could not find pg_config")
@@ -226,10 +229,9 @@ if(PostgreSQL_FOUND)
         CACHE STRING "PostgreSQL package library directory")
 
     find_program(
-        PG_BINARY postgres
-        PATHS ${PostgreSQL_ROOT_DIRECTORIES}
-        HINTS ${_pg_bindir}
-        PATH_SUFFIXES bin)
+            PG_BINARY postgres
+            HINTS ${_pg_bindir}
+            PATH_SUFFIXES bin)
 
     if(NOT PG_BINARY)
         message(FATAL_ERROR "Could not find postgres binary")
@@ -243,10 +245,9 @@ if(PostgreSQL_FOUND)
     endif()
 
     find_program(
-        INITDB initdb
-        PATHS ${PostgreSQL_ROOT_DIRECTORIES}
-        HINTS ${_pg_bindir}
-        PATH_SUFFIXES bin)
+            INITDB initdb
+            HINTS ${_pg_bindir}
+            PATH_SUFFIXES bin)
 
     if(NOT INITDB)
         message(WARNING "Could not find initdb, psql_${NAME} will not be available")
@@ -254,7 +255,6 @@ if(PostgreSQL_FOUND)
 
     find_program(
         CREATEDB createdb
-        PATHS ${PostgreSQL_ROOT_DIRECTORIES}
         HINTS ${_pg_bindir}
         PATH_SUFFIXES bin)
 
@@ -263,20 +263,18 @@ if(PostgreSQL_FOUND)
     endif()
 
     find_program(
-        PSQL psql
-        PATHS ${PostgreSQL_ROOT_DIRECTORIES}
-        HINTS ${_pg_bindir}
-        PATH_SUFFIXES bin)
+            PSQL psql
+            HINTS ${_pg_bindir}
+            PATH_SUFFIXES bin)
 
     if(NOT PSQL)
         message(WARNING "Could not find psql, psql_${NAME} will not be available")
     endif()
 
     find_program(
-        PG_CTL pg_ctl
-        PATHS ${PostgreSQL_ROOT_DIRECTORIES}
-        HINTS ${_pg_bindir}
-        PATH_SUFFIXES bin)
+            PG_CTL pg_ctl
+            HINTS ${_pg_bindir}
+            PATH_SUFFIXES bin)
 
     if(NOT PG_CTL)
         message(WARNING "Could not find pg_ctl, psql_${NAME} will not be available")
