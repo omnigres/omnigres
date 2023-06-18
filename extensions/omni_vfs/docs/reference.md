@@ -60,24 +60,22 @@ Results in:
 
 Describes a file entry.
 
-|    Field | Type                | Description                                   |
-|---------:|---------------------|-----------------------------------------------|
-| **name** | `text`              | File name                                     |
-| **kind** | `omni_vs.file_kind` | File kind (`file`, `dir`) [^other-file-types] |
-
-[^other-file-types]:
-Other file types (such as sockets) are not currently considered to be of practical use and will be reported as `file`. This may change in the future.
+|    Field | Type                 | Description                                   |
+|---------:|----------------------|-----------------------------------------------|
+| **name** | `text`               | File name                                     |
+| **kind** | `omni_vfs.file_kind` | File kind (`file`, `dir`) [^other-file-types] |
 
 ## `omni_vs.file_info` type
 
 Describes file meta information.
 
-|           Field | Type        | Description                           |
-|----------------:|-------------|---------------------------------------|
-|        **size** | `bigint`    | File size                             |
-|  **created_at** | `timestamp` | File creation time (if available)     |
-| **accessed_at** | `timestamp` | File access time (if available)       |
-| **modified_at** | `timestamp` | File modification time (if available) |
+|           Field | Type                 | Description                                   |
+|----------------:|----------------------|-----------------------------------------------|
+|        **size** | `bigint`             | File size                                     |
+|  **created_at** | `timestamp`          | File creation time (if available)             |
+| **accessed_at** | `timestamp`          | File access time (if available)               |
+| **modified_at** | `timestamp`          | File modification time (if available)         |
+|        **kind** | `omni_vfs.file_kind` | File kind (`file`, `dir`) [^other-file-types] |
 
 ## `omni_vfs.list()`
 
@@ -164,3 +162,6 @@ $$ language sql;
 ```
 
 And in production, a function with the same name will return a different kind of file system backend.
+
+[^other-file-types]:
+Other file types (such as sockets) are not currently considered to be of practical use and will be reported as `file`. This may change in the future.
