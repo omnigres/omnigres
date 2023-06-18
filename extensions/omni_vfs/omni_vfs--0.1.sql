@@ -12,7 +12,8 @@ create type file_info as
     size        bigint,
     created_at  timestamp,
     accessed_at timestamp,
-    modified_at timestamp
+    modified_at timestamp,
+    kind        file_kind
 );
 
 create function is_valid_fs(type regtype) returns boolean

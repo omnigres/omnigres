@@ -272,36 +272,41 @@ Datum local_fs_file_info(PG_FUNCTION_ARGS) {
   int err = stat(fullpath, &file_stat);
   if (err != 0) {
     int e = errno;
-    ereport(ERROR, errmsg("can't get file information"), errdetail("%s", strerror(e)));
+    ereport(ERROR, errmsg("can't get file information for %s", fullpath),
+            errdetail("%s", strerror(e)));
   }
 
   TupleDesc header_tupledesc = TypeGetTupleDesc(file_info_oid(), NULL);
   BlessTupleDesc(header_tupledesc);
 
+  Datum kind =
+      ObjectIdGetDatum(S_ISDIR(file_stat.st_mode) ? file_kind_dir_oid() : file_kind_file_oid());
+
 #if defined(__APPLE__)
-  HeapTuple header_tuple =
-      heap_form_tuple(header_tupledesc,
-                      (Datum[4]){Int64GetDatum(file_stat.st_size),
-                                 TimestampGetDatum(timespec_to_timestamp(file_stat.st_ctimespec)),
-                                 TimestampGetDatum(timespec_to_timestamp(file_stat.st_atimespec)),
-                                 TimestampGetDatum(timespec_to_timestamp(file_stat.st_mtimespec))},
-                      (bool[4]){false, false, false, false});
+  HeapTuple header_tuple = heap_form_tuple(
+      header_tupledesc,
+      (Datum[5]){Int64GetDatum(file_stat.st_size),
+                 TimestampGetDatum(timespec_to_timestamp(file_stat.st_ctimespec)),
+                 TimestampGetDatum(timespec_to_timestamp(file_stat.st_atimespec)),
+                 TimestampGetDatum(timespec_to_timestamp(file_stat.st_mtimespec)), kind},
+      (bool[5]){false, false, false, false, false});
 #elif defined(__linux__)
   HeapTuple header_tuple =
       heap_form_tuple(header_tupledesc,
-                      (Datum[4]){Int64GetDatum(file_stat.st_size), 0,
+                      (Datum[5]){Int64GetDatum(file_stat.st_size), 0,
                                  TimestampGetDatum(timespec_to_timestamp(file_stat.st_atim)),
-                                 TimestampGetDatum(timespec_to_timestamp(file_stat.st_mtim))},
-                      (bool[4]){false, true, false, false});
+                                 TimestampGetDatum(timespec_to_timestamp(file_stat.st_mtim)), kind},
+                      (bool[5]){false, true, false, false, false});
 #else
   HeapTuple header_tuple = heap_form_tuple(
       header_tupledesc,
-      (Datum[4]){Int64GetDatum(file_stat.st_size), 0,
+      (Datum[5]){Int64GetDatum(file_stat.st_size), 0,
                  TimestampGetDatum(timespec_to_timestamp(
                      (struct timespec){.tv_sec = file_stat.st_atime, .tv_nsec = 0})),
                  TimestampGetDatum(timespec_to_timestamp(
-                     (struct timespec){.tv_sec = file_stat.st_mtime, .tv_nsec = 0}))},
-      (bool[4]){false, true, false, false});
+                     (struct timespec){.tv_sec = file_stat.st_mtime, .tv_nsec = 0})),
+                 kind},
+      (bool[5]){false, true, false, false, false});
 #endif
 
   PG_RETURN_DATUM(HeapTupleGetDatum(header_tuple));

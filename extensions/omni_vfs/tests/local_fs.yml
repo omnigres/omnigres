@@ -68,9 +68,10 @@ tests:
   success: false
 
 - name: can get file info
-  query: select size > 0 as result from omni_vfs.file_info(omni_vfs.local_fs('../../../../extensions/omni_vfs/tests'), 'local_fs.yml')
+  query: select size > 0 as non_zero, kind from omni_vfs.file_info(omni_vfs.local_fs('../../../../extensions/omni_vfs/tests'), 'local_fs.yml')
   results:
-  - result: t
+  - non_zero: t
+    kind: file
 
 - name: can read file
   query: select length(convert_from(omni_vfs.read(omni_vfs.local_fs('../../../../extensions/omni_vfs'), 'tests/local_fs.yml'), 'utf8')) > 0 as result
