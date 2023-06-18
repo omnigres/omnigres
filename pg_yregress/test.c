@@ -12,6 +12,9 @@ static void notice_receiver(struct fy_node *notices, const PGresult *result) {
 
 bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction, int sub_test,
                         bool *errored) {
+  struct fy_node *true_scalar = fy_node_create_scalar(fy_node_document(test->node), STRLIT("true"));
+  struct fy_node *false_scalar =
+      fy_node_create_scalar(fy_node_document(test->node), STRLIT("false"));
 
 #define taprintf(str, ...) fprintf(tap_file, "%*s" str, sub_test * 4, "", ##__VA_ARGS__)
   // This will be used for TAP output
@@ -302,6 +305,8 @@ proceed:
               if (column_type == test->instance->types.json ||
                   column_type == test->instance->types.jsonb) {
                 value = fy_node_build_from_string(fy_node_document(test->node), STRLIT(str_value));
+              } else if (column_type == test->instance->types.boolean) {
+                value = strncmp(str_value, "t", 1) == 0 ? true_scalar : false_scalar;
               } else {
                 value = fy_node_create_scalar(fy_node_document(test->node), STRLIT(str_value));
               }

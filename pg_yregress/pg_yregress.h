@@ -44,6 +44,7 @@ typedef struct {
   struct {
     Oid json;
     Oid jsonb;
+    Oid boolean;
   } types;
 } yinstance;
 

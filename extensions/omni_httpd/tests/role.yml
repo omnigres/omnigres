@@ -149,7 +149,7 @@ tests:
 - name: Ensure 'anotherrole' is not a superuser (sanity check)
   query: select rolsuper from pg_roles where rolname = 'anotherrole'
   results:
-  - rolsuper: f
+  - rolsuper: false
 
 - name: set another role
   steps:

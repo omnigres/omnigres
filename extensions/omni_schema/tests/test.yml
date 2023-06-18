@@ -29,7 +29,7 @@ tests:
     - load_from_fs: foo.sql
   - query: select foo()
     results:
-    - foo: f
+    - foo: false
   - name: 2
     query: |
       select
@@ -40,7 +40,7 @@ tests:
     - load_from_fs: foo_modified.sql
   - query: select foo()
     results:
-    - foo: t
+    - foo: true
   - name: 3
     query: |
       select
@@ -51,7 +51,7 @@ tests:
     - load_from_fs: foo_new_signature.sql
   - query: select foo(1)
     results:
-    - foo: t
+    - foo: true
   - query: select foo()
     success: false
     error: function foo() does not exist
