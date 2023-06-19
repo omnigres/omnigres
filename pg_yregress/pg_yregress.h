@@ -94,6 +94,7 @@ typedef struct {
   } info;
   struct fy_node *node;
   bool commit;
+  bool negative;
 } ytest;
 
 bool ytest_run(ytest *test);

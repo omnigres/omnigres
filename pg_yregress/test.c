@@ -4,6 +4,26 @@
 
 #include "pg_yregress.h"
 
+union fy_scalar_attributes {
+  struct {
+    bool definitely_not_a_bool : 1;
+  };
+  // this is done so that this can be used as meta pointer
+  void *ptr;
+};
+
+_Static_assert(sizeof(union fy_scalar_attributes) <= sizeof(void *),
+               "fy_scalar_attributes should fit into a pointer so we don't have to clean it up");
+
+static bool definitely_not_a_bool(struct fy_node *node) {
+  if (node == NULL)
+    return false;
+  if (fy_node_get_meta(node) == NULL)
+    return false;
+  union fy_scalar_attributes attrs = {.ptr = fy_node_get_meta(node)};
+  return attrs.definitely_not_a_bool;
+}
+
 int fy_token_cmp(struct fy_token *fyt1, struct fy_token *fyt2);
 
 static int boolean_aware_cmp_fn(struct fy_node *fyn_a, struct fy_node *fyn_b, void *arg) {
@@ -14,6 +34,9 @@ static int boolean_aware_cmp_fn(struct fy_node *fyn_a, struct fy_node *fyn_b, vo
   if (!fyn_b)
     return -1;
   if (fy_node_is_boolean(fyn_a) && fy_node_is_boolean(fyn_b)) {
+    if (definitely_not_a_bool(fyn_a) || definitely_not_a_bool(fyn_b)) {
+      goto token_comparison;
+    }
     bool a = fy_node_get_boolean(fyn_a);
     bool b = fy_node_get_boolean(fyn_b);
     if (a == b) {
@@ -21,12 +44,11 @@ static int boolean_aware_cmp_fn(struct fy_node *fyn_a, struct fy_node *fyn_b, vo
     }
     if (!a) {
       return -1;
-    } else {
-      return 1;
     }
-  } else {
-    return fy_token_cmp(fy_node_get_scalar_token(fyn_a), fy_node_get_scalar_token(fyn_b));
+    return 1;
   }
+token_comparison:
+  return fy_token_cmp(fy_node_get_scalar_token(fyn_a), fy_node_get_scalar_token(fyn_b));
 }
 
 static void notice_receiver(struct fy_node *notices, const PGresult *result) {
@@ -323,6 +345,7 @@ proceed:
               value = fy_node_create_scalar_copy(fy_node_document(test->node), hex, sz - 1);
               free(hex);
             } else {
+              union fy_scalar_attributes attr = {.definitely_not_a_bool = true};
               if (column_type == test->instance->types.json ||
                   column_type == test->instance->types.jsonb) {
                 value = fy_node_build_from_string(fy_node_document(test->node), STRLIT(str_value));
@@ -330,9 +353,11 @@ proceed:
                 value = strncmp(str_value, "t", 1) == 0
                             ? fy_node_create_scalar(fy_node_document(test->node), STRLIT("true"))
                             : fy_node_create_scalar(fy_node_document(test->node), STRLIT("false"));
+                attr.definitely_not_a_bool = false;
               } else {
                 value = fy_node_create_scalar(fy_node_document(test->node), STRLIT(str_value));
               }
+              fy_node_set_meta(value, attr.ptr);
             }
 
             fy_node_mapping_append(row_map,
@@ -471,9 +496,10 @@ proceed:
 
 report:
   tap_counter++;
-  bool differ = false;
-  if ((differ = fy_node_compare_user(test->node, original_node, NULL, NULL, boolean_aware_cmp_fn,
-                                     NULL))) {
+  bool success = false;
+  bool equal =
+      fy_node_compare_user(test->node, original_node, NULL, NULL, boolean_aware_cmp_fn, NULL);
+  if ((success = equal == !test->negative)) {
     if (is_todo) {
       taprintf("ok %d - %.*s # TODO %*.s\n", tap_counter, (int)IOVEC_STRLIT(ytest_name(test)),
                (int)IOVEC_STRLIT(todo_reason));
@@ -489,12 +515,19 @@ report:
     }
     taprintf("  ---\n");
     struct fy_node *report = fy_node_create_mapping(fy_node_document(original_node));
-    fy_node_mapping_append(report,
-                           fy_node_create_scalar(fy_node_document(report), STRLIT("expected")),
-                           fy_node_copy(fy_node_document(original_node), original_node));
-    fy_node_mapping_append(report,
-                           fy_node_create_scalar(fy_node_document(report), STRLIT("result")),
-                           fy_node_copy(fy_node_document(original_node), test->node));
+    if (test->negative) {
+      taprintf("  # negative expectation failed:\n");
+      fy_node_mapping_append(report,
+                             fy_node_create_scalar(fy_node_document(report), STRLIT("expected")),
+                             fy_node_copy(fy_node_document(original_node), original_node));
+    } else {
+      fy_node_mapping_append(report,
+                             fy_node_create_scalar(fy_node_document(report), STRLIT("expected")),
+                             fy_node_copy(fy_node_document(original_node), original_node));
+      fy_node_mapping_append(report,
+                             fy_node_create_scalar(fy_node_document(report), STRLIT("result")),
+                             fy_node_copy(fy_node_document(original_node), test->node));
+    }
 
     char *yaml_report = fy_emit_node_to_string(report, FYECF_DEFAULT);
     FILE *yamlf = fmemopen((void *)yaml_report, strlen(yaml_report), "r");
@@ -517,7 +550,7 @@ report:
     free((void *)todo_reason.base);
   }
 
-  return is_todo ? true : differ;
+  return is_todo ? true : success;
 #undef taprintf
 }
 

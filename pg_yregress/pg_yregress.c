@@ -12,6 +12,8 @@ static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
                                         struct fy_node *instances) {
   ytest *y_test = calloc(sizeof(*y_test), 1);
   y_test->node = test;
+  y_test->commit = false;
+  y_test->negative = false;
   switch (fy_node_get_type(test)) {
   case FYNT_SCALAR:
     y_test->name.base = fy_node_get_scalar(test, &y_test->name.len);
@@ -36,6 +38,7 @@ static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
     y_test->name.base =
         fy_node_mapping_lookup_scalar_by_simple_key(test, &y_test->name.len, STRLIT("name"));
 
+    // Should we commit after this test?
     struct fy_node *commit = fy_node_mapping_lookup_by_string(test, STRLIT("commit"));
 
     if (commit != NULL) {
@@ -45,8 +48,18 @@ static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
         return false;
       }
       y_test->commit = fy_node_get_boolean(commit);
-    } else {
-      y_test->commit = false;
+    }
+
+    // Is the test meant to be negative? As in "if test succeeds, it's a failure"
+    struct fy_node *negative = fy_node_mapping_lookup_by_string(test, STRLIT("negative"));
+
+    if (negative != NULL) {
+      if (!fy_node_is_boolean(negative)) {
+        fprintf(stderr, "negative should be a boolean, got: %s",
+                fy_emit_node_to_string(negative, FYECF_DEFAULT));
+        return false;
+      }
+      y_test->negative = fy_node_get_boolean(commit);
     }
 
     // Determine the instance to run

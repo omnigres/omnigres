@@ -159,6 +159,21 @@ error:
 
 In this form, both severity and message can be specified.
 
+## Negative tests
+
+A test can be marked negative when it should fail if the test itself passes. This is useful when testing scenarios where something specific should
+**not** happen.
+
+```yaml
+- name: 'string' should not be returned
+  query: select my_fun() as result
+  results:
+  - result: string
+  negative: true
+```
+
+The example is slightly contrived as we can test the assumption in the query itself, but at times it is easier or clearer to have this specified as such "negative test".
+
 ## Multi-step tests
 
 Some test inolve more than one query and we need to check for more than just the final result, so simply executing all statements and queries delimited by a semicolon wouldn't be great.
