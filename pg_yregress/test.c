@@ -4,6 +4,31 @@
 
 #include "pg_yregress.h"
 
+int fy_token_cmp(struct fy_token *fyt1, struct fy_token *fyt2);
+
+static int boolean_aware_cmp_fn(struct fy_node *fyn_a, struct fy_node *fyn_b, void *arg) {
+  if (fyn_a == fyn_b)
+    return 0;
+  if (!fyn_a)
+    return 1;
+  if (!fyn_b)
+    return -1;
+  if (fy_node_is_boolean(fyn_a) && fy_node_is_boolean(fyn_b)) {
+    bool a = fy_node_get_boolean(fyn_a);
+    bool b = fy_node_get_boolean(fyn_b);
+    if (a == b) {
+      return 0;
+    }
+    if (!a) {
+      return -1;
+    } else {
+      return 1;
+    }
+  } else {
+    return fy_token_cmp(fy_node_get_scalar_token(fyn_a), fy_node_get_scalar_token(fyn_b));
+  }
+}
+
 static void notice_receiver(struct fy_node *notices, const PGresult *result) {
   char *notice = strdup(PQresultErrorField(result, PG_DIAG_MESSAGE_PRIMARY));
   struct fy_document *doc = fy_node_document(notices);
@@ -12,10 +37,6 @@ static void notice_receiver(struct fy_node *notices, const PGresult *result) {
 
 bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction, int sub_test,
                         bool *errored) {
-  struct fy_node *true_scalar = fy_node_create_scalar(fy_node_document(test->node), STRLIT("true"));
-  struct fy_node *false_scalar =
-      fy_node_create_scalar(fy_node_document(test->node), STRLIT("false"));
-
 #define taprintf(str, ...) fprintf(tap_file, "%*s" str, sub_test * 4, "", ##__VA_ARGS__)
   // This will be used for TAP output
   struct fy_node *original_node = fy_node_copy(fy_node_document(test->node), test->node);
@@ -306,7 +327,9 @@ proceed:
                   column_type == test->instance->types.jsonb) {
                 value = fy_node_build_from_string(fy_node_document(test->node), STRLIT(str_value));
               } else if (column_type == test->instance->types.boolean) {
-                value = strncmp(str_value, "t", 1) == 0 ? true_scalar : false_scalar;
+                value = strncmp(str_value, "t", 1) == 0
+                            ? fy_node_create_scalar(fy_node_document(test->node), STRLIT("true"))
+                            : fy_node_create_scalar(fy_node_document(test->node), STRLIT("false"));
               } else {
                 value = fy_node_create_scalar(fy_node_document(test->node), STRLIT(str_value));
               }
@@ -449,7 +472,8 @@ proceed:
 report:
   tap_counter++;
   bool differ = false;
-  if ((differ = fy_node_compare(test->node, original_node))) {
+  if ((differ = fy_node_compare_user(test->node, original_node, NULL, NULL, boolean_aware_cmp_fn,
+                                     NULL))) {
     if (is_todo) {
       taprintf("ok %d - %.*s # TODO %*.s\n", tap_counter, (int)IOVEC_STRLIT(ytest_name(test)),
                (int)IOVEC_STRLIT(todo_reason));

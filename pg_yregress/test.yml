@@ -26,6 +26,18 @@ tests:
   results:
   - result: true
 
+- name: boolean scalar
+  query: select true as t, false as f from generate_series(1,4)
+  results:
+  - t: true
+    f: false
+  - t: True
+    f: False
+  - t: on
+    f: off
+  - t: y
+    f: n
+
 - name: failure
   query: selec 1
   success: false
