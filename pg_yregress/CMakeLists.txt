@@ -12,7 +12,7 @@ find_package(PostgreSQL REQUIRED)
 find_program(PG_CONFIG pg_config REQUIRED)
 
 include(CPM)
-CPMAddPackage(GITHUB_REPOSITORY "pantoniou/libfyaml" GIT_TAG "v0.8" EXCLUDE_FROM_ALL YES OPTIONS "BUILD_SHARED_LIBS OFF")
+CPMAddPackage(GITHUB_REPOSITORY "yrashk/libfyaml" GIT_TAG "4f1a4b1" VERSION "v0.8-4f1a4b1" EXCLUDE_FROM_ALL YES OPTIONS "BUILD_SHARED_LIBS OFF")
 
 include(CTest)
 

@@ -7,7 +7,7 @@ tests:
 
 - query: select omni_web.parse_query_string(null) is null as is_true
   results:
-   - is_true: t
+   - is_true: true
 
 - query: select omni_web.parse_query_string('')
   results:

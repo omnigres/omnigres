@@ -15,7 +15,7 @@ tests:
   - query: select omni_vfs.local_fs('.')
   - query: select true as result from seqval where currval = currval('omni_vfs.local_fs_mounts_id_seq')
     results:
-    - result: t
+    - result: true
 
 - name: can list files in a directory
   query: |
@@ -70,13 +70,13 @@ tests:
 - name: can get file info
   query: select size > 0 as non_zero, kind from omni_vfs.file_info(omni_vfs.local_fs('../../../../extensions/omni_vfs/tests'), 'local_fs.yml')
   results:
-  - non_zero: t
+  - non_zero: true
     kind: file
 
 - name: can read file
   query: select length(convert_from(omni_vfs.read(omni_vfs.local_fs('../../../../extensions/omni_vfs'), 'tests/local_fs.yml'), 'utf8')) > 0 as result
   results:
-  - result: t
+  - result: true
 
 - name: mount point is recorded as an absolute path
   steps:
@@ -85,7 +85,7 @@ tests:
   - select omni_vfs.local_fs('.')
   - query: select length(mount) > length('.') as result from omni_vfs.local_fs_mounts
     results:
-    - result: t
+    - result: true
 
 - name: RLS is enforced (can't create a mount)
   steps:

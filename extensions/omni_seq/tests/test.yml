@@ -116,7 +116,7 @@ tests:
     select
     (omni_seq.system_identifier() = omni_seq.system_identifier() and omni_seq.system_identifier() is not null) as valid
   results:
-  - valid: t
+  - valid: true
 
 - name: smoke test
   steps:

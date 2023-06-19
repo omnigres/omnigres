@@ -113,6 +113,8 @@ static bool fetch_types(yinstance *instance) {
       instance->types.json = oid;
     } else if (strncmp(type_name, "jsonb", strlen(type_name)) == 0) {
       instance->types.jsonb = oid;
+    } else if (strncmp(type_name, "bool", strlen(type_name)) == 0) {
+      instance->types.boolean = oid;
     }
   }
   PQclear(result);

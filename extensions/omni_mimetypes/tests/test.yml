@@ -8,12 +8,12 @@ tests:
 - name: presence of mime types
   query: select count(*) > 2000 as present from omni_mimetypes.mime_types
   results:
-  - present: t
+  - present: true
 
 - name: presence of file extensions
   query: select count(*) > 1000 as present from omni_mimetypes.mime_types
   results:
-  - present: t
+  - present: true
 
 - name: smoke test
   query: |

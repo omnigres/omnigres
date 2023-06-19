@@ -24,7 +24,31 @@ tests:
 - name: simple query
   query: select true as result
   results:
-  - result: t
+  - result: true
+
+- name: negative test
+  negative: true
+  query: select 0 as result
+  results:
+  - result: 1
+
+- name: boolean scalar
+  query: select true as t, false as f from generate_series(1,4)
+  results:
+  - t: true
+    f: false
+  - t: True
+    f: False
+  - t: on
+    f: off
+  - t: y
+    f: n
+
+- name: string shouldn't be misinterpreted as a boolean scalar
+  query: select 'true' as t
+  negative: true
+  results:
+  - t: on
 
 - name: failure
   query: selec 1
@@ -64,7 +88,7 @@ tests:
 - name: the table should not exist
   query: select count(*) = 1 as exists from pg_class where relname = 'a'
   results:
-  - exists: f
+  - exists: false
 
 - name: save value as anchor
   query: select 1 as v
@@ -95,7 +119,7 @@ tests:
 - name: multistep's table should not exist
   query: select count(*) = 1 as exists from pg_class where relname = 'tab'
   results:
-  - exists: f
+  - exists: false
 
 - name: nested multistep
   steps:
@@ -103,7 +127,7 @@ tests:
     - query: create table nested_tab()
   - query: select count(*) = 1 as exists from pg_class where relname = 'nested_tab'
     results:
-    - exists: t
+    - exists: true
 
 - name: null
   query: select null::integer as result
@@ -181,7 +205,7 @@ tests:
   params:
   - 0x01
   results:
-  - value: t
+  - value: true
 
 - name: binary format for results
   query: select $1::bool as value
