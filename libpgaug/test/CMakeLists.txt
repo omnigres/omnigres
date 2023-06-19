@@ -15,6 +15,7 @@ add_postgresql_extension(
         PRIVATE true
         SCRIPTS libpgaug_test--0.1.sql
         SOURCES libpgaug_test.c
+        DEPENDS_ON libpgaug
         REGRESS memcxt)
 
 target_link_libraries(libpgaug_test libpgaug)

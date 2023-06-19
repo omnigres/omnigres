@@ -62,11 +62,11 @@ if(NOT DEFINED PG_CONFIG)
     set(PGVER_ALIAS_15 15.3)
     set(PGVER_ALIAS_14 14.8)
     set(PGVER_ALIAS_13 13.11)
-set(PGVER_ALIAS_12 12.15)
+    set(PGVER_ALIAS_12 12.15)
 
     if("${PGVER}" MATCHES "[0-9]+.[0-9]+")
         set(PGVER_ALIAS "${PGVER}")
-else()
+    else()
         set(PGVER_ALIAS "${PGVER_ALIAS_${PGVER}}")
 
         # If it still can't be resolved, fail
@@ -77,14 +77,14 @@ else()
         else()
             message(FATAL_ERROR "Can't resolve PostgreSQL version ${PGVER}")
         endif()
-endif()
+    endif()
 
     # This is where we manage all PostgreSQL installations
-set(PGDIR "${CMAKE_CURRENT_LIST_DIR}/../.pg/${CMAKE_HOST_SYSTEM_NAME}" CACHE STRING "Path where to manage Postgres builds")
-get_filename_component(pgdir "${PGDIR}" ABSOLUTE)
+    set(PGDIR "${CMAKE_CURRENT_LIST_DIR}/../.pg/${CMAKE_HOST_SYSTEM_NAME}" CACHE STRING "Path where to manage Postgres builds")
+    get_filename_component(pgdir "${PGDIR}" ABSOLUTE)
 
     # This is where we manage selected PostgreSQL version's installations
-set(PGDIR_VERSION "${pgdir}/${PGVER_ALIAS}")
+    set(PGDIR_VERSION "${pgdir}/${PGVER_ALIAS}")
 
     if(NOT EXISTS "${PGDIR_VERSION}/build/bin/postgres")
         file(MAKE_DIRECTORY ${PGDIR})

@@ -107,3 +107,17 @@ jobs:
 
     - name: Build
       run: cmake --build ${{github.workspace}}/build --parallel --config Release --target all --target package
+
+  # Ensure every extension can be built independently
+  build-extensions-independently:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - uses: actions/cache@v3
+      with:
+        path: .pg
+        key: ${{ matrix.os }}-pg-${{ matrix.pgver }}-${{ hashFiles('cmake/FindPostgreSQL.cmake') }}
+
+    - run: ci/build-extensions-separately

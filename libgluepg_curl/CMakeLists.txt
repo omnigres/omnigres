@@ -12,7 +12,12 @@ enable_testing()
 find_package(PostgreSQL REQUIRED)
 find_package(CURL REQUIRED)
 
+if(NOT TARGET libpgaug)
+    add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../libpgaug" "${CMAKE_CURRENT_BINARY_DIR}/libpgaug")
+endif()
+
 add_library(libgluepg_curl STATIC libgluepg_curl.c)
+add_dependencies(libgluepg_curl libpgaug)
 set_property(TARGET libgluepg_curl PROPERTY POSITION_INDEPENDENT_CODE ON)
 target_include_directories(libgluepg_curl
         PRIVATE ${PostgreSQL_SERVER_INCLUDE_DIRS} ${curl_SOURCE_DIR}/include

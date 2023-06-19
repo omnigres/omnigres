@@ -80,6 +80,8 @@
 #
 # PRIVATE If true, this extension will not be automatically packaged
 #
+# DEPENDS_ON List of Omnigres components this extension depends
+#
 #
 # Defines the following targets:
 #
@@ -92,6 +94,10 @@ include(Inja)
 find_program(PGCLI pgcli)
 
 function(find_pg_yregress_tests dir)
+    get_filename_component(_source_dir "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
+    if(NOT TARGET pg_yregress)
+        add_subdirectory("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../pg_yregress" "${CMAKE_CURRENT_BINARY_DIR}/pg_yregress")
+    endif()
     file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${NAME}_FindRegressTests.cmake"
             CONTENT "
 file(GLOB_RECURSE files RELATIVE ${CMAKE_CURRENT_LIST_DIR} LIST_DIRECTORIES false ${dir}/*.yml ${dir}/*.yaml)
@@ -100,7 +106,7 @@ foreach(file \${files})
     add_test(\"${NAME}/\${file}\" \"$<TARGET_FILE:pg_yregress>\" \"${dir}/../\${file}\")
     set_tests_properties(\"${NAME}/\${file}\" PROPERTIES
     WORKING_DIRECTORY \"${CMAKE_CURRENT_BINARY_DIR}\"
-    ENVIRONMENT \"PGCONFIG=${PG_CONFIG};PGSHAREDIR=${_share_dir};OMNI_EXT_SO=$<TARGET_FILE:omni_ext>\")
+    ENVIRONMENT \"PGCONFIG=${PG_CONFIG};PGSHAREDIR=${_share_dir};OMNI_EXT_SO=$<$<TARGET_EXISTS:omni_ext>:$<TARGET_FILE:omni_ext>>\")
 endforeach()
 ")
     get_directory_property(current_includes TEST_INCLUDE_FILES)
@@ -110,7 +116,7 @@ endfunction()
 function(add_postgresql_extension NAME)
     set(_optional SHARED_PRELOAD PRIVATE UNVERSIONED_SO)
     set(_single VERSION ENCODING SCHEMA RELOCATABLE)
-    set(_multi SOURCES SCRIPTS SCRIPT_TEMPLATES REQUIRES TESTS_REQUIRE REGRESS)
+    set(_multi SOURCES SCRIPTS SCRIPT_TEMPLATES REQUIRES TESTS_REQUIRE REGRESS DEPENDS_ON)
     cmake_parse_arguments(_ext "${_optional}" "${_single}" "${_multi}" ${ARGN})
 
     if(NOT _ext_VERSION)
@@ -123,6 +129,30 @@ function(add_postgresql_extension NAME)
         add_library(${NAME} MODULE ${_ext_SOURCES})
     endif()
 
+    foreach(requirement ${_ext_REQUIRES})
+        if(NOT TARGET ${requirement})
+            if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../${requirement}")
+                add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../${requirement}" "${CMAKE_CURRENT_BINARY_DIR}/${requirement}")
+            elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../../extensions/${requirement}")
+                add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../../extensions/${requirement}" "${CMAKE_CURRENT_BINARY_DIR}/${requirement}")
+            else()
+                message(FATAL_ERROR "Can't find extension ${requirement}")
+            endif()
+        endif()
+    endforeach()
+
+    foreach(dependency ${_ext_DEPENDS_ON})
+        if(NOT TARGET ${dependency})
+            if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../${dependency}")
+                add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../${dependency}" "${CMAKE_CURRENT_BINARY_DIR}/${dependency}")
+            elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../../${dependency}")
+                add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../../${dependency}" "${CMAKE_CURRENT_BINARY_DIR}/${dependency}")
+            else()
+                message(FATAL_ERROR "Can't find dependency ${dependency}")
+            endif()
+        endif()
+    endforeach()
+
     # Proactively support dynpgext so that its caching late bound calls most efficiently
     # on macOS
     if(APPLE)
@@ -131,8 +161,8 @@ function(add_postgresql_extension NAME)
 #define DYNPGEXT_MAIN
 #include <dynpgext.h>
     ]=])
-        target_sources(${NAME} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/dynpgext.c")
-        if(_ext_SOURCES)
+        if(_ext_SOURCES AND TARGET dynpgext)
+            target_sources(${NAME} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/dynpgext.c")
             target_link_libraries(${NAME} dynpgext)
             target_compile_definitions(${NAME} PUBLIC DYNPGEXT_SUPPLEMENTARY)
         endif()
@@ -280,7 +310,6 @@ $<$<NOT:$<BOOL:${_ext_SCHEMA}>>:#>schema = ${_ext_SCHEMA}
         endif()
     endif()
 
-
     if(_ext_REGRESS)
         foreach(_test ${_ext_REGRESS})
             set(_sql_file "${CMAKE_CURRENT_SOURCE_DIR}/sql/${_test}.sql")
@@ -310,7 +339,7 @@ $<$<NOT:$<BOOL:${_ext_SCHEMA}>>:#>schema = ${_ext_SCHEMA}
                 string(APPEND _loadextensions "--load-extension=${req} ")
 
                 if(req STREQUAL "omni_ext")
-                    set(_extra_config "shared_preload_libraries=\\\'$<TARGET_FILE:omni_ext>\\\'")
+                    set(_extra_config "shared_preload_libraries=\\\'$<$<TARGET_EXISTS:omni_ext>:$<TARGET_FILE:omni_ext>>\\\'")
                 endif()
             endforeach()
 
@@ -392,7 +421,7 @@ export SOCKDIR=$(mktemp -d)
 echo host all all all trust >>  \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}/pg_hba.conf\"
 PGSHAREDIR=${_share_dir} \
 ${PG_CTL} start -D \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" \
--o \"-c max_worker_processes=64 -c listen_addresses=* -c port=$PGPORT $<IF:$<BOOL:${_ext_SHARED_PRELOAD}>,-c shared_preload_libraries='${_target_file_name}$<COMMA>$<TARGET_FILE:omni_ext>',-c shared_preload_libraries='$<TARGET_FILE:omni_ext>'>\" \
+-o \"-c max_worker_processes=64 -c listen_addresses=* -c port=$PGPORT $<IF:$<BOOL:${_ext_SHARED_PRELOAD}>,-c shared_preload_libraries='${_target_file_name}$<COMMA>$<$<TARGET_EXISTS:omni_ext>:$<TARGET_FILE:omni_ext>>',-c shared_preload_libraries='$<$<TARGET_EXISTS:omni_ext>:$<TARGET_FILE:omni_ext>>'>\" \
 -o -F -o -k -o \"$SOCKDIR\"
 ${CREATEDB} -h \"$SOCKDIR\" ${NAME}
         ${_cli} -h \"$SOCKDIR\" ${NAME}

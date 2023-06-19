@@ -9,6 +9,8 @@ list(PREPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/../../cmake)
 
 enable_testing()
 
+find_package(PostgreSQL REQUIRED)
+
 add_postgresql_extension(
         omni_schema
         VERSION 0.1

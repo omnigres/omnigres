@@ -1,16 +1,16 @@
 cmake_minimum_required(VERSION 3.25.1)
 project(omni_httpc)
 
+list(PREPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/../../cmake)
+include(OpenSSL)
+
 include(CTest)
 include(FindPkgConfig)
-
-list(PREPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/../../cmake)
 
 enable_testing()
 
 find_package(PostgreSQL REQUIRED)
 find_package(H2O REQUIRED)
-include(OpenSSL)
 
 pkg_check_modules(BROTLI_DEC libbrotlidec)
 pkg_check_modules(BROTLI_ENC libbrotlienc)
@@ -22,6 +22,7 @@ add_postgresql_extension(
         RELOCATABLE false
         SCRIPTS omni_httpc--0.1.sql
         SOURCES omni_httpc.c ca-bundle.cc ssl.c
+        DEPENDS_ON libpgaug omni_sql omni_types
         REQUIRES omni_http omni_types)
 
 # Raw string literal in ca-bundle.cc
