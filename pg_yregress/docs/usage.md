@@ -290,7 +290,7 @@ tests:
   params:
   - 0x01
   results:
-  - value: t
+  - value: true
 ```
 
 [^send-recv]: The encoding that is used by `SEND` and `RECEIVE` functions of the type.
