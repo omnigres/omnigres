@@ -1,0 +1,22 @@
+#! /usr/bin/env bash
+
+script_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+
+# Prime so that Postgres is always there
+if [ ! -d "${script_dir}/../.pg" ]; then
+  rm -rf "build/_"
+  cmake -S "${script_dir}/.." -B "build/_"
+  rm -rf "build/_"
+fi
+
+for dir in "${script_dir}/../extensions"/*; do
+  if [ -d "$dir" ]; then
+       	rm -rf "build/_${dir}"
+       	{
+       	  cmake -S "${dir}" -B "build/_${dir}"
+       	  cmake --build "build/_${dir}" --parallel --target all --target package
+       	} &
+  fi
+done
+
+wait
