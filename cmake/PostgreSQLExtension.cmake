@@ -430,8 +430,8 @@ ${CREATEDB} -h \"$SOCKDIR\" ${NAME}
             FILE_PERMISSIONS OWNER_EXECUTE OWNER_READ OWNER_WRITE
         )
         add_custom_target(psql_${NAME}
-            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-            COMMAND ${CMAKE_CURRENT_BINARY_DIR}/psql_${NAME})
+                WORKING_DIRECTORY "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/.."
+                COMMAND ${CMAKE_CURRENT_BINARY_DIR}/psql_${NAME})
         add_dependencies(psql_${NAME} ${NAME})
     endif()
 
