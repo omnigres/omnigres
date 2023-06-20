@@ -59,6 +59,9 @@ char *subpath(const char *parent, const char *child) {
   }
 }
 
+static SPIPlanPtr lookup_fs = NULL;
+static SPIPlanPtr insert_fs = NULL;
+
 Datum local_fs(PG_FUNCTION_ARGS) {
   if (PG_ARGISNULL(0)) {
     ereport(ERROR, errmsg("must must not be NULL"));
@@ -67,11 +70,14 @@ Datum local_fs(PG_FUNCTION_ARGS) {
   text *absolute_mount = cstring_to_text(subpath(text_to_cstring(PG_GETARG_TEXT_PP(0)), "."));
 
   SPI_connect();
-  char *query = "select row(id)::omni_vfs.local_fs from "
-                "omni_vfs.local_fs_mounts where mount = $1";
-  int rc =
-      SPI_execute_with_args(query, 1, (Oid[1]){TEXTOID},
-                            (Datum[1]){PointerGetDatum(absolute_mount)}, (char[1]){' '}, false, 0);
+  if (lookup_fs == NULL) {
+    char *query = "select row(id)::omni_vfs.local_fs from "
+                  "omni_vfs.local_fs_mounts where mount = $1";
+    lookup_fs = SPI_prepare(query, 1, (Oid[1]){TEXTOID});
+    SPI_keepplan(lookup_fs);
+  }
+  int rc = SPI_execute_plan(lookup_fs, (Datum[1]){PointerGetDatum(absolute_mount)}, (char[1]){' '},
+                            false, 0);
   if (rc != SPI_OK_SELECT) {
     ereport(ERROR, errmsg("failed obtaining local_fs"),
             errdetail("%s", SPI_result_code_string(rc)));
@@ -79,11 +85,14 @@ Datum local_fs(PG_FUNCTION_ARGS) {
 
   if (SPI_tuptable->numvals == 0) {
     // The mount does not exist, try creating it
-    char *insert = "insert into omni_vfs.local_fs_mounts (mount) values($1) returning "
-                   "row(id)::omni_vfs.local_fs";
-    rc = SPI_execute_with_args(insert, 1, (Oid[1]){TEXTOID},
-                               (Datum[1]){PointerGetDatum(absolute_mount)}, (char[1]){' '}, false,
-                               0);
+    if (insert_fs == NULL) {
+      char *insert = "insert into omni_vfs.local_fs_mounts (mount) values($1) returning "
+                     "row(id)::omni_vfs.local_fs";
+      insert_fs = SPI_prepare(insert, 1, (Oid[1]){TEXTOID});
+      SPI_keepplan(insert_fs);
+    }
+    rc = SPI_execute_plan(insert_fs, (Datum[1]){PointerGetDatum(absolute_mount)}, (char[1]){' '},
+                          false, 0);
     if (rc != SPI_OK_INSERT_RETURNING) {
       ereport(ERROR, errmsg("failed creating local_fs"),
               errdetail("%s", SPI_result_code_string(rc)));
@@ -100,13 +109,19 @@ Datum local_fs(PG_FUNCTION_ARGS) {
   PG_RETURN_DATUM(local_fs);
 }
 
+static SPIPlanPtr get_fs = NULL;
+
 static char *get_mount_path(Datum fs_id) {
   // Get mount from the local_fs_mounts table. It has Row-Level Security enabled,
   // so we can enforce policies on this.
   MemoryContext oldcontext = CurrentMemoryContext;
   SPI_connect();
-  int rc = SPI_execute_with_args("select mount from omni_vfs.local_fs_mounts where id = $1", 1,
-                                 (Oid[1]){INT4OID}, (Datum[1]){fs_id}, (char[1]){' '}, false, 0);
+  if (get_fs == NULL) {
+    get_fs = SPI_prepare("select mount from omni_vfs.local_fs_mounts where id = $1", 1,
+                         (Oid[1]){INT4OID});
+    SPI_keepplan(get_fs);
+  }
+  int rc = SPI_execute_plan(get_fs, (Datum[1]){fs_id}, (char[1]){' '}, false, 0);
   if (rc != SPI_OK_SELECT) {
     ereport(ERROR, errmsg("fetching mount failed"), errdetail("%s", SPI_result_code_string(rc)));
   }
