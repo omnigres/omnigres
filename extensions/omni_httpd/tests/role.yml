@@ -7,7 +7,6 @@ instances:
     - set session omni_httpd.no_init = true
     - create extension omni_httpd cascade
     - call omni_httpd.wait_for_configuration_reloads(1)
-    - delete from omni_httpd.configuration_reloads
     - create extension omni_httpc cascade
     - create role test_user inherit in role current_user
     - create role test_user1 inherit in role current_user

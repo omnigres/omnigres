@@ -20,7 +20,7 @@ instances:
     - set session omni_httpd.no_init = true
     - create extension omni_httpd cascade
     - create extension omni_httpc cascade
-    - delete from omni_httpd.configuration_reloads
+    - call omni_httpd.wait_for_configuration_reloads(1)
     - |
       with
        listener as (insert into omni_httpd.listeners (address, port) values ('127.0.0.1', 0) returning id),
