@@ -1,0 +1,25 @@
+instances:
+  default:
+    init:
+    - create extension omni_prolog
+
+tests:
+
+- name: fails on untrusted code in top-level
+  steps:
+  - |
+    create function val() returns integer as $$
+    :- shell(uname).
+    result(1).
+    $$ language plprolog
+  - query: select val()
+    success: false
+
+- name: fails on untrusted code in predicates
+  steps:
+  - |
+    create function val() returns integer as $$
+    result(1) :- shell(uname).
+    $$ language plprolog
+  - query: select val()
+    success: false
