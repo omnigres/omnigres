@@ -1,0 +1,76 @@
+instances:
+  default:
+    init:
+    - create extension omni_prolog
+
+tests:
+
+- name: return an integer value
+  steps:
+  - |
+    create function val() returns integer as $$
+    result(1).
+    $$ language plprolog
+  - query: select val()
+    results:
+    - val: 1
+
+- name: return an int2 value
+  steps:
+  - |
+    create function val() returns int2 as $$
+    result(1).
+    $$ language plprolog
+  - query: select val()
+    results:
+    - val: 1
+
+- name: return an int8 value
+  steps:
+  - |
+    create function val() returns int8 as $$
+    result(1).
+    $$ language plprolog
+  - query: select val()
+    results:
+    - val: 1
+
+- name: return an text value
+  steps:
+  - |
+    create function val() returns text as $$
+    result("a").
+    $$ language plprolog
+  - query: select val()
+    results:
+    - val: a
+
+- name: return an atom value as text
+  steps:
+  - |
+    create function val() returns text as $$
+    result(a).
+    $$ language plprolog
+  - query: select val()
+    results:
+    - val: a
+
+- name: handle type mismatch
+  steps:
+  - |
+    create function val() returns text as $$
+    result(1).
+    $$ language plprolog
+  - query: select val()
+    success: false
+    error: result type mismatch, expected text, got integer
+
+- name: handle errors
+  steps:
+  - |
+    create function val() returns text as $$
+    result(1)
+    $$ language plprolog
+  - query: select val()
+    success: false
+    error: "val:2:10: Syntax error: Unexpected end of file"
