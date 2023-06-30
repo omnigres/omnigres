@@ -332,8 +332,16 @@ foreign_t query(term_t query, term_t args, term_t out, control_t handle) {
                 PL_require(PL_put_string_chars(val, DatumGetCString(datum)));
                 break;
               }
-              default:
-                PL_put_atom_chars(val, "unsupported");
+              default: {
+                term_t exception, error;
+                // We are raising exception here because we might want Prolog code to be able
+                // to handle it
+                return ((exception = PL_new_term_ref()) && (error = PL_new_term_ref()) &&
+                        PL_unify_term(error, PL_FUNCTOR_CHARS, "unsupported_pg_type", 1, PL_CHARS,
+                                      format_type_be(oid)) &&
+                        PL_unify_term(exception, PL_FUNCTOR_CHARS, "error", 1, PL_TERM, error) &&
+                        PL_raise_exception(exception));
+              }
               }
               // Get the right-hand side of the column=... term
               term_t rhs = PL_new_term_ref();
@@ -489,6 +497,7 @@ Datum plprologX_call_handler(PG_FUNCTION_ARGS, bool sandbox) {
                               result_term);
   bool any_result = false;
   while (PL_next_solution(query)) {
+    report_error_if_any(query);
 
     if (any_result && rs == NULL) {
       // if we're not returning a set, we should warn about multiple results.
@@ -496,8 +505,6 @@ Datum plprologX_call_handler(PG_FUNCTION_ARGS, bool sandbox) {
               errdetail("The rest of results are discarded"));
       break;
     }
-
-    report_error_if_any(query);
 
     bool isnull = false;
     if (!term_t_to_datum(result_term, &result, &result_oid, false)) {
@@ -529,6 +536,26 @@ Datum plprologX_call_handler(PG_FUNCTION_ARGS, bool sandbox) {
     }
 
     any_result = true;
+  }
+
+  { // Check for exceptions not caught with the message hook
+    term_t exception;
+    if ((exception = PL_exception(query))) {
+      PL_clear_exception();
+      term_t term = PL_new_term_ref();
+      term_t kind = PL_new_term_ref();
+      term_t lines = PL_new_term_ref();
+      term_t kind_functor;
+      if (!PL_get_functor(exception, &kind_functor))
+        goto report;
+      if (!PL_put_atom(kind, PL_functor_name(kind_functor)))
+        goto report;
+      if (!PL_get_arg(1, exception, term))
+        goto report;
+      message_hook(term, kind, lines);
+    }
+  report:
+    report_error_if_any(query);
   }
 
   if (!any_result && rs == NULL) {
