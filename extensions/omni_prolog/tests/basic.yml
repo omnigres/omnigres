@@ -55,6 +55,18 @@ tests:
     results:
     - val: a
 
+- name: return a set
+  steps:
+  - |
+    create function val() returns setof text as $$
+    result(a).
+    result(b).
+    $$ language plprolog
+  - query: select * from val()
+    results:
+    - val: a
+    - val: b
+
 - name: handle type mismatch
   steps:
   - |

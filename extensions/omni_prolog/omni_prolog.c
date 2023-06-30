@@ -5,6 +5,7 @@
 #include <catalog/pg_proc.h>
 #include <executor/spi.h>
 #include <funcapi.h>
+#include <miscadmin.h>
 #include <utils/builtins.h>
 #include <utils/lsyscache.h>
 #include <utils/syscache.h>
@@ -377,10 +378,14 @@ complete:
 PL_engine_t old_engine;
 PL_engine_t current_engine;
 
-static void report_error_if_any() {
+static void report_error_if_any(qid_t query) {
   if (current_error != NULL) {
     char *err = current_error;
     current_error = NULL;
+
+    if (current_error_level >= ERROR && query != NULL) {
+      PL_close_query(query);
+    }
 
     PL_set_engine(old_engine, NULL);
     PL_destroy_engine(current_engine);
@@ -390,6 +395,20 @@ static void report_error_if_any() {
 }
 
 Datum plprologX_call_handler(PG_FUNCTION_ARGS, bool sandbox) {
+
+  // This block of variables is used only for result sets
+  ReturnSetInfo *rs = NULL;
+  Tuplestorestate *tupstore;
+  MemoryContext oldcontext, per_query_ctx;
+  if (fcinfo->flinfo->fn_retset) {
+    // If we're returning a set, prepare everything needed
+    rs = (ReturnSetInfo *)fcinfo->resultinfo;
+    rs->returnMode = SFRM_Materialize;
+
+    per_query_ctx = rs->econtext->ecxt_per_query_memory;
+    oldcontext = MemoryContextSwitchTo(per_query_ctx);
+  }
+
   Datum ret;
   bool isnull;
 
@@ -468,46 +487,89 @@ Datum plprologX_call_handler(PG_FUNCTION_ARGS, bool sandbox) {
     printf("Failed to consult file\n");
   }
 
-  report_error_if_any();
+  report_error_if_any(NULL);
 
   Datum result = (Datum)0;
 
-  term_t result_term = PL_new_term_ref();
-  if (!PL_call_predicate(NULL, PL_Q_NORMAL,
-                         PL_predicate(sandbox ? "$omni_sandbox_result" : "result", 1, NULL),
-                         result_term)) {
-    // return null if there are no results
-    fcinfo->isnull = true;
+  if (rs != NULL) {
+    // If we're returning a set prepare a tuple store
+    MemoryContext spi_context = MemoryContextSwitchTo(per_query_ctx);
+    tupstore = tuplestore_begin_heap(false, false, work_mem);
+    rs->setResult = tupstore;
+    MemoryContextSwitchTo(spi_context);
   }
-
-  report_error_if_any();
 
   Oid result_oid = InvalidOid;
+  Oid result_type_oid = get_func_rettype(fcinfo->flinfo->fn_oid);
 
-  if (!term_t_to_datum(result_term, &result, &result_oid, false)) {
-    ereport(WARNING, errmsg("unsupported result type %s, returning null",
-                            result_oid == InvalidOid ? "Invalid" : format_type_be(result_oid)));
-    fcinfo->isnull = true;
-    result = 0;
+  term_t result_term = PL_new_term_ref();
+  qid_t query = PL_open_query(NULL, PL_Q_PASS_EXCEPTION,
+                              PL_predicate(sandbox ? "$omni_sandbox_result" : "result", 1, NULL),
+                              result_term);
+  bool any_result = false;
+  while (PL_next_solution(query)) {
+
+    if (any_result && rs == NULL) {
+      // if we're not returning a set, we should warn about multiple results.
+      ereport(WARNING, errmsg("Multiple results given, only a single one expected"),
+              errdetail("The rest of results are discarded"));
+      break;
+    }
+
+    report_error_if_any(query);
+
+    bool isnull = false;
+    if (!term_t_to_datum(result_term, &result, &result_oid, false)) {
+      ereport(WARNING, errmsg("unsupported result type %s, returning null",
+                              result_oid == InvalidOid ? "Invalid" : format_type_be(result_oid)));
+      result = 0;
+      isnull = true;
+    }
+
+    if ((result_oid != result_type_oid && result_oid != InvalidOid) &&
+        // don't repeat the check if we're returning a set
+        !(rs != NULL && any_result)) {
+      if ((result_oid == INT4OID && result_type_oid == INT2OID) ||
+          (result_oid == INT4OID && result_type_oid == INT8OID)) {
+        // Allow this implicit conversion
+      } else {
+        ereport(ERROR, errmsg("result type mismatch, expected %s, got %s",
+                              format_type_be(result_type_oid), format_type_be(result_oid)));
+      }
+    }
+
+    if (rs != NULL) {
+      // If we're returning a set, add values to the tuple store
+      MemoryContext spi_context = MemoryContextSwitchTo(per_query_ctx);
+      tuplestore_putvalues(tupstore, rs->expectedDesc, &result, &isnull);
+      MemoryContextSwitchTo(spi_context);
+    } else {
+      fcinfo->isnull = isnull;
+    }
+
+    any_result = true;
   }
+
+  if (!any_result && rs == NULL) {
+    // return null if there are no results and it is not a set
+    fcinfo->isnull = true;
+  }
+
+  PL_close_query(query);
 
   SPI_finish();
 
   PL_set_engine(old_engine, NULL);
   PL_destroy_engine(current_engine);
 
-  Oid result_type_oid = get_func_rettype(fcinfo->flinfo->fn_oid);
-  if (result_oid != result_type_oid && result_oid != InvalidOid) {
-    if ((result_oid == INT4OID && result_type_oid == INT2OID) ||
-        (result_oid == INT4OID && result_type_oid == INT8OID)) {
-      // Allow this implicit conversion
-    } else {
-      ereport(ERROR, errmsg("result type mismatch, expected %s, got %s",
-                            format_type_be(result_type_oid), format_type_be(result_oid)));
-    }
+  if (rs != NULL) {
+    // if we're returning a set, finalize and clean up
+    tuplestore_donestoring(tupstore);
+    MemoryContextSwitchTo(oldcontext);
+    PG_RETURN_NULL();
+  } else {
+    return result;
   }
-
-  return result;
 }
 
 PG_FUNCTION_INFO_V1(plprologu_call_handler);
