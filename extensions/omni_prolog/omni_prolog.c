@@ -189,6 +189,9 @@ foreign_t query(term_t query, term_t args, term_t out, control_t handle) {
 
     list = args;
 
+    ctx = (struct query_ctx *)palloc0(sizeof(*ctx));
+
+#if PG_MAJORVERSION_NUM > 13
     ParamListInfo params = makeParamList(list_len);
     int i = 0;
     while (PL_get_list(list, head, tail)) {
@@ -207,10 +210,35 @@ foreign_t query(term_t query, term_t args, term_t out, control_t handle) {
       list = tail;
     }
 
-    ctx = (struct query_ctx *)palloc0(sizeof(*ctx));
     SPIParseOpenOptions opts = {
         .read_only = false, .cursorOptions = CURSOR_OPT_NO_SCROLL, .params = params};
     ctx->portal = SPI_cursor_parse_open(NULL, query_str, &opts);
+#else
+    Oid *argtypes = (Datum *)palloc_array(Oid, list_len);
+    Datum *values = (Datum *)palloc_array(Datum, list_len);
+    bool *nulls = (bool *)palloc_array(bool, list_len);
+
+    int i = 0;
+    while (PL_get_list(list, head, tail)) {
+
+      nulls[i] = false;
+
+      if (!PL_is_ground(head)) {
+        return FALSE;
+      }
+
+      if (!term_t_to_datum(head, values + i, argtypes + i, true)) {
+        return FALSE;
+      }
+
+      i++;
+      list = tail;
+    }
+
+    ctx->portal =
+        SPI_cursor_open_with_args(NULL, query_str, list_len, argtypes, values, nulls, false, 0);
+#endif
+
     ctx->current_pos = -1;
     break;
   }
