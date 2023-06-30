@@ -55,6 +55,19 @@ tests:
     results:
     - val: a
 
+- name: returning a set where none is expected
+  steps:
+  - |
+    create function val() returns text as $$
+    result(a).
+    result(b).
+    $$ language plprolog
+  - query: select * from val()
+    notices:
+    - Multiple results given, only a single one expected
+    results:
+    - val: a
+
 - name: return a set
   steps:
   - |
