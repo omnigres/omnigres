@@ -220,9 +220,9 @@ foreign_t query(term_t query, term_t args, term_t out, control_t handle) {
 
       nulls[i] = false;
 
-      PL_iff(PL_is_ground(head));
+      PL_require(PL_is_ground(head));
 
-      PL_iff(term_t_to_datum(head, values + i, argtypes + i, true));
+      PL_require(term_t_to_datum(head, values + i, argtypes + i, true));
 
       i++;
       list = tail;
