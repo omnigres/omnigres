@@ -412,15 +412,12 @@ Datum plprologX_call_handler(PG_FUNCTION_ARGS, bool sandbox) {
   Datum ret;
   bool isnull;
 
-  /* Fetch the function's pg_proc entry. */
+  // Fetch the function's pg_proc entry
   HeapTuple pl_tuple = SearchSysCache1(PROCOID, ObjectIdGetDatum(fcinfo->flinfo->fn_oid));
   if (!HeapTupleIsValid(pl_tuple))
     elog(ERROR, "cache lookup failed for function %u", fcinfo->flinfo->fn_oid);
 
-  /*
-   * Extract and print the source text of the function.  This can be used as
-   * a base for the function validation and execution.
-   */
+  // Extract the source text of the function
   Form_pg_proc pl_struct = (Form_pg_proc)GETSTRUCT(pl_tuple);
   char *proname = pstrdup(NameStr(pl_struct->proname));
   ret = SysCacheGetAttr(PROCOID, pl_tuple, Anum_pg_proc_prosrc, &isnull);
@@ -428,9 +425,11 @@ Datum plprologX_call_handler(PG_FUNCTION_ARGS, bool sandbox) {
     elog(ERROR, "could not find source text of function \"%s\"", proname);
   char *source = DatumGetCString(DirectFunctionCall1(textout, ret));
 
+  // Extract argument types
   ret = SysCacheGetAttr(PROCOID, pl_tuple, Anum_pg_proc_proargtypes, &isnull);
   current_argtypes = (oidvector *)DatumGetPointer(ret);
 
+  // Extract argument names
   Datum proargnames = SysCacheGetAttr(PROCOID, pl_tuple, Anum_pg_proc_proargnames, &isnull);
   Datum proargmodes = SysCacheGetAttr(PROCOID, pl_tuple, Anum_pg_proc_proargmodes, &isnull);
   get_func_input_arg_names(proargnames, proargmodes, &current_argnames);
