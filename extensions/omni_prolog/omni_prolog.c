@@ -24,12 +24,16 @@ static char *current_error = NULL;
 static int current_error_level = 0;
 static int current_error_code = 0;
 
+#define PL_require(cond)                                                                           \
+  if (!cond)                                                                                       \
+  return FALSE
+
 foreign_t message_hook(term_t term, term_t kind, term_t lines) {
   term_t error = PL_new_term_ref();
   PL_put_atom(error, PL_new_atom("error"));
   if (PL_compare(error, kind) == 0) {
     term_t term_str = PL_new_term_refs(2);
-    PL_put_term(term_str, term);
+    PL_require(PL_put_term(term_str, term));
     if (!PL_call_predicate(NULL, PL_Q_NORMAL, PL_predicate("message_to_string", 2, NULL),
                            term_str)) {
       current_error = "failed calling message_to_string/2";
@@ -38,7 +42,7 @@ foreign_t message_hook(term_t term, term_t kind, term_t lines) {
     } else {
       char *msg;
       size_t errlen;
-      PL_get_string(term_str + 1, &msg, &errlen);
+      PL_require(PL_get_string(term_str + 1, &msg, &errlen));
       current_error = pstrdup(msg);
       current_error_level = ERROR;
       current_error_code = ERRCODE_EXTERNAL_ROUTINE_EXCEPTION;
@@ -73,9 +77,7 @@ static int term_t_to_datum(term_t term, Datum *datum, Oid *oid, bool params) {
   case PL_STRING: {
     char *string;
     size_t string_length;
-    if (!PL_get_string_chars(term, &string, &string_length)) {
-      return FALSE;
-    }
+    PL_require(PL_get_string_chars(term, &string, &string_length));
     if (params) {
       char *managed_string = pstrdup(string);
       if (datum != NULL)
@@ -93,7 +95,7 @@ static int term_t_to_datum(term_t term, Datum *datum, Oid *oid, bool params) {
   case PL_ATOM: {
     char *string;
     size_t string_length;
-    PL_get_atom_nchars(term, &string_length, &string);
+    PL_require(PL_get_atom_nchars(term, &string_length, &string));
     if (params) {
       char *managed_string = pstrdup(string);
       if (datum != NULL)
@@ -174,9 +176,7 @@ foreign_t query(term_t query, term_t args, term_t out, control_t handle) {
   switch (PL_foreign_control(handle)) {
   case PL_FIRST_CALL: {
     size_t l;
-    if (!PL_get_string(query, &query_str, &l)) {
-      return FALSE;
-    }
+    PL_require(PL_get_string(query, &query_str, &l));
     term_t head = PL_new_term_ref();
     term_t tail = PL_new_term_ref();
     term_t list = args;
@@ -199,13 +199,9 @@ foreign_t query(term_t query, term_t args, term_t out, control_t handle) {
 
       params->params[i] = (ParamExternData){.pflags = 0, .isnull = false};
 
-      if (!PL_is_ground(head)) {
-        return FALSE;
-      }
+      PL_require(PL_is_ground(head));
 
-      if (!term_t_to_datum(head, &params->params[i].value, &params->params[i].ptype, true)) {
-        return FALSE;
-      }
+      PL_require(term_t_to_datum(head, &params->params[i].value, &params->params[i].ptype, true));
 
       i++;
       list = tail;
@@ -224,13 +220,9 @@ foreign_t query(term_t query, term_t args, term_t out, control_t handle) {
 
       nulls[i] = false;
 
-      if (!PL_is_ground(head)) {
-        return FALSE;
-      }
+      PL_iff(PL_is_ground(head));
 
-      if (!term_t_to_datum(head, values + i, argtypes + i, true)) {
-        return FALSE;
-      }
+      PL_iff(term_t_to_datum(head, values + i, argtypes + i, true));
 
       i++;
       list = tail;
@@ -271,14 +263,12 @@ foreign_t query(term_t query, term_t args, term_t out, control_t handle) {
 
       atom_t name;
       size_t arity;
-      PL_get_name_arity(head, &name, &arity);
+      PL_require(PL_get_name_arity(head, &name, &arity));
 
       if (PL_new_atom("rownum") == name && arity == 1) {
         term_t arg = PL_new_term_ref();
-        PL_get_arg(1, head, arg);
-        if (!PL_unify_integer(arg, ctx->current_pos + 1)) {
-          return FALSE;
-        }
+        PL_require(PL_get_arg(1, head, arg));
+        PL_require(PL_unify_integer(arg, ctx->current_pos + 1));
       }
 
       if (PL_new_atom("columns") == name) {
@@ -295,9 +285,7 @@ foreign_t query(term_t query, term_t args, term_t out, control_t handle) {
               }
               // Column to fetch
               term_t column = PL_new_term_ref();
-              if (!PL_get_arg(1, arg, column)) {
-                return FALSE;
-              }
+              PL_require(PL_get_arg(1, arg, column));
               // Column must be a number of an atom
               bool is_atom;
               int index = 0;
@@ -307,9 +295,7 @@ foreign_t query(term_t query, term_t args, term_t out, control_t handle) {
               // If it is an atom, we need to find the index
               if (is_atom) {
                 char *expected_name;
-                if (!PL_get_atom_chars(column, &expected_name)) {
-                  return FALSE;
-                }
+                PL_require(PL_get_atom_chars(column, &expected_name));
                 for (int i = 0; i < ncol; i++) {
                   if (strcmp(NameStr(SPI_tuptable->tupdesc->attrs[i].attname), expected_name) ==
                       0) {
@@ -329,21 +315,21 @@ foreign_t query(term_t query, term_t args, term_t out, control_t handle) {
               term_t val = PL_new_term_ref();
               switch (oid) {
               case INT2OID:
-                PL_put_integer(val, DatumGetInt16(datum));
+                PL_require(PL_put_integer(val, DatumGetInt16(datum)));
                 break;
               case INT4OID:
-                PL_put_integer(val, DatumGetInt32(datum));
+                PL_require(PL_put_integer(val, DatumGetInt32(datum)));
                 break;
               case INT8OID:
-                PL_put_int64(val, DatumGetInt64(datum));
+                PL_require(PL_put_int64(val, DatumGetInt64(datum)));
                 break;
               case TEXTOID: {
                 text *t = DatumGetTextPP(datum);
-                PL_put_string_nchars(val, VARSIZE_ANY_EXHDR(t), VARDATA_ANY(t));
+                PL_require(PL_put_string_nchars(val, VARSIZE_ANY_EXHDR(t), VARDATA_ANY(t)));
                 break;
               }
               case CSTRINGOID: {
-                PL_put_string_chars(val, DatumGetCString(datum));
+                PL_require(PL_put_string_chars(val, DatumGetCString(datum)));
                 break;
               }
               default:
@@ -351,13 +337,9 @@ foreign_t query(term_t query, term_t args, term_t out, control_t handle) {
               }
               // Get the right-hand side of the column=... term
               term_t rhs = PL_new_term_ref();
-              if (!PL_get_arg(2, arg, rhs)) {
-                return FALSE;
-              }
+              PL_require(PL_get_arg(2, arg, rhs));
               // Ready to unify
-              if (!PL_unify_term(val, PL_TERM, rhs)) {
-                return FALSE;
-              }
+              PL_require(PL_unify_term(val, PL_TERM, rhs));
             }
           }
         }
@@ -479,7 +461,7 @@ Datum plprologX_call_handler(PG_FUNCTION_ARGS, bool sandbox) {
       PL_predicate(sandbox ? "$omni_sandbox_load_code" : "$omni_load_code", 2, "user");
   term_t params = PL_new_term_refs(2);
   PL_put_atom_chars(params, proname);
-  PL_put_string_chars(params + 1, source);
+  PL_require(PL_put_string_chars(params + 1, source));
 
   // Consult the file
   if (!PL_call_predicate(NULL, PL_Q_NORMAL, pred, params)) {
