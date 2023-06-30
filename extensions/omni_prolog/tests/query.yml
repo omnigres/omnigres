@@ -61,9 +61,19 @@ tests:
     create or replace function val() returns text as $$
     result(S) :-
       query("select $1, $2 as col", [1, "test"], [columns(1=N, col=Col)]),
-      writeln((N, Col)),
       format(string(S), "~s/~w", [Col, N]).
     $$ language plprolog
   - query: select val()
     results:
     - val: test/1
+
+- name: query returning an unsupported data type
+  steps:
+  - |
+    create or replace function val() returns text as $$
+    result(S) :-
+      query("select 'text'::regtype::oid", [], [columns(1=S)]).
+    $$ language plprolog
+  - query: select val()
+    error: Unsupported Postgres type 'oid'
+    success: false

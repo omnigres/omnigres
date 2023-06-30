@@ -20,3 +20,6 @@ result(_) :- fail.
 
 '$omni_sandbox_result'(Res) :-
   sandbox:safe_call(user:result(Res)).
+
+prolog:message(unsupported_pg_type(Type)) -->
+  [ 'Unsupported Postgres type \'', Type, '\'' ].
