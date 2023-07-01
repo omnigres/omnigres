@@ -94,8 +94,8 @@ tests:
   steps:
   - |
     create function val() returns text as $$
-    result(1)
+    :- throw(error(test_error)).
     $$ language plprolog
   - query: select val()
     success: false
-    error: "val:2:10: Syntax error: Unexpected end of file"
+    error: "Unhandled exception: Unknown message: error(test_error)"
