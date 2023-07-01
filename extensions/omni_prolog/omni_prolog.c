@@ -384,6 +384,27 @@ static void report_error_if_any(qid_t query) {
   }
 }
 
+void install_if_needed() {
+  if (!initialized) {
+
+    SPI_connect();
+
+    SPI_execute_with_args("select probin from pg_proc where proname = $1", 1, (Oid[1]){TEXTOID},
+                          (Datum[1]){PointerGetDatum(cstring_to_text("plprologu_call_handler"))},
+                          (char[1]){' '}, false, 1);
+    char *path = SPI_getvalue(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1);
+    SPI_finish();
+
+    PL_initialise(1, (char *[1]){path});
+    PL_set_prolog_flag("debug", PL_BOOL, false);
+    PL_set_prolog_flag("debug_on_error", PL_BOOL, false);
+    PL_set_prolog_flag("debug_on_interrupt", PL_BOOL, false);
+
+    install();
+
+    initialized = true;
+  }
+}
 Datum plprologX_call_handler(PG_FUNCTION_ARGS, bool sandbox) {
 
   // This block of variables is used only for result sets
@@ -426,25 +447,7 @@ Datum plprologX_call_handler(PG_FUNCTION_ARGS, bool sandbox) {
 
   ReleaseSysCache(pl_tuple);
 
-  if (!initialized) {
-
-    SPI_connect();
-
-    SPI_execute_with_args("select probin from pg_proc where proname = $1", 1, (Oid[1]){TEXTOID},
-                          (Datum[1]){PointerGetDatum(cstring_to_text("plprologu_call_handler"))},
-                          (char[1]){' '}, false, 1);
-    char *path = SPI_getvalue(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1);
-    SPI_finish();
-
-    PL_initialise(1, (char *[1]){path});
-    PL_set_prolog_flag("debug", PL_BOOL, false);
-    PL_set_prolog_flag("debug_on_error", PL_BOOL, false);
-    PL_set_prolog_flag("debug_on_interrupt", PL_BOOL, false);
-
-    install();
-
-    initialized = true;
-  }
+  install_if_needed();
 
   current_call = fcinfo;
 
@@ -587,3 +590,5 @@ Datum plprologu_call_handler(PG_FUNCTION_ARGS) { return plprologX_call_handler(f
 PG_FUNCTION_INFO_V1(plprolog_call_handler);
 
 Datum plprolog_call_handler(PG_FUNCTION_ARGS) { return plprologX_call_handler(fcinfo, true); }
+
+void _PG_init() { install_if_needed(); }
