@@ -16,4 +16,4 @@ create trusted language plprolog handler plprolog_call_handler;
 
 alter language plprolog owner to @extowner@;
 
-comment on language plprologu is 'PL/Prolog language (trusted)';
+comment on language plprolog is 'PL/Prolog language (trusted)';
