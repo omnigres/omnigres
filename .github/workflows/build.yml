@@ -44,7 +44,6 @@ jobs:
         HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: "1"
         HOMEBREW_NO_INSTALL_CLEANUP: "1"
       run: |
-        brew update
         brew install openssl@3.0
 
     - name: Setup Docker on macOS using Colima, Lima-VM, and Homebrew.
