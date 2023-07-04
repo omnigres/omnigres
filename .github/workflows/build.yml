@@ -10,6 +10,11 @@ on:
 
 env:
   CPM_SOURCE_CACHE: ${{ github.workspace }}/cpm_modules
+  HOMEBREW_INSTALL_FROM_API: "1"
+  HOMEBREW_NO_INSTALL_FROM_API: ""
+  HOMEBREW_NO_AUTO_UPDATE: "1"
+  HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: "1"
+  HOMEBREW_NO_INSTALL_CLEANUP: "1"
 
 jobs:
   build:
@@ -39,10 +44,6 @@ jobs:
     - name: Install necessary dependencies
       # OpenSSL
       if: matrix.os == 'macos-13'
-      env:
-        HOMEBREW_NO_AUTO_UPDATE: "1"
-        HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: "1"
-        HOMEBREW_NO_INSTALL_CLEANUP: "1"
       run: |
         brew install openssl@3.0
 
