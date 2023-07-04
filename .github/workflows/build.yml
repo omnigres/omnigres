@@ -37,15 +37,18 @@ jobs:
     - uses: actions/checkout@v3
 
     - name: Install necessary dependencies
-      # OpenSSL and `timeout` (from coreutils)
+      # OpenSSL
       if: matrix.os == 'macos-12'
       env:
         HOMEBREW_NO_AUTO_UPDATE: "1"
         HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: "1"
         HOMEBREW_NO_INSTALL_CLEANUP: "1"
+      # FIXME: untap step is as per https://github.com/Homebrew/brew/issues/15621#issuecomment-1619266788
+      # Should be fixed with https://github.com/Homebrew/brew/pull/15620
       run: |
+        brew untap -f homebrew/cask
         brew update
-        brew install openssl@3.0 coreutils
+        brew install openssl@3.0
 
     - name: Setup Docker on macOS using Colima, Lima-VM, and Homebrew.
       uses: douglascamata/setup-docker-macos-action@v1-alpha
