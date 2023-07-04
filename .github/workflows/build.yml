@@ -43,10 +43,7 @@ jobs:
         HOMEBREW_NO_AUTO_UPDATE: "1"
         HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: "1"
         HOMEBREW_NO_INSTALL_CLEANUP: "1"
-      # FIXME: untap step is as per https://github.com/Homebrew/brew/issues/15621#issuecomment-1619266788
-      # Should be fixed with https://github.com/Homebrew/brew/pull/15620
       run: |
-        brew untap -f homebrew/cask
         brew update
         brew install openssl@3.0
 
