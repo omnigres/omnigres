@@ -16,17 +16,17 @@ jobs:
     strategy:
       matrix:
         pgver: [15, 14, 13]
-        os: [ubuntu-latest, macos-12]
+        os: [ ubuntu-latest, macos-13 ]
         build_type: [Debug, Release]
         exclude:
-          - os: macos-12
-            pgver: 14
-          - os: macos-12
-            pgver: 13
-          - os: macos-12
-            pgver: 12
-          - os: macos-12
-            pgver: 11
+        - os: macos-13
+          pgver: 14
+        - os: macos-13
+          pgver: 13
+        - os: macos-13
+          pgver: 12
+        - os: macos-13
+          pgver: 11
       fail-fast: false
     # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
     # You can convert this to a matrix build if you need cross-platform coverage.
@@ -36,26 +36,29 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    - name: Set up Homebrew
+      uses: Homebrew/actions/setup-homebrew@master
+      if: matrix.os == 'macos-13'
+      with:
+        cask: false # remove this if you need `brew install --cask`
+        test-bot: false # remove this if you need `brew test-bot`
+
     - name: Install necessary dependencies
       # OpenSSL
-      if: matrix.os == 'macos-12'
+      if: matrix.os == 'macos-13'
       env:
         HOMEBREW_NO_AUTO_UPDATE: "1"
         HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: "1"
         HOMEBREW_NO_INSTALL_CLEANUP: "1"
-      # FIXME: untap step is as per https://github.com/Homebrew/brew/issues/15621#issuecomment-1619266788
-      # Should be fixed with https://github.com/Homebrew/brew/pull/15620
       run: |
-        brew untap -f homebrew/cask
-        brew update
         brew install openssl@3.0
 
     - name: Setup Docker on macOS using Colima, Lima-VM, and Homebrew.
       uses: douglascamata/setup-docker-macos-action@v1-alpha
-      if: matrix.os == 'macos-12' # No need to check on Linux, it's there
+      if: matrix.os == 'macos-13' # No need to check on Linux, it's there
 
     - name: Configure Docker host on macOS
-      if: matrix.os == 'macos-12'
+      if: matrix.os == 'macos-13'
       run: |
         echo "DOCKER_HOST=$(docker context inspect -f '{{ .Endpoints.docker.Host }}')" >> $GITHUB_ENV
         echo "DOCKER_HOST_IP=192.168.5.2" >> $GITHUB_ENV
