@@ -68,15 +68,15 @@ jobs:
         path: .pg
         key: ${{ matrix.os }}-pg-${{ matrix.pgver }}-${{ hashFiles('cmake/FindPostgreSQL.cmake') }}
 
+    - uses: actions/cache@v3
+      with:
+        path: ${{github.workspace}}/build/_deps
+        key: ${{ github.workflow }}-cpm-modules-${{ hashFiles('extensions/**/CMakeLists.txt', '*/CMakeLists.txt', 'cmake/*.cmake') }}
+
     - name: Configure
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DPGVER=${{ matrix.pgver }}
-
-    - uses: actions/cache@v3
-      with:
-        path: ${{github.workspace}}/build/_deps
-        key: ${{ github.workflow }}-cpm-modules-${{ hashFiles('**/CMakeLists.txt', '**/*.cmake') }}
 
     - name: Build
       run: cmake --build ${{github.workspace}}/build --parallel --config ${{matrix.build_type}}
