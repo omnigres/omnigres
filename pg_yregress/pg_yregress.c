@@ -27,6 +27,7 @@ static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
               (int)IOVEC_STRLIT(y_test->name));
       return false;
     case default_instance_found:
+      y_test->instance->used = true;
       break;
     case default_instance_ambiguous:
       fprintf(stderr, "There's no default instance for test `%.*s` to use",
@@ -84,6 +85,7 @@ static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
         return false;
       } else {
         y_test->instance = (yinstance *)fy_node_get_meta(instance);
+        y_test->instance->used = true;
       }
 
     } else {
@@ -94,8 +96,8 @@ static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
                 (int)IOVEC_STRLIT(y_test->name));
         return false;
       case default_instance_found:
+        y_test->instance->used = true;
         break;
-
       case default_instance_ambiguous:
         fprintf(stderr, "Test %.*s has instance specified to choose from multiple instances",
                 (int)IOVEC_STRLIT(y_test->name));
@@ -233,7 +235,14 @@ static int execute_document(struct fy_document *fyd, FILE *out) {
       y_instance->ready = false;
       y_instance->node = instance;
 
+      // Before we process tests, we consider the instance to be unused
+      y_instance->used = false;
+
       y_instance->name.base = fy_node_get_scalar(name, &y_instance->name.len);
+
+      fy_node_set_meta(instance, y_instance);
+      fy_document_register_meta(fyd, meta_free, NULL);
+
       switch (fy_node_get_type(instance)) {
       case FYNT_SCALAR:
         break;
@@ -251,10 +260,19 @@ static int execute_document(struct fy_document *fyd, FILE *out) {
 
           // Init steps are the same as tests
           {
+
+            // To ensure that init steps are always on the right instance, we only allow
+            // _this_ instance to be used
+            struct fy_node *self_instances = fy_node_create_mapping(fyd);
+            struct fy_node *instance_copy = fy_node_copy(fyd, instance);
+            fy_node_set_meta(instance_copy, y_instance);
+            fy_node_mapping_append(self_instances, fy_node_create_scalar(fyd, STRLIT("default")),
+                                   instance_copy);
+
             void *init_iter = NULL;
             struct fy_node *init_step;
             while ((init_step = fy_node_sequence_iterate(init, &init_iter)) != NULL) {
-              if (!populate_ytest_from_fy_node(fyd, init_step, instances)) {
+              if (!populate_ytest_from_fy_node(fyd, init_step, self_instances)) {
                 return 1;
               }
               // Ensure it points to the correct instance
@@ -291,8 +309,6 @@ static int execute_document(struct fy_document *fyd, FILE *out) {
                 fy_emit_node_to_string(instance, FYECF_DEFAULT));
         return 1;
       }
-      fy_node_set_meta(instance, y_instance);
-      fy_document_register_meta(fyd, meta_free, NULL);
     }
   }
 
@@ -321,12 +337,46 @@ static int execute_document(struct fy_document *fyd, FILE *out) {
     }
   }
 
-  // Run tests
-  int test_count = 1 + fy_node_sequence_item_count(tests);
-  bool succeeded = true;
+  // Count used instances
+  int used_instances = 0;
+  {
+    void *iter = NULL;
+    struct fy_node_pair *instance_pair;
+    while ((instance_pair = fy_node_mapping_iterate(instances, &iter)) != NULL) {
+      yinstance *y_instance = (yinstance *)fy_node_get_meta(fy_node_pair_value(instance_pair));
+      if (y_instance->used) {
+        used_instances++;
+      }
+    }
+  }
+
+  // Prepare TAP output
+  int test_count = 1 + fy_node_sequence_item_count(tests) + used_instances;
   fprintf(tap_file, "TAP version 14\n");
   fprintf(tap_file, "1..%d\n", test_count);
 
+  // Initialize used instances
+  {
+    fprintf(tap_file, "# Initializing instances\n");
+    void *iter = NULL;
+    struct fy_node_pair *instance_pair;
+    while ((instance_pair = fy_node_mapping_iterate(instances, &iter)) != NULL) {
+      yinstance *y_instance = (yinstance *)fy_node_get_meta(fy_node_pair_value(instance_pair));
+      if (y_instance->used) {
+        yinstance_start(y_instance);
+        // If instance is still not ready, it means there was a recoverable error
+        if (!y_instance->ready) {
+          // We can't do much about it, bail.
+          return false;
+        }
+        yinstance_connect(y_instance);
+      }
+    }
+    fprintf(tap_file, "# Done initializing instances\n");
+  }
+
+  // Run tests
+  bool succeeded = true;
   {
     void *iter = NULL;
     struct fy_node *test;

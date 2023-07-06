@@ -100,19 +100,19 @@ proceed:
     // It is either a root or an instance
     assert(fy_node_is_mapping(maybe_instance));
 
-    // If instance is not ready, start it
+    // If connection is not present, connect. Here we're dealing with the
+    // possibility that a test before required a restart.
     // (unless this test is part of the initialization sequence)
-    if (!test->instance->ready && maybe_instance != test->instance->node) {
-      yinstance_start(test->instance);
-      // If instance is still not ready, it means there was a recoverable error
-      if (!test->instance->ready) {
-        // We can't do much about it, bail.
-        return false;
-      }
+    switch (yinstance_connect(test->instance)) {
+    case yinstance_connect_success:
+      break;
+    default:
+      tap_counter++;
+      taprintf("not ok %d - %.*s # Can't reconnect to the instance %.*s\n", tap_counter,
+               (int)IOVEC_STRLIT(ytest_name(test)),
+               (int)IOVEC_STRLIT(yinstance_name(test->instance)));
+      return false;
     }
-    // Ensure we always try to connect. It'll cache the connection
-    // when reasonable
-    yinstance_connect(test->instance);
     conn = test->instance->conn;
   } else {
     conn = default_conn;
@@ -451,6 +451,8 @@ proceed:
   case ytest_kind_restart: {
     PQfinish(conn);
     test->instance->conn = NULL;
+    tap_counter++;
+    taprintf("ok %d - %.*s\n", tap_counter, (int)IOVEC_STRLIT(ytest_name(test)));
     restart_instance(test->instance);
     return true;
   }
@@ -555,7 +557,12 @@ report:
 }
 
 bool ytest_run(ytest *test) { return ytest_run_internal(NULL, test, false, 0, NULL); }
-void ytest_run_without_transaction(ytest *test) { ytest_run_internal(NULL, test, true, 0, NULL); }
+void ytest_run_without_transaction(ytest *test) {
+  // FIXME: this is only used for initializing instances and those create subtests,
+  // that's why we use subtest indentation of 1. But the name of the function doesn't really reflect
+  // any of this
+  ytest_run_internal(NULL, test, true, 1, NULL);
+}
 
 iovec_t ytest_name(ytest *test) {
   if (test->name.base != NULL) {

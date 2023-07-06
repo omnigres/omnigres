@@ -41,6 +41,7 @@ typedef struct {
   struct fy_node *node;
   bool is_default;
   bool restarted;
+  bool used;
   struct {
     Oid json;
     Oid jsonb;
