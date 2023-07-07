@@ -122,7 +122,9 @@ static bool fetch_types(yinstance *instance) {
 }
 
 yinstance_connect_result yinstance_connect(yinstance *instance) {
+  bool success = true;
   int init_step = 0;
+  int old_tap_counter = tap_counter;
 connect:
   instance->restarted = false;
   if (instance->conn != NULL && PQstatus(instance->conn) != CONNECTION_BAD) {
@@ -141,28 +143,51 @@ connect:
         struct fy_node *init = fy_node_mapping_lookup_by_string(instance->node, STRLIT("init"));
         if (init != NULL) {
           assert(fy_node_is_sequence(init));
-          {
-            int cur_step = 0;
-            void *iter = NULL;
-            struct fy_node *step;
-            while ((step = fy_node_sequence_iterate(init, &iter)) != NULL) {
-              if (cur_step >= init_step) {
-                // We want to keep the effects of these steps and therefore we don't
-                // wrap them into a rolled back transaction.
-                ytest_run_without_transaction((ytest *)fy_node_get_meta(step));
-                if (instance->restarted) {
-                  init_step = cur_step + 1;
-                  goto connect;
-                }
-              }
-              cur_step++;
+          int init_steps = fy_node_sequence_item_count(init);
+          if (init_steps > 0) {
+            // if we are following a restart, don't report the subtest again
+            if (init_step == 0) {
+              fprintf(tap_file, "# Subtest: initialize instance `%.*s`\n",
+                      (int)IOVEC_STRLIT(yinstance_name(instance)));
+              fprintf(tap_file, "    1..%d\n", init_steps);
+              tap_counter = 0;
             }
+            {
+              int cur_step = 0;
+              void *iter = NULL;
+              struct fy_node *step;
+              while ((step = fy_node_sequence_iterate(init, &iter)) != NULL) {
+                if (cur_step >= init_step) {
+                  // We want to keep the effects of these steps and therefore we don't
+                  // wrap them into a rolled back transaction.
+                  success = ytest_run_without_transaction((ytest *)fy_node_get_meta(step));
+                  if (!success) {
+                    break;
+                  }
+                  if (instance->restarted) {
+                    init_step = cur_step + 1;
+                    goto connect;
+                  }
+                }
+                cur_step++;
+              }
+            }
+            tap_counter = old_tap_counter;
           }
         }
+        tap_counter++;
+        if (success) {
+          fprintf(tap_file, "ok %d - initialize instance `%.*s`\n", tap_counter,
+                  (int)IOVEC_STRLIT(yinstance_name(instance)));
+        } else {
+          fprintf(tap_file, "not ok %d - initialize instance `%.*s`\n", tap_counter,
+                  (int)IOVEC_STRLIT(yinstance_name(instance)));
+          return yinstance_connect_error;
+        }
       }
-    }
 
-    return fetch_types(instance) ? yinstance_connect_success : yinstance_connect_error;
+      return fetch_types(instance) ? yinstance_connect_success : yinstance_connect_error;
+    }
   }
 
   return yinstance_connect_failure;
@@ -274,7 +299,7 @@ void instances_cleanup() {
       struct fy_node *instance = fy_node_pair_value(instance_pair);
       yinstance *y_instance = (yinstance *)fy_node_get_meta(instance);
 
-      if (y_instance->ready) {
+      if (y_instance != NULL && y_instance->ready) {
         if (y_instance->managed) {
           char *stop_command;
           asprintf(&stop_command, "%s/pg_ctl stop -D %.*s -m immediate -s", bindir,

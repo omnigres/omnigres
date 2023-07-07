@@ -41,6 +41,7 @@ typedef struct {
   struct fy_node *node;
   bool is_default;
   bool restarted;
+  bool used;
   struct {
     Oid json;
     Oid jsonb;
@@ -98,7 +99,7 @@ typedef struct {
 } ytest;
 
 bool ytest_run(ytest *test);
-void ytest_run_without_transaction(ytest *test);
+bool ytest_run_without_transaction(ytest *test);
 
 iovec_t ytest_name(ytest *test);
 
