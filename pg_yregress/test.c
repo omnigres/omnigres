@@ -557,11 +557,11 @@ report:
 }
 
 bool ytest_run(ytest *test) { return ytest_run_internal(NULL, test, false, 0, NULL); }
-void ytest_run_without_transaction(ytest *test) {
+bool ytest_run_without_transaction(ytest *test) {
   // FIXME: this is only used for initializing instances and those create subtests,
   // that's why we use subtest indentation of 1. But the name of the function doesn't really reflect
   // any of this
-  ytest_run_internal(NULL, test, true, 1, NULL);
+  return ytest_run_internal(NULL, test, true, 1, NULL);
 }
 
 iovec_t ytest_name(ytest *test) {

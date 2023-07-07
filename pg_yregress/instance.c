@@ -122,6 +122,7 @@ static bool fetch_types(yinstance *instance) {
 }
 
 yinstance_connect_result yinstance_connect(yinstance *instance) {
+  bool success = true;
   int init_step = 0;
   int old_tap_counter = tap_counter;
 connect:
@@ -159,7 +160,10 @@ connect:
                 if (cur_step >= init_step) {
                   // We want to keep the effects of these steps and therefore we don't
                   // wrap them into a rolled back transaction.
-                  ytest_run_without_transaction((ytest *)fy_node_get_meta(step));
+                  success = ytest_run_without_transaction((ytest *)fy_node_get_meta(step));
+                  if (!success) {
+                    break;
+                  }
                   if (instance->restarted) {
                     init_step = cur_step + 1;
                     goto connect;
@@ -172,8 +176,14 @@ connect:
           }
         }
         tap_counter++;
-        fprintf(tap_file, "ok %d - initialize instance `%.*s`\n", tap_counter,
-                (int)IOVEC_STRLIT(yinstance_name(instance)));
+        if (success) {
+          fprintf(tap_file, "ok %d - initialize instance `%.*s`\n", tap_counter,
+                  (int)IOVEC_STRLIT(yinstance_name(instance)));
+        } else {
+          fprintf(tap_file, "not ok %d - initialize instance `%.*s`\n", tap_counter,
+                  (int)IOVEC_STRLIT(yinstance_name(instance)));
+          return yinstance_connect_error;
+        }
       }
 
       return fetch_types(instance) ? yinstance_connect_success : yinstance_connect_error;

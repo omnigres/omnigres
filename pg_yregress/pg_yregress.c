@@ -367,6 +367,8 @@ static int execute_document(struct fy_document *fyd, FILE *out) {
         // If instance is still not ready, it means there was a recoverable error
         if (!y_instance->ready) {
           // We can't do much about it, bail.
+          fprintf(tap_file, "Bail out! Can't connect to instance `%.*s`",
+                  (int)IOVEC_STRLIT(y_instance->name));
           return false;
         }
         yinstance_connect(y_instance);
