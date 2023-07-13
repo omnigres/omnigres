@@ -24,15 +24,25 @@ _managed instance_[^managed] of Postgres.
 
 [^managed]: Postgres instance that is provisioned and deprovisioned by `pg_yregress` tool without any user involvement.
 
-Running `pg_yregress` against this file will output the updated specification.
+Running `pg_yregress` against this file will produce output adhering to [TAP](https://testanything.org), Test Anything Protocol for human or machine consumption.
+
+It is also possible to get the effective YAML of the result of the execution (with results matching actual outcomes as opposed to expectations). It is currently
+_hidden_ in an output to file descriptor 1001 (if one is defined), and if you want to collect or print it, simply pipe that out to a program processing it.
+
+```shell
+$ pg_yregress test.yml 1001>out.yaml
+```
+
+As a result, `out.yaml` should contian something like this:
 
 ```shell
 $ pg_yregress test.yaml
-...
 tests:
 - name: simple
   query: select 1 as value
 ```
+
+As the tool will evolve, we might add other ways to get this information.
 
 ??? tip "The above test can be further simplified"
 
@@ -363,19 +373,3 @@ All test suites receive an implicit `env` mapping at the root that contains a ma
   results:
   - user: */env/USER
 ```
-
-## TAP output
-
-`pg_yregress` can also provide a [TAP](https://testanything.org), Test Anything Protocol for human or machine consumption.
-
-It is currently
-_hidden_ in an output to file descriptor 1001 (if one is defined), and if you want to collect or print it, simply pipe that out to a program processing it (like `tapview'):
-
-```shell
-# Bash
-$ pg_yregress test.yml 1001> >(tapview) 1>/dev/null 2>/dev/null
-# Fish
-$ pg_yregress test.yml 1>/dev/null 2>/dev/null 1001>|tapview
-```
-
-As the tool will evolve, there will likely be another way to activate this.
