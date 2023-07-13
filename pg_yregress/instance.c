@@ -240,8 +240,11 @@ void yinstance_start(yinstance *instance) {
     instance->info.managed.port = get_available_inet_port();
 
     char *start_command;
-    asprintf(&start_command, "%s/pg_ctl start -o '-c port=%d' -D %s -s", bindir,
-             instance->info.managed.port, datadir);
+    asprintf(&start_command,
+             "%s/pg_ctl start -o '-c port=%d -c log_destination=stderr -c logging_collector=on -c "
+             "log_filename=postgresql.log' -D "
+             "%s -s >/dev/null",
+             bindir, instance->info.managed.port, datadir);
     system(start_command);
 
     // Create the database
@@ -321,8 +324,12 @@ void register_instances_cleanup() { atexit(instances_cleanup); }
 void restart_instance(yinstance *instance) {
   if (instance->managed) {
     char *restart_command;
-    asprintf(&restart_command, "%s/pg_ctl restart -o '-c port=%d' -D %.*s -s", bindir,
-             instance->info.managed.port, (int)IOVEC_STRLIT(instance->info.managed.datadir));
+    asprintf(&restart_command,
+             "%s/pg_ctl restart -o '-c port=%d -c log_destination=stderr -c logging_collector=on "
+             "-c log_filename=postgresql.log' "
+             "-D %.*s -s >/dev/null",
+             bindir, instance->info.managed.port,
+             (int)IOVEC_STRLIT(instance->info.managed.datadir));
     system(restart_command);
     // Capture new PID
     retrieve_postmaster_pid(instance);
