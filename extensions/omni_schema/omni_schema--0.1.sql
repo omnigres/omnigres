@@ -1,3 +1,25 @@
+create table languages
+(
+    id             integer primary key generated always as identity,
+    file_extension varchar(32) not null unique,
+    language       name        not null,
+    extension      name
+);
+
+insert
+into
+    languages (file_extension, language, extension)
+values
+    ('sql', 'sql', null),
+    ('pl', 'plperlu', 'plperlu'),
+    ('trusted.pl', 'plperl', 'plperl'),
+    ('py', 'plpython3u', 'plpython3u'),
+    ('tcl', 'pltclu', 'pltclu'),
+    ('trusted.tcl', 'pltcl', 'pltcl'),
+    ('rs', 'plrust', 'plrust');
+
+select pg_catalog.pg_extension_config_dump('languages', '');
+
 create table procs as
     select *
     from
@@ -24,16 +46,32 @@ declare
     rec record;
 begin
     -- Procs
-    create temporary table if not exists _omni_schema_pg_proc on commit drop as
-        select * from pg_proc;
+    if not exists(select
+                  from
+                      pg_class
+                  where
+                      relname = '_omni_schema_pg_proc' and
+                      relkind = 'r' and
+                      relpersistence = 't') then
+        create temporary table if not exists _omni_schema_pg_proc on commit drop as
+            select * from pg_proc;
+    end if;
     for rec in select * from omni_schema.procs
         loop
             execute format('drop function if exists %s', rec.oid::regprocedure);
         end loop;
     delete from omni_schema.procs;
     -- Policies
-    create temporary table if not exists _omni_schema_pg_policy on commit drop as
-        select * from pg_policy;
+    if not exists(select
+                  from
+                      pg_class
+                  where
+                      relname = '_omni_schema_pg_policy' and
+                      relkind = 'r' and
+                      relpersistence = 't') then
+        create temporary table if not exists _omni_schema_pg_policy on commit drop as
+            select * from pg_policy;
+    end if;
     for rec in select
                    policies.*,
                    pg_class.relname
@@ -45,8 +83,16 @@ begin
         end loop;
     delete from omni_schema.policies;
     -- Supported relations
-    create temporary table if not exists _omni_schema_pg_class on commit drop as
-        select * from pg_class;
+    if not exists(select
+                  from
+                      pg_class
+                  where
+                      relname = '_omni_schema_pg_class' and
+                      relkind = 'r' and
+                      relpersistence = 't') then
+        create temporary table if not exists _omni_schema_pg_class on commit drop as
+            select * from pg_class;
+    end if;
     for rec in select
                    class.*,
                    pg_namespace.nspname
@@ -62,13 +108,35 @@ begin
     -- Execute
     for rec in select
                    case when path = '' then '' else path || '/' end || name      as name,
-                   convert_from(omni_vfs.read(fs, path || '/' || name), 'utf-8') as code
+                   convert_from(omni_vfs.read(fs, path || '/' || name), 'utf-8') as code,
+                   language,
+                   extension
                from
-                   omni_vfs.list_recursively(fs, path, max => 10000)
-               where
-                   name like '%.sql'
+                   omni_vfs.list_recursively(fs, path, max => 10000) files
+                   join omni_schema.languages on files.name like concat('%', languages.file_extension)
         loop
-            execute rec.code;
+            if rec.language = 'sql' then
+                execute rec.code;
+            else
+                -- Check if the language is available
+                if not exists(select from pg_extension where extname = rec.extension) then
+                    raise notice 'Extension % required for language % (required for %) is not installed', rec.extension, rec.language, rec.name;
+                    -- Don't include it in the list of loaded files
+                    continue;
+                else
+                    -- Prepare and execute the SQL create function construct
+                    declare
+                        sql_snippet text;
+                    begin
+                        if rec.code ~ 'SQL\[\[.*\]\]' then
+                            sql_snippet := format('%s language %I as %L',
+                                                  substring(rec.code from 'SQL\[\[(.*?)\]\]'), rec.language,
+                                                  rec.code);
+                            execute sql_snippet;
+                        end if;
+                    end;
+                end if;
+            end if;
             return next rec.name;
         end loop;
     -- New procs

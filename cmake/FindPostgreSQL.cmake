@@ -93,8 +93,21 @@ if(NOT DEFINED PG_CONFIG)
         message(STATUS "Extracting PostgreSQL ${PGVER}")
         file(ARCHIVE_EXTRACT INPUT "${PGDIR}/postgresql-${PGVER_ALIAS}.tar.bz2" DESTINATION ${PGDIR_VERSION})
 
+        # We use this to test multi-language features
+        set(BUILD_POSTGRES_WITH_PYTHON ON)
+
+        if(BUILD_POSTGRES_WITH_PYTHON)
+            find_package(Python COMPONENTS Development)
+            if(Python_FOUND)
+                set(extra_configure_args --with-python)
+            else()
+                message(WARNING "Can't find Python, disabling its support in Postgres. Some tests may fail")
+            endif()
+        endif()
+
         execute_process(
                 COMMAND ./configure --enable-debug --prefix "${PGDIR_VERSION}/build"
+                ${extra_configure_args}
                 WORKING_DIRECTORY "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}"
                 RESULT_VARIABLE pg_configure_result)
 
