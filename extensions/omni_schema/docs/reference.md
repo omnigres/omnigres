@@ -97,8 +97,8 @@ languages.
 
 There are two components to this:
 
-* in-file function signature directive (conceptually similar to [shebang]
-  (https://en.wikipedia.org/wiki/Shebang_(Unix)))
+* in-file function signature directive (conceptually similar
+  to [shebang](https://en.wikipedia.org/wiki/Shebang_(Unix)))
 * `omni_schema.languages` tables that defines mapping of languages
 
 The directive part is pretty simple: anywhere in the file, typically a comment
