@@ -102,10 +102,10 @@ There are two components to this:
 * `omni_schema.languages` tables that defines mapping of languages
 
 The directive part is pretty simple: anywhere in the file, typically a comment
-you can put a __single__ line that looks like this:
+you can put a snippet that looks like this, enclosed within `SQL[[...]]`:
 
 ```python title='times_ten.py'
-# SQL: create function times_ten(a integer) returns integer
+# SQL[[create function times_ten(a integer) returns integer]]
 return a * 10
 ```
 

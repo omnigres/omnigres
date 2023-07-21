@@ -128,9 +128,9 @@ begin
                     declare
                         sql_snippet text;
                     begin
-                        if rec.code ~ 'SQL:(.*\n)' then
+                        if rec.code ~ 'SQL\[\[.*\]\]' then
                             sql_snippet := format('%s language %I as %L',
-                                                  substring(rec.code from 'SQL:(.*\n)'), rec.language,
+                                                  substring(rec.code from 'SQL\[\[(.*?)\]\]'), rec.language,
                                                   rec.code);
                             execute sql_snippet;
                         end if;
