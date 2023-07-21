@@ -2,6 +2,7 @@ instances:
   default:
     init:
     - create extension omni_schema cascade
+    - create extension plpython3u
 
 tests:
 
@@ -12,6 +13,8 @@ tests:
     inner join pg_class on pg_class.oid = un.extconfig where extname = 'omni_schema'
     order by relname
   results:
+  - relname: languages
+    extcondition:
   - relname: migrations
     extcondition:
   - relname: migrations_id_seq
@@ -55,7 +58,27 @@ tests:
   - query: select foo()
     success: false
     error: function foo() does not exist
-
+  - name: 4 (language support)
+    query: |
+      select
+        *
+      from
+        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/function/4'))
+    results:
+    - load_from_fs: foo.py
+  - query: select foo(1) as f1, foo(3) as f3
+    results:
+    - f1: false # implementation is different
+      f3: true
+  - name: unavailable (language is available but not supproted)
+    query: |
+      select
+       *
+      from
+       omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/function/unavailable'))
+    notices:
+    - Extension pltclu required for language pltclu (required for foo.tcl) is not installed
+    results: [ ]
 - name: view
   steps:
   - name: 1
