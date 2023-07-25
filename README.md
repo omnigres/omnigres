@@ -5,7 +5,7 @@
 [![Documentation](https://img.shields.io/badge/docs-ready-green)](https://docs.omnigres.org)
 ![License](https://img.shields.io/github/license/omnigres/omnigres)
 
-Omnigres makes PostgreSQL a complete application platform. You can deploy a single database instance and it can host your entire application, scaling as needed.
+Omnigres makes Postgres a developer-first application platform. You can deploy a single database instance and it can host your entire application, scaling as needed.
 
 * Running application logic **inside** or **next to** the database instance
 * **Deployment** provisioning (**Git**, **containers**, etc.)
