@@ -17,8 +17,7 @@ add_postgresql_extension(
         RELOCATABLE false
         SCRIPTS omni_containers--0.1.sql
         SOURCES omni_containers.c init.c
-        DEPENDS_ON libpgaug libgluepg_curl libgluepg_yyjson dynpgext omni_ext
-        REGRESS images container)
+        DEPENDS_ON libpgaug libgluepg_curl libgluepg_yyjson dynpgext omni_ext)
 
 target_compile_definitions(omni_containers PUBLIC ${CMAKE_C_BYTE_ORDER})
 target_link_libraries(omni_containers libgluepg_curl libgluepg_yyjson libpgaug dynpgext)
