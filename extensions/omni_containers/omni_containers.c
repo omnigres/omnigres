@@ -2,22 +2,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef LITTLE_ENDIAN
-#if HAVE_BYTESWAP_H
-#include <byteswap.h>
-#else
-#define bswap_16(value) ((((value)&0xff) << 8) | ((value) >> 8))
-
-#define bswap_32(value)                                                                            \
-  (((uint32_t)bswap_16((uint16_t)((value)&0xffff)) << 16) |                                        \
-   (uint32_t)bswap_16((uint16_t)((value) >> 16)))
-
-#define bswap_64(value)                                                                            \
-  (((uint64_t)bswap_32((uint32_t)((value)&0xffffffff)) << 32) |                                    \
-   (uint64_t)bswap_32((uint32_t)((value) >> 32)))
-#endif
-#endif
-
 // clang-format off
 #include <postgres.h>
 #include <fmgr.h>
@@ -432,10 +416,7 @@ text *docker_stream_to_text(gluepg_curl_buffer *buf) {
   if (buf->size >= 8) {
     // Keep reading frames
     while (true) {
-      uint32_t sz = *((uint32_t *)(current + 4));
-#ifdef LITTLE_ENDIAN
-      sz = bswap_32(sz);
-#endif
+      uint32_t sz = pg_ntoh32(*((uint32_t *)(current + 4)));
       memcpy(output + i, current + 8, sz);
       i += sz;
       current += 8 + sz;

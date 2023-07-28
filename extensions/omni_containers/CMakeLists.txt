@@ -6,8 +6,6 @@ include(CheckIncludeFile)
 
 list(PREPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/../../cmake)
 
-check_include_file("byteswap.h" HAVE_BYTESWAP_H)
-
 enable_testing()
 
 find_package(PostgreSQL REQUIRED)
