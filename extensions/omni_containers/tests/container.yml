@@ -1,5 +1,10 @@
 instances:
   default:
+    hba: |
+      local all all trust
+      host all all all trust
+    config:
+      listen_addresses: 0.0.0.0
     init:
     - create extension omni_containers
 
