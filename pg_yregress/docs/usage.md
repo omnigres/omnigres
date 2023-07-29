@@ -357,13 +357,31 @@ instances:
     - restart: true
 ```
 
-Each test will run on a default instance, unless `instance` property is specified and the name of the instance is referenced.
+Each test will run on a default instance, unless `instance` property is
+specified and the name of the instance is referenced.
+
+You can also configure an instance with a custom `pg_hba.conf` file by using
+`hba` key:
+
+```yaml
+instances:
+  configured:
+    hba: |
+      local all all trust
+      host all all all trust
+```
+
+This is useful when tests impose special authentication requirements.
 
 ## Configuring test suite
 
-In certain cases, it may be useful to pass some configuration information to the test suite itself. While it is generally recommended to avoid this, sometimes it's right answer.
+In certain cases, it may be useful to pass some configuration information to the
+test suite itself. While it is generally recommended to avoid this, sometimes
+it's right answer.
 
-All test suites receive an implicit `env` mapping at the root that contains a mapping of all environment variables. Using YAML Path (YPath) notation, one can retrieve configuration specified through environment variables:
+All test suites receive an implicit `env` mapping at the root that contains a
+mapping of all environment variables. Using YAML Path (YPath) notation, one can
+retrieve configuration specified through environment variables:
 
 ```yaml
 - name: env

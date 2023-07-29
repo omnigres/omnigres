@@ -235,6 +235,19 @@ void yinstance_start(yinstance *instance) {
       }
     }
 
+    // Add pg_hba
+    struct fy_node *hba = fy_node_mapping_lookup_by_string(instance->node, STRLIT("hba"));
+    if (hba != NULL) {
+      char *hba_file;
+      asprintf(&hba_file, "%s/pg_hba.conf", datadir);
+      if (fy_node_is_scalar(hba)) {
+        FILE *hbaf = fopen(hba_file, "w");
+        fprintf(hbaf, "%s", fy_node_get_scalar(hba, NULL));
+        printf("%s", fy_node_get_scalar(hba, NULL));
+        fclose(hbaf);
+      }
+    }
+
     // Start the database
     instance->restarted = false;
     instance->info.managed.port = get_available_inet_port();

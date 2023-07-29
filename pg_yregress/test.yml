@@ -18,6 +18,10 @@ instances:
     config:
       shared_buffers: 195MB
       log_connections: yes
+  hba:
+    hba: |
+      local all all trust
+      host all all all trust
 
 tests:
 
@@ -374,3 +378,26 @@ tests:
   steps:
   - todo: true
   - select 1
+
+- name: pg_hba configuration
+  instance: hba
+  query: select * from pg_hba_file_rules
+  results:
+  - line_number: 1
+    type: local
+    database: "{all}"
+    user_name: "{all}"
+    address: null
+    netmask: null
+    auth_method: trust
+    options: null
+    error: null
+  - line_number: 2
+    type: host
+    database: "{all}"
+    user_name: "{all}"
+    address: all
+    netmask: null
+    auth_method: trust
+    options: null
+    error: null

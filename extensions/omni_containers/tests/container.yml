@@ -1,0 +1,59 @@
+instances:
+  default:
+    hba: |
+      local all all trust
+      host all all all trust
+    config:
+      listen_addresses: 0.0.0.0
+    init:
+    - create extension omni_containers
+
+tests:
+- name: calling a container with connection information
+  steps:
+  - name: ensure container_test table does not exist
+    query: select count(*) from pg_catalog.pg_tables where tablename = 'container_test'
+    results:
+    - count: 0
+  - name: run container
+    query: |
+      with container as (select * from omni_containers.docker_container_create('ghcr.io/yrashk/psql',
+                                       cmd => $$psql -c 'create table container_test ();'$$,
+                                       wait => true, pull => true) as id)
+      select
+        omni_containers.docker_container_inspect(id) -> 'State' -> 'ExitCode' as exit_code,
+        omni_containers.docker_container_logs(id)                             as logs
+      from
+      container
+    results:
+    - exit_code: 0
+      logs: "CREATE TABLE\n"
+  - name: ensure container_test table does exist
+    query: select count(*) from pg_catalog.pg_tables where tablename = 'container_test'
+    results:
+    - count: 1
+
+- name: passing extra options
+  query: |
+    with
+        container as (select *
+                      from
+                          omni_containers.docker_container_create('ghcr.io/yrashk/psql', cmd => $$echo $TEST$$,
+                                                                  options => $${"Env": ["TEST=ok"]}$$,
+                                                                  wait => true, pull => true) as id)
+    select
+        omni_containers.docker_container_inspect(id) -> 'State' -> 'ExitCode' as exit_code,
+        omni_containers.docker_container_logs(id)                             as logs
+    from
+        container
+  results:
+  - exit_code: 0
+    logs: "ok\n"
+
+- name: Creating a container that can't be found
+  query: select true from omni_containers.docker_container_create('cannotbefound')
+  success: false
+  error:
+    severity: ERROR
+    message: Docker image not found
+    detail: cannotbefound
