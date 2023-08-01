@@ -20,6 +20,8 @@
 #include <utils/syscache.h>
 #include <utils/timestamp.h>
 
+#include "pg_path.h"
+
 #include "omni_vfs.h"
 
 PG_FUNCTION_INFO_V1(local_fs);

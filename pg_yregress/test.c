@@ -222,6 +222,27 @@ proceed:
 
     ExecStatusType status = PQresultStatus(result);
 
+    // FIXME: this block below is complicated and needs to be refactored.
+
+    // Unless we're in a larger transaction,
+    if (!in_transaction) {
+      // attempt to finalize a transaction
+      PGresult *txend_result = PQexec(conn, test->commit ? "commit" : "rollback");
+      // if the query itself went fine,
+      if (status == PGRES_COMMAND_OK || status == PGRES_TUPLES_OK) {
+        // check how transaction finalization went instead
+        status = PQresultStatus(txend_result);
+        // if transaction finalization didn't go well,
+        if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK) {
+          // use its results to produce the error
+          result = txend_result;
+        }
+        // otherwise, get results from the original query
+      } else {
+        PQclear(txend_result);
+      }
+    }
+
     // If it failed:
     if (status != PGRES_COMMAND_OK && status != PGRES_TUPLES_OK) {
       // If current test is a scalar, change it to mapping to indicate
@@ -253,9 +274,6 @@ proceed:
       if (errored != NULL) {
         *errored = true;
       }
-      fy_node_mapping_append(test->node,
-                             fy_node_create_scalar(fy_node_document(test->node), STRLIT("success")),
-                             fy_node_create_scalar(fy_node_document(test->node), STRLIT("false")));
 
       fy_node_mapping_append(test->node,
                              fy_node_create_scalar(fy_node_document(test->node), STRLIT("success")),
@@ -313,6 +331,26 @@ proceed:
         }
       }
     } else {
+      struct fy_node *success_key =
+          fy_node_create_scalar(fy_node_document(test->node), STRLIT("success"));
+
+      // If `success` key is present, override it
+      if (fy_node_mapping_lookup_key_by_key(test->node, success_key) != NULL) {
+        fy_node_mapping_remove_by_key(test->node,
+                                      fy_node_copy(fy_node_document(test->node), success_key));
+        fy_node_mapping_append(test->node, success_key,
+                               fy_node_create_scalar(fy_node_document(test->node), STRLIT("true")));
+      }
+
+      struct fy_node *error_key =
+          fy_node_create_scalar(fy_node_document(test->node), STRLIT("error"));
+
+      // If `error` key is present, remove it
+      if (fy_node_mapping_lookup_key_by_key(test->node, error_key) != NULL) {
+        fy_node_mapping_remove_by_key(test->node,
+                                      fy_node_copy(fy_node_document(test->node), error_key));
+      }
+
       struct fy_node *results_key =
           fy_node_create_scalar(fy_node_document(test->node), STRLIT("results"));
 
@@ -372,15 +410,9 @@ proceed:
                                       fy_node_copy(fy_node_document(test->node), results_key));
         fy_node_mapping_append(test->node, results_key, results);
       }
-    }
-
-    // IMPORTANT:
-    // We are not releasing (`PQclear(result)`) the results of the query as
-    // those will be used to print the result YAML file.
-
-    if (!in_transaction) {
-      PGresult *txend_result = PQexec(conn, test->commit ? "commit" : "rollback");
-      PQclear(txend_result);
+      // IMPORTANT:
+      // We are not releasing (`PQclear(result)`) the results of the query as
+      // those will be used to print the result YAML file.
     }
 
     break;
