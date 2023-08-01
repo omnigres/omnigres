@@ -63,7 +63,6 @@ tests:
         extensions:
         - bdoc
         - bdc
-    error:
   - query: |
       select name from omni_mimetypes.mime_types 
       inner join omni_mimetypes.mime_types_file_extensions mtfe on mtfe.mime_type_id = mime_types.id
