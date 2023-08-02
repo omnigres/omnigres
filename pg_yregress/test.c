@@ -547,36 +547,39 @@ report:
     } else {
       taprintf("not ok %d - %.*s\n", tap_counter, (int)IOVEC_STRLIT(ytest_name(test)));
     }
-    taprintf("  ---\n");
-    struct fy_node *report = fy_node_create_mapping(fy_node_document(original_node));
-    if (test->negative) {
-      taprintf("  # negative expectation failed:\n");
-      fy_node_mapping_append(report,
-                             fy_node_create_scalar(fy_node_document(report), STRLIT("expected")),
-                             fy_node_copy(fy_node_document(original_node), original_node));
-    } else {
-      fy_node_mapping_append(report,
-                             fy_node_create_scalar(fy_node_document(report), STRLIT("expected")),
-                             fy_node_copy(fy_node_document(original_node), original_node));
-      fy_node_mapping_append(report,
-                             fy_node_create_scalar(fy_node_document(report), STRLIT("result")),
-                             fy_node_copy(fy_node_document(original_node), test->node));
+    // Unless it is a failure of a step, show the error
+    if (test->kind != ytest_kind_steps) {
+      taprintf("  ---\n");
+      struct fy_node *report = fy_node_create_mapping(fy_node_document(original_node));
+      if (test->negative) {
+        taprintf("  # negative expectation failed:\n");
+        fy_node_mapping_append(report,
+                               fy_node_create_scalar(fy_node_document(report), STRLIT("expected")),
+                               fy_node_copy(fy_node_document(original_node), original_node));
+      } else {
+        fy_node_mapping_append(report,
+                               fy_node_create_scalar(fy_node_document(report), STRLIT("expected")),
+                               fy_node_copy(fy_node_document(original_node), original_node));
+        fy_node_mapping_append(report,
+                               fy_node_create_scalar(fy_node_document(report), STRLIT("result")),
+                               fy_node_copy(fy_node_document(original_node), test->node));
+      }
+
+      char *yaml_report = fy_emit_node_to_string(report, FYECF_DEFAULT);
+      FILE *yamlf = fmemopen((void *)yaml_report, strlen(yaml_report), "r");
+
+      char *line = NULL;
+      size_t line_len = 0;
+
+      while (getline(&line, &line_len, yamlf) != -1) {
+        taprintf("  %.*s", (int)line_len, line);
+      }
+
+      free(line);
+      fclose(yamlf);
+
+      taprintf("\n  ...\n");
     }
-
-    char *yaml_report = fy_emit_node_to_string(report, FYECF_DEFAULT);
-    FILE *yamlf = fmemopen((void *)yaml_report, strlen(yaml_report), "r");
-
-    char *line = NULL;
-    size_t line_len = 0;
-
-    while (getline(&line, &line_len, yamlf) != -1) {
-      taprintf("  %.*s", (int)line_len, line);
-    }
-
-    free(line);
-    fclose(yamlf);
-
-    taprintf("\n  ...\n");
   }
   fflush(tap_file);
 
