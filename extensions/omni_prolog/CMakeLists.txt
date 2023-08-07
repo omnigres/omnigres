@@ -13,12 +13,13 @@ find_package(PostgreSQL REQUIRED)
 
 if(NOT DEFINED SWIPL)
 
-    CPMAddPackage(NAME swiprolog GITHUB_REPOSITORY SWI-Prolog/swipl VERSION 9.0.4 GIT_TAG V9.0.4
+    CPMAddPackage(NAME swiprolog GITHUB_REPOSITORY SWI-Prolog/swipl-devel VERSION 9.1.13 GIT_TAG V9.1.13
             DOWNLOAD_ONLY YES GIT_SUBMODULES)
 
     if(swiprolog_ADDED)
         execute_process(COMMAND cmake -S ${swiprolog_SOURCE_DIR} -DMULTI_THREADED=OFF -DSWIPL_STATIC_LIB=ON
                 -DSWIPL_PACKAGE_LIST=http;clib -DUSE_GMP=OFF -DUSE_SIGNALS=OFF
+                -DSWIPL_PACKAGES_PYTHON=OFF
                 -DSWIPL_STATIC_LIB=ON -DBUILD_TESTING=OFF -DINSTALL_TESTS=OFF
                 -DINSTALL_DOCUMENTATION=OFF -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/swipl
                 -B ${swiprolog_BINARY_DIR}
