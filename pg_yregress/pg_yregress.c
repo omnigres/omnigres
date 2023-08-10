@@ -371,7 +371,7 @@ static int execute_document(struct fy_document *fyd, FILE *out) {
           // We can't do much about it, bail.
           fprintf(tap_file, "Bail out! Can't connect to instance `%.*s`",
                   (int)IOVEC_STRLIT(y_instance->name));
-          return false;
+          return 1;
         }
         yinstance_connect(y_instance);
       }
