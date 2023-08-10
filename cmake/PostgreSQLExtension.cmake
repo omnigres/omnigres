@@ -66,6 +66,8 @@
 #
 # TESTS_REQUIRE List of extensions that are required by tests. Optional.
 #
+# TESTS ON by default, if OFF, don't try finding tests for this extension
+#
 # SCRIPTS Script files.
 #
 # SCRIPT_TEMPLATES Template script files.
@@ -94,12 +96,15 @@ include(Inja)
 find_program(PGCLI pgcli)
 
 function(find_pg_yregress_tests dir)
-    get_filename_component(_source_dir "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
-    if(NOT TARGET pg_yregress)
-        add_subdirectory("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../pg_yregress" "${CMAKE_CURRENT_BINARY_DIR}/pg_yregress")
-    endif()
-    file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${NAME}_FindRegressTests.cmake"
-            CONTENT "
+    # Don't add the same tests more than once
+    get_property(is_called GLOBAL PROPERTY "find_pg_yregress_tests:${dir}" SET)
+    if(NOT is_called)
+        get_filename_component(_source_dir "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
+        if(NOT TARGET pg_yregress)
+            add_subdirectory("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../pg_yregress" "${CMAKE_CURRENT_BINARY_DIR}/pg_yregress")
+        endif()
+        file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${NAME}_FindRegressTests.cmake"
+                CONTENT "
 file(GLOB_RECURSE files RELATIVE ${CMAKE_CURRENT_LIST_DIR} LIST_DIRECTORIES false ${dir}/*.yml ${dir}/*.yaml)
 list(SORT files)
 foreach(file \${files})
@@ -109,13 +114,15 @@ foreach(file \${files})
     ENVIRONMENT \"PGCONFIG=${PG_CONFIG};PGSHAREDIR=${_share_dir};OMNI_EXT_SO=$<$<TARGET_EXISTS:omni_ext>:$<TARGET_FILE:omni_ext>>\")
 endforeach()
 ")
-    get_directory_property(current_includes TEST_INCLUDE_FILES)
-    set_directory_properties(PROPERTIES TEST_INCLUDE_FILES "${current_includes};${CMAKE_CURRENT_BINARY_DIR}/${NAME}_FindRegressTests.cmake")
+        get_directory_property(current_includes TEST_INCLUDE_FILES)
+        set_directory_properties(PROPERTIES TEST_INCLUDE_FILES "${current_includes};${CMAKE_CURRENT_BINARY_DIR}/${NAME}_FindRegressTests.cmake")
+        set_property(GLOBAL PROPERTY "find_pg_yregress_tests:${dir}" "CALLED")
+    endif()
 endfunction()
 
 function(add_postgresql_extension NAME)
     set(_optional SHARED_PRELOAD PRIVATE UNVERSIONED_SO)
-    set(_single VERSION ENCODING SCHEMA RELOCATABLE)
+    set(_single VERSION ENCODING SCHEMA RELOCATABLE TESTS)
     set(_multi SOURCES SCRIPTS SCRIPT_TEMPLATES REQUIRES TESTS_REQUIRE REGRESS DEPENDS_ON)
     cmake_parse_arguments(_ext "${_optional}" "${_single}" "${_multi}" ${ARGN})
 
@@ -393,7 +400,9 @@ ${_loadextensions} \
         add_dependencies(update_test_results ${NAME}_update_results)
     endif()
 
-    find_pg_yregress_tests("${CMAKE_CURRENT_SOURCE_DIR}/tests")
+    if(_ext_TESTS OR NOT DEFINED _ext_TESTS)
+        find_pg_yregress_tests("${CMAKE_CURRENT_SOURCE_DIR}/tests")
+    endif()
 
     if(INITDB AND CREATEDB AND (PSQL OR PGCLI) AND PG_CTL)
         if(PGCLI)
