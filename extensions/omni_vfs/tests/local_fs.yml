@@ -73,6 +73,11 @@ tests:
   - non_zero: true
     kind: file
 
+- name: file info on a non-existent file
+  query: select omni_vfs.file_info(omni_vfs.local_fs('../../../../extensions/omni_vfs/tests'), 'does not exist')
+  results:
+  - file_info: null
+
 - name: can read file
   query: select length(convert_from(omni_vfs.read(omni_vfs.local_fs('../../../../extensions/omni_vfs'), 'tests/local_fs.yml'), 'utf8')) > 0 as result
   results:

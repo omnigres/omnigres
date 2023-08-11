@@ -119,6 +119,9 @@ Provides file information (similar to POSIX `stat`)
 
 Returns a value of the `omni_vfs_api.file_info` type.
 
+If file does not exist, returns `null` as there no information to be retrieved
+about it. In all other cases expected to raise an exception.
+
 ## `omni_vfs.read()`
 
 Reads a chunk of the file.
