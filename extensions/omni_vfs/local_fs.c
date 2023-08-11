@@ -289,8 +289,12 @@ Datum local_fs_file_info(PG_FUNCTION_ARGS) {
   int err = stat(fullpath, &file_stat);
   if (err != 0) {
     int e = errno;
-    ereport(ERROR, errmsg("can't get file information for %s", fullpath),
-            errdetail("%s", strerror(e)));
+    if (e != ENOENT) {
+      ereport(ERROR, errmsg("can't get file information for %s", fullpath),
+              errdetail("%s", strerror(e)));
+    } else {
+      PG_RETURN_NULL();
+    }
   }
 
   TupleDesc header_tupledesc = TypeGetTupleDesc(file_info_oid(), NULL);
