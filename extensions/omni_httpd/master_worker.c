@@ -261,8 +261,9 @@ void master_worker(Datum db_oid) {
         }
       }
 
-      if (SPI_execute("select address, port, id from omni_httpd.listeners order by id asc", false,
-                      0) == SPI_OK_SELECT) {
+      if (SPI_execute(
+              "select address, port, id, effective_port from omni_httpd.listeners order by id asc",
+              false, 0) == SPI_OK_SELECT) {
         TupleDesc tupdesc = SPI_tuptable->tupdesc;
         SPITupleTable *tuptable = SPI_tuptable;
         cset_port ports = cset_port_init();
@@ -284,6 +285,9 @@ void master_worker(Datum db_oid) {
           Datum addr = SPI_getbinval(tuple, tupdesc, 1, &addr_is_null);
           bool port_is_null = false;
           Datum port = SPI_getbinval(tuple, tupdesc, 2, &port_is_null);
+          bool current_effective_port_is_null = false;
+          Datum current_effective_port =
+              SPI_getbinval(tuple, tupdesc, 4, &current_effective_port_is_null);
           if (!port_is_null) {
             int port_no = DatumGetInt32(port);
             inet *inet_address = DatumGetInetPP(addr);
@@ -292,6 +296,7 @@ void master_worker(Datum db_oid) {
                                                  ip_bits(inet_address), _address, sizeof(_address));
 
             const cmap_portsock_value *portsock = cmap_portsock_get(&portsocks, port_no);
+          check_portsock:
             if (portsock == NULL) {
               // At least some ports are ready to be listened on
               port_ready = true;
@@ -310,11 +315,31 @@ void master_worker(Datum db_oid) {
                                              try_port_no, address_str, &effective_port);
               if (sock == -1) {
                 if (errno == EADDRINUSE) {
-                  ereport(WARNING, errmsg("couldn't create listening socket on port %d: Address "
-                                          "already in use, picking a different port",
-                                          port_no));
-                  // This is where we'll force ourselves to try picking a port
-                  try_port_no = 0;
+                  // If there is a current effective port,
+                  int effective_port_no = DatumGetInt32(current_effective_port);
+                  if (!current_effective_port_is_null && effective_port_no != 0) {
+                    // If it is an active listener,
+                    portsock = cmap_portsock_get(&portsocks, effective_port_no);
+                    if (portsock != NULL) {
+                      port_no = effective_port_no;
+                      goto check_portsock;
+                    }
+                    // otherwise, try listening on it again (this may have happened if we restarted)
+                    try_port_no = effective_port_no;
+                    // and ensure we don't try to do this again if it is no longer available
+                    current_effective_port_is_null = true;
+                    ereport(
+                        WARNING,
+                        errmsg("couldn't create listening socket on port %d: Address "
+                               "already in use, falling back to currently used effective port %d",
+                               port_no, try_port_no));
+                  } else {
+                    ereport(WARNING, errmsg("couldn't create listening socket on port %d: Address "
+                                            "already in use, picking a different port",
+                                            port_no));
+                    // Let the operating system choose the port for us
+                    try_port_no = 0;
+                  }
                   goto try_listen;
                 } else {
                   int e = errno;
