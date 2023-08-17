@@ -61,7 +61,8 @@ bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction, 
                         bool *errored) {
 #define taprintf(str, ...) fprintf(tap_file, "%*s" str, sub_test * 4, "", ##__VA_ARGS__)
   // This will be used for TAP output
-  struct fy_node *original_node = fy_node_copy(fy_node_document(test->node), test->node);
+  struct fy_document *doc = fy_node_document(test->node);
+  struct fy_node *original_node = fy_node_copy(doc, test->node);
 
   struct fy_node *skip = fy_node_mapping_lookup_by_string(test->node, STRLIT("skip"));
 
@@ -120,7 +121,7 @@ proceed:
   assert(conn != NULL);
 
   // We will store notices here
-  struct fy_node *notices = fy_node_create_sequence(fy_node_document(test->node));
+  struct fy_node *notices = fy_node_create_sequence(doc);
   PQnoticeReceiver prev_notice_receiver = PQsetNoticeReceiver(conn, NULL, NULL);
   assert(prev_notice_receiver != NULL);
   // Subscribe to notices
@@ -282,80 +283,67 @@ proceed:
         fy_node_mapping_remove_by_key(test->node, results_key);
       }
 
-      struct fy_node *error_key =
-          fy_node_create_scalar(fy_node_document(test->node), STRLIT("error"));
+      struct fy_node *error_key = fy_node_create_scalar(doc, STRLIT("error"));
 
       struct fy_node *existing_error = fy_node_mapping_lookup_value_by_key(test->node, error_key);
 
       // if `error` is a boolean
       if (existing_error != NULL && fy_node_is_boolean(existing_error)) {
         // Indicate that there is an error by setting error to true
-        fy_node_mapping_remove_by_key(test->node,
-                                      fy_node_copy(fy_node_document(test->node), error_key));
-        fy_node_mapping_append(test->node, error_key,
-                               fy_node_create_scalar(fy_node_document(test->node), STRLIT("true")));
+        fy_node_mapping_remove_by_key(test->node, fy_node_copy(doc, error_key));
+        fy_node_mapping_append(test->node, error_key, fy_node_create_scalar(doc, STRLIT("true")));
       } else {
         // Otherwise, specify the error
         char *errmsg = strdup(PQresultErrorField(result, PG_DIAG_MESSAGE_PRIMARY));
         trim_trailing_whitespace(errmsg);
 
-        struct fy_node *error = fy_node_create_scalar(fy_node_document(test->node), STRLIT(errmsg));
+        struct fy_node *error = fy_node_create_scalar(doc, STRLIT(errmsg));
 
-        fy_node_mapping_remove_by_key(test->node,
-                                      fy_node_copy(fy_node_document(test->node), error_key));
+        fy_node_mapping_remove_by_key(test->node, fy_node_copy(doc, error_key));
 
         if (fy_node_is_scalar(existing_error)) {
           fy_node_mapping_append(test->node, error_key, error);
         } else {
           char *severity = strdup(PQresultErrorField(result, PG_DIAG_SEVERITY));
-          struct fy_node *error_severity =
-              fy_node_create_scalar(fy_node_document(test->node), STRLIT(severity));
+          struct fy_node *error_severity = fy_node_create_scalar(doc, STRLIT(severity));
 
-          struct fy_node *error_node = fy_node_create_mapping(fy_node_document(test->node));
-          fy_node_mapping_append(
-              error_node, fy_node_create_scalar(fy_node_document(test->node), STRLIT("severity")),
-              error_severity);
-          fy_node_mapping_append(
-              error_node, fy_node_create_scalar(fy_node_document(test->node), STRLIT("message")),
-              error);
+          struct fy_node *error_node = fy_node_create_mapping(doc);
+          fy_node_mapping_append(error_node, fy_node_create_scalar(doc, STRLIT("severity")),
+                                 error_severity);
+          fy_node_mapping_append(error_node, fy_node_create_scalar(doc, STRLIT("message")), error);
 
           // Add `detail` only if it is present
           if (fy_node_mapping_lookup_key_by_string(existing_error, STRLIT("detail")) != NULL) {
             char *maybe_detail = PQresultErrorField(result, PG_DIAG_MESSAGE_DETAIL);
             char *detail = maybe_detail ? strdup(maybe_detail) : "";
-            struct fy_node *error_detail =
-                fy_node_create_scalar(fy_node_document(test->node), STRLIT(detail));
+            struct fy_node *error_detail = fy_node_create_scalar(doc, STRLIT(detail));
 
-            fy_node_mapping_append(
-                error_node, fy_node_create_scalar(fy_node_document(test->node), STRLIT("detail")),
-                error_detail);
+            fy_node_mapping_append(error_node, fy_node_create_scalar(doc, STRLIT("detail")),
+                                   error_detail);
           }
 
           fy_node_mapping_append(test->node, error_key, error_node);
         }
       }
     } else {
-      struct fy_node *error_key =
-          fy_node_create_scalar(fy_node_document(test->node), STRLIT("error"));
+      struct fy_node *error_key = fy_node_create_scalar(doc, STRLIT("error"));
 
       // If `error` key is present, remove it
       if (fy_node_mapping_lookup_key_by_key(test->node, error_key) != NULL) {
-        fy_node_mapping_remove_by_key(test->node,
-                                      fy_node_copy(fy_node_document(test->node), error_key));
+        fy_node_mapping_remove_by_key(test->node, fy_node_copy(doc, error_key));
       }
 
-      struct fy_node *results_key =
-          fy_node_create_scalar(fy_node_document(test->node), STRLIT("results"));
+      struct fy_node *results_key = fy_node_create_scalar(doc, STRLIT("results"));
 
       // If `results` are present, include them
       if (fy_node_mapping_lookup_key_by_key(test->node, results_key) != NULL) {
 
-        struct fy_node *results = fy_node_create_sequence(fy_node_document(test->node));
+        struct fy_node *results = fy_node_create_sequence(doc);
 
         int ncolumns = PQnfields(result);
 
         for (int row = 0; row < PQntuples(result); row++) {
-          struct fy_node *row_map = fy_node_create_mapping(fy_node_document(test->node));
+          struct fy_node *row_map = fy_node_create_mapping(doc);
           for (int column = 0; column < ncolumns; column++) {
             Oid column_type = PQftype(result, column);
             char *str_value =
@@ -373,34 +361,31 @@ proceed:
                 ptr += sprintf(ptr, "%02x", str_value[i]);
               }
               // create a copy as we'll deallocate hex
-              value = fy_node_create_scalar_copy(fy_node_document(test->node), hex, sz - 1);
+              value = fy_node_create_scalar_copy(doc, hex, sz - 1);
               free(hex);
             } else {
               union fy_scalar_attributes attr = {.definitely_not_a_bool = true};
               if (column_type == test->instance->types.json ||
                   column_type == test->instance->types.jsonb) {
-                value = fy_node_build_from_string(fy_node_document(test->node), STRLIT(str_value));
+                value = fy_node_build_from_string(doc, STRLIT(str_value));
               } else if (column_type == test->instance->types.boolean) {
                 value = strncmp(str_value, "t", 1) == 0
-                            ? fy_node_create_scalar(fy_node_document(test->node), STRLIT("true"))
-                            : fy_node_create_scalar(fy_node_document(test->node), STRLIT("false"));
+                            ? fy_node_create_scalar(doc, STRLIT("true"))
+                            : fy_node_create_scalar(doc, STRLIT("false"));
                 attr.definitely_not_a_bool = false;
               } else {
-                value = fy_node_create_scalar(fy_node_document(test->node), STRLIT(str_value));
+                value = fy_node_create_scalar(doc, STRLIT(str_value));
               }
               fy_node_set_meta(value, attr.ptr);
             }
 
-            fy_node_mapping_append(row_map,
-                                   fy_node_create_scalar(fy_node_document(test->node),
-                                                         STRLIT(PQfname(result, column))),
-                                   value);
+            fy_node_mapping_append(
+                row_map, fy_node_create_scalar(doc, STRLIT(PQfname(result, column))), value);
           }
           fy_node_sequence_append(results, row_map);
         }
 
-        fy_node_mapping_remove_by_key(test->node,
-                                      fy_node_copy(fy_node_document(test->node), results_key));
+        fy_node_mapping_remove_by_key(test->node, fy_node_copy(doc, results_key));
         fy_node_mapping_append(test->node, results_key, results);
       }
       // IMPORTANT:
@@ -485,15 +470,13 @@ proceed:
     break;
   }
 
-  struct fy_node *notices_key =
-      fy_node_create_scalar(fy_node_document(test->node), STRLIT("notices"));
+  struct fy_node *notices_key = fy_node_create_scalar(doc, STRLIT("notices"));
 
   // If there are notices and `notices` key is declared
   if (!fy_node_sequence_is_empty(notices) &&
       fy_node_mapping_lookup_key_by_key(test->node, notices_key) != NULL) {
     // Replace `notices` with received notices
-    fy_node_mapping_remove_by_key(test->node,
-                                  fy_node_copy(fy_node_document(test->node), notices_key));
+    fy_node_mapping_remove_by_key(test->node, fy_node_copy(doc, notices_key));
     fy_node_mapping_append(test->node, notices_key, notices);
   }
 
@@ -543,19 +526,17 @@ report:
     // Unless it is a failure of a step, show the error
     if (test->kind != ytest_kind_steps) {
       taprintf("  ---\n");
-      struct fy_node *report = fy_node_create_mapping(fy_node_document(original_node));
+      struct fy_document *original_doc = fy_node_document(original_node);
+      struct fy_node *report = fy_node_create_mapping(original_doc);
       if (test->negative) {
         taprintf("  # negative expectation failed:\n");
-        fy_node_mapping_append(report,
-                               fy_node_create_scalar(fy_node_document(report), STRLIT("expected")),
-                               fy_node_copy(fy_node_document(original_node), original_node));
+        fy_node_mapping_append(report, fy_node_create_scalar(original_doc, STRLIT("expected")),
+                               fy_node_copy(original_doc, original_node));
       } else {
-        fy_node_mapping_append(report,
-                               fy_node_create_scalar(fy_node_document(report), STRLIT("expected")),
-                               fy_node_copy(fy_node_document(original_node), original_node));
-        fy_node_mapping_append(report,
-                               fy_node_create_scalar(fy_node_document(report), STRLIT("result")),
-                               fy_node_copy(fy_node_document(original_node), test->node));
+        fy_node_mapping_append(report, fy_node_create_scalar(original_doc, STRLIT("expected")),
+                               fy_node_copy(original_doc, original_node));
+        fy_node_mapping_append(report, fy_node_create_scalar(original_doc, STRLIT("result")),
+                               fy_node_copy(original_doc, test->node));
       }
 
       char *yaml_report = fy_emit_node_to_string(report, FYECF_DEFAULT);
