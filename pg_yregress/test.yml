@@ -10,7 +10,7 @@ instances:
     init:
     # Test that we can init using usual test
     - query: select tru
-      success: false
+      error: true
     config: |
       shared_buffers = '194MB'
       log_connections = yes
@@ -56,18 +56,16 @@ tests:
 
 - name: failure
   query: selec 1
-  success: false
+  error: true
 
 - name: error
   query: selec 1
-  success: false
   error:
     severity: ERROR
     message: syntax error at or near "selec"
 
 - name: error message literal
   query: selec 1
-  success: false
   error: syntax error at or near "selec"
 
 - name: error message detail
@@ -77,7 +75,6 @@ tests:
       raise exception 'custom error' using detail = 'custom detail';
     end;
     $$
-  success: false
   error:
     severity: ERROR
     message: custom error
@@ -319,7 +316,7 @@ tests:
   steps:
   - table committed_step1
   - query: table committed_step2
-    success: false
+    error: true
   - table committed_step1_1
   - table committed_step1_2
   - table committed_step2_1
@@ -339,7 +336,7 @@ tests:
 - name: skip (bool)
   skip: false
   query: broken
-  success: false
+  error: true
 
 - name: skip (bool, true)
   skip: true
@@ -364,7 +361,7 @@ tests:
 - name: todo (bool)
   todo: false
   query: broken
-  success: false
+  error: true
 
 - name: todo (without instruction)
   todo: true

@@ -9,27 +9,23 @@ instances:
 tests:
   - query: insert into omni_httpd.handlers (query) values ($$select * from no_such_table$$)
     commit: true # only enforced at the transaction
-    success: false
     error:
       severity: ERROR
       message: invalid query
       detail: relation "no_such_table" does not exist
   - query: insert into omni_httpd.handlers (query) values ($$select request.pth from request$$)
     commit: true # only enforced at the transaction
-    success: false
     error:
       severity: ERROR
       message: invalid query
       detail: column request.pth does not exist
   - query: insert into omni_httpd.handlers (query) values ($$$$)
     commit: true # only enforced at the transaction
-    success: false
     error:
       severity: ERROR
       message: query can only contain one statement
   - query: insert into omni_httpd.handlers (query) values ($$select; select$$);
     commit: true # only enforced at the transaction
-    success: false
     error:
       severity: ERROR
       message: query can only contain one statement

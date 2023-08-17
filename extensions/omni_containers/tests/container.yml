@@ -52,7 +52,6 @@ tests:
 
 - name: Creating a container that can't be found
   query: select true from omni_containers.docker_container_create('cannotbefound')
-  success: false
   error:
     severity: ERROR
     message: Docker image not found

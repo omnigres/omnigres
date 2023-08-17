@@ -56,7 +56,6 @@ tests:
     results:
     - foo: true
   - query: select foo()
-    success: false
     error: function foo() does not exist
   - name: 4 (language support)
     query: |
@@ -112,7 +111,6 @@ tests:
         omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/view/3'))
     results: [ ]
   - query: select * from my_view
-    success: false
     error: relation "my_view" does not exist
 
 - name: policy

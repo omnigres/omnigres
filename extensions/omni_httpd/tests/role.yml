@@ -96,7 +96,6 @@ instances:
 tests:
 - name: Can't update it to an arbitrary name
   query: update omni_httpd.handlers set role_name = 'some_role' where role_name = 'test_user'
-  success: false
   error: 'new row for relation "handlers" violates check constraint "handlers_role_name_check"'
 
 - query: delete from omni_httpd.configuration_reloads
@@ -132,7 +131,6 @@ tests:
   - reset role
   - alter role current_user nosuperuser
   - query: update omni_httpd.handlers set role_name = 'anotherrole' where role_name = 'test_user1'
-    success: false
     error: 'new row for relation "handlers" violates check constraint "handlers_role_name_check"'
 
 - name: check current role through the service

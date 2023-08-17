@@ -128,13 +128,13 @@ You can simply test that a certain query will fail:
 tests:
 - name: error
   query: selec 1 as value
-  success: false
+  error: true
 ```
 
-The above will succeed, since we have set `success` to
-`false`.
+The above will succeed, since we have set `error` to `true`.
 
-But how we can test against specific error message? This can be done by adding `error` property:
+But how we can test against specific error message? This can be done by
+setting `error` to a more specific value:
 
 ```yaml
 tests:

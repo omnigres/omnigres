@@ -40,5 +40,4 @@ tests:
 
 - name: Ensure it fails with an arbitrary binary
   query: select omni_web.parse_query_string(E'\x0000'::bytea)
-  success: false
   error: 'invalid byte sequence for encoding "UTF8": 0x00'

@@ -275,10 +275,6 @@ proceed:
         *errored = true;
       }
 
-      fy_node_mapping_append(test->node,
-                             fy_node_create_scalar(fy_node_document(test->node), STRLIT("success")),
-                             fy_node_create_scalar(fy_node_document(test->node), STRLIT("false")));
-
       // Remove `results`
       struct fy_node *results_key =
           fy_node_mapping_lookup_key_by_string(test->node, STRLIT("results"));
@@ -289,9 +285,17 @@ proceed:
       struct fy_node *error_key =
           fy_node_create_scalar(fy_node_document(test->node), STRLIT("error"));
 
-      // If `error` is present, replace it
       struct fy_node *existing_error = fy_node_mapping_lookup_value_by_key(test->node, error_key);
-      if (existing_error != NULL) {
+
+      // if `error` is a boolean
+      if (existing_error != NULL && fy_node_is_boolean(existing_error)) {
+        // Indicate that there is an error by setting error to true
+        fy_node_mapping_remove_by_key(test->node,
+                                      fy_node_copy(fy_node_document(test->node), error_key));
+        fy_node_mapping_append(test->node, error_key,
+                               fy_node_create_scalar(fy_node_document(test->node), STRLIT("true")));
+      } else {
+        // Otherwise, specify the error
         char *errmsg = strdup(PQresultErrorField(result, PG_DIAG_MESSAGE_PRIMARY));
         trim_trailing_whitespace(errmsg);
 
@@ -331,17 +335,6 @@ proceed:
         }
       }
     } else {
-      struct fy_node *success_key =
-          fy_node_create_scalar(fy_node_document(test->node), STRLIT("success"));
-
-      // If `success` key is present, override it
-      if (fy_node_mapping_lookup_key_by_key(test->node, success_key) != NULL) {
-        fy_node_mapping_remove_by_key(test->node,
-                                      fy_node_copy(fy_node_document(test->node), success_key));
-        fy_node_mapping_append(test->node, success_key,
-                               fy_node_create_scalar(fy_node_document(test->node), STRLIT("true")));
-      }
-
       struct fy_node *error_key =
           fy_node_create_scalar(fy_node_document(test->node), STRLIT("error"));
 
