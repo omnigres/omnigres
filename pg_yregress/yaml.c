@@ -7,7 +7,7 @@ bool fy_node_is_boolean(struct fy_node *node) {
   size_t sz;
   const char *val = fy_node_get_scalar(node, &sz);
 #define match(pat)                                                                                 \
-  if (strncmp(val, pat, sz) == 0) {                                                                \
+  if (sz == sizeof(pat) - 1 && strncmp(val, pat, sz) == 0) {                                       \
     return true;                                                                                   \
   }
   // clang-format off
@@ -25,7 +25,7 @@ bool fy_node_is_boolean(struct fy_node *node) {
 bool fy_node_get_boolean(struct fy_node *node) {
   size_t sz;
   const char *val = fy_node_get_scalar(node, &sz);
-#define match(pat) strncmp(val, pat, sz) == 0
+#define match(pat) (sizeof(pat) - 1 == sz) && strncmp(val, pat, sz) == 0
   return (match("y") || match("Y") || match("yes") || match("Yes") || match("YES") ||
           match("true") || match("True") || match("TRUE") || match("on") || match("On") ||
           match("ON"));

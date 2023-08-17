@@ -62,7 +62,7 @@ static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
                 fy_emit_node_to_string(negative, FYECF_DEFAULT));
         return false;
       }
-      y_test->negative = fy_node_get_boolean(commit);
+      y_test->negative = fy_node_get_boolean(negative);
     }
 
     // Determine the instance to run

@@ -60,12 +60,10 @@ tests:
 - name: can't list files outside of the mount point
   query: select * from omni_vfs.list(omni_vfs.local_fs('../../../../extensions/omni_vfs/tests'), '..')
   error: requested path is outside of the mount point
-  success: false
 
 - name: can't list files outside of the mount point (matching length)
   query: select * from omni_vfs.list(omni_vfs.local_fs('../../../../extensions/omni_vfs/tests'), '../../omni_seq/tests')
   error: requested path is outside of the mount point
-  success: false
 
 - name: can get file info
   query: select size > 0 as non_zero, kind from omni_vfs.file_info(omni_vfs.local_fs('../../../../extensions/omni_vfs/tests'), 'local_fs.yml')
@@ -100,5 +98,4 @@ tests:
   - grant usage on schema omni_vfs to another_user
   - set role another_user
   - query: select omni_vfs.local_fs('.')
-    success: false
     error: new row violates row-level security policy for table "local_fs_mounts"

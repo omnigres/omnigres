@@ -12,7 +12,6 @@ tests:
 
 - name: invalid params should fail
   query: select array ['key']::omni_web.params
-  success: false
   error: value for domain omni_web.params violates check constraint "params_check"
 
 - query: select omni_web.param_get(omni_web.parse_query_string('a=1&a=2'), 'a')

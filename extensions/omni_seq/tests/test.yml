@@ -55,7 +55,7 @@ tests:
     binary: params
     params:
     - 0x00
-    success: false
+    error: true
   - query: select $1::omni_seq.id_int16 as decoding
     binary: params
     params:
