@@ -251,8 +251,10 @@ static int execute_document(struct fy_document *fyd, FILE *out) {
     return 1;
   }
 
-  // Get Postgres instances
+  // Get Postgres instances, if any
   instances = fy_node_mapping_lookup_by_string(root, STRLIT("instances"));
+  // Get a Postgres instance, if any
+  struct fy_node *instance = fy_node_mapping_lookup_by_string(root, STRLIT("instance"));
 
   // Register instance cleanup
   atexit(instances_cleanup);
@@ -260,8 +262,14 @@ static int execute_document(struct fy_document *fyd, FILE *out) {
   // If none specified, create a default one
   if (instances == NULL) {
     instances = fy_node_create_mapping(fyd);
+
     struct fy_node *default_instance_node = fy_node_create_scalar(fyd, STRLIT("default"));
-    fy_node_mapping_append(instances, default_instance_node, fy_node_create_mapping(fyd));
+    fy_node_mapping_append(instances, default_instance_node,
+                           instance == NULL ? fy_node_create_mapping(fyd)
+                                            : fy_node_copy(fyd, instance));
+  } else if (instance != NULL) {
+    fprintf(stderr, "can't specify instances and instance at the same time, pick one");
+    return 1;
   }
 
   if (!fy_node_is_mapping(instances)) {

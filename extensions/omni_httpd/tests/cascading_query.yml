@@ -1,25 +1,24 @@
-instances:
-  default:
-    config:
-      shared_preload_libraries: */env/OMNI_EXT_SO
-      max_worker_processes: 64
-    init:
-    - create extension omni_httpd cascade
-    - create extension omni_httpc cascade
-    - |
-      create table routes
-      (
-          name     text not null,
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_EXT_SO
+    max_worker_processes: 64
+  init:
+  - create extension omni_httpd cascade
+  - create extension omni_httpc cascade
+  - |
+    create table routes
+    (
+        name     text not null,
           query    text not null,
           priority int  not null
       )
-    - |
-      insert
-      into
-          routes (name, query, priority)
-      values
-          ('test', $$SELECT omni_httpd.http_response(body => 'test') FROM request WHERE request.path = '/test'$$, 1),
-          ('ping', $$SELECT omni_httpd.http_response(body => 'pong') FROM request WHERE request.path = '/ping'$$, 1);
+  - |
+    insert
+    into
+        routes (name, query, priority)
+    values
+        ('test', $$SELECT omni_httpd.http_response(body => 'test') FROM request WHERE request.path = '/test'$$, 1),
+        ('ping', $$SELECT omni_httpd.http_response(body => 'pong') FROM request WHERE request.path = '/ping'$$, 1);
 
 
 tests:

@@ -1,97 +1,96 @@
-instances:
-  default:
-    config:
-      shared_preload_libraries: */env/OMNI_EXT_SO
-      max_worker_processes: 64
-    init:
-    - set session omni_httpd.no_init = true
-    - create extension omni_httpd cascade
-    - call omni_httpd.wait_for_configuration_reloads(1)
-    - create extension omni_httpc cascade
-    - create role test_user inherit in role current_user
-    - create role test_user1 inherit in role current_user
-    - create role anotherrole inherit in role current_user
-    - alter role anotherrole nosuperuser
-    - create role another_superuser superuser
-    - set role test_user
-    - |
-      create function reset_role() returns omni_httpd.http_outcome
-      as
-      $$
-       declare
-           outcome omni_httpd.http_outcome;
-       begin
-           begin
-               reset role;
-               select omni_httpd.http_response('ok') into outcome;
-           exception
-               when others then
-                   select omni_httpd.http_response('failed resetting') into outcome;
-           end;
-           return outcome;
-       end;
-       $$ language plpgsql
-    - |
-      create function set_role_none() returns omni_httpd.http_outcome
-      as
-      $$
-      declare
-          outcome omni_httpd.http_outcome;
-      begin
-          begin
-              set role none;
-              select omni_httpd.http_response('ok') into outcome;
-          exception
-              when others then
-                  select omni_httpd.http_response('failed setting to none') into outcome;
-          end;
-          return outcome;
-      end;
-      $$ language plpgsql
-    - |
-      create function set_superuser_role() returns omni_httpd.http_outcome
-      as
-      $$
-      declare
-          outcome omni_httpd.http_outcome;
-      begin
-          begin
-              set role another_superuser;
-              select omni_httpd.http_response('ok') into outcome;
-          exception
-              when others then
-                  select omni_httpd.http_response('failed setting superuser role') into outcome;
-          end;
-          return outcome;
-      end;
-      $$ language plpgsql
-    - |
-      with
-          listener as (insert into omni_httpd.listeners (address, port) values ('127.0.0.1', 0) returning id),
-          handler as (insert into omni_httpd.handlers (query)
-              values
-                  ($$select
-                           (case
-                             when request.path = '/' then
-                               omni_httpd.http_response(body => current_user::text)
-                             when request.path = '/reset-role' then
-                               reset_role()
-                             when request.path = '/set-role-none' then
-                               set_role_none()
-                             when request.path = '/superuser-role' then
-                               set_superuser_role()
-                            end)
-                          from request$$) returning id)
-      insert
-      into
-          omni_httpd.listeners_handlers (listener_id, handler_id)
-      select
-          listener.id,
-          handler.id
-      from
-          listener,
-          handler
-    - call omni_httpd.wait_for_configuration_reloads(1)
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_EXT_SO
+    max_worker_processes: 64
+  init:
+  - set session omni_httpd.no_init = true
+  - create extension omni_httpd cascade
+  - call omni_httpd.wait_for_configuration_reloads(1)
+  - create extension omni_httpc cascade
+  - create role test_user inherit in role current_user
+  - create role test_user1 inherit in role current_user
+  - create role anotherrole inherit in role current_user
+  - alter role anotherrole nosuperuser
+  - create role another_superuser superuser
+  - set role test_user
+  - |
+    create function reset_role() returns omni_httpd.http_outcome
+    as
+    $$
+     declare
+         outcome omni_httpd.http_outcome;
+     begin
+         begin
+             reset role;
+             select omni_httpd.http_response('ok') into outcome;
+         exception
+             when others then
+                 select omni_httpd.http_response('failed resetting') into outcome;
+         end;
+         return outcome;
+     end;
+     $$ language plpgsql
+  - |
+    create function set_role_none() returns omni_httpd.http_outcome
+    as
+    $$
+    declare
+        outcome omni_httpd.http_outcome;
+    begin
+        begin
+            set role none;
+            select omni_httpd.http_response('ok') into outcome;
+        exception
+            when others then
+                select omni_httpd.http_response('failed setting to none') into outcome;
+        end;
+        return outcome;
+    end;
+    $$ language plpgsql
+  - |
+    create function set_superuser_role() returns omni_httpd.http_outcome
+    as
+    $$
+    declare
+        outcome omni_httpd.http_outcome;
+    begin
+        begin
+            set role another_superuser;
+            select omni_httpd.http_response('ok') into outcome;
+        exception
+            when others then
+                select omni_httpd.http_response('failed setting superuser role') into outcome;
+        end;
+        return outcome;
+    end;
+    $$ language plpgsql
+  - |
+    with
+        listener as (insert into omni_httpd.listeners (address, port) values ('127.0.0.1', 0) returning id),
+        handler as (insert into omni_httpd.handlers (query)
+            values
+                ($$select
+                         (case
+                           when request.path = '/' then
+                             omni_httpd.http_response(body => current_user::text)
+                           when request.path = '/reset-role' then
+                             reset_role()
+                           when request.path = '/set-role-none' then
+                             set_role_none()
+                           when request.path = '/superuser-role' then
+                             set_superuser_role()
+                          end)
+                        from request$$) returning id)
+    insert
+    into
+        omni_httpd.listeners_handlers (listener_id, handler_id)
+    select
+        listener.id,
+        handler.id
+    from
+        listener,
+        handler
+  - call omni_httpd.wait_for_configuration_reloads(1)
 
 tests:
 - name: Can't update it to an arbitrary name

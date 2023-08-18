@@ -1,7 +1,6 @@
-instances:
-  default:
-    init:
-    - create extension omni_mimetypes
+instance:
+  init:
+  - create extension omni_mimetypes
 
 tests:
 

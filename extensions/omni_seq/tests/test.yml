@@ -1,7 +1,6 @@
-instances:
-  default:
-    init:
-    - create extension omni_seq
+instance:
+  init:
+  - create extension omni_seq
 
 tests:
 - name: creating a distributed ID

@@ -403,6 +403,18 @@ instances:
 
 This is useful when tests impose special authentication requirements.
 
+### Single instance configuration
+
+In case when only one instance is necessary but it needs to be configured,
+instead of using `instances` and naming the default instance, one can use
+`instance` key instead:
+
+```yaml
+instance:
+  init:
+  - create extension ltree
+```
+
 ## Configuring test suite
 
 In certain cases, it may be useful to pass some configuration information to the
