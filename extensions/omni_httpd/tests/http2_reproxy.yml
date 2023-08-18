@@ -1,25 +1,24 @@
-instances:
-  default:
-    config:
-      shared_preload_libraries: */env/OMNI_EXT_SO
-      max_worker_processes: 64
-      omni_httpd.http_workers: 2
-    init:
-    - set session omni_httpd.no_init = true
-    - create extension omni_httpd cascade
-    - create extension omni_httpc cascade
-    - call omni_httpd.wait_for_configuration_reloads(1)
-    - |
-      with
-        listener as (insert into omni_httpd.listeners (address, port) values ('127.0.0.1', 0) returning id),
-        handler as (insert into omni_httpd.handlers (query)
-                    select
-                      omni_httpd.cascading_query(name, query order by priority desc nulls last)
-                    from
-                      (values
-                      ('sleep',
-                      $$select omni_httpd.http_response(pg_backend_pid()::text || pg_sleep(2)::text) from request where request.path = '/sleep'$$, 1),
-                      ('other',
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_EXT_SO
+    max_worker_processes: 64
+    omni_httpd.http_workers: 2
+  init:
+  - set session omni_httpd.no_init = true
+  - create extension omni_httpd cascade
+  - create extension omni_httpc cascade
+  - call omni_httpd.wait_for_configuration_reloads(1)
+  - |
+    with
+      listener as (insert into omni_httpd.listeners (address, port) values ('127.0.0.1', 0) returning id),
+      handler as (insert into omni_httpd.handlers (query)
+                  select
+                    omni_httpd.cascading_query(name, query order by priority desc nulls last)
+                  from
+                    (values
+                    ('sleep',
+                    $$select omni_httpd.http_response(pg_backend_pid()::text || pg_sleep(2)::text) from request where request.path = '/sleep'$$, 1),
+                    ('other',
                       $$select omni_httpd.http_response(pg_backend_pid()::text)$$,
                       1)) as routes(name, query, priority)
                       returning id)
@@ -31,7 +30,7 @@ instances:
       from
         listener,
         handler
-    - call omni_httpd.wait_for_configuration_reloads(1)
+  - call omni_httpd.wait_for_configuration_reloads(1)
 
 tests:
   - steps:

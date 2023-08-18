@@ -1,10 +1,9 @@
-instances:
-  default:
-    config:
-      shared_preload_libraries: */env/OMNI_EXT_SO
-      max_worker_processes: 64
-    init:
-    - create extension omni_httpd cascade
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_EXT_SO
+    max_worker_processes: 64
+  init:
+  - create extension omni_httpd cascade
 
 tests:
 - name: NULL status

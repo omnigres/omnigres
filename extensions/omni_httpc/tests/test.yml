@@ -1,14 +1,14 @@
-instances:
-  default:
-    config:
-      shared_preload_libraries: */env/OMNI_EXT_SO
-      max_worker_processes: 64
-    init:
-    - set session omni_httpd.init_port = 0
-    - create extension omni_httpd cascade
-    - create extension omni_httpc cascade
-    - delete from omni_httpd.configuration_reloads
-    - update omni_httpd.handlers set query = $$
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_EXT_SO
+    max_worker_processes: 64
+  init:
+  - set session omni_httpd.init_port = 0
+  - create extension omni_httpd cascade
+  - create extension omni_httpc cascade
+  - delete from omni_httpd.configuration_reloads
+  - |
+    update omni_httpd.handlers set query = $$
       select omni_httpd.http_response(json_build_object(
       'method', request.method,
       'path', request.path,
@@ -16,8 +16,8 @@ instances:
       'headers', request.headers::text,
       'body', convert_from(request.body, 'utf-8')
       )) from request
-      $$
-    - call omni_httpd.wait_for_configuration_reloads(1)
+    $$
+  - call omni_httpd.wait_for_configuration_reloads(1)
 
 tests:
 - name: default GET request

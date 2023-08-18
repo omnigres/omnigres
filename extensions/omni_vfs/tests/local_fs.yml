@@ -1,7 +1,6 @@
-instances:
-  default:
-    init:
-    - create extension omni_vfs cascade
+instance:
+  init:
+  - create extension omni_vfs cascade
 
 tests:
 

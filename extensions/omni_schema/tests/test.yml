@@ -1,8 +1,7 @@
-instances:
-  default:
-    init:
-    - create extension omni_schema cascade
-    - create extension plpython3u
+instance:
+  init:
+  - create extension omni_schema cascade
+  - create extension plpython3u
 
 tests:
 

@@ -1,7 +1,6 @@
-instances:
-  default:
-    init:
-    - create extension dynpgext_test
+instance:
+  init:
+  - create extension dynpgext_test
 
 tests:
 - name: There should be no loader

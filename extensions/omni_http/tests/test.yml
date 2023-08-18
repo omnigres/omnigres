@@ -1,7 +1,6 @@
-instances:
-  default:
-    init:
-    - create extension omni_http cascade
+instance:
+  init:
+  - create extension omni_http cascade
 
 tests:
 - name: get header
