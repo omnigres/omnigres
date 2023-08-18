@@ -395,12 +395,14 @@ proceed:
 
     break;
   }
+  case ytest_kind_tests:
   case ytest_kind_steps: {
-    struct fy_node *steps = fy_node_mapping_lookup_by_string(test->node, STRLIT("steps"));
+    struct fy_node *steps = fy_node_mapping_lookup_by_string(
+        test->node, STRLIT(test->kind == ytest_kind_tests ? "tests" : "steps"));
     void *iter = NULL;
     struct fy_node *step;
 
-    if (!in_transaction) {
+    if (test->kind == ytest_kind_tests || !in_transaction) {
       PGresult *begin_result = PQexec(conn, "begin");
       PQclear(begin_result);
     }
@@ -418,7 +420,8 @@ proceed:
       ytest *y_test = (ytest *)fy_node_get_meta(step);
       if (!step_failed) {
         bool errored = false;
-        bool step_success = ytest_run_internal(conn, y_test, true, sub_test, &errored);
+        bool step_success = ytest_run_internal(
+            conn, y_test, test->kind == ytest_kind_tests ? false : true, sub_test, &errored);
 
         // Stop proceeding further if the step has failed
         if (!step_success) {
@@ -452,7 +455,7 @@ proceed:
 
     tap_counter = saved_tap_counter;
 
-    if (!in_transaction) {
+    if (test->kind == ytest_kind_tests || !in_transaction) {
       PGresult *txend_result = PQexec(conn, test->commit ? "commit" : "rollback");
       PQclear(txend_result);
     }

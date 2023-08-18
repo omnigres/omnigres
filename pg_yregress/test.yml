@@ -108,6 +108,15 @@ tests:
   results:
   - v: *p
 
+- name: subtests
+  tests:
+  - create table subtests_table ()
+  - query: select * from subtests_table
+    error: relation "subtests_table" does not exist
+  - query: create table subtests_table ()
+    commit: true
+  - select * from subtests_table
+
 - name: multistep
   steps:
   - name: create table

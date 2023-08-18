@@ -209,18 +209,48 @@ tests:
     every item is not wrapped into a transaction and the results of each step are visible 
     in the next step.
 
-## Committing Tests
+## Grouping tests
 
-By default, all tests are rolled back to ensure clean environment. However, in some cases, tests need to commit (for example, to test deferred constraints).
+There are cases when a number of tests that don't need to be executed in the
+same transaction (like multi-step) but they do form a logical group
+nevertheless. For example, testing different aspects of a feature, or different
+inputs on the same function.
 
-When this is necessary, the `commit` property of a test should be set to `false`:
+For this, one can use `tests`:
+
+```yaml
+tests:
+- name: fib
+  tests:
+  - query: select fib(0)
+    results:
+    - fib: 0
+  - query: select fib(1)
+    results:
+    - fib: 1
+  - query: select fib(2)
+    results:
+    - fib: 1
+  - query: select fib(3)
+    results:
+    - fib: 2
+```
+
+## Committing tests
+
+By default, all tests are rolled back to ensure clean environment. However, in
+some cases, tests need to commit (for example, to test deferred constraints).
+
+When this is necessary, the `commit` property of a test should be set
+to `false`:
 
 ```yaml
 - query: insert into table values (...)
   commit: true
 ```
 
-This can be also used for multi-step tests. If any of the steps is committed but the multi-step test itself isn't, it'll roll back the uncommitted steps.
+This can be also used for multi-step tests. If any of the steps is committed but
+the multi-step test itself isn't, it'll roll back the uncommitted steps.
 
 ## Notices
 
