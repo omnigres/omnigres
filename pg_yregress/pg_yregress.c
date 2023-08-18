@@ -41,69 +41,75 @@ static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
     y_test->name.base =
         fy_node_mapping_lookup_scalar_by_simple_key(test, &y_test->name.len, STRLIT("name"));
 
-    // Should we commit after this test?
-    struct fy_node *commit = fy_node_mapping_lookup_by_string(test, STRLIT("commit"));
+    {
+      // Should we commit after this test?
+      struct fy_node *commit = fy_node_mapping_lookup_by_string(test, STRLIT("commit"));
 
-    if (commit != NULL) {
-      if (!fy_node_is_boolean(commit)) {
-        fprintf(stderr, "commit should be a boolean, got: %s",
-                fy_emit_node_to_string(commit, FYECF_DEFAULT));
-        return false;
+      if (commit != NULL) {
+        if (!fy_node_is_boolean(commit)) {
+          fprintf(stderr, "commit should be a boolean, got: %s",
+                  fy_emit_node_to_string(commit, FYECF_DEFAULT));
+          return false;
+        }
+        y_test->commit = fy_node_get_boolean(commit);
       }
-      y_test->commit = fy_node_get_boolean(commit);
     }
 
-    // Is the test meant to be negative? As in "if test succeeds, it's a failure"
-    struct fy_node *negative = fy_node_mapping_lookup_by_string(test, STRLIT("negative"));
+    {
+      // Is the test meant to be negative? As in "if test succeeds, it's a failure"
+      struct fy_node *negative = fy_node_mapping_lookup_by_string(test, STRLIT("negative"));
 
-    if (negative != NULL) {
-      if (!fy_node_is_boolean(negative)) {
-        fprintf(stderr, "negative should be a boolean, got: %s",
-                fy_emit_node_to_string(negative, FYECF_DEFAULT));
-        return false;
+      if (negative != NULL) {
+        if (!fy_node_is_boolean(negative)) {
+          fprintf(stderr, "negative should be a boolean, got: %s",
+                  fy_emit_node_to_string(negative, FYECF_DEFAULT));
+          return false;
+        }
+        y_test->negative = fy_node_get_boolean(negative);
       }
-      y_test->negative = fy_node_get_boolean(negative);
     }
 
     // Determine the instance to run
 
-    // Is it explicitly specified?
-    struct fy_node *instance_ref = fy_node_mapping_lookup_by_string(test, STRLIT("instance"));
-    if (instance_ref != NULL) {
-      // Must be a scalar
-      if (!fy_node_is_scalar(instance_ref)) {
-        fprintf(stderr, "Test %.*s instance reference is not a scalar: %s",
-                (int)IOVEC_STRLIT(y_test->name),
-                fy_emit_node_to_string(instance_ref, FYECF_DEFAULT));
-        return false;
-      }
+    {
+      // Is it explicitly specified?
+      struct fy_node *instance_ref = fy_node_mapping_lookup_by_string(test, STRLIT("instance"));
+      if (instance_ref != NULL) {
+        // Must be a scalar
+        if (!fy_node_is_scalar(instance_ref)) {
+          fprintf(stderr, "Test %.*s instance reference is not a scalar: %s",
+                  (int)IOVEC_STRLIT(y_test->name),
+                  fy_emit_node_to_string(instance_ref, FYECF_DEFAULT));
+          return false;
+        }
 
-      // Try to find the instance
-      struct fy_node *instance = fy_node_mapping_lookup_value_by_key(instances, instance_ref);
-      // If it is not found, bail
-      if (instance == NULL) {
-        fprintf(stderr, "Test %.*s refers to an unknown instance %.*s",
-                (int)IOVEC_STRLIT(y_test->name), (int)IOVEC_STRLIT(y_test->name));
-        return false;
+        // Try to find the instance
+        struct fy_node *instance = fy_node_mapping_lookup_value_by_key(instances, instance_ref);
+        // If it is not found, bail
+        if (instance == NULL) {
+          fprintf(stderr, "Test %.*s refers to an unknown instance %.*s",
+                  (int)IOVEC_STRLIT(y_test->name), (int)IOVEC_STRLIT(y_test->name));
+          return false;
+        } else {
+          y_test->instance = (yinstance *)fy_node_get_meta(instance);
+          y_test->instance->used = true;
+        }
+
       } else {
-        y_test->instance = (yinstance *)fy_node_get_meta(instance);
-        y_test->instance->used = true;
-      }
-
-    } else {
-      // Not explicitly specified
-      switch (default_instance(instances, &y_test->instance)) {
-      case default_instance_not_found:
-        fprintf(stderr, "Test %.*s has no default instance to choose from",
-                (int)IOVEC_STRLIT(y_test->name));
-        return false;
-      case default_instance_found:
-        y_test->instance->used = true;
-        break;
-      case default_instance_ambiguous:
-        fprintf(stderr, "Test %.*s has instance specified to choose from multiple instances",
-                (int)IOVEC_STRLIT(y_test->name));
-        return false;
+        // Not explicitly specified
+        switch (default_instance(instances, &y_test->instance)) {
+        case default_instance_not_found:
+          fprintf(stderr, "Test %.*s has no default instance to choose from",
+                  (int)IOVEC_STRLIT(y_test->name));
+          return false;
+        case default_instance_found:
+          y_test->instance->used = true;
+          break;
+        case default_instance_ambiguous:
+          fprintf(stderr, "Test %.*s has instance specified to choose from multiple instances",
+                  (int)IOVEC_STRLIT(y_test->name));
+          return false;
+        }
       }
     }
 
@@ -111,68 +117,78 @@ static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
     // Instruction found
     bool instruction_found = false;
 
-    // Are we running a single query?
-    struct fy_node *query = fy_node_mapping_lookup_by_string(test, STRLIT("query"));
-    if (query != NULL) {
-      if (!fy_node_is_scalar(query)) {
-        fprintf(stderr, "query must be a scalar, got: %s",
-                fy_emit_node_to_string(query, FYECF_DEFAULT));
-        return false;
-      }
-      y_test->kind = ytest_kind_query;
-      y_test->info.query.query.base = fy_node_get_scalar(query, &y_test->info.query.query.len);
-      instruction_found = true;
-    }
-
-    // Are we running steps?
-    struct fy_node *steps = fy_node_mapping_lookup_by_string(test, STRLIT("steps"));
-    if (steps != NULL) {
-
-      // Can't have two instructions
-      if (instruction_found) {
-        fprintf(stderr, "Test %.*s has conflicting type", (int)IOVEC_STRLIT(y_test->name));
-        return false;
-      }
-
-      if (!fy_node_is_sequence(steps)) {
-        fprintf(stderr, "test steps must be a sequence, got: %s",
-                fy_emit_node_to_string(test, FYECF_DEFAULT));
-        return false;
-      }
-
-      void *iter = NULL;
-      struct fy_node *step;
-
-      while ((step = fy_node_sequence_iterate(steps, &iter)) != NULL) {
-        if (!populate_ytest_from_fy_node(fyd, step, instances)) {
+    {
+      // Are we running a single query?
+      struct fy_node *query = fy_node_mapping_lookup_by_string(test, STRLIT("query"));
+      if (query != NULL) {
+        if (!fy_node_is_scalar(query)) {
+          fprintf(stderr, "query must be a scalar, got: %s",
+                  fy_emit_node_to_string(query, FYECF_DEFAULT));
           return false;
         }
-      }
-
-      y_test->kind = ytest_kind_steps;
-      instruction_found = true;
-    }
-
-    // Are we restarting?
-    struct fy_node *restart = fy_node_mapping_lookup_by_string(test, STRLIT("restart"));
-    if (restart != NULL) {
-      y_test->kind = ytest_kind_restart;
-      instruction_found = true;
-    }
-
-    // Is this test being skipped?
-    struct fy_node *skip = fy_node_mapping_lookup_by_string(test, STRLIT("skip"));
-    if (skip != NULL) {
-      if (!(fy_node_is_boolean(skip) && !fy_node_get_boolean(skip))) {
+        y_test->kind = ytest_kind_query;
+        y_test->info.query.query.base = fy_node_get_scalar(query, &y_test->info.query.query.len);
         instruction_found = true;
       }
     }
 
-    // Is this test being developed?
-    struct fy_node *todo = fy_node_mapping_lookup_by_string(test, STRLIT("todo"));
-    if (todo != NULL) {
-      if (!(fy_node_is_boolean(todo) && !fy_node_get_boolean(todo))) {
+    {
+      // Are we running steps?
+      struct fy_node *steps = fy_node_mapping_lookup_by_string(test, STRLIT("steps"));
+      if (steps != NULL) {
+
+        // Can't have two instructions
+        if (instruction_found) {
+          fprintf(stderr, "Test %.*s has conflicting type", (int)IOVEC_STRLIT(y_test->name));
+          return false;
+        }
+
+        if (!fy_node_is_sequence(steps)) {
+          fprintf(stderr, "test steps must be a sequence, got: %s",
+                  fy_emit_node_to_string(test, FYECF_DEFAULT));
+          return false;
+        }
+
+        void *iter = NULL;
+        struct fy_node *step;
+
+        while ((step = fy_node_sequence_iterate(steps, &iter)) != NULL) {
+          if (!populate_ytest_from_fy_node(fyd, step, instances)) {
+            return false;
+          }
+        }
+
+        y_test->kind = ytest_kind_steps;
         instruction_found = true;
+      }
+    }
+
+    {
+      // Are we restarting?
+      struct fy_node *restart = fy_node_mapping_lookup_by_string(test, STRLIT("restart"));
+      if (restart != NULL) {
+        y_test->kind = ytest_kind_restart;
+        instruction_found = true;
+      }
+    }
+
+    {
+      // Is this test being skipped?
+      struct fy_node *skip = fy_node_mapping_lookup_by_string(test, STRLIT("skip"));
+      if (skip != NULL) {
+        if (!(fy_node_is_boolean(skip) && !fy_node_get_boolean(skip))) {
+          instruction_found = true;
+        }
+      }
+    }
+
+    {
+      // Is this test being developed?
+      struct fy_node *todo = fy_node_mapping_lookup_by_string(test, STRLIT("todo"));
+      if (todo != NULL) {
+        if (!(fy_node_is_boolean(todo) && !fy_node_get_boolean(todo))) {
+          instruction_found = true;
+        }
       }
     }
 
