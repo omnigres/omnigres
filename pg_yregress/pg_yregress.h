@@ -81,7 +81,13 @@ extern struct fy_node *instances;
  */
 void instances_cleanup();
 
-typedef enum { ytest_kind_none, ytest_kind_query, ytest_kind_steps, ytest_kind_restart } ytest_kind;
+typedef enum {
+  ytest_kind_none,
+  ytest_kind_query,
+  ytest_kind_steps,
+  ytest_kind_tests,
+  ytest_kind_restart
+} ytest_kind;
 
 typedef struct {
   iovec_t name;

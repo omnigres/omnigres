@@ -164,6 +164,37 @@ static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
     }
 
     {
+      // Are we running subtests?
+      struct fy_node *tests = fy_node_mapping_lookup_by_string(test, STRLIT("tests"));
+      if (tests != NULL) {
+
+        // Can't have two instructions
+        if (instruction_found) {
+          fprintf(stderr, "Test %.*s has conflicting type", (int)IOVEC_STRLIT(y_test->name));
+          return false;
+        }
+
+        if (!fy_node_is_sequence(tests)) {
+          fprintf(stderr, "test steps must be a sequence, got: %s",
+                  fy_emit_node_to_string(test, FYECF_DEFAULT));
+          return false;
+        }
+
+        void *iter = NULL;
+        struct fy_node *step;
+
+        while ((step = fy_node_sequence_iterate(tests, &iter)) != NULL) {
+          if (!populate_ytest_from_fy_node(fyd, step, instances)) {
+            return false;
+          }
+        }
+
+        y_test->kind = ytest_kind_tests;
+        instruction_found = true;
+      }
+    }
+
+    {
       // Are we restarting?
       struct fy_node *restart = fy_node_mapping_lookup_by_string(test, STRLIT("restart"));
       if (restart != NULL) {
@@ -193,9 +224,10 @@ static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
     }
 
     if (!instruction_found) {
-      fprintf(stderr,
-              "Test %.*s doesn't have a valid instruction (any of: query, step, skip, todo)",
-              (int)IOVEC_STRLIT(ytest_name(y_test)));
+      fprintf(
+          stderr,
+          "Test %.*s doesn't have a valid instruction (any of: query, steps, tests, skip, todo)",
+          (int)IOVEC_STRLIT(ytest_name(y_test)));
       return false;
     }
 
