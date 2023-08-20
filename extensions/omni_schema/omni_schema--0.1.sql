@@ -179,7 +179,8 @@ begin
                    convert_from(omni_vfs.read(fs, path || '/' || files.name), 'utf-8') as code
                from
                    omni_vfs.list_recursively(fs, path, max => 10000) as files
-                   left join omni_schema.migrations on migrations.name = (path || '/' || files.name)
+                   left join omni_schema.migrations
+                             on migrations.name = (case when path = '' then '' else path || '/' end || files.name)
                where
                    files.name like '%.sql' and
                    migrations.name is null
