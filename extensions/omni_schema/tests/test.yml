@@ -158,6 +158,13 @@ tests:
     results:
     - migrate_from_fs: 1_create_table_x.sql
     - migrate_from_fs: 2_add_column_to_x.sql
+  - name: do not repeat migrations that were already done
+    query: |
+      select
+        *
+      from 
+        omni_schema.migrate_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/migrations/1'))
+    results: [ ]
   - select a from x
   - query: |
       select
