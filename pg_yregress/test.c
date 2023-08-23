@@ -426,6 +426,15 @@ proceed:
         // Stop proceeding further if the step has failed
         if (!step_success) {
           step_failed = true;
+          // TODO: improve this
+          // This is a compensation mechanism for the following behavior:
+          // When a scalar test fails, it's replaced by a mapping with an error
+          // However, because it does remove/insert for this replacement
+          // (see https://github.com/pantoniou/libfyaml/issues/84)
+          // `iter` still points to the removed node but not the new one
+          // However, the code doing this updates `y_test->node`, so we'll use
+          // that to ensure we're on the right element of the sequence.
+          iter = (void *)y_test->node;
         } else {
           if (errored) {
             // Reset the transaction
@@ -446,6 +455,7 @@ proceed:
           }
         }
       } else {
+        // Skip tests after a failure
         tap_counter++;
         taprintf("ok %d - %.*s # SKIP\n", tap_counter, (int)IOVEC_STRLIT(ytest_name(y_test)));
       }
