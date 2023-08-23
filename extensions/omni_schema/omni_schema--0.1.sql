@@ -1,7 +1,7 @@
 create table languages
 (
     id             integer primary key generated always as identity,
-    file_extension varchar(32) not null unique,
+    file_extension text not null unique,
     language       name        not null,
     extension      name
 );

@@ -146,11 +146,11 @@ is not installed
 
 The support for languages is configurable through `omni_schema.languages` table:
 
-|             Column | Type        | Description                                                                            |
-|-------------------:|-------------|----------------------------------------------------------------------------------------|
-| **file_extension** | varchar(32) | Filename extension without the preceding <br/>dot. _Examples: `py`, `trusted.pl`, `rs` |
-|       **language** | name        | Language identifier to be used `create function ... language`                          |
-|      **extension** | name        | Extension that implements the language, if required                                    |
+|             Column | Type | Description                                                                            |
+|-------------------:|------|----------------------------------------------------------------------------------------|
+| **file_extension** | text | Filename extension without the preceding <br/>dot. _Examples: `py`, `trusted.pl`, `rs` |
+|       **language** | name | Language identifier to be used `create function ... language`                          |
+|      **extension** | name | Extension that implements the language, if required                                    |
 
 [^sql-languages-table]: SQL language is always supported, even if corresponding
 entry is removed from `omni_schema.languages`. This behavior may change in the
