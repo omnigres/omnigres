@@ -295,9 +295,6 @@ void yinstance_start(yinstance *instance) {
     // Get postmaster PID
     retrieve_postmaster_pid(instance);
 
-    // Link postmaster into our process group
-    setpgid(instance->pid, pgid);
-
     instance->ready = true;
   }
 }
@@ -346,9 +343,6 @@ void restart_instance(yinstance *instance) {
     system(restart_command);
     // Capture new PID
     retrieve_postmaster_pid(instance);
-
-    // Link new postmaster into our process group
-    setpgid(instance->pid, pgid);
   }
   instance->restarted = true;
 }

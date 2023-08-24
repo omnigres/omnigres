@@ -6,11 +6,6 @@
 #include <libfyaml.h>
 #include <libpq-fe.h>
 
-/**
- * pg_yregress' process group
- */
-extern pid_t pgid;
-
 typedef struct {
   const char *base;
   size_t len;
