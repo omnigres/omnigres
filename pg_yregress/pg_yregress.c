@@ -508,8 +508,6 @@ static void get_path_from_popen(char *cmd, char *path) {
   }
 }
 
-pid_t pgid;
-
 extern char **environ;
 
 int main(int argc, char **argv) {
@@ -519,10 +517,7 @@ int main(int argc, char **argv) {
     // Before starting, we try to open special FD for tap file
     tap_file = stdout;
 
-    // Get a process group
-    pgid = getpgrp();
-
-    // Hanle signals for cleanup, etc.
+    // Handle signals for cleanup, etc.
     register_sighandler();
 
     // Retrieve hard-coded Postgres configuration
