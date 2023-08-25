@@ -22,6 +22,13 @@ management and so on.
 * Transaction management
 * Deep instance configurability
 
+# Use cases
+
+* Testing Postgres extensions
+* Verifying complex SQL queries or behaviors
+* Stored function testing
+* Data health checks
+
 # Examples
 
 This test simply tests for the success of the query:
