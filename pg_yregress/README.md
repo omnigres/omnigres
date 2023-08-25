@@ -83,3 +83,8 @@ $ pg_yregress test.yml | tapview
 ...........................................................................ss.sss..xx.uuu...
 92 tests, 0 failures, 5 TODOs, 5 SKIPs.
 ```
+
+# Community
+
+* [Discord server](https://discord.gg/A2KxpjfQus): come and chat with out
+  pg_yregress users.
