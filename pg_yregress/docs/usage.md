@@ -26,20 +26,14 @@ _managed instance_[^managed] of Postgres.
 
 Running `pg_yregress` against this file will produce output adhering to [TAP](https://testanything.org), Test Anything Protocol for human or machine consumption.
 
-It is also possible to get the effective YAML of the result of the execution (with results matching actual outcomes as opposed to expectations). It is currently
-_hidden_ in an output to file descriptor 1001 (if one is defined), and if you want to collect or print it, simply pipe that out to a program processing it.
-
 ```shell
-$ pg_yregress test.yml 1001>out.yaml
-```
-
-As a result, `out.yaml` should contian something like this:
-
-```shell
-$ pg_yregress test.yaml
-tests:
-- name: simple
-  query: select 1 as value
+$ pg_yregress test.yml
+TAP version 14
+1..3
+# Initializing instances
+ok 1 - initialize instance `default`
+# Done initializing instances
+ok 2 - simple
 ```
 
 As the tool will evolve, we might add other ways to get this information.

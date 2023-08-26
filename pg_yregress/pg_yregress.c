@@ -6,8 +6,6 @@
 FILE *tap_file;
 int tap_counter = 0;
 
-#define FD_OUT 1001
-
 void meta_free(struct fy_node *fyn, void *meta, void *user) { free(user); }
 
 static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node *test,
@@ -469,16 +467,6 @@ static int execute_document(struct fy_document *fyd) {
       fy_node_mapping_remove_by_key(original_root, env);
     }
   }
-
-  FILE *out_file = fdopen(FD_OUT, "w");
-  // If not available, write to /dev/null
-  if (out_file == NULL) {
-    out_file = fopen("/dev/null", "w");
-  }
-
-  // Output the result sheet
-  fy_emit_document_to_fp(
-      fyd, FYECF_MODE_ORIGINAL | FYECF_OUTPUT_COMMENTS | FYECF_INDENT_2 | FYECF_WIDTH_80, out_file);
 
   return succeeded ? 0 : 1;
 }
