@@ -63,7 +63,15 @@ tests:
 For more examples and use cases, check
 out [documentation](https://docs.omnigres.org/pg_yregress/usage).
 
-# Build & Install
+# Install
+
+## macOS (Homebrew)
+
+```shell
+brew install omnigres/omnigres/pg_yregress
+```
+
+## From sources
 
 ```shell
 cmake -B build -DCMAKE_BUILD_TYPE=Release
