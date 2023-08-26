@@ -31,7 +31,7 @@ management and so on.
 
 # Examples
 
-Tests are written in YAML files (for clarity) can be executed using
+Tests are written in YAML files (for clarity) and can be executed using
 `pg_yregress <file.yml>`.
 
 This test simply tests for the success of the query:
