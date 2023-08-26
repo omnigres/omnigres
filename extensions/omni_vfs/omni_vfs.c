@@ -15,7 +15,7 @@ PG_MODULE_MAGIC;
 
 #include "libpgaug.h"
 
-CACHED_OID(omni_vfs_api, file_kind);
-CACHED_OID(omni_vfs_api, file_info);
+CACHED_OID(omni_vfs_types_v1, file_kind);
+CACHED_OID(omni_vfs_types_v1, file_info);
 CACHED_ENUM_OID(file_kind, file)
 CACHED_ENUM_OID(file_kind, dir)

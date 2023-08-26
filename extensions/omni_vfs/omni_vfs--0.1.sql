@@ -16,11 +16,11 @@ create type local_fs as
 create function local_fs(mount text) returns local_fs as
 'MODULE_PATHNAME' language c;
 
-create function list(fs local_fs, path text, fail_unpermitted boolean default true) returns setof omni_vfs_api.file as
+create function list(fs local_fs, path text, fail_unpermitted boolean default true) returns setof omni_vfs_types_v1.file as
 'MODULE_PATHNAME',
 'local_fs_list' language c;
 
-create function file_info(fs local_fs, path text) returns omni_vfs_api.file_info as
+create function file_info(fs local_fs, path text) returns omni_vfs_types_v1.file_info as
 'MODULE_PATHNAME',
 'local_fs_file_info' language c;
 
@@ -31,7 +31,7 @@ create function read(fs local_fs, path text, file_offset bigint default 0,
 
 -- Helpers
 
-create function list_recursively(fs anyelement, path text, max bigint default null) returns setof omni_vfs_api.file as
+create function list_recursively(fs anyelement, path text, max bigint default null) returns setof omni_vfs_types_v1.file as
 $$
 with
     recursive
@@ -42,7 +42,7 @@ with
                        union all
                        select
                            row ((directory_tree.file).name || '/' || sub_file.name,
-                               sub_file.kind)::omni_vfs_api.file
+                               sub_file.kind)::omni_vfs_types_v1.file
                        from
                            directory_tree,
                            lateral omni_vfs.list(fs, (directory_tree.file).name, fail_unpermitted => false) as sub_file
@@ -60,7 +60,7 @@ $$
 do
 $$
     begin
-        if not omni_vfs_api.is_valid_fs('local_fs') then
+        if not omni_vfs_types_v1.is_valid_fs('local_fs') then
             raise exception 'local_fs is not a valid vfs';
         end if;
     end;
