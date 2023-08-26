@@ -6,8 +6,6 @@
 FILE *tap_file;
 int tap_counter = 0;
 
-#define FD_OUT 1001
-
 void meta_free(struct fy_node *fyn, void *meta, void *user) { free(user); }
 
 static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node *test,
@@ -243,7 +241,7 @@ static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
 
 struct fy_node *instances;
 
-static int execute_document(struct fy_document *fyd, FILE *out) {
+static int execute_document(struct fy_document *fyd) {
   struct fy_node *root = fy_document_root(fyd);
   struct fy_node *original_root = fy_node_copy(fyd, root);
   if (!fy_node_is_mapping(root)) {
@@ -470,16 +468,6 @@ static int execute_document(struct fy_document *fyd, FILE *out) {
     }
   }
 
-  FILE *out_file = fdopen(FD_OUT, "w");
-  // If not available, write to /dev/null
-  if (out_file == NULL) {
-    out_file = fopen("/dev/null", "w");
-  }
-
-  // Output the result sheet
-  fy_emit_document_to_fp(
-      fyd, FYECF_MODE_ORIGINAL | FYECF_OUTPUT_COMMENTS | FYECF_INDENT_2 | FYECF_WIDTH_80, out_file);
-
   return succeeded ? 0 : 1;
 }
 
@@ -574,13 +562,11 @@ int main(int argc, char **argv) {
     fy_document_resolve(fyd);
 
     if (fyd != NULL) {
-      FILE *out = argc >= 3 ? fopen(argv[2], "w") : stdout;
-      int result = execute_document(fyd, out);
-      fclose(out);
+      int result = execute_document(fyd);
       return result;
     }
   } else {
-    fprintf(stderr, "Usage: py_yregress <test.yml> [output.yaml]");
+    fprintf(stderr, "Usage: py_yregress <test.yml>");
   }
   return 0;
 }
