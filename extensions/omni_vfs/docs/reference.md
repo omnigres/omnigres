@@ -56,14 +56,14 @@ Results in:
 
 ## API
 
-## `omni_vfs_api.file` type
+## `omni_vfs_types_v1.file` type
 
 Describes a file entry.
 
 |    Field | Type                     | Description                                   |
 |---------:|--------------------------|-----------------------------------------------|
 | **name** | `text`                   | File name                                     |
-| **kind** | `omni_vfs_api.file_kind` | File kind (`file`, `dir`) [^other-file-types] |
+| **kind** | `omni_vfs_types_v1.file_kind` | File kind (`file`, `dir`) [^other-file-types] |
 
 ## `omni_vs_api.file_info` type
 
@@ -75,7 +75,7 @@ Describes file meta information.
 |  **created_at** | `timestamp`              | File creation time (if available)             |
 | **accessed_at** | `timestamp`              | File access time (if available)               |
 | **modified_at** | `timestamp`              | File modification time (if available)         |
-|        **kind** | `omni_vfs_api.file_kind` | File kind (`file`, `dir`) [^other-file-types] |
+|        **kind** | `omni_vfs_types_v1.file_kind` | File kind (`file`, `dir`) [^other-file-types] |
 
 ## `omni_vfs.list()`
 
@@ -87,7 +87,7 @@ Lists a directory or a single file.
 |             **path** | `text`            | Path to list. If it is a single file, returns that file           |
 | **fail_unpermitted** | `bool`            | Raise an error if directory can't be open. `true` **by default**. |
 
-Returns a set of `omni_vfs_api.file` values.
+Returns a set of `omni_vfs_types_v1.file` values.
 
 ## `omni_vfs.list_recursively()`
 
@@ -99,7 +99,7 @@ This is a helper function implemented for all backends that lists all files recu
 |  **path** | `text`            | Path to list. If it is a single file, returns that file            |
 |   **max** | `bigint`          | Limit the number of files to be returned. No limit **by default**. |
 
-Returns a set of `omni_vfs_api.file`
+Returns a set of `omni_vfs_types_v1.file`
 
 !!! warning "Use caution if the directory might contain a lot of files"
 
@@ -117,7 +117,7 @@ Provides file information (similar to POSIX `stat`)
 |    **fs** | _Filesystem type_ | Filesystem       |
 |  **path** | `text`            | Path to the file |
 
-Returns a value of the `omni_vfs_api.file_info` type.
+Returns a value of the `omni_vfs_types_v1.file_info` type.
 
 If file does not exist, returns `null` as there no information to be retrieved
 about it. In all other cases expected to raise an exception.

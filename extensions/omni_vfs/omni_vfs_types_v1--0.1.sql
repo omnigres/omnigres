@@ -31,7 +31,7 @@ begin
         pg_proc.proargtypes[1] = 'text'::regtype and
         pg_proc.proargtypes[2] = 'bool'::regtype and
         pg_proc.proretset and
-        pg_proc.prorettype = 'omni_vfs_api.file'::regtype;
+        pg_proc.prorettype = 'omni_vfs_types_v1.file'::regtype;
     if not found then
         raise warning '%s does not define valid `omni_vfs.list` function', type::text;
         return false;
@@ -46,7 +46,7 @@ begin
         pg_proc.proargtypes[0] = type::oid and
         pg_proc.proargtypes[1] = 'text'::regtype and
         not pg_proc.proretset and
-        pg_proc.prorettype = 'omni_vfs_api.file_info'::regtype;
+        pg_proc.prorettype = 'omni_vfs_types_v1.file_info'::regtype;
     if not found then
         raise warning '%s does not define valid `omni_vfs.file_info` function', type::text;
         return false;
