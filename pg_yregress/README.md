@@ -31,15 +31,20 @@ management and so on.
 
 # Examples
 
+Tests are written in YAML files (for clarity) can be executed using
+`pg_yregress <file.yml>`.
+
 This test simply tests for the success of the query:
 
 ```yaml
+tests:
 - select 1
 ```
 
 This tests the result:
 
 ```yaml
+tests:
 - query: select 1 as result
   results:
   - result: 1
@@ -48,6 +53,7 @@ This tests the result:
 This tests against JSON structures
 
 ```yaml
+tests:
 - query: select json_value from table
   results:
   - json_value:
