@@ -9,3 +9,14 @@ log
 results
 .DS_Store
 .docs-virtualenv
+
+# Devenv
+.devenv*
+devenv.local.nix
+
+# direnv
+.direnv
+
+# pre-commit
+.pre-commit-config.yaml
+
