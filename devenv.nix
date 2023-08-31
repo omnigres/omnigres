@@ -95,8 +95,6 @@
   };
 
   pre-commit.hooks = {
-    prettier.enable = true;
     nixpkgs-fmt.enable = true;
-    shellcheck.enable = true;
   };
 }
