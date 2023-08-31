@@ -79,7 +79,7 @@ tests:
   results:
   - status: 200
     headers:
-    - content-type: text/json
+    - content-type: application/json
     body: { }
 
 - name: JSONB body
@@ -92,7 +92,7 @@ tests:
   results:
   - status: 200
     headers:
-    - content-type: text/json
+    - content-type: application/json
     body: { }
 
 - name: Binary body

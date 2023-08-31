@@ -247,8 +247,8 @@ Datum http_response(PG_FUNCTION_ARGS) {
       values[HTTP_RESPONSE_TUPLE_BODY] = PointerGetDatum(cstring_to_text(out));
     case JSONOID:
       if (!has_content_type) {
-        values[HTTP_RESPONSE_TUPLE_HEADERS] =
-            add_header(values[HTTP_RESPONSE_TUPLE_HEADERS], "content-type", "text/json", false);
+        values[HTTP_RESPONSE_TUPLE_HEADERS] = add_header(values[HTTP_RESPONSE_TUPLE_HEADERS],
+                                                         "content-type", "application/json", false);
       }
       break;
     default:
