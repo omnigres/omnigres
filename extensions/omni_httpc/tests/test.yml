@@ -32,7 +32,7 @@ tests:
       from response
   results:
   - status: 200
-    headers: '{"(connection,keep-alive)","(content-length,112)","(server,omni_httpd-0.1)","(content-type,text/json)"}'
+    headers: '{"(connection,keep-alive)","(content-length,112)","(server,omni_httpd-0.1)","(content-type,application/json)"}'
     body:
       method: GET
       path: /test
@@ -52,7 +52,7 @@ tests:
       from response
   results:
   - status: 200
-    headers: '{"(connection,keep-alive)","(content-length,113)","(server,omni_httpd-0.1)","(content-type,text/json)"}'
+    headers: '{"(connection,keep-alive)","(content-length,113)","(server,omni_httpd-0.1)","(content-type,application/json)"}'
     body: ''
 
 - name: POST request
@@ -67,7 +67,7 @@ tests:
       from response
   results:
   - status: 200
-    headers: '{"(connection,keep-alive)","(content-length,113)","(server,omni_httpd-0.1)","(content-type,text/json)"}'
+    headers: '{"(connection,keep-alive)","(content-length,113)","(server,omni_httpd-0.1)","(content-type,application/json)"}'
     body:
       method: POST
       path: /test
@@ -88,7 +88,7 @@ tests:
       from response
   results:
   - status: 200
-    headers: '{"(connection,keep-alive)","(content-length,132)","(server,omni_httpd-0.1)","(content-type,text/json)"}'
+    headers: '{"(connection,keep-alive)","(content-length,132)","(server,omni_httpd-0.1)","(content-type,application/json)"}'
     body:
       method: GET
       path: /test
@@ -109,7 +109,7 @@ tests:
       from response
   results:
   - status: 200
-    headers: '{"(connection,keep-alive)","(content-length,117)","(server,omni_httpd-0.1)","(content-type,text/json)"}'
+    headers: '{"(connection,keep-alive)","(content-length,117)","(server,omni_httpd-0.1)","(content-type,application/json)"}'
     body:
       method: POST
       path: /test
@@ -130,7 +130,7 @@ tests:
       from response
   results:
   - status: 200
-    headers: '{"(connection,keep-alive)","(content-length,112)","(server,omni_httpd-0.1)","(content-type,text/json)"}'
+    headers: '{"(connection,keep-alive)","(content-length,112)","(server,omni_httpd-0.1)","(content-type,application/json)"}'
     body:
       method: GET
       path: /test
@@ -138,7 +138,7 @@ tests:
       headers: '{"(user-agent,omni_httpc/0.1)"}'
       body: ""
   - status: 200
-    headers: '{"(connection,keep-alive)","(content-length,112)","(server,omni_httpd-0.1)","(content-type,text/json)"}'
+    headers: '{"(connection,keep-alive)","(content-length,112)","(server,omni_httpd-0.1)","(content-type,application/json)"}'
     body:
       method: GET
       path: /test
