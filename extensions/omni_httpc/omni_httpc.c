@@ -225,7 +225,8 @@ struct request {
 };
 
 // Called when response body chunk is being received
-static int on_body(h2o_httpclient_t *client, const char *errstr) {
+static int on_body(h2o_httpclient_t *client, const char *errstr, h2o_header_t *trailers,
+                   size_t num_trailers) {
   struct request *req = (struct request *)client->data;
 
   // If there's an error, report it
