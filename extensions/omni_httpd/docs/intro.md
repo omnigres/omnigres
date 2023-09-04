@@ -128,3 +128,25 @@ headers omni_http.http_header[]
     that's because it is still work in progress. Please consider contributing if you feel up to it.
 
     Also, [omni_web](/omni_web/intro) provides complementary higher-level functionality.
+
+In order to test your request handlers without having to run actual HTTP
+requests against it, one can use `omni_httpd.http_request` function to compose
+requests:
+
+```postgresql
+with
+    request as (select (omni_httpd.http_request('/')).*)
+select
+    omni_httpd.http_response(request.path)
+from
+    request
+```
+
+|        Parameter | Type                   | Description                | Default     |
+|-----------------:|------------------------|----------------------------|-------------|
+|         **path** | text                   | Path                       | None        | 
+|       **method** | omni_http.http_method  | HTTP method [^http-method] | `GET`       | 
+| **query_string** | text                   | Query string               | `NULL`      | 
+|      **headers** | omni_http.http_headers | An array of HTTP headers   | empty array |
+|         **body** | bytea                  | Request body               | `NULL`      |
+ 

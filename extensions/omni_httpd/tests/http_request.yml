@@ -1,0 +1,24 @@
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_EXT_SO
+    max_worker_processes: 64
+  init:
+  - create extension omni_httpd cascade
+
+tests:
+- name: fits `request` CTE
+  query: |
+    with
+      request as (select (omni_httpd.http_request('/')).*)
+    select
+      convert_from(response.body, 'utf-8') as body,
+      response.status,
+     (select json_agg(json_build_object(h.name, h.value)) from unnest(response.headers) h) as headers
+    from
+      request,
+      lateral (select (omni_httpd.http_response(request.path)::omni_httpd.http_response).*) response
+  results:
+    - body: /
+      status: 200
+      headers:
+      - content-type: text/plain; charset=utf-8
