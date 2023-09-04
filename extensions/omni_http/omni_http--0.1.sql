@@ -39,20 +39,3 @@ limit 1
 $$
     set search_path to '@extschema@'
     language sql;
-
-create type http_request as
-(
-    method       http_method,
-    path         text,
-    query_string text,
-    body         bytea,
-    headers      http_headers
-);
-
-
-create type http_response as
-(
-    body    bytea,
-    status  smallint,
-    headers http_headers
-);
