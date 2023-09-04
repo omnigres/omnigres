@@ -16,11 +16,14 @@ Markdown==3.3.7
 markdown2==2.4.8
 MarkupSafe==2.1.1
 mergedeep==1.3.4
+mike==1.1.2
 mkdocs==1.4.2
 mkdocs-awesome-pages-plugin==2.8.0
+mkdocs-glightbox==0.3.4
 mkdocs-include-markdown-plugin==4.0.4
 mkdocs-material==9.1.5
 mkdocs-material-extensions==1.1.1
+mkdocs-mermaid2-plugin==0.6.0
 mkdocs-monorepo-plugin==1.0.4
 natsort==8.2.0
 packaging==23.0
@@ -40,5 +43,6 @@ six==1.16.0
 soupsieve==2.3.2.post1
 text-unidecode==1.3
 urllib3==1.26.14
+verspec==0.1.0
 watchdog==2.2.1
 wcmatch==8.4.1
