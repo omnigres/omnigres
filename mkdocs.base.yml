@@ -43,9 +43,10 @@ markdown_extensions:
   - tables
 
 plugins:
-  - search
-  - monorepo
-  - include-markdown
+- search
+- monorepo
+- include-markdown
+- glightbox
 
 extra_css:
   - stylesheets/extra.css
