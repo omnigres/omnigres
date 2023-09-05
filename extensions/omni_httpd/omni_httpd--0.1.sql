@@ -281,3 +281,59 @@ from
     handler
 where
     config.should_init;
+
+
+-- Built-in primitives
+
+create function static_file_handlers(fs anyelement, handler_priority int)
+    returns table
+            (
+                name     text,
+                query    text,
+                priority int
+            )
+    language plpgsql
+as
+$plpgsql$
+begin
+    perform from pg_extension where extname = 'omni_vfs';
+    if not found then
+        raise exception 'omni_vfs required';
+    end if;
+    perform from pg_extension where extname = 'omni_mimetypes';
+    if not found then
+        raise exception 'omni_mimetypes required';
+    end if;
+    return query
+        select
+            handler_name,
+            handler_query,
+            handler_priority
+        from
+            (values
+                 ('file',
+                  format($$select omni_httpd.http_response(
+            omni_vfs.read(%1$L::%2$s, request.path),
+            headers => array [omni_http.http_header('content-type', coalesce (mime_types.name, 'application/octet-stream'))]::omni_http.http_header[])
+            from request, omni_mimetypes.mime_types
+            left join omni_mimetypes.mime_types_file_extensions mtfe on mtfe.mime_type_id = mime_types.id
+            left join omni_mimetypes.file_extensions on mtfe.file_extension_id = file_extensions.id
+            where request.method = 'GET' and (omni_vfs.file_info(%1$L::%2$s, request.path)).kind = 'file'
+            and
+            request.path like '%%.' || file_extensions.extension
+
+        $$, fs, pg_typeof(fs))),
+                 ('directory',
+                  format($$
+        select
+            omni_httpd.http_response(
+                    omni_vfs.read(%1$L::%2$s, request.path || '/index.html'),
+                    headers => array [omni_http.http_header('content-type', 'text/html')]::omni_http.http_header[])
+        from
+            request
+        where
+            request.method = 'GET' and
+            (omni_vfs.file_info(%1$L::%2$s, request.path)).kind = 'dir'$$, fs,
+                         pg_typeof(fs)))) handlers(handler_name, handler_query);
+end;
+$plpgsql$;
