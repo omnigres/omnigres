@@ -304,9 +304,15 @@ begin
     if not found then
         raise exception 'omni_mimetypes required';
     end if;
-    perform from pg_proc where oid = fs::oid and array_length(proargnames, 1) = 0 or proargnames is null;
+    perform
+    from
+        pg_proc
+    where
+        oid = fs::oid and
+        (array_length(proargnames, 1) = 0 or proargnames is null) and
+        omni_vfs_types_v1.is_valid_fs(prorettype);
     if not found then
-        raise exception 'must have %() function with no arguments', fs;
+        raise exception 'must have %() function with no arguments returning a valid omni_vfs filesystem', fs;
     end if;
     return query
         select
