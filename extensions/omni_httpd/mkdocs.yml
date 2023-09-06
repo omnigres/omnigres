@@ -1,8 +1,9 @@
 INHERIT: ../../mkdocs.base.yml
 site_name: omni_httpd
 nav:
-  - Intro: 'intro.md'
-  - Headers: 'headers.md'
-  - Architecture: 'architecture.md'
-  - Security: 'security.md'
-  - Reverse Proxy: 'reverse_proxy.md'
+- Intro: 'intro.md'
+- Headers: 'headers.md'
+- Architecture: 'architecture.md'
+- Security: 'security.md'
+- Reverse Proxy: 'reverse_proxy.md'
+- Static File Server: 'static_file.md'
