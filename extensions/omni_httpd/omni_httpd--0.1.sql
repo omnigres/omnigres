@@ -285,7 +285,7 @@ where
 
 -- Built-in primitives
 
-create function static_file_handlers(fs anyelement, handler_priority int)
+create function static_file_handlers(fs regproc, handler_priority int)
     returns table
             (
                 name     text,
@@ -304,6 +304,10 @@ begin
     if not found then
         raise exception 'omni_mimetypes required';
     end if;
+    perform from pg_proc where oid = fs::oid and array_length(proargnames, 1) = 0 or proargnames is null;
+    if not found then
+        raise exception 'must have %() function with no arguments', fs;
+    end if;
     return query
         select
             handler_name,
@@ -313,27 +317,26 @@ begin
             (values
                  ('file',
                   format($$select omni_httpd.http_response(
-            omni_vfs.read(%1$L::%2$s, request.path),
+            omni_vfs.read(%1$s(), request.path),
             headers => array [omni_http.http_header('content-type', coalesce (mime_types.name, 'application/octet-stream'))]::omni_http.http_header[])
             from request, omni_mimetypes.mime_types
             left join omni_mimetypes.mime_types_file_extensions mtfe on mtfe.mime_type_id = mime_types.id
             left join omni_mimetypes.file_extensions on mtfe.file_extension_id = file_extensions.id
-            where request.method = 'GET' and (omni_vfs.file_info(%1$L::%2$s, request.path)).kind = 'file'
+            where request.method = 'GET' and (omni_vfs.file_info(%1$s(), request.path)).kind = 'file'
             and
             request.path like '%%.' || file_extensions.extension
 
-        $$, fs, pg_typeof(fs))),
+        $$, fs)),
                  ('directory',
                   format($$
         select
             omni_httpd.http_response(
-                    omni_vfs.read(%1$L::%2$s, request.path || '/index.html'),
+                    omni_vfs.read(%1$s(), request.path || '/index.html'),
                     headers => array [omni_http.http_header('content-type', 'text/html')]::omni_http.http_header[])
         from
             request
         where
             request.method = 'GET' and
-            (omni_vfs.file_info(%1$L::%2$s, request.path)).kind = 'dir'$$, fs,
-                         pg_typeof(fs)))) handlers(handler_name, handler_query);
+            (omni_vfs.file_info(%1$s(), request.path)).kind = 'dir'$$, fs))) handlers(handler_name, handler_query);
 end;
 $plpgsql$;

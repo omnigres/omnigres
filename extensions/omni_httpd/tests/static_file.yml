@@ -8,14 +8,20 @@ instance:
   - create extension omni_httpc cascade
   - create extension omni_vfs cascade
   - create extension omni_mimetypes
-  - select omni_vfs.local_fs('../../../../extensions/omni_httpd/tests/static')
+  - |
+    create function mount_point() returns omni_vfs.local_fs language sql
+    as
+    $$
+    select omni_vfs.local_fs('../../../../extensions/omni_httpd/tests/static')
+    $$
   - name: provision the server
+    notices: [ ]
     query: |
       update omni_httpd.handlers
         set
         query = (select
                    omni_httpd.cascading_query(name, query order by priority desc nulls last)
-                 from (select * from omni_httpd.static_file_handlers(omni_vfs.local_fs('../../../../extensions/omni_httpd/tests/static'), 0)
+                 from (select * from omni_httpd.static_file_handlers('mount_point', 0)
                        union (values
                       ('test',
                        $$ select omni_httpd.http_response('passed') from request where request.path = '/test'$$, 1))) routes)
