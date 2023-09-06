@@ -15,7 +15,6 @@ instance:
     select omni_vfs.local_fs('../../../../extensions/omni_httpd/tests/static')
     $$
   - name: provision the server
-    notices: [ ]
     query: |
       update omni_httpd.handlers
         set
