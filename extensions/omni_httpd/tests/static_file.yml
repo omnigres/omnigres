@@ -1,0 +1,75 @@
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_EXT_SO
+    max_worker_processes: 64
+  init:
+  - create extension omni_httpd cascade
+  - call omni_httpd.wait_for_configuration_reloads(1)
+  - create extension omni_httpc cascade
+  - create extension omni_vfs cascade
+  - create extension omni_mimetypes
+  - |
+    create function mount_point() returns omni_vfs.local_fs language sql
+    as
+    $$
+    select omni_vfs.local_fs('../../../../extensions/omni_httpd/tests/static')
+    $$
+  - name: provision the server
+    query: |
+      update omni_httpd.handlers
+        set
+        query = (select
+                   omni_httpd.cascading_query(name, query order by priority desc nulls last)
+                 from (select * from omni_httpd.static_file_handlers('mount_point', 0)
+                       union (values
+                      ('test',
+                       $$ select omni_httpd.http_response('passed') from request where request.path = '/test'$$, 1))) routes)
+  - call omni_httpd.wait_for_configuration_reloads(1)
+
+tests:
+  
+- name: handle API endpoint
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+           omni_httpc.http_request('http://127.0.0.1:' ||
+                                   (select effective_port from omni_httpd.listeners) || '/test')))
+    select
+      response.status,
+      convert_from(response.body, 'utf-8') as body
+      from response
+  results:
+  - status: 200
+    body: passed
+
+- name: handle file
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+           omni_httpc.http_request('http://127.0.0.1:' ||
+                                   (select effective_port from omni_httpd.listeners) || '/test.json')))
+    select
+      (select json_agg(json_build_object(h.name, h.value)) from unnest(response.headers) h where h.name = 'content-type') as headers,
+      response.status,
+      convert_from(response.body, 'utf-8')::json as body
+      from response
+  results:
+  - status: 200
+    headers:
+      - content-type: application/json
+    body:
+      test: passed
+
+- name: handle directory
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+           omni_httpc.http_request('http://127.0.0.1:' ||
+                                   (select effective_port from omni_httpd.listeners) || '/')))
+    select
+      (select json_agg(json_build_object(h.name, h.value)) from unnest(response.headers) h where h.name = 'content-type') as headers,
+      response.status,
+      convert_from(response.body, 'utf-8') as body
+      from response
+  results:
+  - status: 200
+    headers:
+    - content-type: text/html
+    body: test
