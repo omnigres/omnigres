@@ -16,7 +16,7 @@ ARG DEBIAN_VER_PG=bullseye
 # Build parallelism
 ARG BUILD_PARALLEL_LEVEL
 # plrust version
-ARG PLRUST_VERSION=1.1.3
+ARG PLRUST_VERSION=1.2.3
 
 # Base builder image
 FROM debian:${DEBIAN_VER}-slim AS builder
@@ -68,7 +68,7 @@ RUN apt update && apt install -y curl pkg-config git build-essential libssl-dev 
 USER postgres
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 RUN . "$HOME/.cargo/env" && \
-    rustup default 1.67.1 && rustup component add llvm-tools-preview rustc-dev && \
+    rustup default 1.70.0 && rustup component add llvm-tools-preview rustc-dev && \
     rustup target install x86_64-unknown-linux-gnu && \
     rustup target install aarch64-unknown-linux-gnu
 WORKDIR /var/lib/postgresql
@@ -112,7 +112,7 @@ COPY --from=plrust /var/lib/postgresql/.rustup /var/lib/postgresql/.rustup
 ENV PATH="/var/lib/postgresql/.cargo/bin:$PATH"
 RUN PG_VER=${PG%.*} && apt install -y postgresql-server-dev-${PG_VER}
 USER postgres
-RUN PG_VER=${PG%.*} && rustup default 1.67.1 && cargo pgrx init --pg${PG_VER} /usr/bin/pg_config
+RUN PG_VER=${PG%.*} && rustup default 1.70.0 && cargo pgrx init --pg${PG_VER} /usr/bin/pg_config
 # Prime the compiler so it doesn't take forever on first compilation
 WORKDIR /var/lib/postgresql
 RUN initdb -D prime &&  pg_ctl start -o "-c shared_preload_libraries='plrust' -c plrust.work_dir='/tmp' -c listen_addresses='' " -D prime && \
