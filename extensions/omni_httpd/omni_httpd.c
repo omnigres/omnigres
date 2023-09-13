@@ -286,7 +286,10 @@ Datum handlers_query_validity_trigger(PG_FUNCTION_ARGS) {
     TriggerData *trigger_data = (TriggerData *)(fcinfo->context);
     TupleDesc tupdesc = trigger_data->tg_relation->rd_att;
     bool isnull;
-    Datum query = SPI_getbinval(trigger_data->tg_trigtuple, tupdesc, 2, &isnull);
+    HeapTuple tuple = TRIGGER_FIRED_BY_UPDATE(trigger_data->tg_event) ? trigger_data->tg_newtuple
+                                                                      : trigger_data->tg_trigtuple;
+
+    Datum query = SPI_getbinval(tuple, tupdesc, 2, &isnull);
     if (isnull) {
       ereport(ERROR, errmsg("query can't be null"));
     }
@@ -302,7 +305,7 @@ Datum handlers_query_validity_trigger(PG_FUNCTION_ARGS) {
     if (!omni_sql_is_valid(stmts, &err)) {
       ereport(ERROR, errmsg("invalid query"), errdetail("%s", err));
     }
-    return PointerGetDatum(trigger_data->tg_trigtuple);
+    return PointerGetDatum(tuple);
   } else {
     ereport(ERROR, errmsg("can only be called as a trigger"));
   }

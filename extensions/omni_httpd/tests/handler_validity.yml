@@ -6,31 +6,52 @@ instance:
   - create extension omni_httpd cascade
 
 tests:
-  - query: insert into omni_httpd.handlers (query) values ($$select * from no_such_table$$)
-    commit: true # only enforced at the transaction
-    error:
-      severity: ERROR
-      message: invalid query
-      detail: relation "no_such_table" does not exist
-  - query: insert into omni_httpd.handlers (query) values ($$select request.pth from request$$)
-    commit: true # only enforced at the transaction
-    error:
-      severity: ERROR
-      message: invalid query
-      detail: column request.pth does not exist
-  - query: insert into omni_httpd.handlers (query) values ($$$$)
-    commit: true # only enforced at the transaction
-    error:
-      severity: ERROR
-      message: query can only contain one statement
-  - query: insert into omni_httpd.handlers (query) values ($$select; select$$);
-    commit: true # only enforced at the transaction
-    error:
-      severity: ERROR
-      message: query can only contain one statement
-  - name: valid at the end of the transaction
-    steps:
-    - query: |
-        insert into omni_httpd.handlers (query) values ($$select * from no_such_table$$);
-    - query: create table no_such_table ()
-    commit: true
+- query: insert into omni_httpd.handlers (query) values ($$select * from no_such_table$$)
+  commit: true # only enforced at the transaction
+  error:
+    severity: ERROR
+    message: invalid query
+    detail: relation "no_such_table" does not exist
+- query: insert into omni_httpd.handlers (query) values ($$select request.pth from request$$)
+  commit: true # only enforced at the transaction
+  error:
+    severity: ERROR
+    message: invalid query
+    detail: column request.pth does not exist
+- query: insert into omni_httpd.handlers (query) values ($$$$)
+  commit: true # only enforced at the transaction
+  error:
+    severity: ERROR
+    message: query can only contain one statement
+- query: insert into omni_httpd.handlers (query) values ($$select; select$$);
+  commit: true # only enforced at the transaction
+  error:
+    severity: ERROR
+    message: query can only contain one statement
+- query: |
+    insert into omni_httpd.handlers (query) 
+    select omni_httpd.cascading_query(name, query order by priority desc nulls last) from
+      (values ('route', $$ select omni_httpd.http_response(nonexistent_function()) from request$$, 1))
+      routes(name, query, priority)
+  commit: true # only enforced at the transaction
+  error:
+    severity: ERROR
+    message: invalid query
+    detail: function nonexistent_function() does not exist
+- name: update validation
+  query: |
+    update omni_httpd.handlers set query = (
+     select omni_httpd.cascading_query(name, query order by priority desc nulls last) from
+       (values ('route', $$ select omni_httpd.http_response(nonexistent_function()) from request$$, 1))
+       routes(name, query, priority))
+  commit: true # only enforced at the transaction
+  error:
+    severity: ERROR
+    message: invalid query
+    detail: function nonexistent_function() does not exist
+- name: valid at the end of the transaction
+  steps:
+  - query: |
+      insert into omni_httpd.handlers (query) values ($$select * from no_such_table$$);
+  - query: create table no_such_table ()
+  commit: true
