@@ -88,7 +88,7 @@
 # Defines the following targets:
 #
 # psql_NAME   Start extension it in a fresh database and connects with psql
-# (port assigned randomly)
+# (port assigned randomly unless specified using PGPORT environment variable)
 #
 # NAME_update_results Updates pg_regress test expectations to match results
 # test_verbose_NAME Runs tests verbosely
@@ -413,16 +413,18 @@ ${_loadextensions} \
 
         file(GENERATE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/psql_${NAME}
             CONTENT "#! /usr/bin/env bash
-# Pick random port
-while true
-do
-    export PGPORT=$(( ((RANDOM<<15)|RANDOM) % 49152 + 10000 ))
-    status=\"$(nc -z 127.0.0.1 $random_port < /dev/null &>/dev/null; echo $?)\"
-    if [ \"${status}\" != \"0\" ]; then
-        echo \"Using port $PGPORT\";
-        break;
-    fi
-done
+if [ -z \"$PGPORT\" ]; then
+    # Pick random port
+    while true
+    do
+        export PGPORT=$(( ((RANDOM<<15)|RANDOM) % 49152 + 10000 ))
+        status=\"$(nc -z 127.0.0.1 $PGPORT < /dev/null &>/dev/null; echo $?)\"
+        if [ \"${status}\" != \"0\" ]; then
+            echo \"Using port $PGPORT\";
+            break;
+        fi
+    done
+fi
 export EXTENSION_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"
 rm -rf \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\"
 ${INITDB} -D \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" --no-clean --no-sync
