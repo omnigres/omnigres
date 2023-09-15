@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.5
 
 # Version of PostgreSQL
-ARG PG=15.3
+ARG PG=16.0
 # Build type
 ARG BUILD_TYPE=Release
 # User name to be used for builder
@@ -16,7 +16,7 @@ ARG DEBIAN_VER_PG=bullseye
 # Build parallelism
 ARG BUILD_PARALLEL_LEVEL
 # plrust version
-ARG PLRUST_VERSION=1.2.3
+ARG PLRUST_VERSION=1.2.6
 
 # Base builder image
 FROM debian:${DEBIAN_VER}-slim AS builder
@@ -59,7 +59,7 @@ RUN make -j ${BUILD_PARALLEL_LEVEL} all
 RUN make package
 
 # plrust build
-FROM postgres:${PG}-${DEBIAN_VER_PG}  AS plrust
+FROM ghcr.io/omnigres/postgres-16 AS plrust
 ARG PLRUST_VERSION
 ENV PLRUST_VERSION=${PLRUST_VERSION}
 ARG PG
@@ -68,7 +68,7 @@ RUN apt update && apt install -y curl pkg-config git build-essential libssl-dev 
 USER postgres
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 RUN . "$HOME/.cargo/env" && \
-    rustup default 1.70.0 && rustup component add llvm-tools-preview rustc-dev && \
+    rustup default 1.72.0 && rustup component add llvm-tools-preview rustc-dev && \
     rustup target install x86_64-unknown-linux-gnu && \
     rustup target install aarch64-unknown-linux-gnu
 WORKDIR /var/lib/postgresql
@@ -85,7 +85,7 @@ RUN PG_VER=${PG%.*} && . "$HOME/.cargo/env" && cd plrust/plrust && \
     cargo pgrx package --features "pg${PG_VER} trusted"
 
 # Official slim PostgreSQL build
-FROM postgres:${PG}-${DEBIAN_VER_PG} AS pg-slim
+FROM ghcr.io/omnigres/postgres-16 AS pg-slim
 ARG PG
 ENV PG=${PG}
 ENV POSTGRES_DB=omnigres
@@ -95,7 +95,7 @@ COPY --from=build /build/packaged /omni
 COPY docker/initdb-slim/* /docker-entrypoint-initdb.d/
 RUN cp -R /omni/extension $(pg_config --sharedir)/ && cp -R /omni/*.so $(pg_config --pkglibdir)/ && rm -rf /omni
 RUN apt update && apt -y install libtclcl1 libpython3.9 libperl5.32
-RUN PG_VER=${PG%.*} && apt update && apt -y install postgresql-pltcl-${PG_VER} postgresql-plperl-${PG_VER} postgresql-plpython3-${PG_VER} postgresql-${PG_VER}-pljava
+RUN PG_VER=${PG%.*} && apt update && apt -y install postgresql-pltcl-${PG_VER} postgresql-plperl-${PG_VER} postgresql-plpython3-${PG_VER}
 EXPOSE 8080
 EXPOSE 5432
 
@@ -112,7 +112,7 @@ COPY --from=plrust /var/lib/postgresql/.rustup /var/lib/postgresql/.rustup
 ENV PATH="/var/lib/postgresql/.cargo/bin:$PATH"
 RUN PG_VER=${PG%.*} && apt install -y postgresql-server-dev-${PG_VER}
 USER postgres
-RUN PG_VER=${PG%.*} && rustup default 1.70.0 && cargo pgrx init --pg${PG_VER} /usr/bin/pg_config
+RUN PG_VER=${PG%.*} && rustup default 1.72.0 && cargo pgrx init --pg${PG_VER} /usr/bin/pg_config
 # Prime the compiler so it doesn't take forever on first compilation
 WORKDIR /var/lib/postgresql
 RUN initdb -D prime &&  pg_ctl start -o "-c shared_preload_libraries='plrust' -c plrust.work_dir='/tmp' -c listen_addresses='' " -D prime && \

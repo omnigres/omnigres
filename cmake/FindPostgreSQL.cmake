@@ -55,14 +55,15 @@ if(NOT DEFINED PG_CONFIG)
 
     # Use latest known version if PGVER is not set
     if(NOT PGVER)
-        set(PGVER 15)
+        set(PGVER 16)
     endif()
 
     # If the version is not known, try resolving the alias
-    set(PGVER_ALIAS_15 15.3)
-    set(PGVER_ALIAS_14 14.8)
-    set(PGVER_ALIAS_13 13.11)
-    set(PGVER_ALIAS_12 12.15)
+    set(PGVER_ALIAS_16 16.0)
+    set(PGVER_ALIAS_15 15.4)
+    set(PGVER_ALIAS_14 14.9)
+    set(PGVER_ALIAS_13 13.12)
+    set(PGVER_ALIAS_12 12.16)
 
     if("${PGVER}" MATCHES "[0-9]+.[0-9]+")
         set(PGVER_ALIAS "${PGVER}")
@@ -106,7 +107,7 @@ if(NOT DEFINED PG_CONFIG)
         endif()
 
         execute_process(
-                COMMAND ./configure --enable-debug --prefix "${PGDIR_VERSION}/build"
+                COMMAND ./configure --enable-debug --prefix "${PGDIR_VERSION}/build" --without-icu
                 ${extra_configure_args}
                 WORKING_DIRECTORY "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}"
                 RESULT_VARIABLE pg_configure_result)

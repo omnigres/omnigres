@@ -387,7 +387,7 @@ tests:
 
 - name: pg_hba configuration
   instance: hba
-  query: select * from pg_hba_file_rules
+  query: select line_number, type, database, user_name, address, netmask, auth_method, options, error from pg_hba_file_rules
   results:
   - line_number: 1
     type: local

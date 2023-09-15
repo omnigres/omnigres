@@ -795,10 +795,16 @@ Datum sum_type(PG_FUNCTION_ARGS) {
 
       if (!is_domain) {
         // It's pointless to create domain casts
-        CastCreate(type.objectId, target, cast_to.objectId, COERCION_CODE_ASSIGNMENT,
-                   COERCION_METHOD_FUNCTION, DEPENDENCY_NORMAL);
-        CastCreate(target, type.objectId, cast_from.objectId, COERCION_CODE_ASSIGNMENT,
-                   COERCION_METHOD_FUNCTION, DEPENDENCY_NORMAL);
+        CastCreate(type.objectId, target, cast_to.objectId,
+#if PG_MAJORVERSION_NUM >= 16
+                   InvalidOid, InvalidOid,
+#endif
+                   COERCION_CODE_ASSIGNMENT, COERCION_METHOD_FUNCTION, DEPENDENCY_NORMAL);
+        CastCreate(target, type.objectId, cast_from.objectId,
+#if PG_MAJORVERSION_NUM >= 16
+                   InvalidOid, InvalidOid,
+#endif
+                   COERCION_CODE_ASSIGNMENT, COERCION_METHOD_FUNCTION, DEPENDENCY_NORMAL);
       }
     }
 

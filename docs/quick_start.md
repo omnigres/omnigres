@@ -79,7 +79,7 @@ You can access the HTTP server at [localhost:8080](http://localhost:8080)
     * pgcrypto
     * pgrowlocks
     * pgstattuple
-    * pljava
+    * pljava _(temporarily excluded)_
     * plperl
     * plperlu
     * plpgsql
