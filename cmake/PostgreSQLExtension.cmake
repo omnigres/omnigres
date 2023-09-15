@@ -438,12 +438,12 @@ ${CREATEDB} -h \"$SOCKDIR\" ${NAME}
         ${_cli} -h \"$SOCKDIR\" ${NAME}
         ${PG_CTL} stop -D  \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" -m smart
 "
-            FILE_PERMISSIONS OWNER_EXECUTE OWNER_READ OWNER_WRITE
-        )
+                FILE_PERMISSIONS OWNER_EXECUTE OWNER_READ OWNER_WRITE
+                )
         add_custom_target(psql_${NAME}
                 WORKING_DIRECTORY "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/.."
                 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/psql_${NAME})
-        add_dependencies(psql_${NAME} ${NAME})
+        add_dependencies(psql_${NAME} ${NAME} omni_ext)
     endif()
 
     if(PG_REGRESS)
