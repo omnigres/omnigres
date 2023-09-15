@@ -79,7 +79,7 @@ void shmem_hook() {
   // Calculate if we have enough `max_worker_processes`
   bool found_bgworker_data = false;
 
-#if PG_MAJORVERSION_NUM <= 15
+#if PG_MAJORVERSION_NUM <= 16
   // This relies on internal knowledge of `BackgroundWorkerArray` struct.
   // Not perfect, but I haven't found a better way to get a number of used workers
   // at this stage

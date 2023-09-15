@@ -61,7 +61,7 @@ static cstr expand_libpath_macro_cstr(csview name) {
  * @return char* expanded path
  */
 char *expand_libpath_macro(const char *name) {
-  AssertArg(name != NULL);
+  Assert(name != NULL);
   cstr str = expand_libpath_macro_cstr(csview_from(name));
   char *result = pstrdup(cstr_data(&str));
   cstr_drop(&str);
@@ -99,7 +99,7 @@ static char *file_in_path(const char *name, csview input) {
 }
 
 char *find_library_in_dynamic_libpath(const char *name) {
-  AssertState(Dynamic_library_path != NULL);
+  Assert(Dynamic_library_path != NULL);
 
   cstr str = cstr_from(Dynamic_library_path);
 
@@ -107,7 +107,7 @@ char *find_library_in_dynamic_libpath(const char *name) {
 }
 
 static char *dynamic_library_name(const char *name) {
-  AssertArg(name);
+  Assert(name);
 
   char *filename = (char *)name;
   char *resolved;

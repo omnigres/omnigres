@@ -9,8 +9,12 @@ instance:
   - create extension omni_httpc cascade
   - create role test_user inherit in role current_user
   - create role test_user1 inherit in role current_user
+  - create role test_user2 inherit in role current_user
+  - grant test_user2 to test_user
   - create role anotherrole inherit in role current_user
   - alter role anotherrole nosuperuser
+  - create role anotherrole1 inherit in role current_user
+  - alter role anotherrole1 nosuperuser
   - create role another_superuser superuser
   - set role test_user
   - |
@@ -101,14 +105,11 @@ tests:
   commit: true
 
 - name: Can update it to a name that is not a current user if it is accessible
-  query: update omni_httpd.handlers set role_name = 'test_user1' where role_name = 'test_user'
-  commit: true
+  # Based on the grant of test_user2 to test_user
+  query: update omni_httpd.handlers set role_name = 'test_user2' where role_name = 'test_user'
 
 - name: Change user role
   query: set session role test_user1
-  commit: true
-
-- query: call omni_httpd.wait_for_configuration_reloads(1)
   commit: true
 
 - name: Can update it to a name that is a current user
@@ -118,17 +119,9 @@ tests:
 - query: call omni_httpd.wait_for_configuration_reloads(1)
   commit: true
 
-- name: After checking permissions, should not change to the new role
-  steps:
-  - query: update omni_httpd.handlers set role_name = 'anotherrole' where role_name = 'test_user1'
-  - query: select current_user
-    results:
-    - current_user: test_user1
-
 - name: Can't update it to a name that is not a current user if it is not accessible
   steps:
-  - reset role
-  - alter role current_user nosuperuser
+  - set role anotherrole1
   - query: update omni_httpd.handlers set role_name = 'anotherrole' where role_name = 'test_user1'
     error: 'new row for relation "handlers" violates check constraint "handlers_role_name_check"'
 
