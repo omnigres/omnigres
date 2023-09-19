@@ -1,0 +1,15 @@
+instance:
+  init:
+  - create extension omni_web
+
+tests:
+
+- name: getting a cookie
+  query: select * from omni_web.cookies('PHPSESSID=298zf09hf012fh2; csrftoken=u32t4o3tb3gg43; _gat=1'::text)
+  results:
+  - name: PHPSESSID
+    value: 298zf09hf012fh2
+  - name: csrftoken
+    value: u32t4o3tb3gg43
+  - name: _gat
+    value: 1
