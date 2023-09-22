@@ -126,7 +126,7 @@ tests:
           omni_seq.id_int64_nextval(10, 'seq')
         )
     - query: |
-        insert into t select from generate_series(1, 10) returning id
+        insert into t select from generate_series(0, 10) returning id
       results:
         - id: 10:1
         - id: 10:2
@@ -138,3 +138,4 @@ tests:
         - id: 10:8
         - id: 10:9
         - id: 10:10
+        - id: 10:11
