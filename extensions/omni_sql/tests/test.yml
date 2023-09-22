@@ -11,7 +11,6 @@ tests:
       select
         omni_sql.add_cte(
           omni_sql.add_cte('SELECT', 'a', 'SELECT 0'), 'b', 'SELECT 1')
-      add_cte
     results:
     - add_cte: "WITH a AS (SELECT 0), b AS (SELECT 1) SELECT"
 
@@ -20,14 +19,12 @@ tests:
       select
         omni_sql.add_cte(
           omni_sql.add_cte('SELECT', 'a', 'SELECT 0'), 'b', 'SELECT 1', prepend => true)
-      add_cte
     results:
     - add_cte: "WITH b AS (SELECT 1), a AS (SELECT 0) SELECT"
 
   - name: cte recursive
     query: |
       select omni_sql.add_cte('SELECT', 'a', 'SELECT 0', recursive => true)
-      add_cte
     results:
     - add_cte: "WITH RECURSIVE a AS (SELECT 0) SELECT"
 
@@ -36,7 +33,6 @@ tests:
       select
         omni_sql.add_cte(
           omni_sql.add_cte('UPDATE t SET a = 1', 'a', 'SELECT 0'), 'b', 'SELECT 1')
-      add_cte
     results:
     - add_cte: "WITH a AS (SELECT 0), b AS (SELECT 1) UPDATE t SET a = 1"
 
@@ -45,7 +41,6 @@ tests:
       select
         omni_sql.add_cte(
           omni_sql.add_cte('DELETE FROM t', 'a', 'SELECT 0'), 'b', 'SELECT 1')
-      add_cte
     results:
     - add_cte: "WITH a AS (SELECT 0), b AS (SELECT 1) DELETE FROM t"
 
@@ -58,14 +53,12 @@ tests:
 - name: parameterized
   query: |
     select omni_sql.is_parameterized('SELECT $1')
-    is_parameterized
   results:
     - is_parameterized: true
 
 - name: not parameterized
   query: |
     select omni_sql.is_parameterized('SELECT 1')
-    is_parameterized
   results:
     - is_parameterized: false
 
@@ -78,14 +71,12 @@ tests:
 - name: invalid table
   query: |
     select omni_sql.is_valid('SELECT * FROM no_such_table_exists'::omni_sql.statement)
-    is_valid
   results:
     - is_valid: false
 
 - name: invalid parameter
   query: |
     select omni_sql.is_valid('SELECT $1'::omni_sql.statement)
-    is_valid
   results:
     - is_valid: false
     
@@ -93,6 +84,5 @@ tests:
 - name: mixed valid and invalid statements
   query: |
     select omni_sql.is_valid('SELECT; SELECT $1'::omni_sql.statement)
-    is_valid
   results:
     - is_valid: false
