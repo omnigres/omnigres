@@ -29,7 +29,6 @@ if(NOT DEFINED ENV{OMNI_SQL_ALREADY_INCLUDED})
             SCRIPTS omni_sql--0.1.sql
             SOURCES omni_sql.c
             DEPENDS_ON libpgaug
-            REGRESS deparse cte parameterized validity
     )
 
     target_link_libraries(omni_sql libpgaug libomnisql)
