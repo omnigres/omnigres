@@ -52,7 +52,6 @@ tests:
 - name: deparse
   query: |
     select 'select * from t where v != 1'::omni_sql.statement
-    statement
   results:
     - statement: "SELECT * FROM t WHERE v <> 1"
 
