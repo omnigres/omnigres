@@ -1,0 +1,97 @@
+instance:
+  init:
+  - create extension omni_sql cascade
+
+tests:
+
+- name: cte append
+  query: |
+    select
+      omni_sql.add_cte(
+        omni_sql.add_cte('SELECT', 'a', 'SELECT 0'), 'b', 'SELECT 1')
+    add_cte
+  results:
+    - add_cte: "WITH a AS (SELECT 0), b AS (SELECT 1) SELECT"
+
+- name: cte prepend
+  query: |
+    select
+      omni_sql.add_cte(
+        omni_sql.add_cte('SELECT', 'a', 'SELECT 0'), 'b', 'SELECT 1', prepend => true)
+    add_cte
+  results:
+    - add_cte: "WITH b AS (SELECT 1), a AS (SELECT 0) SELECT"
+
+- name: cte recursive
+  query: |
+    select omni_sql.add_cte('SELECT', 'a', 'SELECT 0', recursive => true)
+    add_cte
+  results:
+    - add_cte: "WITH RECURSIVE a AS (SELECT 0) SELECT"
+
+- name: cte update
+  query: |
+    select
+      omni_sql.add_cte(
+        omni_sql.add_cte('UPDATE t SET a = 1', 'a', 'SELECT 0'), 'b', 'SELECT 1')
+    add_cte
+  results:
+    - add_cte: "WITH a AS (SELECT 0), b AS (SELECT 1) UPDATE t SET a = 1"
+
+- name: cte delete
+  query: |
+    select
+      omni_sql.add_cte(
+        omni_sql.add_cte('DELETE FROM t', 'a', 'SELECT 0'), 'b', 'SELECT 1')
+    add_cte
+  results:
+    - add_cte: "WITH a AS (SELECT 0), b AS (SELECT 1) DELETE FROM t"
+
+- name: deparse
+  query: |
+    select 'select * from t where v != 1'::omni_sql.statement
+    statement
+  results:
+    - statement: "SELECT * FROM t WHERE v <> 1"
+
+- name: parameterized
+  query: |
+    select omni_sql.is_parameterized('SELECT $1')
+    is_parameterized
+  results:
+    - is_parameterized: true
+
+- name: not parameterized
+  query: |
+    select omni_sql.is_parameterized('SELECT 1')
+    is_parameterized
+  results:
+    - is_parameterized: false
+
+- name: valid statement
+  query: |
+    select omni_sql.is_valid('SELECT'::omni_sql.statement)
+  results:
+    - is_valid: true
+    
+- name: invalid table
+  query: |
+    select omni_sql.is_valid('SELECT * FROM no_such_table_exists'::omni_sql.statement)
+    is_valid
+  results:
+    - is_valid: false
+
+- name: invalid parameter
+  query: |
+    select omni_sql.is_valid('SELECT $1'::omni_sql.statement)
+    is_valid
+  results:
+    - is_valid: false
+    
+
+- name: mixed valid and invalid statements
+  query: |
+    select omni_sql.is_valid('SELECT; SELECT $1'::omni_sql.statement)
+    is_valid
+  results:
+    - is_valid: false
