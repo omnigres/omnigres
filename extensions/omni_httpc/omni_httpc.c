@@ -516,6 +516,10 @@ Datum http_execute(PG_FUNCTION_ARGS) {
   }
 
   // Send off all requests
+
+  // Prevent the event loop from going stale and resulting in connection timeouts
+  h2o_evloop_run(ctx.loop, 0);
+
   for (int i = 0; i < num_requests; i++) {
     struct request *request = &requests[i];
     h2o_httpclient_connect(NULL, pool, request, &ctx, connpool, &request->url, NULL, on_connect);
