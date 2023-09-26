@@ -88,12 +88,12 @@ tests:
       from response
   results:
   - status: 200
-    headers: '{"(connection,keep-alive)","(content-length,132)","(server,omni_httpd-0.1)","(content-type,application/json)"}'
+    headers: '{"(connection,keep-alive)","(content-length,127)","(server,omni_httpd-0.1)","(content-type,application/json)"}'
     body:
       method: GET
       path: /test
       qs: q=1
-      headers: '{"(x-test,x-test)","(user-agent,omni_httpc/0.1)"}'
+      headers: '{"(x-test,1)","(user-agent,omni_httpc/0.1)"}'
       body: ""
 
 - name: sending body

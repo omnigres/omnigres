@@ -460,7 +460,7 @@ Datum http_execute(PG_FUNCTION_ARGS) {
           Datum name = GetAttributeByNum(tuple, 1, &isnull);
           if (!isnull) {
             text *name_str = DatumGetTextPP(name);
-            Datum value = GetAttributeByNum(tuple, 1, &isnull);
+            Datum value = GetAttributeByNum(tuple, 2, &isnull);
             if (!isnull) {
               text *value_str = DatumGetTextPP(value);
               h2o_add_header_by_str(pool, headers_vec, VARDATA_ANY(name_str),
