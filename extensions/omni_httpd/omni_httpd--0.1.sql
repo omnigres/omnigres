@@ -309,7 +309,7 @@ where
 
 -- Built-in primitives
 
-create function static_file_handlers(fs regproc, handler_priority int)
+create function static_file_handlers(fs regproc, handler_priority int, listing bool default false)
     returns table
             (
                 name     text,
@@ -349,13 +349,11 @@ begin
                   format($$select omni_httpd.http_response(
             omni_vfs.read(%1$s(), request.path),
             headers => array [omni_http.http_header('content-type', coalesce (mime_types.name, 'application/octet-stream'))]::omni_http.http_header[])
-            from request, omni_mimetypes.mime_types
-            left join omni_mimetypes.mime_types_file_extensions mtfe on mtfe.mime_type_id = mime_types.id
-            left join omni_mimetypes.file_extensions on mtfe.file_extension_id = file_extensions.id
+            from request
+            left join omni_mimetypes.file_extensions on request.path like '%%.' || file_extensions.extension
+            left join omni_mimetypes.mime_types_file_extensions mtfe on mtfe.file_extension_id = file_extensions.id
+            left join omni_mimetypes.mime_types on mtfe.mime_type_id = mime_types.id
             where request.method = 'GET' and (omni_vfs.file_info(%1$s(), request.path)).kind = 'file'
-            and
-            request.path like '%%.' || file_extensions.extension
-
         $$, fs)),
                  ('directory',
                   format($$
@@ -367,6 +365,24 @@ begin
             request
         where
             request.method = 'GET' and
-            (omni_vfs.file_info(%1$s(), request.path)).kind = 'dir'$$, fs))) handlers(handler_name, handler_query);
+            (omni_vfs.file_info(%1$s(), request.path)).kind = 'dir' and
+            (omni_vfs.file_info(%1$s(), request.path || '/index.html')).kind = 'file'
+            $$, fs)),
+                 ('directory_listing',
+                  format($$
+        select
+        omni_httpd.http_response(
+           (select string_agg('<a href="' || case when request.path = '/' then '/' else request.path || '/' end  || name || '">' || name || '</a>', '<br>') from omni_vfs.list(%1$s(), request.path)),
+           headers =>  array [omni_http.http_header('content-type', 'text/html')]::omni_http.http_header[])
+        from
+            request
+        where
+            request.method = 'GET' and
+            (omni_vfs.file_info(%1$s(), request.path)).kind = 'dir' and
+            (omni_vfs.file_info(%1$s(), request.path || '/index.html')) is not distinct from null
+            $$, fs))) handlers(handler_name, handler_query)
+        where
+            (handler_name = 'directory_listing' and listing) or
+            (handler_name != 'directory_listing');
 end;
 $plpgsql$;

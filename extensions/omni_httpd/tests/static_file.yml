@@ -20,14 +20,14 @@ instance:
         set
         query = (select
                    omni_httpd.cascading_query(name, query order by priority desc nulls last)
-                 from (select * from omni_httpd.static_file_handlers('mount_point', 0)
+                 from (select * from omni_httpd.static_file_handlers('mount_point', 0, listing => true)
                        union (values
                       ('test',
                        $$ select omni_httpd.http_response('passed') from request where request.path = '/test'$$, 1))) routes)
   - call omni_httpd.wait_for_configuration_reloads(1)
 
 tests:
-  
+
 - name: handle API endpoint
   query: |
     with response as (select * from omni_httpc.http_execute(
@@ -58,7 +58,7 @@ tests:
     body:
       test: passed
 
-- name: handle directory
+- name: handle directory with index.html
   query: |
     with response as (select * from omni_httpc.http_execute(
            omni_httpc.http_request('http://127.0.0.1:' ||
@@ -73,3 +73,19 @@ tests:
     headers:
     - content-type: text/html
     body: test
+
+- name: handle directory
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+           omni_httpc.http_request('http://127.0.0.1:' ||
+                                   (select effective_port from omni_httpd.listeners) || '/files')))
+    select
+      (select json_agg(json_build_object(h.name, h.value)) from unnest(response.headers) h where h.name = 'content-type') as headers,
+      response.status,
+      convert_from(response.body, 'utf-8') as body
+      from response
+  results:
+  - status: 200
+    headers:
+    - content-type: text/html
+    body: <a href="/files/test.json">test.json</a>
