@@ -30,7 +30,7 @@ def Custom(klass: Any, name: str):
 
 def pg(fun):
     """
-    Decorator that annotates the function to be available as Postges stored procedure
+    Decorator that annotates the function to be available as a Postgres stored procedure
 
     :param fun: Function to be decorated
     :return: same function
