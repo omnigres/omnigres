@@ -1,0 +1,174 @@
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_EXT_SO
+    max_worker_processes: 64
+  init:
+  - create extension omni_python cascade
+  # for pip index
+  - create extension omni_httpd cascade
+  - create extension if not exists omni_vfs cascade
+  - create extension if not exists omni_mimetypes cascade
+  - |
+    create or replace function pypi() returns omni_vfs.local_fs language sql
+    as $$
+    select omni_vfs.local_fs('../../../python-index')
+    $$
+  - call omni_httpd.wait_for_configuration_reloads(1)
+  - name: provision the python index server
+    query: |
+      update omni_httpd.handlers
+      set
+      query = (select
+      omni_httpd.cascading_query(name, query order by priority desc nulls last)
+      from (select * from omni_httpd.static_file_handlers('pypi', 0, listing => true)) routes)
+  - call omni_httpd.wait_for_configuration_reloads(1)
+  - select set_config('omni_python.extra_pip_index_url','http://localhost:'  || (select effective_port from omni_httpd.listeners), false)
+  - select set_config('omni_python.site_packages','omni_python_test_types', false)
+  - select omni_python.install_requirements('omni_python')
+  - |
+    create function identity(type text, preamble text default '') returns text language sql
+    as $$
+    select replace(replace($code$
+    %PREAMBLE%
+    from omni_python import pg
+    @pg
+    def fun(v: %TYPE%) -> %TYPE%:
+      return v
+    $code$, '%TYPE%', type), '%PREAMBLE%', preamble)
+    $$
+  - |
+    create function test_identity(type text, value anyelement, preamble text default '') returns bool language plpgsql
+    as $$
+    declare
+      code text;
+      res bool;
+    begin
+      select identity(type, preamble => preamble) into code;
+      perform omni_python.create_functions(code);
+      select fun(value) = value into res;
+      return res;
+    end;
+    $$
+
+tests:
+
+- name: str
+  query: select test_identity('str', 'text'::text)
+  results:
+  - test_identity: true
+
+- name: int
+  query: select test_identity('int', 100)
+  results:
+  - test_identity: true
+
+- name: bool
+  query: select test_identity('bool', true)
+  results:
+  - test_identity: true
+
+- name: bytes
+  query: select test_identity('bytes', convert_to('hello', 'utf-8'))
+  results:
+  - test_identity: true
+
+- name: decimal.Decimal
+  query: select test_identity('decimal.Decimal', 1000000.2342348203984293, preamble => 'import decimal')
+  results:
+  - test_identity: true
+
+- name: float
+  query: select test_identity('float', 1000000.2348203984293)
+  results:
+  - test_identity: true
+
+- name: list
+  query: select test_identity('list[int]', '{123}'::int[])
+  results:
+  - test_identity: true
+
+- name: composite
+  steps:
+  - |
+    create type employee as (
+      name text,
+      salary integer,
+      age integer
+    )
+  - query: |
+      select test_identity('Composite(Employee, "employee")', 
+                           row('John', 100, 33)::employee, 
+                           preamble => '
+      from omni_python import Composite
+      import typing
+      from dataclasses import dataclass
+      
+      @dataclass 
+      class Employee:
+          name: str
+          salary: int
+          age: int
+      ')
+    results:
+    - test_identity: true
+
+- name: composite types are converted to data classes
+  steps:
+  - |
+    create type employee as (
+      name text,
+      salary integer,
+      age integer
+    )
+  - query: |
+      select omni_python.create_functions($1)
+    params:
+    - |
+      from omni_python import pg, Composite
+      from dataclasses import dataclass
+      
+      @dataclass
+      class Employee:
+          name: str
+          salary: int
+          age: int
+      
+      @pg
+      def age(e: Composite(Employee, "employee")) -> int:
+          return e.age
+  - query: select age(row('John', 100, 33)::employee)
+    results:
+    - age: 33
+
+- name: embedded type hinting
+  steps:
+  - |
+    create type employee as (
+      name text,
+      salary integer,
+      age integer
+    )
+  - query: |
+      select omni_python.create_functions($1)
+    params:
+    - |
+      from omni_python import pg
+      from dataclasses import dataclass
+      
+      @dataclass
+      class Employee:
+          name: str
+          salary: int
+          age: int
+      
+          @classmethod
+          def __pg_type_hint__(cls):
+              from omni_python import Composite
+              return Composite(cls, "employee")
+      
+      @pg
+      def age(e: Employee) -> int:
+          return e.age
+  - query: select age(row('John', 100, 33)::employee)
+    results:
+    - age: 33

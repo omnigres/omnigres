@@ -12,6 +12,7 @@ add_subdirectory(libgluepg_curl)
 add_subdirectory(libgluepg_yyjson)
 add_subdirectory(libgluepg_stc)
 add_subdirectory(extensions)
+add_subdirectory(languages)
 
 include(CPM)
 CPMAddPackage(

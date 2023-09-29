@@ -89,6 +89,11 @@
 #
 # psql_NAME   Start extension it in a fresh database and connects with psql
 # (port assigned randomly unless specified using PGPORT environment variable)
+# Note:
+#
+# If extension root directory contains `.psqlrc`, it will be executed in the begining
+# of the `psql_NAME` session and `:CMAKE_BINARY_DIR` psql variable will be set to the current
+# build directory (`CMAKE_BINARY_DIR`)
 #
 # NAME_update_results Updates pg_regress test expectations to match results
 # test_verbose_NAME Runs tests verbosely
@@ -142,6 +147,8 @@ function(add_postgresql_extension NAME)
                 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../${requirement}" "${CMAKE_CURRENT_BINARY_DIR}/${requirement}")
             elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../../extensions/${requirement}")
                 add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../../extensions/${requirement}" "${CMAKE_CURRENT_BINARY_DIR}/${requirement}")
+            elseif(EXISTS "${PostgreSQL_EXTENSION_DIR}/${requirement}.control")
+                message(STATUS "Found matching installed extension")
             else()
                 message(FATAL_ERROR "Can't find extension ${requirement}")
             endif()
@@ -435,7 +442,10 @@ ${PG_CTL} start -D \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" \
 -o \"-c max_worker_processes=64 -c listen_addresses=* -c port=$PGPORT $<IF:$<BOOL:${_ext_SHARED_PRELOAD}>,-c shared_preload_libraries='${_target_file_name}$<COMMA>$<$<TARGET_EXISTS:omni_ext>:$<TARGET_FILE:omni_ext>>',-c shared_preload_libraries='$<$<TARGET_EXISTS:omni_ext>:$<TARGET_FILE:omni_ext>>'>\" \
 -o -F -o -k -o \"$SOCKDIR\"
 ${CREATEDB} -h \"$SOCKDIR\" ${NAME}
-        ${_cli} -h \"$SOCKDIR\" ${NAME}
+if [ -f \"${CMAKE_CURRENT_SOURCE_DIR}/.psqlrc\" ]; then
+  export PSQLRC=\"${CMAKE_CURRENT_SOURCE_DIR}/.psqlrc\"
+fi
+        ${_cli} --set=CMAKE_BINARY_DIR=${CMAKE_BINARY_DIR} -h \"$SOCKDIR\" ${NAME}
         ${PG_CTL} stop -D  \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" -m smart
 "
                 FILE_PERMISSIONS OWNER_EXECUTE OWNER_READ OWNER_WRITE

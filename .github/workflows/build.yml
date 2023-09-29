@@ -118,7 +118,8 @@ jobs:
     - name: Install necessary dependencies
       run: |
         sudo apt-get update
-        sudo apt install postgresql-server-dev-14
+        sudo apt-get remove -f postgresql-14
+        sudo apt-get install -f postgresql-server-dev-14 postgresql-14 postgresql-plpython3-14
 
     - name: Configure
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Release -DPG_CONFIG=$(which pg_config)

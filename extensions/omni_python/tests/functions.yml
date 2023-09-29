@@ -1,0 +1,182 @@
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_EXT_SO
+    max_worker_processes: 64
+  init:
+  - create extension omni_python cascade
+  # for pip index
+  - create extension omni_httpd cascade
+  - create extension if not exists omni_vfs cascade
+  - create extension if not exists omni_mimetypes cascade
+  - |
+    create or replace function pypi() returns omni_vfs.local_fs language sql
+    as $$
+    select omni_vfs.local_fs('../../../python-index')
+    $$
+  - call omni_httpd.wait_for_configuration_reloads(1)
+  - name: provision the python index server
+    query: |
+      update omni_httpd.handlers
+      set
+      query = (select
+      omni_httpd.cascading_query(name, query order by priority desc nulls last)
+      from (select * from omni_httpd.static_file_handlers('pypi', 0, listing => true)) routes)
+  - call omni_httpd.wait_for_configuration_reloads(1)
+  - select set_config('omni_python.extra_pip_index_url','http://localhost:'  || (select effective_port from omni_httpd.listeners), false)
+  - select set_config('omni_python.site_packages','omni_python_test_functions', false)
+  - select omni_python.install_requirements('omni_python')
+
+tests:
+
+- name: attempts to do top-level imports # should fail on wrong imports. that's how we know
+  query: select * from omni_python.create_functions($1)
+  params:
+  - |
+    import thisdoesnotexist
+  error: "ModuleNotFoundError: No module named 'thisdoesnotexist'"
+
+- name: create multiple @pg functions
+  steps:
+  - query: select * from omni_python.create_functions($1)
+    params:
+    - |
+      from omni_python import pg
+      @pg
+      def fun1(v: str) -> int:
+        return len(v)
+      @pg
+      def fun2(v: str) -> str:
+        return v[::-1]
+    results:
+    - create_functions: fun1(text)
+    - create_functions: fun2(text)
+  - query: select fun1('test')
+    results:
+    - fun1: 4
+  - query: select fun2('test')
+    results:
+    - fun2: tset
+
+- name: ignores non-@pg functions
+  steps:
+  - query: select * from omni_python.create_functions($1)
+    params:
+    - |
+      from omni_python import pg
+      @pg
+      def fun1(v: str) -> int:
+        return len(v)
+      def fun2(v: str) -> str:
+        return v[::-1]
+    results:
+    - create_functions: fun1(text)
+
+- name: allow optional types for NULL-compatibility
+  steps:
+  - query: select * from omni_python.create_functions($1)
+    params:
+    - |
+      from omni_python import pg
+      import typing
+      
+      @pg
+      def fun1(v: typing.Optional[str]) -> typing.Optional[int]:
+        if v is None:
+          return None
+        else:
+          return len(v)
+      @pg
+      def fun2(v: typing.Optional[str]) -> typing.Optional[str]:
+        if v is None:
+          return None
+        else:
+          return v[::-1]
+    results:
+    - create_functions: fun1(text)
+    - create_functions: fun2(text)
+  - query: select fun1('test')
+    results:
+    - fun1: 4
+  - query: select fun2('test')
+    results:
+    - fun2: tset
+  - query: select fun1(null)
+    results:
+    - fun1: null
+  - query: select fun2(null)
+    results:
+    - fun2: null
+
+- name: not replacing existing function
+  steps:
+  - name: create
+    query: select * from omni_python.create_functions($1)
+    params:
+    - |
+      from omni_python import pg
+      @pg
+      def fun1(v: str) -> int:
+        return len(v)
+    results:
+    - create_functions: fun1(text)
+  - name: create again
+    query: select * from omni_python.create_functions($1)
+    params:
+    - |
+      from omni_python import pg
+      @pg
+      def fun1(v: str) -> int:
+        return 0
+    error: function "fun1" already exists with same argument types
+
+- name: replacing existing function if instructed to do so
+  steps:
+  - name: create
+    query: select * from omni_python.create_functions($1)
+    params:
+    - |
+      from omni_python import pg
+      @pg
+      def fun1(v: str) -> int:
+        return len(v)
+    results:
+    - create_functions: fun1(text)
+  - name: create again
+    query: select * from omni_python.create_functions($1, replace => true)
+    params:
+    - |
+      from omni_python import pg
+      @pg
+      def fun1(v: str) -> int:
+        return 0
+  - name: try it
+    query: select fun1('test')
+    results:
+    - fun1: 0
+
+- name: add existing function with a different signature
+  steps:
+  - name: create
+    query: select * from omni_python.create_functions($1)
+    params:
+    - |
+      from omni_python import pg
+      @pg
+      def fun1(v: str) -> int:
+        return len(v)
+    results:
+    - create_functions: fun1(text)
+  - name: create again
+    query: select * from omni_python.create_functions($1)
+    params:
+    - |
+      from omni_python import pg
+      @pg
+      def fun1(v: int) -> int:
+        return 0
+    results:
+    - create_functions: fun1(integer)
+  - name: try it
+    query: select fun1(0)
+    results:
+    - fun1: 0

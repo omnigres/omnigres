@@ -1,22 +1,40 @@
 create table languages
 (
-    id             integer primary key generated always as identity,
-    file_extension text not null unique,
-    language       name        not null,
-    extension      name
+    id                       integer primary key generated always as identity,
+    file_extension           text not null unique,
+    language                 name not null,
+    extension                name,
+    file_processor           name,
+    file_processor_extension name
 );
 
 insert
 into
-    languages (file_extension, language, extension)
+    languages (file_extension, language, extension, file_processor, file_processor_extension)
 values
-    ('sql', 'sql', null),
-    ('pl', 'plperlu', 'plperlu'),
-    ('trusted.pl', 'plperl', 'plperl'),
-    ('py', 'plpython3u', 'plpython3u'),
-    ('tcl', 'pltclu', 'pltclu'),
-    ('trusted.tcl', 'pltcl', 'pltcl'),
-    ('rs', 'plrust', 'plrust');
+    ('sql', 'sql', null, null, null),
+    ('pl', 'plperlu', 'plperlu', null, null),
+    ('trusted.pl', 'plperl', 'plperl', null, null),
+    ('py', 'plpython3u', 'plpython3u', 'omni_python.create_functions', 'omni_python'),
+    ('tcl', 'pltclu', 'pltclu', null, null),
+    ('trusted.tcl', 'pltcl', 'pltcl', null, null),
+    ('rs', 'plrust', 'plrust', null, null);
+
+
+create table auxiliary_tools
+(
+    id                  integer primary key generated always as identity,
+    filename_stem       text,
+    filename_extension  text,
+    processor           name not null,
+    processor_extension name
+);
+
+insert
+into
+    auxiliary_tools (filename_stem, filename_extension, processor, processor_extension)
+values
+    ('requirements', 'txt', 'omni_python.install_requirements', 'omni_python');
 
 select pg_catalog.pg_extension_config_dump('languages', '');
 
@@ -110,11 +128,26 @@ begin
                    case when path = '' then '' else path || '/' end || name      as name,
                    convert_from(omni_vfs.read(fs, path || '/' || name), 'utf-8') as code,
                    language,
-                   extension
+                   extension,
+                   file_processor,
+                   file_processor_extension,
+                   processor,
+                   processor_extension
                from
                    omni_vfs.list_recursively(fs, path, max => 10000) files
-                   join omni_schema.languages on files.name like concat('%', languages.file_extension)
+                   left join omni_schema.languages on files.name like concat('%', languages.file_extension)
+                   left join omni_schema.auxiliary_tools
+                             on files.name like concat(coalesce(auxiliary_tools.filename_stem, '%'), '.',
+                                                       auxiliary_tools.filename_extension)
         loop
+            if rec.language is null and rec.processor is not null then
+                if not exists(select from pg_extension where extname = rec.processor_extension) then
+                    raise notice 'Extension % required for auxiliary tool (required for %) is not installed', rec.processor_extension, rec.name;
+                else
+                    execute format('select %s(%L::text)', rec.processor, rec.code);
+                end if;
+                continue;
+            end if;
             if rec.language = 'sql' then
                 execute rec.code;
             else
@@ -127,7 +160,23 @@ begin
                     -- Prepare and execute the SQL create function construct
                     declare
                         sql_snippet text;
+                        regprocs    regprocedure[];
                     begin
+                        if rec.file_processor is not null then
+                            if (rec.file_processor_extension is not null and
+                                exists(select from pg_extension where extname = rec.file_processor_extension)) or
+                               rec.file_processor_extension is null then
+                                -- Can use the file processor
+                                execute format(
+                                        'select array_agg(processor) from %s(%L::text, filename => %L::text, replace => true) processor',
+                                        rec.file_processor,
+                                        rec.code, rec.name) into regprocs;
+                                if array_length(regprocs, 1) > 0 then
+                                    return next rec.name;
+                                    continue;
+                                end if;
+                            end if;
+                        end if;
                         if rec.code ~ 'SQL\[\[.*\]\]' then
                             sql_snippet := format('%s language %I as %L',
                                                   substring(rec.code from 'SQL\[\[(.*?)\]\]'), rec.language,

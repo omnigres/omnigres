@@ -98,7 +98,7 @@ if(NOT DEFINED PG_CONFIG)
         set(BUILD_POSTGRES_WITH_PYTHON ON)
 
         if(BUILD_POSTGRES_WITH_PYTHON)
-            find_package(Python COMPONENTS Development)
+            find_package(Python REQUIRED COMPONENTS Development)
             if(Python_FOUND)
                 set(extra_configure_args --with-python)
             else()
