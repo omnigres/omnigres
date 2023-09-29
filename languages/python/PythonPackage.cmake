@@ -41,7 +41,7 @@ function(add_python_package NAME)
     add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/python-index/${_py_NAME_normalized}/${_py_PACKAGE_NAME}-${_py_VERSION}.tar.gz ${CMAKE_BINARY_DIR}/python-index/${_py_NAME_normalized}/${_py_PACKAGE_NAME}-${_py_VERSION}-py3-none-any.whl
             COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/dist/${_py_PACKAGE_NAME}-${_py_VERSION}.tar.gz ${CMAKE_BINARY_DIR}/python-index/${_py_NAME_normalized}/${_py_PACKAGE_NAME}-${_py_VERSION}.tar.gz
             COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/dist/${_py_PACKAGE_NAME}-${_py_VERSION}-py3-none-any.whl ${CMAKE_BINARY_DIR}/python-index/${_py_NAME_normalized}/${_py_PACKAGE_NAME}-${_py_VERSION}-py3-none-any.whl
-            DEPENDS ${NAME})
+            DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/dist/${_py_PACKAGE_NAME}-${_py_VERSION}.tar.gz ${CMAKE_CURRENT_BINARY_DIR}/dist/${_py_PACKAGE_NAME}-${_py_VERSION}-py3-none-any.whl)
 
     add_custom_target(
             ${NAME}_indexed ALL
