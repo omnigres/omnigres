@@ -442,8 +442,13 @@ ${PG_CTL} start -D \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" \
 -o \"-c max_worker_processes=64 -c listen_addresses=* -c port=$PGPORT $<IF:$<BOOL:${_ext_SHARED_PRELOAD}>,-c shared_preload_libraries='${_target_file_name}$<COMMA>$<$<TARGET_EXISTS:omni_ext>:$<TARGET_FILE:omni_ext>>',-c shared_preload_libraries='$<$<TARGET_EXISTS:omni_ext>:$<TARGET_FILE:omni_ext>>'>\" \
 -o -F -o -k -o \"$SOCKDIR\"
 ${CREATEDB} -h \"$SOCKDIR\" ${NAME}
-if [ -f \"${CMAKE_CURRENT_SOURCE_DIR}/.psqlrc\" ]; then
-  export PSQLRC=\"${CMAKE_CURRENT_SOURCE_DIR}/.psqlrc\"
+if [ -z \"$PSQLRC\" ]; then
+  if [ -f \"${CMAKE_CURRENT_SOURCE_DIR}/.psqlrc\" ]; then
+    export PSQLRC=\"${CMAKE_CURRENT_SOURCE_DIR}/.psqlrc\"
+  fi
+else
+  echo \"Using supplied .psqlrc: $PSQLRC\"
+  export PSQLRC
 fi
         ${_cli} --set=CMAKE_BINARY_DIR=${CMAKE_BINARY_DIR} -h \"$SOCKDIR\" ${NAME}
         ${PG_CTL} stop -D  \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" -m smart
