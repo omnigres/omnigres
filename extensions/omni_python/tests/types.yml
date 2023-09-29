@@ -139,3 +139,36 @@ tests:
   - query: select age(row('John', 100, 33)::employee)
     results:
     - age: 33
+
+- name: embedded type hinting
+  steps:
+  - |
+    create type employee as (
+      name text,
+      salary integer,
+      age integer
+    )
+  - query: |
+      select omni_python.create_functions($1)
+    params:
+    - |
+      from omni_python import pg
+      from dataclasses import dataclass
+      
+      @dataclass
+      class Employee:
+          name: str
+          salary: int
+          age: int
+      
+          @classmethod
+          def __pg_type_hint__(cls):
+              from omni_python import Composite
+              return Composite(cls, "employee")
+      
+      @pg
+      def age(e: Employee) -> int:
+          return e.age
+  - query: select age(row('John', 100, 33)::employee)
+    results:
+    - age: 33
