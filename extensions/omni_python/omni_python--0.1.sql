@@ -79,17 +79,39 @@ $$
             except TypeError:
                 return 'unknown'
 
+    def process_argument(f, arg):
+        import ast
+        # Eval the function definition to resolve annotations
+        exec(compile(ast.unparse(f), filename or 'unnamed.py', 'single'), code_globals, code_locals)
+        function = code_locals[f.name]
+        type = function.__annotations__[arg]
+        if (type.__class__ == typing.Annotated[int, 0].__class__ and isinstance(type.__metadata__[0],
+                                                                                omni_python.pgtype) and
+                type.__metadata__[1] == "composite"):
+            klass = type.__args__[0]
+            if klass.__module__ == '__main__':
+                return f"{klass.__name__}(**{arg})"
+            else:
+                lookup = ast.unparse(
+                    ast.Subscript(value=ast.Name(id='sys.modules', ctx=ast.Load()),
+                                  slice=ast.Constant(value=klass.__module__),
+                                  ctx=ast.Load()))
+                return f"{lookup}.{klass.__name__}(**{arg})"
+        else:
+            return arg
+
     site_packages = plpy.quote_literal(
         os.path.expanduser(plpy.execute(plpy.prepare("select current_setting('omni_python.site_packages', true)"))[0][
                                'current_setting'] or "~/.omni_python/default"))
 
-    preamble = f"import sys ; sys.path.insert(0, {site_packages}) ; del sys"
+    preamble = f"import sys ; sys.path.insert(0, {site_packages})"
     return [(f.name,
              [a.arg for a in f.args.args],
              [resolve_type(f, a.arg) for a in f.args.args], resolve_type(f, 'return'),
              "{preamble}\n{code}\nreturn {name}({args})".format(preamble=preamble, code=ast.unparse(module),
                                                                 name=f.name,
-                                                                args=', '.join([a.arg for a in f.args.args])))
+                                                                args=', '.join(
+                                                                    [process_argument(f, a.arg) for a in f.args.args])))
             for f in pg_functions]
 $$;
 

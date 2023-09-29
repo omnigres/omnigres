@@ -101,11 +101,41 @@ tests:
                            preamble => '
       from omni_python import Composite
       import typing
+      from dataclasses import dataclass
       
-      class Employee(typing.TypedDict):
+      @dataclass 
+      class Employee:
           name: str
           salary: int
           age: int
       ')
     results:
     - test_identity: true
+
+- name: composite types are converted to data classes
+  steps:
+  - |
+    create type employee as (
+      name text,
+      salary integer,
+      age integer
+    )
+  - query: |
+      select omni_python.create_functions($1)
+    params:
+    - |
+      from omni_python import pg, Composite
+      from dataclasses import dataclass
+      
+      @dataclass
+      class Employee:
+          name: str
+          salary: int
+          age: int
+      
+      @pg
+      def age(e: Composite(Employee, "employee")) -> int:
+          return e.age
+  - query: select age(row('John', 100, 33)::employee)
+    results:
+    - age: 33

@@ -1,4 +1,5 @@
 import typing
+from typing import Any
 from dataclasses import dataclass
 
 
@@ -7,7 +8,17 @@ class pgtype:
     name: str
 
 
-def Composite(klass: typing.TypedDict, name: str):
+def Composite(klass: Any, name: str):
+    """
+    Postgres composite type hint
+    :param klass: Typed dictionary Python class
+    :param name: The name of the type in Postgres
+    :return:
+    """
+    return typing.Annotated[klass, pgtype(name), "composite"]
+
+
+def Custom(klass: Any, name: str):
     """
     Postgres composite type hint
     :param klass: Typed dictionary Python class
