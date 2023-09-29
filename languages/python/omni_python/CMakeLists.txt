@@ -8,4 +8,5 @@ add_python_package(py_omni_python
         VERSION 0.1.0
         SOURCES
         src/omni_python/__init__.py
+        src/omni_python/log.py
         )
