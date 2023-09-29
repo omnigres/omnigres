@@ -134,6 +134,21 @@ begin
 end;
 $$;
 
+create function execute(code text) returns void
+    language plpython3u
+as
+$$
+    import os
+    site_packages = os.path.expanduser(
+        plpy.execute(plpy.prepare("select current_setting('omni_python.site_packages', true)"))[0][
+            'current_setting'] or "~/.omni_python/default")
+    import sys
+    sys.path.insert(0, site_packages)
+    del sys
+    del os
+    exec(compile(code, 'unnamed.py', 'exec'), globals(), locals())
+$$;
+
 create function install_requirements(requirements text) returns void
     language plpython3u
 as

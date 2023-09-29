@@ -57,3 +57,11 @@ tests:
     notices:
     - test
 
+- name: execute
+  query: select omni_python.execute($1)
+  params:
+  - |
+    from omni_python import log
+    log.notice("hello")
+  notices:
+  - hello
