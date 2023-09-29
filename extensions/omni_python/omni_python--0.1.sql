@@ -40,11 +40,6 @@ $$
         if f.__class__ == ast.Import or f.__class__ == ast.ImportFrom or f.__class__ == ast.ClassDef:
             exec(compile(ast.unparse(f), filename or 'unnamed.py', 'single'), code_globals, code_locals)
 
-    #pg_functions = [f for f in module.body if f.__class__ == ast.FunctionDef
-    #                for dec in f.decorator_list if dec.__class__ == ast.Name and dec.id == 'pg']
-
-    #for f in pg_functions:
-    #    f.decorator_list = [dec for dec in f.decorator_list if not (dec.__class__ == ast.Name and dec.id == 'pg')]
     pg_functions = []
     for f in module.body:
         if isinstance(f, ast.FunctionDef):
