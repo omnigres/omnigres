@@ -114,6 +114,7 @@ Below is the current list of components being worked on, experimented with and d
 | [omni_types](extensions/omni_types/README.md)                                               | :white_check_mark: First release candidate                              | Advanced Postgres typing techniques (sum types, etc.) |
 | [omni_seq](extensions/omni_seq/README.md)                                                   | :white_check_mark: First release candidate                              | Extended Postgres sequence tooling                    |
 | [omni_txn](extensions/omni_txn/README.md)                                                   | :white_check_mark: First release candidate                              | Transaction management                                |
+| [omni_python](extensions/omni_python/README.md)                                             | :white_check_mark: First release candidate                              | First-class Python Development Experience             |
 | omni_git                                                                                    | :lab_coat: Early experiments (unpublished)                              | Postgres Git client                                   |
 | omni_reactive                                                                               | :spiral_calendar: Haven't started yet                                   | Reactive queries                                      |
 
