@@ -155,14 +155,14 @@ $$
         f.write(requirements)
 
     os.makedirs(site_packages, exist_ok=True)
-    stdout_str = io.StringIO()
     stderr_str = io.StringIO()
-    with contextlib.redirect_stdout(stdout_str), contextlib.redirect_stderr(stderr_str):
+    with contextlib.redirect_stderr(stderr_str):
         try:
             from pip._internal.cli.main import main as pip
-            pip(["install", "--upgrade", "-r", requirements_txt, "--target", site_packages]
-                + (["--extra-index-url", index] if index is not None else [])
-                )
+            rc = pip(["install", "--upgrade", "-r", requirements_txt, "--target", site_packages]
+                     + (["--extra-index-url", index] if index is not None else []))
+            if rc != 0:
+                raise SystemExit(rc)
         except SystemExit as e:
-            plpy.error("pip failure", detail=stdout_str.getvalue() + stderr_str.getvalue())
+            plpy.error("pip failure", detail=stderr_str.getvalue())
 $$
