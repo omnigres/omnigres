@@ -1,0 +1,177 @@
+instance:
+  init:
+  - create extension omni_json
+  - |
+    create table example (
+      id           integer primary key generated always as identity,
+      first_name   text,
+      last_name    text,
+      dob          date
+    )
+  - insert into example (first_name, last_name, dob) values ('John', 'Doe', '12/12/71')
+
+
+tests:
+
+- name: default
+  steps:
+  - query: select omni_json.define_table_mapping('example')
+  - query: select to_jsonb(example.*) from example
+    results:
+    - to_jsonb:
+        id: 1
+        dob: 1971-12-12
+        first_name: John
+        last_name: Doe
+  - query: select jsonb_populate_record(null::example, to_jsonb(example.*)) = example as equal from example
+    results:
+    - equal: true
+
+- name: exclusion
+  steps:
+  - query: select omni_json.define_table_mapping('example', $1::jsonb)
+    params:
+    - columns:
+        dob:
+          exclude: true
+  - query: select to_jsonb(example.*) from example
+    results:
+    - to_jsonb:
+        id: 1
+        first_name: John
+        last_name: Doe
+  - query: select (jsonb_populate_record(example.*, to_jsonb(example.*))).dob = example.dob as equal from example
+    results:
+    - equal: true
+
+- name: rename (with `path`)
+  steps:
+  - query: select omni_json.define_table_mapping('example', $1::jsonb)
+    params:
+    - columns:
+        dob:
+          path: date_of_birth
+  - query: select to_jsonb(example.*) from example
+    results:
+    - to_jsonb:
+        id: 1
+        date_of_birth: 1971-12-12
+        first_name: John
+        last_name: Doe
+  - query: select jsonb_populate_record(null::example, to_jsonb(example.*)) = example as equal from example
+    results:
+    - equal: true
+
+- name: relocate (with `path`) to a sub-object
+  steps:
+  - query: select omni_json.define_table_mapping('example', $1::jsonb)
+    params:
+    - columns:
+        first_name:
+          path: ['name','first']
+        last_name:
+          path: [ 'name', 'last' ]
+  - query: select to_jsonb(example.*) from example
+    results:
+    - to_jsonb:
+        id: 1
+        dob: 1971-12-12
+        name:
+          first: John
+          last: Doe
+  - query: select jsonb_populate_record(null::example, to_jsonb(example.*)) = example as equal from example
+    results:
+    - equal: true
+
+- name: relocate (with `path`) to a sub-array
+  steps:
+  - query: select omni_json.define_table_mapping('example', $1::jsonb)
+    params:
+    - columns:
+        first_name:
+          path: ['name', 0]
+        last_name:
+          path: ['name', 1]
+  - query: select to_jsonb(example.*) from example
+    results:
+    - to_jsonb:
+        id: 1
+        dob: 1971-12-12
+        name:
+          - John
+          - Doe
+  - query: select jsonb_populate_record(null::example, to_jsonb(example.*)) = example as equal from example
+    results:
+    - equal: true
+
+- name: relocate (with `path`) to an array
+  steps:
+  - query: select omni_json.define_table_mapping('example', $1::jsonb)
+    params:
+    - columns:
+        first_name:
+          path: [0]
+        last_name:
+          path: [1]
+  # FIXME: This is not perfect behavior. It currently makes these columns
+  # simply vanish. Throw an error instead?
+  - query: select to_jsonb(example.*) from example
+    results:
+    - to_jsonb:
+        id: 1
+        dob: 1971-12-12
+  - query: select jsonb_populate_record(null::example, to_jsonb(example.*)) = example as equal from example
+    results:
+    # This is failing because of the FIXME issue above
+    - equal: false
+
+- name: converting back with pre-set values
+  steps:
+  - query: select omni_json.define_table_mapping('example')
+  - query: select (jsonb_populate_record(row(example.id, 'Hello', 'World', example.dob)::example, '{}')).* from example
+    results:
+    - id: 1
+      first_name: Hello
+      last_name: World
+      dob: 1971-12-12
+
+- name: converting back with pre-set values from moved paths
+  steps:
+  - query: select omni_json.define_table_mapping('example', $1)
+    params:
+    - columns:
+        first_name:
+          path: [ 'name','first' ]
+        last_name:
+          path: [ 'name', 'last' ]
+  - query: select (jsonb_populate_record(row(example.id, 'Hello', 'World', example.dob)::example, '{}')).* from example
+    results:
+    - id: 1
+      first_name: Hello
+      last_name: World
+      dob: 1971-12-12
+
+- name: updating
+  steps:
+  - query: select omni_json.define_table_mapping('example')
+  - query: |
+      update example set (dob, first_name, last_name) = (select dob, first_name, last_name from jsonb_populate_record(example.*, '{"dob": "1981-12-12"}'))
+      returning example.*
+    results:
+    - id: 1
+      first_name: John
+      last_name: Doe
+      dob: 1981-12-12
+
+- name: inserting
+  steps:
+  - query: select omni_json.define_table_mapping('example')
+  - query: |
+      insert into example (dob, first_name, last_name) 
+      (select dob, first_name, last_name from jsonb_populate_record(null::example, '{"first_name": "Jane", "last_name": "Doe", "dob": "1981-12-12"}'))
+      returning example.*
+    results:
+    - id: 2
+      first_name: Jane
+      last_name: Doe
+      dob: 1981-12-12

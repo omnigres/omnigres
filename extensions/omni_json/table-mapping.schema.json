@@ -1,0 +1,47 @@
+{
+  "$id": "https://omnigres.org/omni_json/table-mapping.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Mapping between Postgres tables and JSON",
+  "type": "object",
+  "properties": {
+    "columns": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/column"
+      }
+    }
+  },
+  "$defs": {
+    "column": {
+      "type": "object",
+      "properties": {
+        "exclude": {
+          "type": "boolean"
+        },
+        "path": {
+          "oneOf": [
+            {
+              "type": "string",
+              "description": "Single-element key path"
+            },
+            {
+              "type": "array",
+              "description": "Multi-element path",
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "description": "key name"
+                  },
+                  { "type":  "integer",
+                    "description": "array index"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
