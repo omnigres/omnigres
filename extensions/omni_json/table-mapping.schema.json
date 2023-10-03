@@ -1,0 +1,93 @@
+{
+  "$id": "https://omnigres.org/omni_json/table-mapping.schema.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "description": "Mapping between Postgres tables and JSON",
+  "type": "object",
+  "properties": {
+    "columns": {
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "#/$defs/column"
+      }
+    }
+  },
+  "$defs": {
+    "column": {
+      "type": "object",
+      "properties": {
+        "exclude": {
+          "type": "boolean"
+        },
+        "transform": {
+          "description": "Value transformation",
+          "type": "object",
+          "properties": {
+            "input": {
+              "description": "Value transformation from JSON into column",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "jsonb",
+                    "json",
+                    "text"
+                  ],
+                  "description": "Pass JSON value as JSONB, JSON or text",
+                  "default": "jsonb"
+                },
+                "function": {
+                  "type": "string",
+                  "description": "Transformer function name"
+                }
+              }
+            },
+            "output": {
+              "description": "Value transformation from column into JSON",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "jsonb",
+                    "json",
+                    "text"
+                  ],
+                  "description": "Function will return transformed value as JSONB, JSON or text",
+                  "default": "jsonb"
+                },
+                "function": {
+                  "type": "string",
+                  "description": "Transformer function name"
+                }
+              }
+            }
+          }
+        },
+        "path": {
+          "oneOf": [
+            {
+              "type": "string",
+              "description": "Single-element key path"
+            },
+            {
+              "type": "array",
+              "description": "Multi-element path",
+              "items": {
+                "oneOf": [
+                  {
+                    "type": "string",
+                    "description": "key name"
+                  },
+                  { "type":  "integer",
+                    "description": "array index"
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+}
