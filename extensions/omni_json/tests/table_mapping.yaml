@@ -44,6 +44,18 @@ tests:
     results:
     - equal: true
 
+- name: exclusion on populating records
+  steps:
+  - query: select omni_json.define_table_mapping('example', $1::jsonb)
+    params:
+    - columns:
+        dob:
+          exclude: true
+  - query: |
+      select dob from jsonb_populate_record(null::example, '{"first_name": "Jane", "last_name": "Doe", "dob": "1981-12-12"}')
+    results:
+    - dob: null
+
 - name: rename (with `path`)
   steps:
   - query: select omni_json.define_table_mapping('example', $1::jsonb)
