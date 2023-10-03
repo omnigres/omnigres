@@ -9,6 +9,12 @@ instance:
       dob          date
     )
   - insert into example (first_name, last_name, dob) values ('John', 'Doe', '12/12/71')
+  - |
+    create table users (
+      id           integer primary key generated always as identity,
+      email        text not null,
+      password     text not null
+    )
 
 
 tests:
@@ -187,3 +193,185 @@ tests:
       first_name: Jane
       last_name: Doe
       dob: 1981-12-12
+
+- name: exclusion
+  steps:
+  - query: select omni_json.define_table_mapping('example', $1::jsonb)
+    params:
+    - columns:
+        dob:
+          exclude: true
+  - query: select to_jsonb(example.*) from example
+    results:
+    - to_jsonb:
+        id: 1
+        first_name: John
+        last_name: Doe
+  - query: select (jsonb_populate_record(example.*, to_jsonb(example.*))).dob = example.dob as equal from example
+    results:
+    - equal: true
+
+- name: transformations
+  tests:
+  - name: input
+    tests:
+    - name: text type
+      steps:
+      - |
+        create function encrypt_password(password text) returns text language sql as
+        $$
+          select 'encrypted_password_text'
+        $$
+      - query: select omni_json.define_table_mapping('users', $1::jsonb)
+        params:
+        - columns:
+            password:
+              transform:
+                input:
+                  type: text
+                  function: encrypt_password
+      - query: select (jsonb_populate_record(null::users, to_jsonb(row(null, null, 'password')::users))).password
+        results:
+        - password: encrypted_password_text
+    - name: jsonb type
+      steps:
+      - |
+        create function encrypt_password(password jsonb) returns text language sql as
+        $$
+          select 'encrypted_password_jsonb'
+        $$
+      - query: select omni_json.define_table_mapping('users', $1::jsonb)
+        params:
+        - columns:
+            password:
+              transform:
+                input:
+                  type: jsonb
+                  function: encrypt_password
+      - query: select (jsonb_populate_record(null::users, to_jsonb(row(null, null, 'password')::users))).password
+        results:
+        - password: encrypted_password_jsonb
+    - name: json type
+      steps:
+      - |
+        create function encrypt_password(password json) returns text language sql as
+        $$
+          select 'encrypted_password_json'
+        $$
+      - query: select omni_json.define_table_mapping('users', $1::jsonb)
+        params:
+        - columns:
+            password:
+              transform:
+                input:
+                  type: json
+                  function: encrypt_password
+      - query: select (jsonb_populate_record(null::users, to_jsonb(row(null, null, 'password')::users))).password
+        results:
+        - password: encrypted_password_json
+    - name: moved fields
+      steps:
+      - |
+        create function encrypt_password(password text) returns text language sql as
+        $$
+          select 'encrypted_password_text'
+        $$
+      - query: select omni_json.define_table_mapping('users', $1::jsonb)
+        params:
+        - columns:
+            password:
+              path: [ "private", "password" ]
+              transform:
+                input:
+                  type: text
+                  function: encrypt_password
+      - query: |
+          select (jsonb_populate_record(null::users, '{"private": {"password": "pwd"}}')).password
+        results:
+        - password: encrypted_password_text
+  - name: output
+    tests:
+    - name: text
+      steps:
+      - |
+        create function mask_password(password text) returns text language sql as
+        $$
+          select 'HIDDEN'
+        $$
+      - query: select omni_json.define_table_mapping('users', $1::jsonb)
+        params:
+        - columns:
+            password:
+              transform:
+                output:
+                  type: text
+                  function: mask_password
+
+      - query: |
+          select to_jsonb(row(1, 'foo@bar.com', 'password')::users)->'password' as password
+        results:
+        - password: HIDDEN
+    - name: jsonb
+      steps:
+      - |
+        create function mask_password(password text) returns jsonb language sql as
+        $$
+          select '{"value": "hidden"}'::jsonb
+        $$
+      - query: select omni_json.define_table_mapping('users', $1::jsonb)
+        params:
+        - columns:
+            password:
+              transform:
+                output:
+                  type: jsonb
+                  function: mask_password
+
+      - query: |
+          select (to_jsonb(row(1, 'foo@bar.com', 'password')::users)->'password') as password
+        results:
+        - password:
+            value: hidden
+    - name: json
+      steps:
+      - |
+        create function mask_password(password text) returns json language sql as
+        $$
+          select '{"value": "hidden"}'::json
+        $$
+      - query: select omni_json.define_table_mapping('users', $1::jsonb)
+        params:
+        - columns:
+            password:
+              transform:
+                output:
+                  type: json
+                  function: mask_password
+
+      - query: |
+          select (to_jsonb(row(1, 'foo@bar.com', 'password')::users)->'password') as password
+        results:
+        - password:
+            value: hidden
+    - name: moved fields
+      steps:
+      - |
+        create function mask_password(password text) returns text language sql as
+        $$
+          select 'HIDDEN'
+        $$
+      - query: select omni_json.define_table_mapping('users', $1::jsonb)
+        params:
+        - columns:
+            password:
+              path: [ "private","password" ]
+              transform:
+                output:
+                  type: text
+                  function: mask_password
+
+      - query: |
+          select to_jsonb(row(1, 'foo@bar.com', 'password')::users)->'private' as private
+        results:
+        - private:
+            password: HIDDEN

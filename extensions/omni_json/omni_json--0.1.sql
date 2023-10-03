@@ -60,7 +60,6 @@ as
 $$
 declare
     map_code     text;
-    tmp          text;
     col          record;
     build_pairs  text[] = '{}';
     ensure_paths text[] = '{}';
@@ -75,22 +74,39 @@ begin
             declare
                 colannotation jsonb;
                 name          text := col.name;
+                output        jsonb;
+                val           text;
             begin
                 colannotation := annotation -> 'columns' -> name;
 
+                val := 'rec.' || quote_ident(col.name);
                 if colannotation is not null then
                     if colannotation -> 'exclude' is not null and
                        jsonb_typeof(colannotation -> 'exclude') = 'boolean' and
                        (colannotation -> 'exclude')::bool then
                         continue;
                     end if;
+
+                    output := colannotation -> 'transform' -> 'output';
+
+                    if output is not null and output -> 'function' is not null then
+                        val := case
+                                   when output ->> 'type' = 'json' then
+                                       format('%s(%s)::jsonb', output ->> 'function', val)
+                                   when output ->> 'type' = 'text' then
+                                       format('%s(%s)::text', output ->> 'function', val)
+                                   else
+                                       format('%s(%s)', output ->> 'function', val)
+                            end;
+                    end if;
+
                     if colannotation -> 'path' is not null and (jsonb_typeof(colannotation -> 'path') = 'array') then
                         declare
                             path text[] :=
                                 array(select jsonb_array_elements_text(colannotation -> 'path'));
                         begin
                             ensure_paths :=
-                                        array [quote_literal(path::text), 'rec.' || quote_ident(col.name)] ||
+                                        array [quote_literal(path::text), val] ||
                                         ensure_paths;
                             -- Don't build pairs
                             continue;
@@ -100,7 +116,7 @@ begin
                         name := colannotation ->> 'path';
                     end if;
                 end if;
-                build_pairs := build_pairs || array [quote_literal(name), 'rec.' || quote_ident(col.name)];
+                build_pairs := build_pairs || array [quote_literal(name), val];
             end;
         end loop;
 
@@ -132,18 +148,54 @@ begin
 
     for i in 1..coalesce(array_length(build_pairs, 1), 0) by 2
         loop
-            tmp := build_pairs[i + 1];
-            build_pairs[i + 1] := format('coalesce(from_json->%2$s, to_jsonb(%1$s))', tmp, build_pairs[i]);
-            build_pairs[i] := quote_literal(substring(tmp from 5));
+            declare
+                tmp   text;
+                tmp1  text;
+                input jsonb;
+            begin
+                tmp := build_pairs[i + 1];
+                tmp1 := format('from_json->%s', build_pairs[i]);
+                input := annotation -> 'columns' -> substring(tmp from 5) -> 'transform' -> 'input';
+                if input is not null and input -> 'function' is not null then
+                    tmp1 := case
+                                when input ->> 'type' = 'json' then
+                                    format('to_jsonb(%s((%s)::json))', input ->> 'function', tmp1)
+                                when input ->> 'type' = 'text' then
+                                    format('to_jsonb(%s((%s)::text))', input ->> 'function', tmp1)
+                                else
+                                    format('to_jsonb(%s(%s))', input ->> 'function', tmp1)
+                        end;
+                end if;
+                build_pairs[i + 1] := format('coalesce(%1$s, to_jsonb(%2$s))', tmp1, tmp);
+                build_pairs[i] := quote_literal(substring(tmp from 5));
+            end;
         end loop;
 
     for i in 1..coalesce(array_length(ensure_paths, 1), 0) by 2
         loop
-            build_pairs := build_pairs ||
-                           array [quote_literal(substring(ensure_paths[i + 1] from 5)), format(
-                                   'coalesce(from_json#>%2$s, to_jsonb(%1$s))', ensure_paths[i + 1], ensure_paths[i])];
+            declare
+                tmp   text;
+                tmp1  text;
+                input jsonb;
+            begin
+                tmp := substring(ensure_paths[i + 1] from 5);
+                tmp1 := format('from_json#>%s', ensure_paths[i]);
+                input := annotation -> 'columns' -> tmp -> 'transform' -> 'input';
+                if input is not null and input -> 'function' is not null then
+                    tmp1 := case
+                                when input ->> 'type' = 'json' then
+                                    format('to_jsonb(%s((%s)::json))', input ->> 'function', tmp1)
+                                when input ->> 'type' = 'text' then
+                                    format('to_jsonb(%s((%s)::text))', input ->> 'function', tmp1)
+                                else
+                                    format('to_jsonb(%s(%s))', input ->> 'function', tmp1)
+                        end;
+                end if;
+                build_pairs := build_pairs ||
+                               array [quote_literal(tmp), format(
+                                       'coalesce(%1$s, to_jsonb(%2$s))', tmp1, ensure_paths[i + 1])];
+            end;
         end loop;
-
 
     -- Built object
     map_code := format('jsonb_build_object(%s)',

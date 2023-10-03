@@ -160,6 +160,55 @@ Now, if you re-run `to_jsonb` you will get this:
 }
 ```
 
+### Column transformation
+
+In certain cases (such as dealing with sensitive information or non-conforming
+data), it would be beneficial to be able to transform data when it is converted
+either from JSON or to JSON.
+
+This is where `transform` option comes into the picture.
+
+```json
+{
+  "columns": {
+    "password": {
+      "transform": {
+        "input": {
+          "type": "text",
+          "function": "encrypt_password"
+        }
+      }
+    }
+  }
+}
+```
+
+The above will apply `encrypt_password(text)` to convert `password` in the JSON
+object to the value in a record. Other `type`s are: `json` and `jsonb` and they
+will call `encrypt_password(json)` and `encrypt_password(jsonb)`
+respectively.
+
+Similarly, there's support for serializing back to JSON:
+
+```json
+{
+  "columns": {
+    "password": {
+      "transform": {
+        "output": {
+          "type": "text",
+          "function": "mask_password"
+        }
+      }
+    }
+  }
+}
+```
+
+This will make `to_jsonb` call `mask_password(password)` and expect it to
+return `text`. Similarly, other supported types for the return value are
+`json` and `jsonb`.
+
 ## Operational Guide
 
 ### Retrieving JSON

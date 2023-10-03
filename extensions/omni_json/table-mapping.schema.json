@@ -18,6 +18,52 @@
         "exclude": {
           "type": "boolean"
         },
+        "transform": {
+          "description": "Value transformation",
+          "type": "object",
+          "properties": {
+            "input": {
+              "description": "Value transformation from JSON into column",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "jsonb",
+                    "json",
+                    "text"
+                  ],
+                  "description": "Pass JSON value as JSONB, JSON or text",
+                  "default": "jsonb"
+                },
+                "function": {
+                  "type": "string",
+                  "description": "Transformer function name"
+                }
+              }
+            },
+            "output": {
+              "description": "Value transformation from column into JSON",
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": [
+                    "jsonb",
+                    "json",
+                    "text"
+                  ],
+                  "description": "Function will return transformed value as JSONB, JSON or text",
+                  "default": "jsonb"
+                },
+                "function": {
+                  "type": "string",
+                  "description": "Transformer function name"
+                }
+              }
+            }
+          }
+        },
         "path": {
           "oneOf": [
             {
