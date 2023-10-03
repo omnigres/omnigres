@@ -144,7 +144,6 @@ begin
                                    'coalesce(from_json#>%2$s, to_jsonb(%1$s))', ensure_paths[i + 1], ensure_paths[i])];
         end loop;
 
-    raise notice '%', map_code;
 
     -- Built object
     map_code := format('jsonb_build_object(%s)',
