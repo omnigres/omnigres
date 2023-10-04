@@ -51,7 +51,7 @@ $$
     def resolve_type(function, arg):
         type = function.__annotations__[arg]
         if hasattr(type, '__pg_type_hint__') and callable(type.__pg_type_hint__):
-            # FIXME: can't use outer scope imports
+            type.__pg_type_hint__.__globals__.update(code_locals)
             type = type.__pg_type_hint__()
         if type is None:
             return 'unknown'
@@ -79,7 +79,7 @@ $$
         import ast
         type = function.__annotations__[arg]
         if hasattr(type, '__pg_type_hint__') and callable(type.__pg_type_hint__):
-            # FIXME: can't use outer scope imports
+            type.__pg_type_hint__.__globals__.update(code_locals)
             type = type.__pg_type_hint__()
         if (type.__class__ == typing.Annotated[int, 0].__class__ and isinstance(type.__metadata__[0],
                                                                                 omni_python.pgtype) and
