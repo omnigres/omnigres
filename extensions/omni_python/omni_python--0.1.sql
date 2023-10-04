@@ -31,31 +31,24 @@ $$
     del sys
     import omni_python
 
-    module = ast.parse(code)
-
-    # Load imports and classes so we can resolve annotations
     code_locals = {}
     code_globals = globals()
-    for f in module.body:
-        if f.__class__ == ast.Import or f.__class__ == ast.ImportFrom or f.__class__ == ast.ClassDef:
-            exec(compile(ast.unparse(f), filename or 'unnamed.py', 'single'), code_globals, code_locals)
+
+    try:
+        exec(compile(code, filename or 'unnamed.py', 'exec'), code_globals, code_locals)
+    except SyntaxError:
+        pass
 
     pg_functions = []
-    for f in module.body:
-        if isinstance(f, ast.FunctionDef):
-            code_locals_ = code_locals.copy()
-            exec(compile(ast.unparse(f), filename or 'unnamed.py', 'single'), code_globals, code_locals_)
-            function = code_locals_[f.name]
-            if hasattr(function, '__pg_stored_procedure__'):
-                pg_functions.append(f)
+    for name, value in code_locals.items():
+        if callable(value):
+            if hasattr(value, '__pg_stored_procedure__'):
+                pg_functions.append((name, value))
 
     __types__ = {str: 'text', bool: 'boolean', bytes: 'bytea', int: 'int',
                  decimal.Decimal: 'numeric', float: 'double precision'}
 
-    def resolve_type(f, arg):
-        # Eval the function definition to resolve annotations
-        exec(compile(ast.unparse(f), filename or 'unnamed.py', 'single'), code_globals, code_locals)
-        function = code_locals[f.name]
+    def resolve_type(function, arg):
         type = function.__annotations__[arg]
         if hasattr(type, '__pg_type_hint__') and callable(type.__pg_type_hint__):
             # FIXME: can't use outer scope imports
@@ -82,11 +75,8 @@ $$
             except TypeError:
                 return 'unknown'
 
-    def process_argument(f, arg):
+    def process_argument(function, arg):
         import ast
-        # Eval the function definition to resolve annotations
-        exec(compile(ast.unparse(f), filename or 'unnamed.py', 'single'), code_globals, code_locals)
-        function = code_locals[f.name]
         type = function.__annotations__[arg]
         if hasattr(type, '__pg_type_hint__') and callable(type.__pg_type_hint__):
             # FIXME: can't use outer scope imports
@@ -111,14 +101,18 @@ $$
                                'current_setting'] or "~/.omni_python/default"))
 
     preamble = f"import sys ; sys.path.insert(0, {site_packages})"
-    return [(f.name,
-             [a.arg for a in f.args.args],
-             [resolve_type(f, a.arg) for a in f.args.args], resolve_type(f, 'return'),
-             "{preamble}\n{code}\nreturn {name}({args})".format(preamble=preamble, code=ast.unparse(module),
-                                                                name=f.name,
+
+    import inspect
+
+    return [(name,
+             [a for a in inspect.getfullargspec(f).args],
+             [resolve_type(f, a) for a in inspect.getfullargspec(f).args], resolve_type(f, 'return'),
+             "{preamble}\n{code}\nreturn {name}({args})".format(preamble=preamble, code=code,
+                                                                name=name,
                                                                 args=', '.join(
-                                                                    [process_argument(f, a.arg) for a in f.args.args])))
-            for f in pg_functions]
+                                                                    [process_argument(f, a) for a in
+                                                                     inspect.getfullargspec(f).args])))
+            for name, f in pg_functions]
 $$;
 
 create function create_functions(code text, filename text default null, replace boolean default false) returns setof regprocedure
