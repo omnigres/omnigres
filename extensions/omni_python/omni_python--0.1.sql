@@ -10,14 +10,13 @@ create function functions(code text, filename text default null)
     language plpython3u
 as
 $$
-    code_globals = globals()
-
     import os
     import ast
     import decimal
     import typing
     import types
     import sys
+    import hashlib
     # types.UnionType has only been available since Python 3.10
     if sys.version_info >= (3, 10):
         from types import UnionType
@@ -33,8 +32,12 @@ $$
 
     code_locals = {}
 
+    hash = hashlib.sha256(code.encode()).hexdigest()
     try:
-        exec(compile(code, filename or 'unnamed.py', 'exec'), code_globals, code_locals)
+        exec(compile(code, filename or 'unnamed.py', 'exec'), code_locals)
+        if '__omni_python_functions__' not in GD:
+            GD['__omni_python__functions__'] = {}
+        GD['__omni_python__functions__'][hash] = code_locals
     except SyntaxError:
         pass
 
@@ -85,6 +88,9 @@ $$
             klass = type.__args__[0]
             if klass.__module__ == '__main__':
                 return f"{klass.__name__}(**{arg})"
+            elif klass.__module__ == 'builtins':
+                lookup = f"GD['__omni_python__functions__']['{hash}']"
+                return f"{lookup}['{klass.__name__}'](**{arg})"
             else:
                 lookup = ast.unparse(
                     ast.Subscript(value=ast.Name(id='sys.modules', ctx=ast.Load()),
@@ -94,22 +100,32 @@ $$
         else:
             return arg
 
-    site_packages = plpy.quote_literal(
-        os.path.expanduser(plpy.execute(plpy.prepare("select current_setting('omni_python.site_packages', true)"))[0][
-                               'current_setting'] or "~/.omni_python/default"))
-
-    preamble = f"import sys ; sys.path.insert(0, {site_packages})"
+    site_packages = plpy.quote_literal(site_packages)
 
     import inspect
+
+    from textwrap import dedent
 
     return [(name,
              [a for a in inspect.getfullargspec(f).args],
              [resolve_type(f, a) for a in inspect.getfullargspec(f).args], resolve_type(f, 'return'),
-             "{preamble}\n{code}\nreturn {name}({args})".format(preamble=preamble, code=code,
-                                                                name=name,
-                                                                args=', '.join(
-                                                                    [process_argument(f, a) for a in
-                                                                     inspect.getfullargspec(f).args])))
+             dedent("""
+             import sys
+             if '__omni_python__functions__' in GD:
+                 if '{hash}' in GD['__omni_python__functions__']:
+                    return GD['__omni_python__functions__']['{hash}']['{name}']({args})
+             else:
+                 GD['__omni_python__functions__'] = {{}}
+             sys.path.insert(0, {site_packages})
+             {code}
+             GD['__omni_python__functions__']['{hash}'] = locals()
+             return {name}({args})
+             """).format(hash=hash, code=code,
+                         name=name,
+                         site_packages=site_packages,
+                         args=', '.join(
+                             [process_argument(f, a) for a in
+                              inspect.getfullargspec(f).args])))
             for name, f in pg_functions]
 $$;
 

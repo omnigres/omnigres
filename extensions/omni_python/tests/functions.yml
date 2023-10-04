@@ -195,3 +195,22 @@ tests:
     query: select fun1(0)
     results:
     - fun1: 0
+
+- name: executing function doesn't re-execute the whole file
+  steps:
+  - name: create
+    query: select * from omni_python.create_functions($1)
+    notices:
+    - executed
+    params:
+    - |
+      from omni_python import pg, log
+      log.notice('executed')
+      @pg
+      def fun1(v: str) -> int:
+        return len(v)
+    results:
+    - create_functions: fun1(text)
+  - name: execute it
+    query: select fun1('test')
+    notices: [ ]
