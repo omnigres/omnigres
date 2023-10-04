@@ -76,7 +76,6 @@ $$
                 return 'unknown'
 
     def process_argument(function, arg):
-        import ast
         type = function.__annotations__[arg]
         if hasattr(type, '__pg_type_hint__') and callable(type.__pg_type_hint__):
             type.__pg_type_hint__.__globals__.update(code_locals)
