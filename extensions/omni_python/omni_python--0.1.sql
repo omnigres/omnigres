@@ -16,6 +16,7 @@ $$
     import typing
     import types
     import sys
+    import hashlib
     # types.UnionType has only been available since Python 3.10
     if sys.version_info >= (3, 10):
         from types import UnionType
@@ -26,39 +27,33 @@ $$
         plpy.execute(plpy.prepare("select current_setting('omni_python.site_packages', true)"))[0][
             'current_setting'] or "~/.omni_python/default")
 
-    import sys
     sys.path.insert(0, site_packages)
-    del sys
     import omni_python
 
-    module = ast.parse(code)
-
-    # Load imports and classes so we can resolve annotations
     code_locals = {}
-    code_globals = globals()
-    for f in module.body:
-        if f.__class__ == ast.Import or f.__class__ == ast.ImportFrom or f.__class__ == ast.ClassDef:
-            exec(compile(ast.unparse(f), filename or 'unnamed.py', 'single'), code_globals, code_locals)
+
+    hash = hashlib.sha256(code.encode()).hexdigest()
+    try:
+        exec(compile(code, filename or 'unnamed.py', 'exec'), code_locals)
+        if '__omni_python_functions__' not in GD:
+            GD['__omni_python__functions__'] = {}
+        GD['__omni_python__functions__'][hash] = code_locals
+    except SyntaxError:
+        pass
 
     pg_functions = []
-    for f in module.body:
-        if isinstance(f, ast.FunctionDef):
-            code_locals_ = code_locals.copy()
-            exec(compile(ast.unparse(f), filename or 'unnamed.py', 'single'), code_globals, code_locals_)
-            function = code_locals_[f.name]
-            if hasattr(function, '__pg_stored_procedure__'):
-                pg_functions.append(f)
+    for name, value in code_locals.items():
+        if callable(value):
+            if hasattr(value, '__pg_stored_procedure__'):
+                pg_functions.append((name, value))
 
     __types__ = {str: 'text', bool: 'boolean', bytes: 'bytea', int: 'int',
                  decimal.Decimal: 'numeric', float: 'double precision'}
 
-    def resolve_type(f, arg):
-        # Eval the function definition to resolve annotations
-        exec(compile(ast.unparse(f), filename or 'unnamed.py', 'single'), code_globals, code_locals)
-        function = code_locals[f.name]
+    def resolve_type(function, arg):
         type = function.__annotations__[arg]
         if hasattr(type, '__pg_type_hint__') and callable(type.__pg_type_hint__):
-            # FIXME: can't use outer scope imports
+            type.__pg_type_hint__.__globals__.update(code_locals)
             type = type.__pg_type_hint__()
         if type is None:
             return 'unknown'
@@ -82,14 +77,10 @@ $$
             except TypeError:
                 return 'unknown'
 
-    def process_argument(f, arg):
-        import ast
-        # Eval the function definition to resolve annotations
-        exec(compile(ast.unparse(f), filename or 'unnamed.py', 'single'), code_globals, code_locals)
-        function = code_locals[f.name]
+    def process_argument(function, arg):
         type = function.__annotations__[arg]
         if hasattr(type, '__pg_type_hint__') and callable(type.__pg_type_hint__):
-            # FIXME: can't use outer scope imports
+            type.__pg_type_hint__.__globals__.update(code_locals)
             type = type.__pg_type_hint__()
         if (type.__class__ == typing.Annotated[int, 0].__class__ and isinstance(type.__metadata__[0],
                                                                                 omni_python.pgtype) and
@@ -97,6 +88,9 @@ $$
             klass = type.__args__[0]
             if klass.__module__ == '__main__':
                 return f"{klass.__name__}(**{arg})"
+            elif klass.__module__ == 'builtins':
+                lookup = f"GD['__omni_python__functions__']['{hash}']"
+                return f"{lookup}['{klass.__name__}'](**{arg})"
             else:
                 lookup = ast.unparse(
                     ast.Subscript(value=ast.Name(id='sys.modules', ctx=ast.Load()),
@@ -106,19 +100,33 @@ $$
         else:
             return arg
 
-    site_packages = plpy.quote_literal(
-        os.path.expanduser(plpy.execute(plpy.prepare("select current_setting('omni_python.site_packages', true)"))[0][
-                               'current_setting'] or "~/.omni_python/default"))
+    site_packages = plpy.quote_literal(site_packages)
 
-    preamble = f"import sys ; sys.path.insert(0, {site_packages})"
-    return [(f.name,
-             [a.arg for a in f.args.args],
-             [resolve_type(f, a.arg) for a in f.args.args], resolve_type(f, 'return'),
-             "{preamble}\n{code}\nreturn {name}({args})".format(preamble=preamble, code=ast.unparse(module),
-                                                                name=f.name,
-                                                                args=', '.join(
-                                                                    [process_argument(f, a.arg) for a in f.args.args])))
-            for f in pg_functions]
+    import inspect
+
+    from textwrap import dedent
+
+    return [(name,
+             [a for a in inspect.getfullargspec(f).args],
+             [resolve_type(f, a) for a in inspect.getfullargspec(f).args], resolve_type(f, 'return'),
+             dedent("""
+             import sys
+             if '__omni_python__functions__' in GD:
+                 if '{hash}' in GD['__omni_python__functions__']:
+                    return GD['__omni_python__functions__']['{hash}']['{name}']({args})
+             else:
+                 GD['__omni_python__functions__'] = {{}}
+             sys.path.insert(0, {site_packages})
+             {code}
+             GD['__omni_python__functions__']['{hash}'] = locals()
+             return {name}({args})
+             """).format(hash=hash, code=code,
+                         name=name,
+                         site_packages=site_packages,
+                         args=', '.join(
+                             [process_argument(f, a) for a in
+                              inspect.getfullargspec(f).args])))
+            for name, f in pg_functions]
 $$;
 
 create function create_functions(code text, filename text default null, replace boolean default false) returns setof regprocedure

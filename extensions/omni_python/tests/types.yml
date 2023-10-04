@@ -152,7 +152,7 @@ tests:
       select omni_python.create_functions($1)
     params:
     - |
-      from omni_python import pg
+      from omni_python import pg, Composite
       from dataclasses import dataclass
       
       @dataclass
@@ -163,7 +163,6 @@ tests:
       
           @classmethod
           def __pg_type_hint__(cls):
-              from omni_python import Composite
               return Composite(cls, "employee")
       
       @pg

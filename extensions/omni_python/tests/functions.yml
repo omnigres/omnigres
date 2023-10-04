@@ -35,6 +35,21 @@ tests:
     import thisdoesnotexist
   error: "ModuleNotFoundError: No module named 'thisdoesnotexist'"
 
+- name: imperative loading
+  steps:
+  - query: select * from omni_python.create_functions($1)
+    params:
+    - |
+      from omni_python import pg
+      def my_fun(f):
+        return f
+      @my_fun
+      @pg
+      def fun1(v: str) -> int:
+        return len(v)
+    results:
+    - create_functions: fun1(text)
+
 - name: create multiple @pg functions
   steps:
   - query: select * from omni_python.create_functions($1)
@@ -180,3 +195,22 @@ tests:
     query: select fun1(0)
     results:
     - fun1: 0
+
+- name: executing function doesn't re-execute the whole file
+  steps:
+  - name: create
+    query: select * from omni_python.create_functions($1)
+    notices:
+    - executed
+    params:
+    - |
+      from omni_python import pg, log
+      log.notice('executed')
+      @pg
+      def fun1(v: str) -> int:
+        return len(v)
+    results:
+    - create_functions: fun1(text)
+  - name: execute it
+    query: select fun1('test')
+    notices: [ ]
