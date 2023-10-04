@@ -10,6 +10,8 @@ create function functions(code text, filename text default null)
     language plpython3u
 as
 $$
+    code_globals = globals()
+
     import os
     import ast
     import decimal
@@ -26,13 +28,10 @@ $$
         plpy.execute(plpy.prepare("select current_setting('omni_python.site_packages', true)"))[0][
             'current_setting'] or "~/.omni_python/default")
 
-    import sys
     sys.path.insert(0, site_packages)
-    del sys
     import omni_python
 
     code_locals = {}
-    code_globals = globals()
 
     try:
         exec(compile(code, filename or 'unnamed.py', 'exec'), code_globals, code_locals)
