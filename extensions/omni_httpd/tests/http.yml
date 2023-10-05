@@ -34,6 +34,9 @@ instance:
         INNER JOIN users ON string_to_array(request.path,'/', '') = array[NULL, 'users', users.handle]
        $$, 1),
                   ('abort', $$select omni_httpd.abort() from request where request.path = '/abort'$$, 1),
+                  ('custom-content-length',
+                   $$select omni_httpd.http_response(headers => array[omni_http.http_header('content-length', '10')], body => '0123456789')
+                   from request where request.path = '/custom-content-length'$$, 1),
                   ('headers',
                    $$SELECT omni_httpd.http_response(body => request.headers::text) FROM request WHERE request.path = '/headers'$$,
                    1),
@@ -122,6 +125,20 @@ tests:
   results:
   - status: 200
     body: '{"(user-agent,omni_httpc/0.1)"}'
+- name: should not duplicate content-length if it is set
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+      omni_httpc.http_request('http://127.0.0.1:' ||
+      (select effective_port from omni_httpd.listeners where port = 0) || '/custom-content-length')))
+    select
+    response.status,
+    headers,
+    convert_from(response.body, 'utf-8') as body
+    from response
+  results:
+  - status: 200
+    headers: '{"(connection,keep-alive)","(content-length,10)","(server,omni_httpd-0.1)","(content-type,\"text/plain; charset=utf-8\")"}'
+    body: 0123456789
 - name: proxy
   query: |
     with response as (select * from omni_httpc.http_execute(
