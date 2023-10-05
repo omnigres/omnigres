@@ -703,6 +703,9 @@ static int handler(request_message_t *msg) {
           req->res.status = 200;
         }
 
+        bool content_length_specified = false;
+        long long content_length = 0;
+
         // Headers
         Datum array_datum =
             GetAttributeByIndex(response_tuple, HTTP_RESPONSE_TUPLE_HEADERS, &isnull);
@@ -719,14 +722,30 @@ static int handler(request_message_t *msg) {
                 size_t name_len = VARSIZE_ANY_EXHDR(name_text);
                 char *name_cstring = h2o_mem_alloc_pool(&req->pool, char *, name_len + 1);
                 text_to_cstring_buffer(name_text, name_cstring, name_len + 1);
+
                 Datum value = GetAttributeByNum(header_tuple, 2, &isnull);
                 if (!isnull) {
                   text *value_text = DatumGetTextPP(value);
                   size_t value_len = VARSIZE_ANY_EXHDR(value_text);
                   char *value_cstring = h2o_mem_alloc_pool(&req->pool, char *, value_len + 1);
                   text_to_cstring_buffer(value_text, value_cstring, value_len + 1);
-                  h2o_set_header_by_str(&req->pool, &req->res.headers, name_cstring, name_len, 0,
-                                        value_cstring, value_len, true);
+                  if (name_len == sizeof("content-length") - 1 &&
+                      strncasecmp(name_cstring, "content-length", name_len) == 0) {
+                    // If we got content-length, we will not include it as we'll let h2o
+                    // send the length.
+
+                    // However, we'll remember the length set so that when we're processing the
+                    // body, we can check its size and take action (reduce the size or send a
+                    // warning if length specified is too big)
+
+                    content_length_specified = true;
+                    content_length = strtoll(value_cstring, NULL, 10);
+
+                  } else {
+                    // Otherwise, we'll just add the header
+                    h2o_set_header_by_str(&req->pool, &req->res.headers, name_cstring, name_len, 0,
+                                          value_cstring, value_len, true);
+                  }
                 }
               }
             }
@@ -739,8 +758,19 @@ static int handler(request_message_t *msg) {
         if (!isnull) {
           bytea *body_content = DatumGetByteaPP(body);
           size_t body_len = VARSIZE_ANY_EXHDR(body_content);
+          if (content_length_specified) {
+            if (body_len > content_length) {
+              body_len = content_length;
+            } else if (body_len < content_length) {
+              ereport(WARNING, errmsg("Content-Length overflow"),
+                      errdetail("Content-Length is set at %lld, but actual body is %zu",
+                                content_length, body_len));
+            }
+          }
           char *body_cstring = h2o_mem_alloc_pool(&req->pool, char *, body_len + 1);
           text_to_cstring_buffer(body_content, body_cstring, body_len + 1);
+          // ensure we have the trailing \0 if we had to cut the response
+          body_cstring[body_len] = 0;
           req->res.content_length = body_len;
           h2o_queue_send_inline(msg, body_cstring, body_len);
         } else {
