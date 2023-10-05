@@ -37,6 +37,9 @@ instance:
                   ('custom-content-length',
                    $$select omni_httpd.http_response(headers => array[omni_http.http_header('content-length', '10')], body => '0123456789')
                    from request where request.path = '/custom-content-length'$$, 1),
+                  ('custom-content-length-1',
+                   $$select omni_httpd.http_response(headers => array[omni_http.http_header('content-length', '3')], body => '0123456789')
+                   from request where request.path = '/custom-content-length-1'$$, 1),
                   ('headers',
                    $$SELECT omni_httpd.http_response(body => request.headers::text) FROM request WHERE request.path = '/headers'$$,
                    1),
@@ -139,6 +142,18 @@ tests:
   - status: 200
     headers: '{"(connection,keep-alive)","(content-length,10)","(server,omni_httpd-0.1)","(content-type,\"text/plain; charset=utf-8\")"}'
     body: 0123456789
+- name: should resize the content if content-length is set low
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+      omni_httpc.http_request('http://127.0.0.1:' ||
+      (select effective_port from omni_httpd.listeners where port = 0) || '/custom-content-length-1')))
+    select
+    response.status,
+    convert_from(response.body, 'utf-8') as body
+    from response
+  results:
+  - status: 200
+    body: 012
 - name: proxy
   query: |
     with response as (select * from omni_httpc.http_execute(
