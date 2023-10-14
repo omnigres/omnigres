@@ -130,64 +130,75 @@ connect:
   if (instance->conn != NULL && PQstatus(instance->conn) != CONNECTION_BAD) {
     return yinstance_connect_success;
   }
+  char *conninfo;
   if (instance->managed) {
-    char *conninfo;
     asprintf(&conninfo, "host=127.0.0.1 port=%d dbname=yregress user=yregress",
              instance->info.managed.port);
-    instance->conn = PQconnectdb(conninfo);
+  } else {
+    if (instance->info.unmanaged.password != NULL) {
+      asprintf(&conninfo, "host=%s port=%d dbname=%s user=%s password=%s",
+               instance->info.unmanaged.host, instance->info.unmanaged.port,
+               instance->info.unmanaged.dbname, instance->info.unmanaged.username,
+               instance->info.unmanaged.password);
+    } else {
+      asprintf(&conninfo, "host=%s port=%d dbname=%s user=%s", instance->info.unmanaged.host,
+               instance->info.unmanaged.port, instance->info.unmanaged.dbname,
+               instance->info.unmanaged.username);
+    }
+  }
+  instance->conn = PQconnectdb(conninfo);
 
-    // Prepare the database if connected
-    if (PQstatus(instance->conn) == CONNECTION_OK) {
-      // Initialize
-      if (fy_node_is_mapping(instance->node)) {
-        struct fy_node *init = fy_node_mapping_lookup_by_string(instance->node, STRLIT("init"));
-        if (init != NULL) {
-          assert(fy_node_is_sequence(init));
-          int init_steps = fy_node_sequence_item_count(init);
-          if (init_steps > 0) {
-            // if we are following a restart, don't report the subtest again
-            if (init_step == 0) {
-              fprintf(tap_file, "# Subtest: initialize instance `%.*s`\n",
-                      (int)IOVEC_STRLIT(yinstance_name(instance)));
-              fprintf(tap_file, "    1..%d\n", init_steps);
-              tap_counter = 0;
-            }
-            {
-              int cur_step = 0;
-              void *iter = NULL;
-              struct fy_node *step;
-              while ((step = fy_node_sequence_iterate(init, &iter)) != NULL) {
-                if (cur_step >= init_step) {
-                  // We want to keep the effects of these steps and therefore we don't
-                  // wrap them into a rolled back transaction.
-                  success = ytest_run_without_transaction((ytest *)fy_node_get_meta(step));
-                  if (!success) {
-                    break;
-                  }
-                  if (instance->restarted) {
-                    init_step = cur_step + 1;
-                    goto connect;
-                  }
-                }
-                cur_step++;
-              }
-            }
-            tap_counter = old_tap_counter;
+  // Prepare the database if connected
+  if (PQstatus(instance->conn) == CONNECTION_OK) {
+    // Initialize
+    if (fy_node_is_mapping(instance->node)) {
+      struct fy_node *init = fy_node_mapping_lookup_by_string(instance->node, STRLIT("init"));
+      if (init != NULL) {
+        assert(fy_node_is_sequence(init));
+        int init_steps = fy_node_sequence_item_count(init);
+        if (init_steps > 0) {
+          // if we are following a restart, don't report the subtest again
+          if (init_step == 0) {
+            fprintf(tap_file, "# Subtest: initialize instance `%.*s`\n",
+                    (int)IOVEC_STRLIT(yinstance_name(instance)));
+            fprintf(tap_file, "    1..%d\n", init_steps);
+            tap_counter = 0;
           }
-        }
-        tap_counter++;
-        if (success) {
-          fprintf(tap_file, "ok %d - initialize instance `%.*s`\n", tap_counter,
-                  (int)IOVEC_STRLIT(yinstance_name(instance)));
-        } else {
-          fprintf(tap_file, "not ok %d - initialize instance `%.*s`\n", tap_counter,
-                  (int)IOVEC_STRLIT(yinstance_name(instance)));
-          return yinstance_connect_error;
+          {
+            int cur_step = 0;
+            void *iter = NULL;
+            struct fy_node *step;
+            while ((step = fy_node_sequence_iterate(init, &iter)) != NULL) {
+              if (cur_step >= init_step) {
+                // We want to keep the effects of these steps and therefore we don't
+                // wrap them into a rolled back transaction.
+                success = ytest_run_without_transaction((ytest *)fy_node_get_meta(step));
+                if (!success) {
+                  break;
+                }
+                if (instance->restarted) {
+                  init_step = cur_step + 1;
+                  goto connect;
+                }
+              }
+              cur_step++;
+            }
+          }
+          tap_counter = old_tap_counter;
         }
       }
-
-      return fetch_types(instance) ? yinstance_connect_success : yinstance_connect_error;
+      tap_counter++;
+      if (success) {
+        fprintf(tap_file, "ok %d - initialize instance `%.*s`\n", tap_counter,
+                (int)IOVEC_STRLIT(yinstance_name(instance)));
+      } else {
+        fprintf(tap_file, "not ok %d - initialize instance `%.*s`\n", tap_counter,
+                (int)IOVEC_STRLIT(yinstance_name(instance)));
+        return yinstance_connect_error;
+      }
     }
+
+    return fetch_types(instance) ? yinstance_connect_success : yinstance_connect_error;
   }
 
   return yinstance_connect_failure;
@@ -270,33 +281,32 @@ void yinstance_start(yinstance *instance) {
     // and it'll need the path
     char *heap_datadir = strdup(datadir);
     instance->info.managed.datadir = (iovec_t){.base = heap_datadir, .len = strlen(heap_datadir)};
+  }
 
-    // Wait until it is ready
-    ConnStatusType status;
-    bool ready = false;
-    while (!ready) {
-      switch (yinstance_connect(instance)) {
-      case yinstance_connect_success:
+  // Wait until it is ready
+  bool ready = false;
+  while (!ready) {
+    switch (yinstance_connect(instance)) {
+    case yinstance_connect_success:
+      ready = true;
+      break;
+    case yinstance_connect_failure:
+      if (PQstatus(instance->conn) == CONNECTION_BAD) {
+        fprintf(stderr, "can't connect: %s\n", PQerrorMessage(instance->conn));
         ready = true;
         break;
-      case yinstance_connect_failure:
-        if (PQstatus(instance->conn) == CONNECTION_BAD) {
-          fprintf(stderr, "can't connect: %s\n", PQerrorMessage(instance->conn));
-          ready = true;
-          break;
-        }
-        break;
-      case yinstance_connect_error: {
-        return;
       }
-      }
+      break;
+    case yinstance_connect_error: {
+      return;
     }
-
-    // Get postmaster PID
-    retrieve_postmaster_pid(instance);
-
-    instance->ready = true;
+    }
   }
+
+  // Get postmaster PID
+  retrieve_postmaster_pid(instance);
+
+  instance->ready = true;
 }
 
 static int remove_entry(const char *path, const struct stat *sb, int typeflag, struct FTW *ftwbuf) {
