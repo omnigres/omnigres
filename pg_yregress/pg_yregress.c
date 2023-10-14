@@ -1,4 +1,5 @@
-#include <assert.h>
+#include <getopt.h>
+#include <pwd.h>
 #include <stdio.h>
 
 #include "pg_yregress.h"
@@ -9,7 +10,7 @@ int tap_counter = 0;
 void meta_free(struct fy_node *fyn, void *meta, void *user) { free(user); }
 
 static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node *test,
-                                        struct fy_node *instances) {
+                                        struct fy_node *instances, bool managed) {
   ytest *y_test = calloc(sizeof(*y_test), 1);
   y_test->node = test;
   y_test->commit = false;
@@ -151,7 +152,7 @@ static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
         struct fy_node *step;
 
         while ((step = fy_node_sequence_iterate(steps, &iter)) != NULL) {
-          if (!populate_ytest_from_fy_node(fyd, step, instances)) {
+          if (!populate_ytest_from_fy_node(fyd, step, instances, managed)) {
             return false;
           }
         }
@@ -182,7 +183,7 @@ static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
         struct fy_node *step;
 
         while ((step = fy_node_sequence_iterate(tests, &iter)) != NULL) {
-          if (!populate_ytest_from_fy_node(fyd, step, instances)) {
+          if (!populate_ytest_from_fy_node(fyd, step, instances, managed)) {
             return false;
           }
         }
@@ -196,6 +197,10 @@ static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
       // Are we restarting?
       struct fy_node *restart = fy_node_mapping_lookup_by_string(test, STRLIT("restart"));
       if (restart != NULL) {
+        if (!managed) {
+          fprintf(stderr, "Can't use `restart` steps in unmanaged instances\n");
+          return false;
+        }
         y_test->kind = ytest_kind_restart;
         instruction_found = true;
       }
@@ -241,7 +246,8 @@ static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
 
 struct fy_node *instances;
 
-static int execute_document(struct fy_document *fyd) {
+static int execute_document(struct fy_document *fyd, bool managed, char *host, int port,
+                            char *username, char *dbname, char *password) {
   struct fy_node *root = fy_document_root(fyd);
   struct fy_node *original_root = fy_node_copy(fyd, root);
   if (!fy_node_is_mapping(root)) {
@@ -253,6 +259,13 @@ static int execute_document(struct fy_document *fyd) {
   instances = fy_node_mapping_lookup_by_string(root, STRLIT("instances"));
   // Get a Postgres instance, if any
   struct fy_node *instance = fy_node_mapping_lookup_by_string(root, STRLIT("instance"));
+
+  if (!managed && (instance != NULL || instances != NULL)) {
+    fprintf(
+        stderr,
+        "Can't have `instance` or `instances` keys when testing against an unmanaged instance\n");
+    return 1;
+  }
 
   // Register instance cleanup
   atexit(instances_cleanup);
@@ -286,8 +299,14 @@ static int execute_document(struct fy_document *fyd) {
       struct fy_node *instance = fy_node_pair_value(instance_pair);
 
       yinstance *y_instance = calloc(sizeof(*y_instance), 1);
-      // By default, we assume it to be managed (unless overridden)
-      y_instance->managed = true;
+      y_instance->managed = managed;
+      if (!managed) {
+        y_instance->info.unmanaged.host = host;
+        y_instance->info.unmanaged.username = username;
+        y_instance->info.unmanaged.dbname = dbname;
+        y_instance->info.unmanaged.port = port;
+        y_instance->info.unmanaged.password = password;
+      }
       y_instance->ready = false;
       y_instance->node = instance;
 
@@ -328,7 +347,7 @@ static int execute_document(struct fy_document *fyd) {
             void *init_iter = NULL;
             struct fy_node *init_step;
             while ((init_step = fy_node_sequence_iterate(init, &init_iter)) != NULL) {
-              if (!populate_ytest_from_fy_node(fyd, init_step, self_instances)) {
+              if (!populate_ytest_from_fy_node(fyd, init_step, self_instances, managed)) {
                 return 1;
               }
               // Ensure it points to the correct instance
@@ -387,7 +406,7 @@ static int execute_document(struct fy_document *fyd) {
     void *iter = NULL;
     struct fy_node *test;
     while ((test = fy_node_sequence_iterate(tests, &iter)) != NULL) {
-      if (!populate_ytest_from_fy_node(fyd, test, instances)) {
+      if (!populate_ytest_from_fy_node(fyd, test, instances, managed)) {
         return 1;
       }
     }
@@ -500,8 +519,66 @@ extern char **environ;
 
 int main(int argc, char **argv) {
 
-  if (argc >= 2) {
-    // Print TAP output to stdout
+  static struct option options[] = {{"host", required_argument, 0, 'h'},
+                                    {"username", required_argument, 0, 'U'},
+                                    {"dbname", required_argument, 0, 'd'},
+                                    {"port", required_argument, 0, 'p'},
+                                    {"password", no_argument, 0, 'W'},
+                                    {"no-password", no_argument, 0, 'w'},
+                                    {0, 0, 0, 0}};
+
+  bool managed = true;
+  char *host = "127.0.0.1";
+  char *username = getpwuid(getuid())->pw_name;
+  char *dbname = username;
+  int port = 5432;
+  char *password = getenv("PGPASSWORD");
+
+  {
+    int option_index = 0;
+    int opt;
+    while ((opt = getopt_long(argc, argv, "h:U:d:p:Ww", options, &option_index)) != -1) {
+      switch (opt) {
+      case 'h':
+        host = optarg;
+        managed = false;
+        break;
+      case 'U': {
+        bool is_original_dbname = dbname == username;
+        username = optarg;
+        if (is_original_dbname) {
+          // Update dbname to match username if it hasn't been changed yet
+          dbname = username;
+        }
+        managed = false;
+        break;
+      }
+      case 'd':
+        dbname = optarg;
+        managed = false;
+        break;
+      case 'p':
+        port = atoi(optarg);
+        managed = false;
+        break;
+      case 'W':
+        password = getpass("Password: ");
+        managed = false;
+        break;
+      case 'w':
+        managed = false;
+        break;
+      default:
+        fprintf(stderr,
+                "Usage: %s [--host|-h] [--username|-U] [--dbname|-d] [--port|-p] "
+                "[-w|--no-password] [-W|--password] file\n",
+                argv[0]);
+        return 1;
+      }
+    }
+  }
+
+  if (optind < argc) {
     // Before starting, we try to open special FD for tap file
     tap_file = stdout;
 
@@ -538,7 +615,7 @@ int main(int argc, char **argv) {
         .diag = fy_diag_create(&diag_cfg),
     };
 
-    struct fy_document *fyd = fy_document_build_from_file(&parse_cfg, argv[1]);
+    struct fy_document *fyd = fy_document_build_from_file(&parse_cfg, argv[optind]);
 
     if (fyd == NULL) {
       exit(1);
@@ -562,7 +639,7 @@ int main(int argc, char **argv) {
     fy_document_resolve(fyd);
 
     if (fyd != NULL) {
-      int result = execute_document(fyd);
+      int result = execute_document(fyd, managed, host, port, username, dbname, password);
       return result;
     }
   } else {

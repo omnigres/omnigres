@@ -28,7 +28,11 @@ typedef struct {
       uint16_t port;
     } managed;
     struct {
-      // TODO
+      char *host;
+      char *username;
+      char *dbname;
+      int port;
+      char *password;
     } unmanaged;
   } info;
   PGconn *conn;
