@@ -8,13 +8,21 @@
 
 # Overview
 
-Originally inspired by `pg_regress`, `pg_yregress` provides a TAP-compatible
-test executor that allows for better test organization, easier instance
-management and so on.
+Originally inspired by `pg_regress`, `pg_yregress` provides a [TAP]
+(https://testanything.org)-compatible test executor that allows for better test
+organization, easier instance management, native JSON handling and so on.
+
+## What's the difference?
+
+`pg_regress` drives a `psql` session and your tests are essentially an stdout
+capture.
+
+`pg_yregress` organizes tests and expectations in a YAML document, making tests
+easier to maintain and use.
 
 # Features
 
-* [TAP](http://testanything.org/) reporting
+* [TAP](https://testanything.org/) reporting
 * Grouped & structured tests
 * Single-file test/expectation management
 * Built-in JSON handling
@@ -102,3 +110,7 @@ $ pg_yregress test.yml | tapview
 
 * [Discord server](https://discord.gg/A2KxpjfQus): come and chat with out
   pg_yregress users.
+
+# References
+
+* [Inaugural blog post](https://yrashk.com/blog/2023/04/23/structured-postgres-regression-tests/)
