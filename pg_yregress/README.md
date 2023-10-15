@@ -8,9 +8,10 @@
 
 # Overview
 
-Originally inspired by `pg_regress`, `pg_yregress` provides a [TAP]
-(https://testanything.org)-compatible test executor that allows for better test
-organization, easier instance management, native JSON handling and so on.
+Originally inspired by `pg_regress`, `pg_yregress` provides
+a [TAP](https://testanything.org)-compatible test executor that allows for
+better test organization, easier instance management, native JSON handling and
+so on.
 
 ## What's the difference?
 
