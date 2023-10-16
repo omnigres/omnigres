@@ -128,7 +128,7 @@ To build and run Omnigres, you would currently need a recent C compiler, OpenSSL
 ```shell
 mkdir -p build && cd build
 cmake ..
-make psql_<COMPONENT_NAME> # for example, `psql_omni_containers`
+make -j all psql_<COMPONENT_NAME> # for example, `psql_omni_containers`
 ```
 
 ### Running tests
