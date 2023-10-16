@@ -126,9 +126,9 @@ Below is the current list of components being worked on, experimented with and d
 To build and run Omnigres, you would currently need a recent C compiler, OpenSSL and cmake:
 
 ```shell
-mkdir -p build && cd build
-cmake ..
-make -j all psql_<COMPONENT_NAME> # for example, `psql_omni_containers`
+cmake -S . -B build
+cmake --build build --parallel
+make psql_<COMPONENT_NAME> # for example, `psql_omni_containers`
 ```
 
 ### Running tests
