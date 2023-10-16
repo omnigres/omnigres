@@ -110,7 +110,6 @@ if(NOT DEFINED PG_CONFIG)
 
         # Ensure the right OpenSSL gets configured
         if(DEFINED OPENSSL_ROOT_DIR)
-            message(WARNING "ok ${OPENSSL_ROOT_DIR}")
             set(OLD_CFLAGS "$ENV{CFLAGS}")
             set(OLD_LDFLAGS "$ENV{LDFLAGS}")
             set(ENV{CFLAGS} "${OLD_CFLAGS} -I ${OPENSSL_ROOT_DIR}/include")
