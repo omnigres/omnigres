@@ -51,6 +51,8 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
+include(${CMAKE_SOURCE_DIR}/cmake/OpenSSL.cmake)
+
 if(NOT DEFINED PG_CONFIG)
 
     # Use latest known version if PGVER is not set
@@ -106,8 +108,17 @@ if(NOT DEFINED PG_CONFIG)
             endif()
         endif()
 
+        # Ensure the right OpenSSL gets configured
+        if(DEFINED OPENSSL_ROOT_DIR)
+            set(OLD_CFLAGS "$ENV{CFLAGS}")
+            set(OLD_LDFLAGS "$ENV{LDFLAGS}")
+            set(ENV{CFLAGS} "${OLD_CFLAGS} -I ${OPENSSL_ROOT_DIR}/include")
+            set(ENV{LDFLAGS} "${OLD_LDLAGS} -L ${OPENSSL_ROOT_DIR}/lib")
+        endif()
+
         execute_process(
                 COMMAND ./configure --enable-debug --prefix "${PGDIR_VERSION}/build" --without-icu
+                --with-ssl=openssl
                 ${extra_configure_args}
                 WORKING_DIRECTORY "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}"
                 RESULT_VARIABLE pg_configure_result)
@@ -154,6 +165,11 @@ if(NOT DEFINED PG_CONFIG)
 
         if(NOT pg_build_result EQUAL 0)
             message(FATAL_ERROR "Can't build Postgres contribs, aborting.")
+        endif()
+
+        if(DEFINED OPENSSL_ROOT_DIR)
+            set(ENV{CFLAGS} "${OLD_CFLAGS}")
+            set(ENV{LDFLAGS} "${OLD_LDLAGS}")
         endif()
 
     endif()
