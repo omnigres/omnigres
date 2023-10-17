@@ -33,7 +33,7 @@ psql -h localhost -p 5432 -U omnigres omnigres # password is `omnigres`
 ```
 
 Postgres parameters such as database, user or password can be overridden as per the
-"Environment Variales" section in [postgres image instructions](https://hub.docker.com/_/postgres/)
+"Environment Variables" section in [postgres image instructions](https://hub.docker.com/_/postgres/)
 
 You can access the HTTP server at [localhost:8080](http://localhost:8080)
 
