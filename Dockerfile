@@ -45,7 +45,7 @@ RUN git config --global --add safe.directory '*'
 # PostgreSQL build
 FROM builder AS postgres-build
 COPY docker/CMakeLists.txt /omni/CMakeLists.txt
-COPY cmake/FindPostgreSQL.cmake docker/PostgreSQLExtension.cmake /omni/cmake/
+COPY cmake/FindPostgreSQL.cmake cmake/OpenSSL.cmake docker/PostgreSQLExtension.cmake /omni/cmake/
 WORKDIR /build
 RUN cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DPG=${PG} -DCMAKE_BUILD_PARALLEL_LEVEL=${BUILD_PARALLEL_LEVEL} /omni
 
