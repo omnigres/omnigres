@@ -32,6 +32,7 @@ tests:
 - name: attempts to do top-level imports # should fail on wrong imports. that's how we know
   query: select * from omni_python.create_functions($1)
   params:
+  #language=Python
   - |
     import thisdoesnotexist
   error: "ModuleNotFoundError: No module named 'thisdoesnotexist'"
@@ -40,6 +41,7 @@ tests:
   steps:
   - query: select * from omni_python.create_functions($1)
     params:
+    #language=Python
     - |
       from omni_python import pg
       def my_fun(f):
@@ -55,6 +57,7 @@ tests:
   steps:
   - query: select * from omni_python.create_functions($1)
     params:
+    #language=Python
     - |
       from omni_python import pg
       @pg
@@ -77,6 +80,7 @@ tests:
   steps:
   - query: select * from omni_python.create_functions($1)
     params:
+    #language=Python
     - |
       from omni_python import pg
       @pg
@@ -91,6 +95,7 @@ tests:
   steps:
   - query: select * from omni_python.create_functions($1)
     params:
+    #language=Python
     - |
       from omni_python import pg
       import typing
@@ -128,6 +133,7 @@ tests:
   - name: create
     query: select * from omni_python.create_functions($1)
     params:
+    #language=Python
     - |
       from omni_python import pg
       @pg
@@ -138,6 +144,7 @@ tests:
   - name: create again
     query: select * from omni_python.create_functions($1)
     params:
+    #language=Python
     - |
       from omni_python import pg
       @pg
@@ -150,6 +157,7 @@ tests:
   - name: create
     query: select * from omni_python.create_functions($1)
     params:
+    #language=Python
     - |
       from omni_python import pg
       @pg
@@ -160,6 +168,7 @@ tests:
   - name: create again
     query: select * from omni_python.create_functions($1, replace => true)
     params:
+    #language=Python
     - |
       from omni_python import pg
       @pg
@@ -175,6 +184,7 @@ tests:
   - name: create
     query: select * from omni_python.create_functions($1)
     params:
+    #language=Python
     - |
       from omni_python import pg
       @pg
@@ -185,6 +195,7 @@ tests:
   - name: create again
     query: select * from omni_python.create_functions($1)
     params:
+    #language=Python
     - |
       from omni_python import pg
       @pg
@@ -204,6 +215,7 @@ tests:
     notices:
     - executed
     params:
+    #language=Python
     - |
       from omni_python import pg, log
       log.notice('executed')
