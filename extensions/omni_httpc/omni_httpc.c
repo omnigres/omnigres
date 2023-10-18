@@ -238,9 +238,12 @@ static int on_body(h2o_httpclient_t *client, const char *errstr, h2o_header_t *t
     }
   }
 
-  // Append the body
-  appendBinaryStringInfo(&req->body, (*client->buf)->bytes, (*client->buf)->size);
-  h2o_buffer_consume(&(*client->buf), (*client->buf)->size);
+  // Append the body if there's a body to consume
+  h2o_buffer_t *buf = *client->buf;
+  if (buf != NULL && buf->size > 0) {
+    appendBinaryStringInfo(&req->body, buf->bytes, buf->size);
+    h2o_buffer_consume(&buf, buf->size);
+  }
 
   // End of stream, complete the request
   if (errstr == h2o_httpclient_error_is_eos) {
