@@ -24,6 +24,11 @@ parameters:
 
 The function returns a prepared request. No request is executed at this point.
 
+!!! tip "Null values in headers"
+
+    If header name is `null`, it won't create any header. If header value is 
+    `null`, it'll be serialized as an empty string.
+
 ### Executing requests
 
 Requests can be executed using `omni_httpc.http_execute` functions which takes a variadic array
