@@ -469,6 +469,9 @@ Datum http_execute(PG_FUNCTION_ARGS) {
               h2o_add_header_by_str(pool, headers_vec, VARDATA_ANY(name_str),
                                     VARSIZE_ANY_EXHDR(name_str), 1, NULL, VARDATA_ANY(value_str),
                                     VARSIZE_ANY_EXHDR(value_str));
+            } else {
+              h2o_add_header_by_str(pool, headers_vec, VARDATA_ANY(name_str),
+                                    VARSIZE_ANY_EXHDR(name_str), 1, NULL, "", 0);
             }
           }
         }
