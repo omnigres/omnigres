@@ -1,0 +1,334 @@
+{
+  "$id": "pg_yregress",
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "properties": {
+    "instance": {
+      "$ref": "#/definitions/instance"
+    },
+    "instances": {
+      "type": "object",
+      "description": "Multiple instances configurations",
+      "additionalProperties": {
+        "$ref": "#/definitions/instance"
+      }
+    },
+    "tests": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/test"
+      }
+    }
+  },
+  "definitions": {
+    "instance": {
+      "type": "object",
+      "description": "Singular instance configuration",
+      "properties": {
+        "default": {
+          "type": "boolean",
+          "default": false,
+          "description": "Is this a default instance?"
+        },
+        "init": {
+          "type": "array",
+          "description": "Initialization steps",
+          "items": {
+            "$ref": "#/definitions/test"
+          }
+        },
+        "config": {
+          "oneOf": [
+            {
+              "type": "string",
+              "description": "additional postgresql.conf config"
+            },
+            {
+              "type": "object",
+              "description": "additional postgresql.conf config as YAML"
+            }
+          ]
+        },
+        "hba": {
+          "type": "string",
+          "description": "pg_hba.conf config"
+        }
+      }
+    },
+    "test": {
+      "oneOf": [
+        {
+          "not": {
+            "properties": {
+              "query": {
+                "type": "string"
+              }
+            }
+          },
+          "type": "object",
+          "required": ["skip"],
+          "properties": {
+            "skip": {
+              "oneOf": [
+                {
+                  "description": "Skip the test",
+                  "type": "boolean",
+                  "default": false
+                },
+                {
+                  "description": "Skip the test with string metadata",
+                  "type": "string"
+                },
+                {
+                  "description": "Skip the test with rich metadata",
+                  "type": "object"
+                }
+              ]
+            },
+            "name": {
+              "type": "string",
+              "description": "Test name"
+            }
+          }
+        },
+        {
+          "not": {
+            "properties": {
+              "query": {
+                "type": "string"
+              }
+            }
+          },
+          "type": "object",
+          "required": ["todo"],
+          "properties": {
+            "todo": {
+              "oneOf": [
+                {
+                  "description": "Indicates if this is a TODO test and if breakage will affect the failure state",
+                  "type": "boolean",
+                  "default": false
+                },
+                {
+                  "description": "Indicates if this is a TODO test and if breakage will affect the failure state with string metadata",
+                  "type": "string"
+                },
+                {
+                  "description": "Indicates if this is a TODO test and if breakage will affect the failure state with rich metadata",
+                  "type": "object"
+                }
+              ]
+            },
+            "name": {
+              "type": "string",
+              "description": "Test name"
+            }
+          }
+        },
+
+        {
+          "type": "object",
+          "required": ["steps"],
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Test name"
+            },
+            "notices": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "commit": {
+              "type": "boolean",
+              "description": "Commit at the end",
+              "default": false
+            },
+            "steps": {
+              "type": "array",
+              "description": "Multi-step test in a single transaction",
+              "items": {
+                "$ref": "#/definitions/test"
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["tests"],
+          "additionalProperties": false,
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Test name"
+            },
+            "tests": {
+              "type": "array",
+              "description": "Multi-step test isolated transactions",
+              "items": {
+                "$ref": "#/definitions/test"
+              }
+            }
+          }
+        },
+        {
+          "description": "the test query to run",
+          "type": "string",
+          "x-intellij-language-injection": "PostgreSQL"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Test name"
+            },
+            "restart": {
+              "anyOf": [
+                {
+                  "type": "boolean",
+                  "description": "Restart instance",
+                  "default": true
+                },
+                {"type": "string",
+                  "description": "Restart instance"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["query"],
+          "properties": {
+            "name": {
+              "type": "string",
+              "description": "Test name"
+            },
+            "notices": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "negative": {
+              "type": "boolean",
+              "description": "Test should fail",
+              "default": false
+            },
+            "commit": {
+              "type": "boolean",
+              "description": "Commit at the end",
+              "default": false
+            },
+            "instance": {
+              "type": "string",
+              "description": "Instance to run on"
+            },
+            "binary": {
+              "oneOf": [
+                {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "Both parameters and results should be binary"
+                },
+                {
+                  "type": "string",
+                  "enum": ["params", "results"],
+                  "description": "Either parameters or results should be binary"
+                }
+              ]
+            },
+            "skip": {
+              "oneOf": [
+                {
+                  "description": "Skip the test",
+                  "type": "boolean",
+                  "default": false
+                },
+                {
+                  "description": "Skip the test with string metadata",
+                  "type": "string"
+                },
+                {
+                  "description": "Skip the test with rich metadata",
+                  "type": "object"
+                }
+              ]
+            },
+            "query": {
+              "description": "SQL query",
+              "type": "string",
+              "x-intellij-language-injection": "PostgreSQL"
+            },
+            "params": {
+              "description": "Query parameters",
+              "type": "array"
+            },
+            "results": {
+              "description": "Query results",
+              "type": "array",
+              "item": {
+                "type": "object",
+                "additionalProperties": true
+              }
+            },
+            "todo": {
+              "description": "Indicates if this is a TODO test and if breakage will affect the failure state",
+              "oneOf": [
+                {
+                  "description": "Indicates if this is a TODO test and if breakage will affect the failure state",
+                  "type": "boolean",
+                  "default": false
+                },
+                {
+                  "description": "Indicates if this is a TODO test and if breakage will affect the failure state, with rich metadata",
+                  "type": "object"
+                },
+                {
+                  "description": "Indicates if this is a TODO test and if breakage will affect the failure state, with string metadata",
+                  "type": "string"
+                }
+              ]
+            },
+            "error": {
+              "oneOf": [
+                {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "Presence of error"
+                },
+                {
+                  "type": "string",
+                  "description": "Error message"
+                },
+                {
+                  "type": "object",
+                  "description": "Detailed error report",
+                  "required": ["severity", "message"],
+                  "properties": {
+                    "severity": {
+                      "type": "string",
+                      "enum": ["PANIC", "FATAL", "ERROR"],
+                      "description": "Error severity"
+                    },
+                    "message": {
+                      "type": "string",
+                      "description": "Error message"
+                    },
+                    "detail": {
+                      "type": "string",
+                      "description": "Error detail"
+                    }
+                  }
+                }
+              ]
+            }
+          }}
+      ]
+    }
+  }
+}
