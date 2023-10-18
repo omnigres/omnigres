@@ -1,3 +1,4 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
 instances:
   main:
     default: true
@@ -139,7 +140,7 @@ tests:
     results:
     - exists: true
 
-- name: null
+- name: testing null
   query: select null::integer as result
   results:
   - result: null
