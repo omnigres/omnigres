@@ -242,7 +242,9 @@ static int on_body(h2o_httpclient_t *client, const char *errstr, h2o_header_t *t
   h2o_buffer_t *buf = *client->buf;
   if (buf != NULL && buf->size > 0) {
     appendBinaryStringInfo(&req->body, buf->bytes, buf->size);
-    h2o_buffer_consume(&buf, buf->size);
+    // NB: here we use client->buf to ensure it is properly updated, if we pass
+    // `&buf` then the actual buffer is not updated when it is fully consumed
+    h2o_buffer_consume(client->buf, buf->size);
   }
 
   // End of stream, complete the request
