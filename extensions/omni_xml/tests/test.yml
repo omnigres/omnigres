@@ -1,0 +1,63 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_xml
+
+tests:
+
+- name: invalid xml
+  query: select * from omni_xml.xpath($1, '/a')
+  params:
+  - <a>a
+  error:
+    severity: ERROR
+    message: XML parsing error
+    detail: Start-end tags mismatch
+
+- name: xpath with null doc
+  query: select * from omni_xml.xpath(null, '/a')
+  error: document can't be null
+
+- name: xpath with null xpath query
+  query: select * from omni_xml.xpath('<a></a>', null)
+  error: query can't be null
+
+- name: simple xpath
+  query: select * from omni_xml.xpath($1, '/a')
+  params:
+  - <a>value</a>
+  results:
+  - path: /a
+    value: <a>value</a>
+
+- name: xpath with text()
+  query: select *
+         from
+             omni_xml.xpath($1, '/a/text()')
+  params:
+  - <a>value</a>
+  results:
+  - path: /a/
+    value: value
+
+- name: xpath with multiple paths
+  query: select *
+         from
+             omni_xml.xpath($1, '/a | /a/b')
+  params:
+  - <a><b>a</b></a>
+  results:
+  - path: /a
+    value: <a><b>a</b></a>
+  - path: /a/b
+    value: <b>a</b>
+
+- name: xpath with namespaces
+  query: select *
+         from
+             omni_xml.xpath($1, '/a:a')
+  params:
+  - <a:a>value</a:a>
+  results:
+  - path: /a:a
+    value: <a:a>value</a:a>
