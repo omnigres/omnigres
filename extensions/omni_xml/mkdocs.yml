@@ -1,0 +1,2 @@
+INHERIT: ../../mkdocs.base.yml
+site_name: omni_xml
