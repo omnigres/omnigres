@@ -1,0 +1,24 @@
+[project]
+name = "omni_http"
+version = "0.1.0"
+authors = [
+    { name="Yurii Rashkovskii", email="yrashk@gmail.com" },
+]
+description = "Omnigres HTTP integration package"
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Topic :: Database",
+    "Topic :: Internet :: WWW/HTTP"
+]
+
+dependencies = [
+    "omni_python==0.1.0"
+]
+
+[project.optional-dependencies]
+
+Flask = ["flask >= 3"]
