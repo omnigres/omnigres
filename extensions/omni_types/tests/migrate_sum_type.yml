@@ -1,0 +1,52 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_types
+
+tests:
+
+- name: define a sum type
+  commit: true
+  query: select omni_types.sum_type('type1', 'smallint', 'integer')
+
+- name: create and populate a table
+  commit: true
+  steps:
+  - |
+    create table tab (
+      value type1
+    )
+  - |
+    insert into tab (value) values ('smallint(2)'), ('integer(20000)')
+  - query: select value from tab
+    results:
+      - value: smallint(2)
+      - value: integer(20000)
+  - query: select pg_column_size(tab.value) from tab limit 1
+    results:
+    - pg_column_size: 8
+
+- name: increase the size of the sum type
+  # This must fail
+  error: variant type size must not be larger than that of the largest existing variant type's
+  query: select omni_types.add_variant('type1', 'bigint')
+
+- name: migrate the type
+  steps:
+  - query: select omni_types.rename('type1', 'type1_old')
+  - query: select * from omni_types.sum_types
+    results:
+    - typ: type1_old
+      variants: '{smallint,integer}'
+  - query: select omni_types.sum_type('type1', 'smallint', 'integer', 'bigint')
+  - query: alter table tab alter value type type1 using (value::text::type1)
+  - |
+    insert into tab (value) values ('bigint(10000000000000)')
+  - query: select value from tab
+    results:
+    - value: smallint(2)
+    - value: integer(20000)
+    - value: bigint(10000000000000)
+  - query: select pg_column_size(tab.value) from tab limit 1
+    results:
+    - pg_column_size: 12
