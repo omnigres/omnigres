@@ -37,6 +37,22 @@ tests:
     import thisdoesnotexist
   error: "ModuleNotFoundError: No module named 'thisdoesnotexist'"
 
+- name: fails on syntax errors
+  query: select *
+         from
+             omni_python.create_functions($1)
+  params:
+  #language=Python
+  - |
+    from omni_python import pg
+    from a import c.b
+    
+    
+    @pg
+    def fun() -> int:
+        pass
+  error: "SyntaxError: invalid syntax (unnamed.py, line 2)"
+
 - name: imperative loading
   steps:
   - query: select * from omni_python.create_functions($1)
