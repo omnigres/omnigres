@@ -1,3 +1,4 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
 instances:
   default:
     init:
@@ -76,4 +77,3 @@ tests:
     $$ language plprolog
   - query: select val()
     error: Unsupported Postgres type 'oid'
-    success: false

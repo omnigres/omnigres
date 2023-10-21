@@ -1,3 +1,4 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
 instances:
   default:
     init:
@@ -13,7 +14,7 @@ tests:
     result(1).
     $$ language plprolog
   - query: select val()
-    success: false
+    error: true
 
 - name: fails on untrusted code in predicates
   steps:
@@ -22,4 +23,4 @@ tests:
     result(1) :- shell(uname).
     $$ language plprolog
   - query: select val()
-    success: false
+    error: true
