@@ -38,8 +38,20 @@ $$
         if '__omni_python_functions__' not in GD:
             GD['__omni_python__functions__'] = {}
         GD['__omni_python__functions__'][hash] = code_locals
-    except SyntaxError:
-        pass
+    except SyntaxError as e:
+        # Is the syntax error here because this is a "legacy" Python function
+        # (code you stick inside of `create function`'s body) as intended to be
+        # used by bare plpython3u?
+        try:
+            import textwrap
+            # Stick it into a function and see if it is valid now
+            exec(compile(f"def __test_function_():\n{textwrap.indent(code, ' ')}",
+                         filename or 'unnamed.py', 'exec'), {})
+            # It is. Let the other handler do it as we won't extract anything
+            return []
+        except SyntaxError:
+            # It's not. Re-raise the original error
+            raise e
 
     pg_functions = []
     for name, value in code_locals.items():
