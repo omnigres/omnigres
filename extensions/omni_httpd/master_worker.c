@@ -315,9 +315,11 @@ void master_worker(Datum db_oid) {
                                              try_port_no, address_str, &effective_port);
               if (sock == -1) {
                 if (errno == EADDRINUSE) {
-                  // If there is a current effective port,
+                  // If there is a current effective port that is not the same as the one we're
+                  // trying,
                   int effective_port_no = DatumGetInt32(current_effective_port);
-                  if (!current_effective_port_is_null && effective_port_no != 0) {
+                  if (!current_effective_port_is_null && effective_port_no != 0 &&
+                      effective_port_no != try_port_no) {
                     // If it is an active listener,
                     portsock = cmap_portsock_get(&portsocks, effective_port_no);
                     if (portsock != NULL) {
