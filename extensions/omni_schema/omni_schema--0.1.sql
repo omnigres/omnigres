@@ -148,6 +148,10 @@ begin
                 end if;
                 continue;
             end if;
+            if rec.code ~ 'omni_schema\[\[ignore\]\]' then
+                -- Ignore the file
+                continue;
+            end if;
             if rec.language = 'sql' then
                 execute rec.code;
             else

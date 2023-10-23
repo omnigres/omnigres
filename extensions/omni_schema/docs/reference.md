@@ -60,6 +60,12 @@ from
 Its return type and parameters are currently identical to those
 of `migrate_from_fs`.
 
+!!! tip "Ignoring files"
+
+    In order to avoid loading particular files that match a language or a tool
+    filename pattern, one can put `omni_schema[[ignore]]` somewhere inside such
+    file (for example, in a comment) and `omni_schema` will not load it.
+
 ## Multi-language functions
 
 Object reloading functionality allows one to load functions from '.sql' files
