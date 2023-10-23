@@ -151,6 +151,10 @@ begin
             if rec.language = 'sql' then
                 execute rec.code;
             else
+                if rec.language is null then
+                    -- Ignore file
+                    continue;
+                end if;
                 -- Check if the language is available
                 if not exists(select from pg_extension where extname = rec.extension) then
                     raise notice 'Extension % required for language % (required for %) is not installed', rec.extension, rec.language, rec.name;
