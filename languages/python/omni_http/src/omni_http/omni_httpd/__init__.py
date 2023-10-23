@@ -1,7 +1,7 @@
 import json
 from omni_python import Composite, Custom
 from ..omni_http import HttpHeader
-from typing import TypedDict, Optional, Any, Self
+from typing import TypedDict, Optional, Any
 from dataclasses import dataclass
 
 import sys
@@ -35,7 +35,7 @@ class HTTPResponse:
     body: bytes = b""
     status: int = 200
 
-    def outcome(self: Self) -> HTTPOutcome:
+    def outcome(self) -> HTTPOutcome:
       __plpy = sys.modules['__main__'].plpy
       return __plpy.execute(__plpy.prepare("select omni_httpd.http_response(body => $1, status => $2, headers => $3) as result",
                                            ["bytea", "int","omni_http.http_headers"]), [self.body, self.status, self.headers])[0]["result"]
