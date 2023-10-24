@@ -462,3 +462,15 @@ retrieve configuration specified through environment variables:
   results:
   - user: */env/USER
 ```
+
+### Named test suites
+
+A test suite (the YAML file) can be given a human-readable name using
+optional `name` property:
+
+```yaml
+name: Core tests
+
+tests:
+...
+```
