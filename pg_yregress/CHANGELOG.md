@@ -8,6 +8,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+* Test suites (YAML files) can now be named using optional `name` property.
+
 ## [0.2.0]
 
 ### Added

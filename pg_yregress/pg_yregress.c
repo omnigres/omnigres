@@ -429,6 +429,13 @@ static int execute_document(struct fy_document *fyd, bool managed, char *host, i
   int test_count = 1 + fy_node_sequence_item_count(tests) + used_instances;
   fprintf(tap_file, "TAP version 14\n");
   fprintf(tap_file, "1..%d\n", test_count);
+  {
+    size_t name_len;
+    const char *name = fy_node_mapping_lookup_scalar_by_simple_key(root, &name_len, STRLIT("name"));
+    if (name != NULL) {
+      fprintf(tap_file, "# Test suite: %.*s\n", (int)name_len, name);
+    }
+  }
 
   // Initialize used instances
   {

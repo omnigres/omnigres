@@ -12,6 +12,10 @@
         "$ref": "#/definitions/instance"
       }
     },
+    "name": {
+      "type": "string",
+      "description": "Test suite name"
+    },
     "tests": {
       "type": "array",
       "items": {
