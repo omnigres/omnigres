@@ -1,0 +1,20 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_EXT_SO
+    max_worker_processes: 64
+  init:
+  - set session omni_httpd.no_init = true
+  - create extension omni_httpd cascade
+
+tests:
+
+- name: should not have any listeners
+  query: select count(*) from omni_httpd.listeners
+  results:
+  - count: 0
+
+- name: should not have any handlers
+  query: select count(*) from omni_httpd.handlers
+  results:
+  - count: 0
