@@ -64,7 +64,14 @@ Datum set_variable(PG_FUNCTION_ARGS) {
   if (byval) {
     var->value = PG_GETARG_DATUM(1);
   } else {
+    // Ensure we copy the value into the top transaction context
+    // (matching the context of the hash table)
+    // Otherwise it may be a shorter-lifetime context and then we may end
+    // up with something unexpected here
+    MemoryContext old_context = CurrentMemoryContext;
+    MemoryContextSwitchTo(TopTransactionContext);
     var->value = PointerGetDatum(PG_DETOAST_DATUM_COPY(PG_GETARG_DATUM(1)));
+    MemoryContextSwitchTo(old_context);
   }
   var->oid = value_type;
   var->isnull = PG_ARGISNULL(1);
