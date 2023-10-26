@@ -60,16 +60,22 @@ typedef struct {
 #define i_val db_info
 #include <stc/cmap.h>
 
+static bool terminate = false;
+static void sigterm(SIGNAL_ARGS) {
+  terminate = true;
+  SetLatch(MyLatch);
+}
+
 void master_worker(Datum main_arg) {
   BackgroundWorkerInitializeConnection(NULL, NULL, 0);
 
-  pqsignal(SIGTERM, die);
+  pqsignal(SIGTERM, sigterm);
 
   BackgroundWorkerUnblockSignals();
 
   cmap_db databases = cmap_db_init();
 
-  while (true) {
+  while (!terminate) {
     CHECK_FOR_INTERRUPTS();
 
     StartTransactionCommand();
@@ -149,7 +155,7 @@ void database_worker(Datum db_oid) {
   ensure_dsa_attached();
   BackgroundWorkerInitializeConnectionByOid(db_oid, InvalidOid, 0);
 
-  pqsignal(SIGTERM, die);
+  pqsignal(SIGTERM, sigterm);
 
   BackgroundWorkerUnblockSignals();
 
@@ -161,7 +167,7 @@ void database_worker(Datum db_oid) {
   // This stores locally initialized extensions
   cset_oid extensions = cset_oid_init();
 
-  while (true) {
+  while (!terminate) {
 
     StartTransactionCommand();
 
