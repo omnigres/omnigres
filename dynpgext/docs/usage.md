@@ -46,3 +46,10 @@ handle->register_bgworker(handle, &bgw, NULL, NULL,
 ```
 
 Just like shared memory allocations, background workers can be either global or provisioned per database.
+
+!!! tip "Caveat: bgw_restart_time is always BGW_NEVER_RESTART"
+
+    Since omni_ext manages the startup of the background workers, 
+    `BackgroundWorker.bgw_restart_time` value is ignored and is always 
+    effectively set to `BGW_NEVER_RESTART` so that Postgres never attempts
+    to restart them itself.
