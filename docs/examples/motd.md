@@ -5,7 +5,7 @@ All you need to run this is just an instance of Postgres with
 Omnigres extensions (omni_httpd and omni_web) [installed](../quick_start.md).
 
 ```postgresql
-{% include "motd.sql" %}
+{% include "./motd.sql" %}
 ```
 
 1. We'll store MOTD here
