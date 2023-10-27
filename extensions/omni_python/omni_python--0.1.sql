@@ -1,3 +1,11 @@
+create type config_key as enum ( 'site_packages', 'extra_pip_index_url' );
+create table config
+(
+    id    integer primary key generated always as identity,
+    name config_key not null,
+    value text not null
+);
+
 create function functions(code text, filename text default null)
     returns table
             (
@@ -24,8 +32,12 @@ $$
         from typing import Union as UnionType
 
     site_packages = os.path.expanduser(
-        plpy.execute(plpy.prepare("select current_setting('omni_python.site_packages', true)"))[0][
-            'current_setting'] or "~/.omni_python/default")
+        plpy.execute(plpy.prepare("""
+                     select coalesce(
+                        (select value from omni_python.config where name = 'site_packages'),
+                        (select (setting || '/.omni_python/default') as value from pg_settings where name = 'data_directory'))
+                        as value
+       """))[0]['value'])
 
     sys.path.insert(0, site_packages)
     import omni_python
@@ -183,8 +195,12 @@ as
 $$
     import os
     site_packages = os.path.expanduser(
-        plpy.execute(plpy.prepare("select current_setting('omni_python.site_packages', true)"))[0][
-            'current_setting'] or "~/.omni_python/default")
+        plpy.execute(plpy.prepare("""
+                     select coalesce(
+                        (select value from omni_python.config where name = 'site_packages'),
+                        (select (setting || '/.omni_python/default') as value from pg_settings where name = 'data_directory'))
+                        as value
+       """))[0]['value'])
     import sys
     sys.path.insert(0, site_packages)
     del sys
@@ -202,11 +218,20 @@ $$
     import tempfile
 
     site_packages = os.path.expanduser(
-        plpy.execute(plpy.prepare("select current_setting('omni_python.site_packages', true)"))[0][
-            'current_setting'] or "~/.omni_python/default")
+        plpy.execute(plpy.prepare("""
+                     select coalesce(
+                        (select value from omni_python.config where name = 'site_packages'),
+                        (select (setting || '/.omni_python/default') as value from pg_settings where name = 'data_directory'))
+                        as value
+       """))[0]['value'])
 
-    index = plpy.execute(plpy.prepare("select current_setting('omni_python.extra_pip_index_url', true)"))[0][
-        'current_setting']
+    if not os.path.exists(site_packages):
+        os.makedirs(site_packages)
+
+    index = plpy.execute(
+        plpy.prepare(
+            "select (select value from omni_python.config where name = 'extra_pip_index_url') as value"))[0][
+        'value']
 
     requirements_txt = tempfile.mktemp()
     with open(requirements_txt, 'w') as f:
