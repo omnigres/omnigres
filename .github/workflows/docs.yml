@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - run: apt-get install libxml2-dev libxslt-dev python-dev
+      - run: sudo apt-get install libxml2-dev libxslt-dev python-dev
       - uses: actions/setup-python@v4
         with:
           python-version: 3.x
