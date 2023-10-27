@@ -1,5 +1,5 @@
 import typing
-from typing import Any
+from typing import Any, TypedDict, Optional
 from dataclasses import dataclass
 
 
@@ -28,13 +28,23 @@ def Custom(klass: Any, name: str):
     return typing.Annotated[klass, pgtype(name)]
 
 
-def pg(fun):
+class PgAttributes(TypedDict, total=False):
+    name: Optional[str]
+
+
+def pg(*args, **attrs: PgAttributes):
     """
     Decorator that annotates the function to be available as a Postgres stored procedure
 
-    :param fun: Function to be decorated
-    :return: same function
+    :param attrs: Function attributes
+    :return: decorator
     """
 
-    fun.__pg_stored_procedure__ = True
-    return fun
+    def pg_fun(fun):
+        fun.__pg_stored_procedure__ = attrs
+        return fun
+
+    if len(args) == 1 and callable(args[0]) and not attrs:
+        return pg_fun(args[0])
+    else:
+        return pg_fun

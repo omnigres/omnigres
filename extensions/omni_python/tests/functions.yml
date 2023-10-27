@@ -96,6 +96,26 @@ tests:
     results:
     - fun2: tset
 
+- name: override @pg name
+  steps:
+  - query: select *
+           from
+               omni_python.create_functions($1)
+    params:
+    #language=Python
+    - |
+      from omni_python import pg
+      
+      
+      @pg(name="fun")
+      def fun1(v: str) -> int:
+          return len(v)
+    results:
+    - create_functions: fun(text)
+  - query: select fun('test')
+    results:
+    - fun: 4
+
 - name: ignores non-@pg functions
   steps:
   - query: select * from omni_python.create_functions($1)

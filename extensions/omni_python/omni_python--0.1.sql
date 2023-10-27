@@ -69,7 +69,7 @@ $$
     for name, value in code_locals.items():
         if callable(value):
             if hasattr(value, '__pg_stored_procedure__'):
-                pg_functions.append((name, value))
+                pg_functions.append((name, value, value.__pg_stored_procedure__))
 
     __types__ = {str: 'text', bool: 'boolean', bytes: 'bytea', int: 'int',
                  decimal.Decimal: 'numeric', float: 'double precision'}
@@ -130,7 +130,7 @@ $$
 
     from textwrap import dedent
 
-    return [(name,
+    return [(pgargs.get('name', name),
              [a for a in inspect.getfullargspec(f).args],
              [resolve_type(f, a) for a in inspect.getfullargspec(f).args], resolve_type(f, 'return'),
              dedent("""
@@ -150,7 +150,7 @@ $$
                          args=', '.join(
                              [process_argument(f, a) for a in
                               inspect.getfullargspec(f).args])))
-            for name, f in pg_functions]
+            for name, f, pgargs in pg_functions]
 $$;
 
 create function create_functions(code text, filename text default null, replace boolean default false) returns setof regprocedure
