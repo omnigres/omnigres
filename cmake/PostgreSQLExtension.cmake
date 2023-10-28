@@ -99,6 +99,7 @@
 # test_verbose_NAME Runs tests verbosely
 include(Inja)
 find_program(PGCLI pgcli)
+find_program(NETCAT nc REQUIRED)
 
 function(find_pg_yregress_tests dir)
     # Don't add the same tests more than once
@@ -364,7 +365,7 @@ $<$<NOT:$<BOOL:${_ext_SCHEMA}>>:#>schema = ${_ext_SCHEMA}
 while true
 do
     export PORT=$(( ((RANDOM<<15)|RANDOM) % 49152 + 10000 ))
-    status=\"$(nc -z 127.0.0.1 $random_port < /dev/null &>/dev/null; echo $?)\"
+    status=\"$(${NETCAT} -z 127.0.0.1 $random_port < /dev/null &>/dev/null; echo $?)\"
     if [ \"${status}\" != \"0\" ]; then
         echo \"Using port $PORT\";
         break;
@@ -421,15 +422,17 @@ ${_loadextensions} \
         file(GENERATE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/psql_${NAME}
             CONTENT "#! /usr/bin/env bash
 if [ -z \"$PGPORT\" ]; then
-    # Pick random port
+    # Try 5432 first
+    export PGPORT=5432
     while true
     do
-        export PGPORT=$(( ((RANDOM<<15)|RANDOM) % 49152 + 10000 ))
-        status=\"$(nc -z 127.0.0.1 $PGPORT < /dev/null &>/dev/null; echo $?)\"
-        if [ \"${status}\" != \"0\" ]; then
+        status=\"$(${NETCAT} -z 127.0.0.1 $PGPORT < /dev/null &>/dev/null; echo $?)\"
+        if [[ \"$status\" != \"0\" ]]; then
             echo \"Using port $PGPORT\";
             break;
         fi
+        # Pick random port
+        export PGPORT=$(( ((RANDOM<<15)|RANDOM) % 49152 + 10000 ))
     done
 fi
 export EXTENSION_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"
