@@ -48,9 +48,24 @@ function(add_python_package NAME)
             DEPENDS ${CMAKE_BINARY_DIR}/python-index/${_py_NAME_normalized}/${_py_PACKAGE_NAME}-${_py_VERSION}.tar.gz ${CMAKE_BINARY_DIR}/python-index/${_py_NAME_normalized}/${_py_PACKAGE_NAME}-${_py_VERSION}-py3-none-any.whl
     )
 
+    add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/python-wheels/${_py_PACKAGE_NAME}-${_py_VERSION}-py3-none-any.whl
+            COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_BINARY_DIR}/dist/${_py_PACKAGE_NAME}-${_py_VERSION}-py3-none-any.whl ${CMAKE_BINARY_DIR}/python-wheels/${_py_PACKAGE_NAME}-${_py_VERSION}-py3-none-any.whl
+            DEPENDS ${NAME} ${CMAKE_CURRENT_BINARY_DIR}/dist/${_py_PACKAGE_NAME}-${_py_VERSION}-py3-none-any.whl)
+
+    add_custom_target(
+            ${NAME}_wheeled ALL
+            DEPENDS ${CMAKE_BINARY_DIR}/python-wheels/${_py_PACKAGE_NAME}-${_py_VERSION}-py3-none-any.whl
+    )
+
+
 
     if(NOT TARGET pip_index)
         add_custom_target(pip_index ALL)
     endif()
     add_dependencies(pip_index ${NAME}_indexed)
+
+    if(NOT TARGET wheels_dir)
+        add_custom_target(wheels_dir ALL)
+    endif()
+    add_dependencies(wheels_dir ${NAME}_wheeled)
 endfunction()
