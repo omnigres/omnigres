@@ -1,33 +1,12 @@
 $schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
 instance:
-  config:
-    shared_preload_libraries: */env/OMNI_EXT_SO
-    max_worker_processes: 64
   init:
   - create extension omni_python cascade
-  # for pip index
-  - create extension omni_httpd cascade
-  - create extension if not exists omni_vfs cascade
-  - create extension if not exists omni_mimetypes cascade
-  - |
-    create or replace function pypi() returns omni_vfs.local_fs language sql
-    as $$
-    select omni_vfs.local_fs('../../../python-index')
-    $$
-  - call omni_httpd.wait_for_configuration_reloads(1)
-  - name: provision the python index server
-    query: |
-      update omni_httpd.handlers
-      set
-      query = (select
-      omni_httpd.cascading_query(name, query order by priority desc nulls last)
-      from (select * from omni_httpd.static_file_handlers('pypi', 0, listing => true)) routes)
-  - call omni_httpd.wait_for_configuration_reloads(1)
   - insert
     into
         omni_python.config (name, value)
     values
-        ('extra_pip_index_url', 'http://localhost:' || (select effective_port from omni_httpd.listeners)),
+        ('pip_find_links', '../../../python-wheels'),
         ('site_packages', 'omni_python_test_functions')
   - select omni_python.install_requirements('omni_python')
 
