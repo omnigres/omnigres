@@ -1,4 +1,4 @@
-create type config_key as enum ( 'site_packages', 'extra_pip_index_url' );
+create type config_key as enum ( 'site_packages', 'extra_pip_index_url', 'pip_find_links' );
 create table config
 (
     id    integer primary key generated always as identity,
@@ -233,6 +233,11 @@ $$
             "select (select value from omni_python.config where name = 'extra_pip_index_url') as value"))[0][
         'value']
 
+    find_links = plpy.execute(
+        plpy.prepare(
+            "select array_agg(value) as value from omni_python.config where name = 'pip_find_links'"))[0][
+                     'value'] or []
+
     requirements_txt = tempfile.mktemp()
     with open(requirements_txt, 'w') as f:
         f.write(requirements)
@@ -243,7 +248,9 @@ $$
         try:
             from pip._internal.cli.main import main as pip
             rc = pip(["install", "--upgrade", "-r", requirements_txt, "--target", site_packages]
-                     + (["--extra-index-url", index] if index is not None else []))
+                     + (["--extra-index-url", index] if index is not None else [])
+                     + [item for x in find_links for item in ("--find-links", x)]
+                     )
             if rc != 0:
                 raise SystemExit(rc)
         except SystemExit as e:
