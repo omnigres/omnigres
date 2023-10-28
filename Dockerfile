@@ -22,7 +22,7 @@ ARG PLRUST_VERSION=1.2.6
 FROM debian:${DEBIAN_VER}-slim AS builder
 RUN echo "deb http://deb.debian.org/debian bullseye-backports main contrib non-free" >> /etc/apt/sources.list 
 RUN apt update
-RUN apt install -y wget build-essential git clang lld flex libreadline-dev zlib1g-dev libssl-dev tmux lldb gdb make perl python3-dev python3-venv python3-pip
+RUN apt install -y wget build-essential git clang lld flex libreadline-dev zlib1g-dev libssl-dev tmux lldb gdb make perl python3-dev python3-venv python3-pip netcat
 # current cmake is too old
 ARG DEBIAN_VER
 ENV DEBIAN_VER=${DEBIAN_VER}
