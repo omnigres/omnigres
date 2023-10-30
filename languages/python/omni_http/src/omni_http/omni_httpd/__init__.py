@@ -5,6 +5,7 @@ from typing import TypedDict, Optional, Any
 from dataclasses import dataclass
 
 import sys
+import io
 
 @dataclass
 class HTTPRequest:
@@ -15,11 +16,11 @@ class HTTPRequest:
     headers: list[HttpHeader]
 
     def wsgi_environ(self) -> dict:
-        environ = {'wsgi.version': (1, 0), 'wsgi.url_scheme': 'http', 'wsgi.input': self.body or b"",
-                   'wsgi.multithread': False,
+        environ = {'wsgi.version': (1, 0), 'wsgi.url_scheme': 'http', 'wsgi.input': io.BytesIO(self.body or b""),
+                   'wsgi.input_terminated': 1, 'wsgi.multithread': False,
                    'REQUEST_METHOD': self.method, 'PATH_INFO': self.path, 'QUERY_STRING': self.query_string or ''}
         for header in self.headers:
-            environ[f"HTTP{header['name'].upper()}"] = header['value']
+            environ[f"HTTP_{header['name'].upper().replace('-', '_')}"] = header['value']
         return environ
 
     @classmethod
