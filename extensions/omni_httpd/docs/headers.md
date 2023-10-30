@@ -45,34 +45,10 @@ Content-Type: text/plain
 Hi there
 ```
 
-If you set a lower `Content-Length`, the response body will be resized accordingly:
+!!! warning "Overriding Content-Length"
 
-```sql
-update
-omni_httpd.handlers
-set query = $$
-  select *
-  from omni_httpd.http_response(
-    headers => array [omni_http.http_header('Content-Type', 'text/plain'), omni_http.http_header('Content-Length', '2')],
-    body => 'Hi there'
-  )
-$$
-where id = 1;
-```
+    `omni_httpd` allows overriding the `Content-Length`. This is useful for integrating with other HTTP handlers (e.g. Flask) that set the `Content-Length`.
+    To ensure correctness, overriding works in the following way:
 
-```bash
-curl localhost:8080 -i
-
-HTTP/1.1 200 OK
-Connection: keep-alive
-Content-Length: 2
-Server: omni_httpd-0.1
-Content-Type: text/plain
-
-Hi
-```
-
-!!! warning "Overflowing Content-Length"
-
-    If you set a Content-Length higher than the size of the response body, `omni_httpd` will
-    emit a WARNING and defer to using the actual body size.
+    - If the `Content-Length` is set lower than the actual body size. `omni_httpd` will use the new `Content-Length` and downsize the response body.
+    - If the `Content-Length` is set higher than the actual body size. `omni_httpd` will keep its `Content-Length`, emit a WARNING and use the actual body size.
