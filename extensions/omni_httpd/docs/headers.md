@@ -19,8 +19,6 @@ For instance, having:
 ```sql
 create extension omni_httpd cascade;
 
-set omni_httpd.init_port to 8000;
-
 update
 omni_httpd.handlers
 set query = $$
@@ -36,7 +34,7 @@ where id = 1;
 Will produce the response:
 
 ```bash
-curl localhost:8000 -i
+curl localhost:8080 -i
 
 HTTP/1.1 200 OK
 Connection: keep-alive
@@ -63,7 +61,7 @@ where id = 1;
 ```
 
 ```bash
-curl localhost:8000 -i
+curl localhost:8080 -i
 
 HTTP/1.1 200 OK
 Connection: keep-alive
