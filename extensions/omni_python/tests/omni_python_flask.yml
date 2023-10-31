@@ -11,8 +11,9 @@ instance:
   - query: select omni_python.install_requirements($1)
     params:
     - |
+      omni_python
+      omni_http[Flask]
       omni_http
-      omni_python[Flask]
 
 tests:
 

@@ -1,6 +1,6 @@
 from typing import Optional
 
-from . import HTTPResponse, HTTPRequest
+from . import HTTPResponse, HTTPRequest, HTTPOutcome
 from ..omni_http import HttpHeader
 
 try:
@@ -27,7 +27,7 @@ class Adapter:
     def __init__(self, app: flask.Flask):
         self.app = app
 
-    def __call__(self, req: HTTPRequest) -> HTTPResponse:
+    def __call__(self, req: HTTPRequest) -> HTTPOutcome:
         res = responder()
         response = self.app.wsgi_app(req.wsgi_environ(), res)
 
@@ -35,4 +35,4 @@ class Adapter:
         for chunk in response:
             body += chunk
 
-        return HTTPResponse(status = res.status, body = body, headers = res.headers)
+        return HTTPResponse(status = res.status, body = body, headers = res.headers).outcome()
