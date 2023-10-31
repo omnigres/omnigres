@@ -1,0 +1,52 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_python cascade
+  - insert
+    into
+        omni_python.config (name, value)
+    values
+        ('pip_find_links', '../../../python-wheels'),
+        ('site_packages', 'omni_python_test_functions')
+  - query: select omni_python.install_requirements($1)
+    params:
+    - |
+      omni_http
+      omni_python[Flask]
+
+tests:
+
+- name: execute
+  query: select omni_python.execute($1)
+  params:
+  #language=Python
+  - |
+    from omni_python import log
+    from omni_http import omni_httpd
+    from omni_http.omni_httpd import flask
+    from flask import Flask
+
+    app = Flask('myapp')
+    app.config['PROPAGATE_EXCEPTIONS'] = True # make debugging easier
+
+    @app.route('/post/', methods=['POST'])
+    def do_post():
+      from flask import make_response, request
+      from omni_python import log
+      log.notice(dict(request.headers))
+      log.notice(request.data)
+      try:
+        resp = make_response('world')
+        return resp
+      except Exception as e:
+        log.notice(e)
+
+    req = omni_httpd.HTTPRequest(method='POST', query_string=None, path='/post/', body=b'hello', headers=[{'name': 'x-test', 'value': 'lala'}])
+
+    app_ = flask.Adapter(app)
+    res = app_(req)
+    log.notice(res)
+  notices:
+  - "{'X-Test': 'lala', 'Content-Length': '5'}"
+  - b'hello'
+  - "HTTPResponse(headers=[('Content-Type', 'text/html; charset=utf-8'), ('Content-Length', '5')], body=b'world', status=200)"
