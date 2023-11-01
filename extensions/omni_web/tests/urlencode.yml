@@ -1,0 +1,30 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_web
+
+tests:
+
+- query: select omni_web.url_encode('Hello World')
+  results:
+  - url_encode: Hello%20World
+
+- query: select omni_web.url_decode('Hello%20World')
+  results:
+  - url_decode: Hello World
+
+- query: select omni_web.url_encode(unnest) from unnest(string_to_array('http://hu.wikipedia.org/wiki/São_Paulo','/'))
+  results:
+    - url_encode: http%3A
+    - url_encode:
+    - url_encode: hu.wikipedia.org
+    - url_encode: wiki
+    - url_encode: S%C3%A3o_Paulo
+
+- query: select omni_web.uri_encode('http://hu.wikipedia.org/wiki/São_Paulo')
+  results:
+    - uri_encode: http://hu.wikipedia.org/wiki/S%C3%A3o_Paulo
+
+- query: select omni_web.uri_decode('http://hu.wikipedia.org/wiki/S%C3%A3o_Paulo')
+  results:
+  - uri_decode: http://hu.wikipedia.org/wiki/São_Paulo

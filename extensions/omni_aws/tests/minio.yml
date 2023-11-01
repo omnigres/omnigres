@@ -1,0 +1,109 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_aws cascade
+  - create extension omni_containers cascade
+
+tests:
+
+- name: start minio
+  commit: true
+  query: |
+    create table minio as (with
+                               container as (select *
+                                             from
+                                                 omni_containers.docker_container_create('minio/minio',
+                                                                                         options =>
+                                                                                             $${"Cmd": ["server", "/data"],
+                                                                                                      "HostConfig": {"PortBindings": { "9000/tcp": [{}]}},
+                                                                                                      "StopTimeout": 60
+                                                                                                   }$$,
+                                                                                         pull => true) as id)
+                           select
+                               pg_sleep(2)::text, -- ensure it has started (FIXME: need a better way)
+                               omni_containers.docker_container_inspect(id) as inspect
+                           from
+                               container)
+
+- name: create a bucket
+  query: |
+    select *
+    from
+        omni_aws.aws_execute(access_key_id => 'minioadmin', secret_access_key => 'minioadmin',
+                             request => omni_aws.s3_create_bucket(bucket := 'omnigres-dev-test'),
+                             endpoint_url => 'http://127.0.0.1:' || (select
+                                                                         inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
+                                                                     from
+                                                                         minio))
+- name: list objects
+  query: |
+    select *
+    from
+        omni_aws.aws_execute(access_key_id => 'minioadmin', secret_access_key => 'minioadmin',
+                             request => omni_aws.s3_list_objects_v2(bucket => 'omnigres-dev-test', path => '/'),
+                             endpoint_url => 'http://127.0.0.1:' || (select
+                                                                         inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
+                                                                     from
+                                                                         minio))
+  results: [ ]
+
+- name: put object
+  query: |
+    select *
+    from
+        omni_aws.aws_execute(access_key_id => 'minioadmin', secret_access_key => 'minioadmin',
+                             request => omni_aws.s3_put_object(bucket := 'omnigres-dev-test', path => '/test',
+                                                               payload => 'text'),
+                             endpoint_url => 'http://127.0.0.1:' || (select
+                                                                         inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
+                                                                     from
+                                                                         minio))
+
+- name: put objects
+  query: |
+    select *
+    from
+        omni_aws.aws_execute(access_key_id => 'minioadmin', secret_access_key => 'minioadmin',
+                             requests => array [omni_aws.s3_put_object(bucket => 'omnigres-dev-test', path => '/test1',
+                                                                       payload => 'text'),
+                                 omni_aws.s3_put_object(bucket := 'omnigres-dev-test', path => '/test22',
+                                                        payload => 'text')
+                                 ],
+                             endpoint_url => 'http://127.0.0.1:' || (select
+                                                                         inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
+                                                                     from
+                                                                         minio))
+
+- name: list objects
+  query: |
+    select
+        key,
+        size,
+        storage_class
+    from
+        omni_aws.aws_execute(access_key_id => 'minioadmin', secret_access_key => 'minioadmin',
+                             request => omni_aws.s3_list_objects_v2(bucket => 'omnigres-dev-test', path => '/'),
+                             endpoint_url => 'http://127.0.0.1:' || (select
+                                                                         inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
+                                                                     from
+                                                                         minio))
+    order by
+        key asc
+  results:
+  - key: test
+    size: 4
+    storage_class: STANDARD
+  - key: test1
+    size: 4
+    storage_class: STANDARD
+  - key: test22
+    size: 4
+    storage_class: STANDARD
+
+
+- name: stop minio
+  query: |
+    select
+        omni_containers.docker_container_stop(inspect ->> 'Id')
+    from
+        minio

@@ -1,0 +1,31 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_aws cascade
+
+tests:
+- name: hash canonical request
+  query: |
+    select 
+      omni_aws.hash_canonical_request('GET', '/', '', 
+      '{"host:omnidevtest.s3.us-west-2.amazonaws.com",
+      "x-amz-content-sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "x-amz-date:20231018T214557Z"}',
+      '{"host",
+        "x-amz-content-sha256",
+        "x-amz-date"}', 
+      'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855')
+  results:
+  - hash_canonical_request: 93f0c6e606eb7d708f83c5426273c0c60af869907f208a8d54ccb5162f1ac46e
+
+- name: hash string to sign
+  query: |
+    select omni_aws.hash_string_to_sign(
+        'AWS4-HMAC-SHA256',
+        '20231018T225400Z'::timestamp without time zone at time zone 'Etc/UTC',
+        'us-west-2',
+        's3',
+        '93f0c6e606eb7d708f83c5426273c0c60af869907f208a8d54ccb5162f1ac46e',
+        'EwV9WAJYLyJ5SO7YgonArYoV6awI1Oi86SySM7No')
+  results:
+  - hash_string_to_sign: 73bd0a646b218963b5ad2a30e2b5524977e2384daf486395c0101a96182060c7
