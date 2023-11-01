@@ -17,7 +17,7 @@ add_postgresql_extension(
         SCHEMA omni_web
         RELOCATABLE false
         SCRIPTS omni_web--0.1.sql
-        SOURCES omni_web.c)
+        SOURCES omni_web.c urlencode.c)
 
 target_link_libraries(omni_web uriparser)
 

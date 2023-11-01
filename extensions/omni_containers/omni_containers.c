@@ -511,3 +511,50 @@ Datum docker_container_logs(PG_FUNCTION_ARGS) {
   MEMCXT_FINALIZE { logs = docker_stream_to_text(&buf); }
   PG_RETURN_TEXT_P(logs);
 }
+
+PG_FUNCTION_INFO_V1(docker_container_stop);
+
+Datum docker_container_stop(PG_FUNCTION_ARGS) {
+  gluepg_curl_init();
+
+  Datum result;
+  gluepg_curl_buffer buf;
+
+  WITH_TEMP_MEMCXT {
+
+    // Container ID
+    char *id = text_to_cstring(PG_GETARG_TEXT_PP(0));
+
+    CURL *curl = init_curl();
+
+    gluepg_curl_buffer_init(&buf);
+    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &buf);
+
+    curl_easy_setopt(curl, CURLOPT_POST, 1L);
+    curl_easy_setopt(curl, CURLOPT_URL, psprintf("http://v1.41/containers/%s/stop", id));
+    curl_easy_perform(curl);
+
+    long http_code;
+    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+
+    // How did it go?
+    switch (http_code) {
+    // Got it
+    case 204:
+      // We're done
+      break;
+    case 304:
+      ereport(WARNING, errmsg("Can't stop the container"), errdetail("Container already stopped"));
+      break;
+    case 404:
+      ereport(ERROR, errmsg("Can't stop the container"), errdetail("No such container"));
+      break;
+    case 500:
+      ereport(ERROR, errmsg("Can't stop the container"));
+    }
+    curl_easy_cleanup(curl);
+  }
+  MEMCXT_FINALIZE {}
+
+  PG_RETURN_VOID();
+}
