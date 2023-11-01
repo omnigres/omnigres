@@ -266,7 +266,7 @@ Datum docker_container_create(PG_FUNCTION_ARGS) {
           // Try to pull the image if allowed to
           ereport(NOTICE, errmsg("Pulling image %s", image));
           char *image_escaped = curl_easy_escape(curl, normalized_image, 0);
-          char *url = psprintf("http://v1.41/images/create?fromImage=%s", image_escaped);
+          char *url = psprintf("http://v1.41/images/create?fromImage=%s&tag=latest", image_escaped);
           curl_easy_setopt(curl, CURLOPT_URL, url);
           curl_easy_setopt(curl, CURLOPT_POSTFIELDS, NULL);
           gluepg_curl_buffer_reset(&buf);
