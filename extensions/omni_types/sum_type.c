@@ -95,7 +95,7 @@ PG_FUNCTION_INFO_V1(sum_cast_from);
  * @param variant returns the variant Oid
  * @param val returns the extracted variant
  */
-static void get_variant_val(Datum *arg, Oid sum_type_oid, Oid *variant, Datum *val,
+static void get_variant_val(Datum arg, Oid sum_type_oid, Oid *variant, Datum *val,
                             Discriminant *discriminant);
 
 Datum sum_variant(PG_FUNCTION_ARGS) {
@@ -106,7 +106,7 @@ Datum sum_variant(PG_FUNCTION_ARGS) {
 
   Oid sum_type_oid = get_fn_expr_argtype(fcinfo->flinfo, 0);
 
-  Datum *arg = (Datum *)PG_GETARG_POINTER(0);
+  Datum arg = PG_GETARG_DATUM(0);
 
   Oid variant;
   get_variant_val(arg, sum_type_oid, &variant, NULL, NULL);
@@ -147,9 +147,10 @@ static Datum make_variant(int16 sum_type_len, Discriminant discriminant, int16 v
     // If sum type is variable size,
     size_t sz = variant_type_len == -1 ? VARSIZE(variant_value) : variant_type_len;
     struct varlena *varsize = palloc(VARHDRSZ + sizeof(VarSizeVariant) + sz);
-    SET_VARSIZE(varsize, sizeof(VarSizeVariant) + sz);
+    SET_VARSIZE(varsize, VARHDRSZ + sizeof(VarSizeVariant) + sz);
     VarSizeVariant *var_size_variant = (VarSizeVariant *)VARDATA_ANY(varsize);
     var_size_variant->discriminant = discriminant;
+    SET_VARSIZE(&var_size_variant->data, sz);
     // If the variant is passed by val
     if (variant_byval) {
       // Copy the variant itself
@@ -263,7 +264,7 @@ Datum sum_out(PG_FUNCTION_ARGS) {
   Oid sum_type_oid = proc_struct->proargtypes.values[0];
   ReleaseSysCache(proc_tuple);
 
-  Datum *arg = (Datum *)PG_GETARG_POINTER(0);
+  Datum arg = PG_GETARG_DATUM(0);
 
   Oid variant;
   Datum val;
@@ -371,7 +372,7 @@ Datum sum_send(PG_FUNCTION_ARGS) {
   Oid sum_type_oid = proc_struct->proargtypes.values[0];
   ReleaseSysCache(proc_tuple);
 
-  Datum *arg = (Datum *)PG_GETARG_POINTER(0);
+  Datum arg = PG_GETARG_DATUM(0);
 
   Oid variant;
   Datum val;
@@ -405,7 +406,7 @@ Datum sum_cast_to(PG_FUNCTION_ARGS) {
   Oid variant_type_oid = proc_struct->prorettype;
   ReleaseSysCache(proc_tuple);
 
-  Datum *arg = (Datum *)PG_GETARG_POINTER(0);
+  Datum arg = PG_GETARG_DATUM(0);
 
   Oid variant;
   Datum val;
@@ -490,7 +491,7 @@ Datum sum_cast_from(PG_FUNCTION_ARGS) {
                       PG_GETARG_DATUM(0));
 }
 
-static void get_variant_val(Datum *arg, Oid sum_type_oid, Oid *variant, Datum *val,
+static void get_variant_val(Datum arg, Oid sum_type_oid, Oid *variant, Datum *val,
                             Discriminant *discriminant) {
   HeapTuple sum_type_tup = SearchSysCache1(TYPEOID, ObjectIdGetDatum(sum_type_oid));
   Assert(HeapTupleIsValid(sum_type_tup));
@@ -498,9 +499,11 @@ static void get_variant_val(Datum *arg, Oid sum_type_oid, Oid *variant, Datum *v
   int16 sum_type_len = sum_typtup->typlen;
   ReleaseSysCache(sum_type_tup);
 
-  struct varlena *varsize = sum_type_len == -1 ? PG_DETOAST_DATUM_PACKED(arg) : NULL;
+  VarSizeVariant *varsize =
+      sum_type_len == -1 ? (VarSizeVariant *)VARDATA_ANY(PG_DETOAST_DATUM_PACKED(arg)) : NULL;
   FixedSizeVariant *value =
-      sum_type_len == -1 ? (FixedSizeVariant *)VARDATA_ANY(varsize) : (FixedSizeVariant *)arg;
+      sum_type_len == -1 ? (FixedSizeVariant *)varsize : (FixedSizeVariant *)DatumGetPointer(arg);
+
   if (discriminant != NULL) {
     *discriminant = value->discriminant;
   }
@@ -549,13 +552,12 @@ static void get_variant_val(Datum *arg, Oid sum_type_oid, Oid *variant, Datum *v
       *val =
           // if sum type is variable size
           (Datum)(sum_type_len == -1
-                      // if variable is variable size
+                      // if variant is variable size
                       ? (variant_byval
-                             // if variant is passed by value, get it from behind the pointer
-                             ? *((Datum *)VARDATA_ANY(
-                                   &((VarSizeVariant *)VARDATA_ANY(varsize))->data))
+                             // if variant is passed by value, get it as is
+                             ? *(Datum *)VARDATA_ANY(&varsize->data)
                              // otherwise, pass the pointer
-                             : (Datum) & ((VarSizeVariant *)VARDATA_ANY(varsize))->data)
+                             : PointerGetDatum(&varsize->data))
                       // if variant is passed by value, get it from behind the pointer
                       : (variant_byval ? *((Datum *)value->data)
                                        // otherwise, pass the pointer
