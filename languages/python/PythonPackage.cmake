@@ -9,7 +9,7 @@ function(add_python_package NAME)
     set(_single VERSION PACKAGE_NAME)
     cmake_parse_arguments(_py "${_optional}" "${_single}" "${_multi}" ${ARGN})
 
-    set(ENV{VIRTUAL_ENV} "${CMAKE_CURRENT_BINARY_DIR}/venv")
+    set(ENV{VIRTUAL_ENV} "${CMAKE_BINARY_DIR}/venv")
 
     find_package(Python3 REQUIRED COMPONENTS Interpreter)
     execute_process(COMMAND "${Python3_EXECUTABLE}" -m venv $ENV{VIRTUAL_ENV})
