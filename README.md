@@ -1,4 +1,10 @@
 ![Omnigres](header_logo.svg)
+
+<p align="center">
+<a href="https://docs.omnigres.org"><b>Documentation</b></a> |
+<a href="https://github.com/omnigres/omnigres/wiki/Bounties"><b>Bounties</b></a>
+</p>
+
 ---
 
 [![Discord Chat](https://img.shields.io/discord/1060568981725003789?label=Discord)][Discord]
