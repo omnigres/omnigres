@@ -47,4 +47,4 @@ tests:
   notices:
   - "{'X-Test': 'lala', 'Content-Length': '5'}"
   - b'hello'
-  - "HTTPResponse(headers=[('Content-Type', 'text/html; charset=utf-8'), ('Content-Length', '5')], body=b'world', status=200)"
+  - "omni_httpd.http_response((\"\\\\x776f726c64\",200,\"{\"\"(Content-Type,\\\\\"\"text/html; charset=utf-8\\\\\"\")\"\",\"\"(Content-Length,5)\"\"}\"))"
