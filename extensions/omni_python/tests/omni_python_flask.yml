@@ -17,37 +17,63 @@ instance:
     - |
       omni_python
       omni_http[Flask]
+  - query: select omni_python.create_functions($1)
+    params:
+    #language=Python
+    - |
+      from omni_python import pg
+      from omni_http import omni_httpd
+      from omni_http.omni_httpd import flask
+      from flask import Flask
+      import json
+
+      app = Flask('myapp')
+      app.config['PROPAGATE_EXCEPTIONS'] = True  # make debugging easier
+      
+      
+      @app.route('/post/body', methods=['POST'])
+      def do_post():
+          from flask import make_response, request
+          resp = make_response(request.data)
+          return resp
+      
+      
+      @app.route('/post/headers', methods=['POST'])
+      def do_headers():
+          from flask import make_response, request
+          resp = make_response(json.dumps({**request.headers}))
+          return resp
+      
+      
+      app_ = flask.Adapter(app)
+      
+      
+      @pg
+      def handle(request: omni_httpd.HTTPRequest) -> omni_httpd.HTTPOutcome:
+          return app_(request)
+
 
 tests:
+- name: POST body
+  query: select
+             convert_from(body, 'utf-8') as body
+         from
+             omni_httpd.http_response_from_http_outcome(
+                     handle(omni_httpd.http_request('/post/body', method => 'POST',
+                                                    body => 'hello')))
+  results:
+  - body: hello
 
-- name: execute
-  query: select omni_python.execute($1)
-  params:
-  #language=Python
-  - |
-    from omni_python import log
-    from omni_http import omni_httpd
-    from omni_http.omni_httpd import flask
-    from flask import Flask
-
-    app = Flask('myapp')
-    app.config['PROPAGATE_EXCEPTIONS'] = True # make debugging easier
-
-    @app.route('/post/', methods=['POST'])
-    def do_post():
-      from flask import make_response, request
-      from omni_python import log
-      log.notice(dict(request.headers))
-      log.notice(request.data)
-      resp = make_response('world')
-      return resp
-
-    req = omni_httpd.HTTPRequest(method='POST', query_string=None, path='/post/', body=b'hello', headers=[{'name': 'x-test', 'value': 'lala'}])
-
-    app_ = flask.Adapter(app)
-    res = app_(req)
-    log.notice(res)
-  notices:
-  - "{'X-Test': 'lala', 'Content-Length': '5'}"
-  - b'hello'
-  - "omni_httpd.http_response((\"\\\\x776f726c64\",200,\"{\"\"(Content-Type,\\\\\"\"text/html; charset=utf-8\\\\\"\")\"\",\"\"(Content-Length,5)\"\"}\"))"
+- name: POST headers
+  query: select
+             convert_from(body, 'utf-8')::json as headers
+         from
+             omni_httpd.http_response_from_http_outcome(
+                     handle(omni_httpd.http_request('/post/headers', method => 'POST',
+                                                    headers => array [omni_http.http_header('Test', 'Val')],
+                                                    body => ''
+                         )))
+  results:
+  - headers:
+      Test: Val
+      Content-Length: 0
