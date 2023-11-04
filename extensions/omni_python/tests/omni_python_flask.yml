@@ -1,0 +1,79 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_EXT_SO
+    max_worker_processes: 64
+  init:
+  - create extension omni_python cascade
+  - create extension omni_httpd cascade
+  - insert
+    into
+        omni_python.config (name, value)
+    values
+        ('pip_find_links', '../../../python-wheels'),
+        ('site_packages', 'omni_python_test_functions')
+  - query: select omni_python.install_requirements($1)
+    params:
+    - |
+      omni_python
+      omni_http[Flask]
+  - query: select omni_python.create_functions($1)
+    params:
+    #language=Python
+    - |
+      from omni_python import pg
+      from omni_http import omni_httpd
+      from omni_http.omni_httpd import flask
+      from flask import Flask
+      import json
+
+      app = Flask('myapp')
+      app.config['PROPAGATE_EXCEPTIONS'] = True  # make debugging easier
+      
+      
+      @app.route('/post/body', methods=['POST'])
+      def do_post():
+          from flask import make_response, request
+          resp = make_response(request.data)
+          return resp
+      
+      
+      @app.route('/post/headers', methods=['POST'])
+      def do_headers():
+          from flask import make_response, request
+          resp = make_response(json.dumps({**request.headers}))
+          return resp
+      
+      
+      app_ = flask.Adapter(app)
+      
+      
+      @pg
+      def handle(request: omni_httpd.HTTPRequest) -> omni_httpd.HTTPOutcome:
+          return app_(request)
+
+
+tests:
+- name: POST body
+  query: select
+             convert_from(body, 'utf-8') as body
+         from
+             omni_httpd.http_response_from_http_outcome(
+                     handle(omni_httpd.http_request('/post/body', method => 'POST',
+                                                    body => 'hello')))
+  results:
+  - body: hello
+
+- name: POST headers
+  query: select
+             convert_from(body, 'utf-8')::json as headers
+         from
+             omni_httpd.http_response_from_http_outcome(
+                     handle(omni_httpd.http_request('/post/headers', method => 'POST',
+                                                    headers => array [omni_http.http_header('Test', 'Val')],
+                                                    body => ''
+                         )))
+  results:
+  - headers:
+      Test: Val
+      Content-Length: 0
