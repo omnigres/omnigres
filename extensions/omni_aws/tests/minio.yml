@@ -58,6 +58,17 @@ tests:
                                                                          inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
                                                                      from
                                                                          minio))
+- name: put a binary object
+  query: |
+    select *
+    from
+        omni_aws.aws_execute(access_key_id => 'minioadmin', secret_access_key => 'minioadmin',
+                             request => omni_aws.s3_put_object(bucket := 'omnigres-dev-test', path => '/bin',
+                                                               payload => decode('00FF', 'hex')),
+                             endpoint_url => 'http://127.0.0.1:' || (select
+                                                                         inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
+                                                                     from
+                                                                         minio))
 
 - name: put objects
   query: |
@@ -90,6 +101,9 @@ tests:
     order by
         key asc
   results:
+  - key: bin
+    size: 2
+    storage_class: STANDARD
   - key: test
     size: 4
     storage_class: STANDARD
