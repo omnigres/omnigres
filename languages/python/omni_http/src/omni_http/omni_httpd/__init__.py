@@ -23,7 +23,7 @@ class HTTPRequest:
         
         # set content-length header to enable body stream
         if not environ.get('CONTENT_LENGTH'): # TODO: how to handle chunked data?
-            environ['CONTENT_LENGTH'] = str(len(self.body))
+            environ['CONTENT_LENGTH'] = str(len(self.body or ""))
         return environ
 
     @classmethod

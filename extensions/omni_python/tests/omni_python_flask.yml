@@ -70,8 +70,7 @@ tests:
          from
              omni_httpd.http_response_from_http_outcome(
                      handle(omni_httpd.http_request('/post/headers', method => 'POST',
-                                                    headers => array [omni_http.http_header('Test', 'Val')],
-                                                    body => ''
+                                                    headers => array [omni_http.http_header('Test', 'Val')]
                          )))
   results:
   - headers:
