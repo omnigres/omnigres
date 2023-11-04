@@ -2,6 +2,7 @@ $schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress
 instance:
   init:
   - create extension omni_python cascade
+  - create extension omni_httpd cascade
   - insert
     into
         omni_python.config (name, value)
@@ -13,7 +14,6 @@ instance:
     - |
       omni_python
       omni_http[Flask]
-      omni_http
 
 tests:
 
@@ -36,11 +36,8 @@ tests:
       from omni_python import log
       log.notice(dict(request.headers))
       log.notice(request.data)
-      try:
-        resp = make_response('world')
-        return resp
-      except Exception as e:
-        log.notice(e)
+      resp = make_response('world')
+      return resp
 
     req = omni_httpd.HTTPRequest(method='POST', query_string=None, path='/post/', body=b'hello', headers=[{'name': 'x-test', 'value': 'lala'}])
 
