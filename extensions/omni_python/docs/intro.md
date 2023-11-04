@@ -138,28 +138,42 @@ from
     handler;
 ```
 
-4. Now you can update your Python files (in the mounted volume) to include Flask functionality.
+4. Let's say you have a table called `employees`.
+```postgresql
+create table employees (
+   id uuid,
+   name text not null,
+   department text not null,
+   salary integer not null
+);
+```
+
+5. Now you can update your Python files (in the mounted volume) to include Flask functionality. For example, you can define endpoints to fetch list of all employees, fetch a particular employee, as well as create a new employee record.
 ```python
 from omni_python import pg
 from omni_http import omni_httpd
 from omni_http.omni_httpd import flask
 from flask import Flask, jsonify, make_response
+import uuid
 
 app = Flask('myapp')
 
-@app.route("/")
-def ping():
-    return "<h1>Hello, World!</h1>"
+@app.route('/employees', methods=['POST'])
+def create_employee():
+    employee_id = uuid.uuid4()
+    # todo: Use actual data from request body once https://github.com/omnigres/omnigres/pull/316 is merged.
+    employee = plpy.execute(plpy.prepare("INSERT INTO employees (id, name, department, salary) VALUES ($1, $2, $3, $4) RETURNING *", ["uuid", "text", "text", "int"]), [employee_id, "John Doe", "Engineering", 100000])
+    return str(employee)
 
-@app.route('/post/<int:post_id>', methods=['POST'])
-def show_post(post_id):
-    resp = make_response(f'<h1>Post #{post_id}</h1>')
-    resp.set_cookie('cookie', 'yum')
-    return resp
+@app.route('/employees', methods=['GET'])
+def get_employees():
+    employees = plpy.execute(plpy.prepare("SELECT * FROM employees"))
+    return str(employees)
 
-@app.route("/test.json")
-def json():
-    return jsonify({"test": "passed"})
+@app.route('/employees/<employee_id>', methods=['GET'])
+def get_employee(employee_id):
+    employee = plpy.execute(plpy.prepare("SELECT * FROM employees WHERE id = $1", ["uuid"]), [employee_id])
+    return str(employee)
 
 app_ = flask.Adapter(app)
 
@@ -167,6 +181,11 @@ app_ = flask.Adapter(app)
 def handle(req: omni_httpd.HTTPRequest) -> omni_httpd.HTTPOutcome:
     return app_(req)
 ```
+
+!!! tip "Tip"
+
+    Note: We use `plpy` for now, but we should use DB API compatible APIs and/or other 
+    frameworks (such as SQLAlchemy) which will be available very soon.
 
 5. Make sure to add port mapping for 5000 when running Omnigres via Docker.
 ```shell
@@ -180,17 +199,27 @@ docker run --name omnigres \
 
 6. You can hit the endpoints defined in the Flask code above.
 
+Fetch all employees:
 ```shell
-$ curl http://localhost:5000
-<h1>Hello, World!</h1>
+$ curl http://localhost:5000/employees
+<PLyResult status=5 nrows=2 rows=[
+{'id': '3f59ef0a-1f57-405a-87d4-662f16698a72', 'name': 'Akshat', 'department': 'Engineering', 'salary': 200000}, 
+{'id': '77e52508-829e-4004-9ed5-7e386bb18d76', 'name': 'Daniel', 'department': 'Engineering', 'salary': 100000}
+]>
 ```
 
+Create a new employee:
 ```shell
-$ curl -X POST http://localhost:5000/post/123
-<h1>Post #123</h1>
+$ curl -X POST http://localhost:5000/employees
+<PLyResult status=11 nrows=1 rows=[
+{'id': '8b26fcf2-4ba8-4b4a-8e9c-1bb08d0695e4', 'name': 'John Doe', 'department': 'Engineering', 'salary': 100000}
+]>
 ```
 
+Fetch a particular employee:
 ```shell
-$ curl http://localhost:5000/test.json
-{"test":"passed"}
+$ curl http://localhost:5000/employees/8b26fcf2-4ba8-4b4a-8e9c-1bb08d0695e4
+<PLyResult status=5 nrows=1 rows=[
+{'id': '8b26fcf2-4ba8-4b4a-8e9c-1bb08d0695e4', 'name': 'John Doe', 'department': 'Engineering', 'salary': 100000}
+]>
 ```
