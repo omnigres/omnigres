@@ -17,14 +17,14 @@ create extension if not exists omni_vfs cascade;
 
 ## Getting started
 
-1. Create a directory on your host system containing the Python files, and corresponding `requirements.txt`, and mount the volume to the Docker container.
+Create a directory on your host system containing the Python files, and corresponding `requirements.txt`, and mount the volume to the Docker container.
 
-2. We need to add the following to `requirements.txt` file to support Python integration:
+We need to add the following to `requirements.txt` file to support Python integration:
 ```shell
 omni_python
 ```
 
-3. Create Python files. You can create more than one files, as long as they are in the directory that you would mount as a volume inside the Docker container for running Omnigres.
+Create Python files. You can create more than one files, as long as they are in the directory that you would mount as a volume inside the Docker container for running Omnigres.
 
 Create functions in Python as you would, and annotate them with `@pg` to make sure they are loaded into the database.
 
@@ -51,8 +51,7 @@ def add(a: int, b: int) -> int:
 def subtract(a: int, b: int) -> int:
     return a - b
 ```
-
-4. Create a function to define an identifier for the local directory you want to load into the database. For the example, the local directory is `python-files`.
+Create a function to define an identifier for the local directory you want to load into the database. For the example, the local directory is `python-files`.
 
 ```postgresql
 create or replace function demo_function() returns omni_vfs.local_fs language sql
@@ -60,23 +59,28 @@ as $$
 select omni_vfs.local_fs('/python-files')
 $$;
 ```
-
-5. Configure `omni_python`
+Configure `omni_python`
 ```postgresql
 insert into omni_python.config (name, value) values ('pip_find_links', '/python-wheels');
 ```
+!!! tip "Tip"
 
-6. Load the filesystem files.
+    We are working on a CLI tooling that will take care of directory mapping.
+
+Load the filesystem files.
 ```postgresql
 select omni_schema.load_from_fs(demo_function());
 ```
 
-7. [Optional] You can set a reload command for reloading the filesystem changes.
-```postgresql
-\set reload 'select omni_schema.load_from_fs(demo_function());'
-```
+!!! tip "Optional Tip"
 
-8. Run Omnigres in a Docker container. Make sure to mount the local directory as a volume on the correct path.
+    You can set a reload command for reloading the filesystem changes.
+    ```postgresql
+    \set reload 'select omni_schema.load_from_fs(demo_function());'
+    ```
+
+
+Run Omnigres in a Docker container. Make sure to mount the local directory as a volume on the correct path.
 ```shell
 docker run --name omnigres \
            -e POSTGRES_PASSWORD=omnigres \
@@ -86,7 +90,7 @@ docker run --name omnigres \
            -p 127.0.0.1:5433:5432 --rm ghcr.io/omnigres/omnigres-slim:latest
 ```
 
-9. Let's try it out!
+Let's try it out!
 ```postgresql
 omnigres=# select hello();
    hello
@@ -110,16 +114,17 @@ omnigres=# select subtract(5, 10);
 
 For Flask framework integration, we have a few more steps.
 
-1. Create `omni_httpd` extension to be able to handle HTTP requests.
+Create `omni_httpd` extension to be able to handle HTTP requests.
 ```postgresql
 create extension if not exists omni_httpd cascade;
 ```
-2. Add the following in `requirements.txt` file
+
+Add the following in `requirements.txt` file.
 ```
 omni_http[Flask]
 ```
 
-3. Create HTTP listeners for our Flask application. For example, let's add a HTTP listener for port 5000.
+Create HTTP listeners for our Flask application. For example, let's add a HTTP listener for port 5000.
 ```postgresql
 with
     listener as (insert into omni_httpd.listeners (address, port) values ('0.0.0.0', 5000) returning id),
@@ -138,7 +143,7 @@ from
     handler;
 ```
 
-4. Let's say you have a table called `employees`.
+Let's say you have a table called `employees`.
 ```postgresql
 create table employees (
    id uuid,
@@ -148,8 +153,8 @@ create table employees (
 );
 ```
 
-5. Now you can update your Python files (in the mounted volume) to include Flask functionality. For example, you can define endpoints to fetch list of all employees, fetch a particular employee, as well as create a new employee record.
-```python
+Now you can update your Python files (in the mounted volume) to include Flask functionality. For example, you can define endpoints to fetch list of all employees, fetch a particular employee, as well as create a new employee record.
+``` py hl_lines="26-30"
 from omni_python import pg
 from omni_http import omni_httpd
 from omni_http.omni_httpd import flask
@@ -182,12 +187,26 @@ def handle(req: omni_httpd.HTTPRequest) -> omni_httpd.HTTPOutcome:
     return app_(req)
 ```
 
+!!! info "Flask integration with Omnigres"
+
+    `flask.Adapter(app)` creates an instance of the flask.Adapter class, which is provided by the `omni_http` library. 
+    This adapter allows you to integrate Flask with the `omni_http` framework. 
+    The `app` object is your Flask application instance, and you pass it to `flask.Adapter()` to create an adapter
+    that can handle HTTP requests using your Flask app.
+
+    The `handle` function is the entry point for handling incoming HTTP requests. 
+    It takes an `HTTPRequest` object as input and is expected to return an `HTTPOutcome`. 
+    Inside the function, it forwards the `req` object to the `app_` object, which is a Flask 
+    application wrapped in the ``flask.Adapter()`. This allows the Flask application to handle 
+    the incoming HTTP request and generate a response. Finally, the response is returned 
+    as `HTTPOutcome`.
+
 !!! tip "Tip"
 
     Note: We use `plpy` for now, but we should use DB API compatible APIs and/or other 
     frameworks (such as SQLAlchemy) which will be available very soon.
 
-5. Make sure to add port mapping for 5000 when running Omnigres via Docker.
+Make sure to add port mapping for 5000 when running Omnigres via Docker.
 ```shell
 docker run --name omnigres \
            -e POSTGRES_PASSWORD=omnigres \
@@ -197,7 +216,7 @@ docker run --name omnigres \
            -p 127.0.0.1:5450:5432 -p 127.0.0.1:5000:5000 --rm ghcr.io/omnigres/omnigres-slim:latest
 ```
 
-6. You can hit the endpoints defined in the Flask code above.
+You can hit the endpoints defined in the Flask code above.
 
 Fetch all employees:
 ```shell
