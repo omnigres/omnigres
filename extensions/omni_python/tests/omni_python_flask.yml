@@ -1,5 +1,8 @@
 $schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
 instance:
+  config:
+    shared_preload_libraries: */env/OMNI_EXT_SO
+    max_worker_processes: 64
   init:
   - create extension omni_python cascade
   - create extension omni_httpd cascade
