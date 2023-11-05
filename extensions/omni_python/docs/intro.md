@@ -268,5 +268,5 @@ $ curl --request POST \
 Fetch a particular employee:
 ```shell
 $ curl http://localhost:5000/employees/c919d532-fe9e-46ac-86e0-5f7d950fc1ea
-[{"id": "c919d532-fe9e-46ac-86e0-5f7d950fc1ea", "name": "Daniel", "department": "Marketing", "salary": 70000}]>
+[{"id": "c919d532-fe9e-46ac-86e0-5f7d950fc1ea", "name": "Daniel", "department": "Marketing", "salary": 70000}]
 ```
