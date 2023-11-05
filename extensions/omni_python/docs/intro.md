@@ -165,9 +165,18 @@ app = Flask('myapp')
 
 @app.route('/employees', methods=['POST'])
 def create_employee():
+    from flask import make_response, request
+    json_data = json.loads(request.data.decode('UTF-8'))
+
     employee_id = uuid.uuid4()
-    # todo: Use actual data from request body once https://github.com/omnigres/omnigres/pull/316 is merged.
-    employee = plpy.execute(plpy.prepare("INSERT INTO employees (id, name, department, salary) VALUES ($1, $2, $3, $4) RETURNING *", ["uuid", "text", "text", "int"]), [employee_id, "John Doe", "Engineering", 100000])
+    employee_name = json_data.get('name')
+    employee_department = json_data.get('department')
+    employee_salary = json_data.get('salary')
+
+    if not employee_name or not employee_department or not employee_salary:
+        return "Missing required fields", 400
+
+    employee = plpy.execute(plpy.prepare("INSERT INTO employees (id, name, department, salary) VALUES ($1, $2, $3, $4) RETURNING *", ["uuid", "text", "text", "int"]), [employee_id, employee_name, employee_department, employee_salary])
     return str(employee)
 
 @app.route('/employees', methods=['GET'])
