@@ -21,14 +21,6 @@ create type statement
     like = text
 );
 
-create function add_cte(statement, name text, cte statement,
-                        recursive bool default false, prepend bool default false) returns statement
-as
-'MODULE_PATHNAME',
-'add_cte'
-    language c strict
-               immutable;
-
 create function is_parameterized(statement) returns bool
 as
 'MODULE_PATHNAME',

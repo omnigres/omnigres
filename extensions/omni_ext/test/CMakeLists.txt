@@ -12,24 +12,22 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_ext_test
-        VERSION 0.1
         SCHEMA omni_ext_test
         PRIVATE true
         RELOCATABLE false
-        SCRIPTS omni_ext_test--0.1.sql
         SOURCES omni_ext_test.c
         REQUIRES omni_ext
+        VERSION 0.1
         REGRESS load re_load load_version shmem global_bgworker database_local_bgworker)
 
 add_postgresql_extension(
         omni_ext_test_no_preload
-        VERSION 0.1
         SCHEMA omni_ext_test_no_preload
         PRIVATE true
         RELOCATABLE false
-        SCRIPTS omni_ext_test_no_preload--0.1.sql
         SOURCES omni_ext_test.c
         REQUIRES omni_ext
+        VERSION 0.1
         REGRESS shmem_no_preload)
 
 target_link_libraries(omni_ext_test dynpgext)

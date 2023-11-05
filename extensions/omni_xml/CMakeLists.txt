@@ -15,11 +15,9 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_xml
-        VERSION 0.1
         SCHEMA omni_xml
         RELOCATABLE false
-        SOURCES omni_xml.cc
-        SCRIPTS omni_xml--0.1.sql)
+        SOURCES omni_xml.cc)
 
 set_property(TARGET omni_xml PROPERTY CXX_STANDARD 11)
 target_link_libraries(omni_xml pugixml::static)

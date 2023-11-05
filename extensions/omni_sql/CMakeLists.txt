@@ -23,10 +23,8 @@ if(NOT DEFINED ENV{OMNI_SQL_ALREADY_INCLUDED})
 
     add_postgresql_extension(
             omni_sql
-            VERSION 0.1
             SCHEMA omni_sql
             RELOCATABLE false
-            SCRIPTS omni_sql--0.1.sql
             SOURCES omni_sql.c
             DEPENDS_ON libpgaug
     )

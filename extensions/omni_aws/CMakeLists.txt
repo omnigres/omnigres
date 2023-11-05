@@ -13,9 +13,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_aws
-        VERSION 0.1
         SCHEMA omni_aws
         RELOCATABLE false
         REQUIRES omni_httpc pgcrypto omni_xml omni_web
-        TESTS_REQUIRE omni_containers
-        SCRIPTS omni_aws--0.1.sql)
+        TESTS_REQUIRE omni_containers)
