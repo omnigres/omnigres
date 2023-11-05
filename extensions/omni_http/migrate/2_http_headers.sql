@@ -1,5 +1,3 @@
-create type http_method as enum ('GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'CONNECT', 'OPTIONS', 'TRACE', 'PATCH');
-
 create type http_header as
 (
     name  text,
@@ -23,7 +21,7 @@ select
 from
     unnest(headers) header(name, value)
 where
-    lower(header.name) = lower(header_name)
+        lower(header.name) = lower(header_name)
 $$
     language sql;
 

@@ -12,9 +12,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_txn
-        VERSION 0.1
         SCHEMA omni_txn
         RELOCATABLE false
-        SCRIPTS omni_txn--0.1.sql
         SOURCES omni_txn.c
 )

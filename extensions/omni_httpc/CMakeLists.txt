@@ -17,10 +17,8 @@ pkg_check_modules(BROTLI_ENC libbrotlienc)
 
 add_postgresql_extension(
         omni_httpc
-        VERSION 0.1
         SCHEMA omni_httpc
         RELOCATABLE false
-        SCRIPTS omni_httpc--0.1.sql
         SOURCES omni_httpc.c ca-bundle.cc ssl.c
         DEPENDS_ON libpgaug omni_sql omni_types
         REQUIRES omni_http omni_types)
