@@ -163,6 +163,12 @@ import uuid
 
 app = Flask('myapp')
 
+def result_to_json(result):
+    rows = []
+    for row in result:
+        rows.append(dict(row))
+    return json.dumps(rows)
+
 @app.route('/employees', methods=['POST'])
 def create_employee():
     from flask import make_response, request
@@ -177,17 +183,17 @@ def create_employee():
         return "Missing required fields", 400
 
     employee = plpy.execute(plpy.prepare("INSERT INTO employees (id, name, department, salary) VALUES ($1, $2, $3, $4) RETURNING *", ["uuid", "text", "text", "int"]), [employee_id, employee_name, employee_department, employee_salary])
-    return str(employee)
+    return result_to_json(employee)
 
 @app.route('/employees', methods=['GET'])
 def get_employees():
     employees = plpy.execute(plpy.prepare("SELECT * FROM employees"))
-    return str(employees)
+    return result_to_json(employees)
 
 @app.route('/employees/<employee_id>', methods=['GET'])
 def get_employee(employee_id):
     employee = plpy.execute(plpy.prepare("SELECT * FROM employees WHERE id = $1", ["uuid"]), [employee_id])
-    return str(employee)
+    return result_to_json(employee)
 
 app_ = flask.Adapter(app)
 
@@ -230,24 +236,37 @@ You can hit the endpoints defined in the Flask code above.
 Fetch all employees:
 ```shell
 $ curl http://localhost:5000/employees
-<PLyResult status=5 nrows=2 rows=[
-{'id': '3f59ef0a-1f57-405a-87d4-662f16698a72', 'name': 'Akshat', 'department': 'Engineering', 'salary': 200000}, 
-{'id': '77e52508-829e-4004-9ed5-7e386bb18d76', 'name': 'Daniel', 'department': 'Engineering', 'salary': 100000}
-]>
+[
+    {
+        "id": "7035dfea-6069-4426-bc16-87e1b90b3fc6",
+        "name": "Akshat",
+        "department": "Engineering",
+        "salary": 100000
+    },
+    {
+        "id": "5f23c592-0408-4ab1-bd19-ceedf3342b91",
+        "name": "Mohit",
+        "department": "Sales",
+        "salary": 50000
+    }
+]
 ```
 
 Create a new employee:
 ```shell
-$ curl -X POST http://localhost:5000/employees
-<PLyResult status=11 nrows=1 rows=[
-{'id': '8b26fcf2-4ba8-4b4a-8e9c-1bb08d0695e4', 'name': 'John Doe', 'department': 'Engineering', 'salary': 100000}
-]>
+$ curl --request POST \
+  --url http://localhost:5000/employees \
+  --header 'Content-Type: application/json' \
+  --data '{
+  "name": "Daniel",
+  "department": "Marketing",
+  "salary": 70000
+}'
+[{"id": "c919d532-fe9e-46ac-86e0-5f7d950fc1ea", "name": "Daniel", "department": "Marketing", "salary": 70000}]
 ```
 
 Fetch a particular employee:
 ```shell
-$ curl http://localhost:5000/employees/8b26fcf2-4ba8-4b4a-8e9c-1bb08d0695e4
-<PLyResult status=5 nrows=1 rows=[
-{'id': '8b26fcf2-4ba8-4b4a-8e9c-1bb08d0695e4', 'name': 'John Doe', 'department': 'Engineering', 'salary': 100000}
-]>
+$ curl http://localhost:5000/employees/c919d532-fe9e-46ac-86e0-5f7d950fc1ea
+[{"id": "c919d532-fe9e-46ac-86e0-5f7d950fc1ea", "name": "Daniel", "department": "Marketing", "salary": 70000}]>
 ```
