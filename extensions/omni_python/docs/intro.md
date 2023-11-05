@@ -146,7 +146,7 @@ from
 Let's say you have a table called `employees`.
 ```postgresql
 create table employees (
-   id uuid,
+   id integer primary key generated always as identity,
    name text not null,
    department text not null,
    salary integer not null
@@ -163,18 +163,14 @@ import uuid
 
 app = Flask('myapp')
 
-def result_to_json(result):
-    rows = []
-    for row in result:
-        rows.append(dict(row))
-    return json.dumps(rows)
+def employees_to_json(employees):
+    return json.dumps([dict(employee) for employee in employees])
 
 @app.route('/employees', methods=['POST'])
 def create_employee():
     from flask import make_response, request
     json_data = json.loads(request.data.decode('UTF-8'))
 
-    employee_id = uuid.uuid4()
     employee_name = json_data.get('name')
     employee_department = json_data.get('department')
     employee_salary = json_data.get('salary')
@@ -182,18 +178,20 @@ def create_employee():
     if not employee_name or not employee_department or not employee_salary:
         return "Missing required fields", 400
 
-    employee = plpy.execute(plpy.prepare("INSERT INTO employees (id, name, department, salary) VALUES ($1, $2, $3, $4) RETURNING *", ["uuid", "text", "text", "int"]), [employee_id, employee_name, employee_department, employee_salary])
-    return result_to_json(employee)
+    employee = plpy.execute(plpy.prepare("insert into employees (name, department, salary) "
+                                         "values ($1, $2, $3) returning *", ["text", "text", "int"]),
+                                        [employee_name, employee_department, employee_salary])
+    return employees_to_json(employee)
 
 @app.route('/employees', methods=['GET'])
 def get_employees():
-    employees = plpy.execute(plpy.prepare("SELECT * FROM employees"))
-    return result_to_json(employees)
+    employees = plpy.execute(plpy.prepare("select * from employees"))
+    return employees_to_json(employees)
 
-@app.route('/employees/<employee_id>', methods=['GET'])
+@app.route('/employees/<int:employee_id>', methods=['GET'])
 def get_employee(employee_id):
-    employee = plpy.execute(plpy.prepare("SELECT * FROM employees WHERE id = $1", ["uuid"]), [employee_id])
-    return result_to_json(employee)
+    employee = plpy.execute(plpy.prepare("select * from employees where id = $1", ["int"]), [employee_id])
+    return employees_to_json(employee)
 
 app_ = flask.Adapter(app)
 
@@ -238,13 +236,13 @@ Fetch all employees:
 $ curl http://localhost:5000/employees
 [
     {
-        "id": "7035dfea-6069-4426-bc16-87e1b90b3fc6",
+        "id": 1,
         "name": "Akshat",
         "department": "Engineering",
         "salary": 100000
     },
     {
-        "id": "5f23c592-0408-4ab1-bd19-ceedf3342b91",
+        "id": 2,
         "name": "Mohit",
         "department": "Sales",
         "salary": 50000
@@ -262,11 +260,11 @@ $ curl --request POST \
   "department": "Marketing",
   "salary": 70000
 }'
-[{"id": "c919d532-fe9e-46ac-86e0-5f7d950fc1ea", "name": "Daniel", "department": "Marketing", "salary": 70000}]
+[{"id": 3, "name": "Daniel", "department": "Marketing", "salary": 70000}]
 ```
 
 Fetch a particular employee:
 ```shell
-$ curl http://localhost:5000/employees/c919d532-fe9e-46ac-86e0-5f7d950fc1ea
-[{"id": "c919d532-fe9e-46ac-86e0-5f7d950fc1ea", "name": "Daniel", "department": "Marketing", "salary": 70000}]
+$ curl http://localhost:5000/employees/3
+[{"id": 3, "name": "Daniel", "department": "Marketing", "salary": 70000}]
 ```
