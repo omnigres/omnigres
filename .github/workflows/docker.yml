@@ -86,6 +86,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
+      - name: prepare version
+        run: echo "OMNIGRES_VERSION=$(git describe --tags --always --match "^v")" >> $GITHUB_ENV
+
       # Build and push Docker image with Buildx (don't push on PR)
       # https://github.com/docker/build-push-action
       - name: Build and push Docker image
@@ -103,6 +106,7 @@ jobs:
           cache-to: ${{ format(fromJSON('["type=s3,mode=max,region=eu-central-1,bucket=omnigres-ci-cache-de,name=omnigres-{0}","type=inline"]')[ github.event_name == 'pull_request' ], matrix.platform) }}
           build-args: |
             BUILD_PARALLEL_LEVEL=4
+            OMNIGRES_VERSION=${{env.OMNIGRES_VERSION}}
           platforms: linux/${{ matrix.platform }}
           target: pg
 
