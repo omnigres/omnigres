@@ -15,4 +15,5 @@ add_postgresql_extension(
         omni_schema
         SCHEMA omni_schema
         RELOCATABLE false
-        REQUIRES omni_vfs)
+        REQUIRES omni_vfs
+        TESTS_REQUIRE omni_python)

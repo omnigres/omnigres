@@ -51,7 +51,11 @@ instance:
                    $$select omni_httpd.http_response(body => '')
                    from request where request.path = '/0-content-length'$$, 1),
                   ('headers',
-                   $$SELECT omni_httpd.http_response(body => request.headers::text) FROM request WHERE request.path = '/headers'$$,
+                   $$SELECT omni_httpd.http_response(body => (select
+                              json_agg(json_build_object(h.name, h.value))
+                          from
+                              unnest(request.headers) h
+                          )) FROM request WHERE request.path = '/headers'$$,
                    1),
                   ('echo',
                    $$SELECT omni_httpd.http_response(body => request.body) FROM request WHERE request.path = '/echo'$$,
@@ -102,13 +106,19 @@ tests:
       (select effective_port from omni_httpd.listeners where port = 0) || '/users/johndoe')))
     select
     response.status,
-    response.headers,
+    (select
+         json_agg(json_build_object(h.name, h.value))
+     from
+         unnest(response.headers) h
+     where
+         h.name = 'content-type') as headers,
     convert_from(response.body, 'utf-8') as body
     from response
   results:
   - status: 200
     # Check for content-type
-    headers: '{"(connection,keep-alive)","(content-length,19)","(server,omni_httpd-0.1)","(content-type,text/html)"}'
+    headers:
+    - content-type: text/html
     body: Hello, <b>John</b>!
 - name: echo
   query: |
@@ -118,26 +128,35 @@ tests:
        body => 'hello world')))
     select
     response.status,
-    response.headers,
+    (select
+         json_agg(json_build_object(h.name, h.value))
+     from
+         unnest(response.headers) h
+     where
+         h.name = 'content-type') as headers,
     convert_from(response.body, 'utf-8') as body
     from response
   results:
   - status: 200
     # Check for content-type
-    headers: '{"(connection,keep-alive)","(content-length,11)","(server,omni_httpd-0.1)","(content-type,application/octet-stream)"}'
+    headers:
+    - content-type: application/octet-stream
     body: hello world
 - name: headers
   query: |
     with response as (select * from omni_httpc.http_execute(
       omni_httpc.http_request('http://127.0.0.1:' ||
-      (select effective_port from omni_httpd.listeners where port = 0) || '/headers')))
+                              (select effective_port from omni_httpd.listeners where port = 0) || '/headers',
+                              headers => array [ omni_http.http_header('Test', 'Val')]
+          )))
     select
     response.status,
-    convert_from(response.body, 'utf-8') as body
+    convert_from(response.body, 'utf-8')::json -> 0 as test_hdr
     from response
   results:
   - status: 200
-    body: '{"(user-agent,omni_httpc/0.1)"}'
+    test_hdr:
+      test: Val
 - name: should not duplicate content-length if it is set
   query: |
     with response as (select * from omni_httpc.http_execute(
@@ -145,12 +164,18 @@ tests:
       (select effective_port from omni_httpd.listeners where port = 0) || '/custom-content-length')))
     select
     response.status,
-    headers,
+    (select
+         json_agg(json_build_object(h.name, h.value))
+     from
+         unnest(response.headers) h
+     where
+         h.name = 'content-length') as headers,
     convert_from(response.body, 'utf-8') as body
     from response
   results:
   - status: 200
-    headers: '{"(connection,keep-alive)","(content-length,10)","(server,omni_httpd-0.1)","(content-type,\"text/plain; charset=utf-8\")"}'
+    headers:
+    - content-length: 10
     body: 0123456789
 - name: should resize the content if content-length is set low
   query: |
@@ -171,12 +196,18 @@ tests:
       (select effective_port from omni_httpd.listeners where port = 0) || '/custom-content-length-2')))
     select
     response.status,
-    headers,
+    (select
+         json_agg(json_build_object(h.name, h.value))
+     from
+         unnest(response.headers) h
+     where
+         h.name = 'content-length') as headers,
     convert_from(response.body, 'utf-8') as body
     from response
   results:
   - status: 200
-    headers: "{\"(connection,keep-alive)\",\"(content-length,10)\",\"(server,omni_httpd-0.1)\",\"(content-type,\\\"text/plain; charset=utf-8\\\")\"}"
+    headers:
+    - content-length: 10
     body: 0123456789
 - name: should set content-length 0 on an empty string body
   query: |
@@ -185,12 +216,18 @@ tests:
       (select effective_port from omni_httpd.listeners where port = 0) || '/0-content-length')))
     select
     response.status,
-    headers,
+    (select
+         json_agg(json_build_object(h.name, h.value))
+     from
+         unnest(response.headers) h
+     where
+         h.name = 'content-length') as headers,
     response.body
     from response
   results:
   - status: 200
-    headers: "{\"(connection,keep-alive)\",\"(content-length,0)\",\"(server,omni_httpd-0.1)\",\"(content-type,\\\"text/plain; charset=utf-8\\\")\"}"
+    headers:
+    - content-length: 0
     body: \x
 - name: should not set content-length if the handler response body is set to null
   query: |
@@ -199,12 +236,17 @@ tests:
       (select effective_port from omni_httpd.listeners where port = 0) || '/no-content-length')))
     select
     response.status,
-    headers,
+    (select
+         json_agg(json_build_object(h.name, h.value))
+     from
+         unnest(response.headers) h
+     where
+         h.name = 'content-length') as headers,
     response.body
     from response
   results:
   - status: 200
-    headers: "{\"(connection,keep-alive)\",\"(server,omni_httpd-0.1)\",\"(transfer-encoding,chunked)\"}"
+    headers: null
     body: \x
 - name: proxy
   query: |

@@ -82,10 +82,15 @@ void _Dynpgext_init(const dynpgext_handle *handle) {
 #ifdef _SC_NPROCESSORS_ONLN
   default_num_http_workers = sysconf(_SC_NPROCESSORS_ONLN);
 #endif
-  if (GetConfigOption("omni_httpd.http_workers", true, false) == NULL) {
-    DefineCustomIntVariable("omni_httpd.http_workers", "Number of HTTP workers", NULL,
-                            &num_http_workers, default_num_http_workers, 1, INT_MAX, PGC_SIGHUP, 0,
-                            NULL, NULL, NULL);
+  {
+    const char *http_workers_val = GetConfigOption("omni_httpd.http_workers", true, false);
+    int http_workers_flag = GetConfigOptionFlags("omni_httpd.http_workers", true);
+    if ((http_workers_val == NULL && !(http_workers_flag & GUC_CUSTOM_PLACEHOLDER)) ||
+        (http_workers_val != NULL && http_workers_flag & GUC_CUSTOM_PLACEHOLDER)) {
+      DefineCustomIntVariable("omni_httpd.http_workers", "Number of HTTP workers", NULL,
+                              &num_http_workers, default_num_http_workers, 1, INT_MAX, PGC_SIGHUP,
+                              0, NULL, NULL, NULL);
+    }
   }
 
   handle->allocate_shmem(handle, OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE,

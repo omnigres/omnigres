@@ -116,7 +116,7 @@ function(find_pg_yregress_tests dir)
 file(GLOB_RECURSE files RELATIVE ${CMAKE_CURRENT_LIST_DIR} LIST_DIRECTORIES false ${dir}/*.yml ${dir}/*.yaml)
 list(SORT files)
 foreach(file \${files})
-    add_test(\"${NAME}/\${file}\" ${CMAKE_BINARY_DIR}/script_${NAME} ${_ext_dir} && \"$<TARGET_FILE:pg_yregress>\" \"${dir}/../\${file}\")
+    add_test(\"${NAME}/\${file}\" ${CMAKE_BINARY_DIR}/script_${NAME} ${_ext_dir} \"$<TARGET_FILE:pg_yregress>\" \"${dir}/../\${file}\")
     set_tests_properties(\"${NAME}/\${file}\" PROPERTIES
     WORKING_DIRECTORY \"${CMAKE_CURRENT_BINARY_DIR}\"
     ENVIRONMENT \"PGCONFIG=${PG_CONFIG};PGSHAREDIR=${_share_dir};OMNI_EXT_SO=$<$<TARGET_EXISTS:omni_ext>:$<TARGET_FILE:omni_ext>>\")
@@ -293,9 +293,13 @@ $<$<NOT:$<BOOL:${_ext_SCHEMA}>>:#>schema = ${_ext_SCHEMA}
     file(GENERATE OUTPUT ${CMAKE_BINARY_DIR}/script_${NAME}
             CONTENT "#! /usr/bin/env bash
 # Dependencies
-for r in $<JOIN:${_ext_REQUIRES}, >
+for r in $<JOIN:${_ext_REQUIRES}, > $<JOIN:${_ext_TESTS_REQUIRE}, >
 do
-    ${CMAKE_BINARY_DIR}/script_$r $1 || echo \"Skip $r\"
+    if [ -f ${CMAKE_BINARY_DIR}/script_$r ]; then
+        ${CMAKE_BINARY_DIR}/script_$r $1 || echo \"Skip $r\"
+    else
+        echo \"Skip $r\"
+    fi
 done
 _dir=\"${CMAKE_CURRENT_SOURCE_DIR}/migrate\"
 if ! [ -d \"$_dir\" ]; then
@@ -309,9 +313,18 @@ fi
 for f in $(ls \"$_dir/\"*.sql | sort -n)
   do
   $<TARGET_FILE:inja> \"$f\" >> \"$1/_$$_${NAME}--${_ext_VERSION}.sql\"
+  echo >> \"$1/_$$_${NAME}--${_ext_VERSION}.sql\"
 done
 # Move it into proper location at once
 mv \"$1/_$$_${NAME}--${_ext_VERSION}.sql\" \"$1/${NAME}--${_ext_VERSION}.sql\"
+# Calling another command (a kludge for testing)
+if [ -z \"$2\" ]; then
+  # No comamnd
+  exit 0
+fi
+command=$2
+shift 2
+$command $@
 "
             FILE_PERMISSIONS OWNER_EXECUTE OWNER_READ OWNER_WRITE
     )
