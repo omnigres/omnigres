@@ -487,10 +487,8 @@ Datum http_execute(PG_FUNCTION_ARGS) {
 
     // Ensure content length is set
     char clbuf[10];
-    if (request->request_body.len > 0) {
-      int clbuf_len = pg_ultoa_n(request->request_body.len, clbuf);
-      h2o_add_header(pool, headers_vec, H2O_TOKEN_CONTENT_LENGTH, NULL, clbuf, clbuf_len);
-    }
+    int clbuf_len = pg_ultoa_n(request->request_body.len, clbuf);
+    h2o_add_header(pool, headers_vec, H2O_TOKEN_CONTENT_LENGTH, NULL, clbuf, clbuf_len);
 
     // If request requires SSL, take a note of that
     if (request->url.scheme->is_ssl) {
