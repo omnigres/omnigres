@@ -293,7 +293,7 @@ $<$<NOT:$<BOOL:${_ext_SCHEMA}>>:#>schema = ${_ext_SCHEMA}
     file(GENERATE OUTPUT ${CMAKE_BINARY_DIR}/script_${NAME}
             CONTENT "#! /usr/bin/env bash
 # Dependencies
-for r in $<JOIN:${_ext_REQUIRES}, >
+for r in $<JOIN:${_ext_REQUIRES}, > $<JOIN:${_ext_TESTS_REQUIRE}, >
 do
     if [ -f ${CMAKE_BINARY_DIR}/script_$r ]; then
         ${CMAKE_BINARY_DIR}/script_$r $1 || echo \"Skip $r\"
