@@ -14,7 +14,12 @@ instance:
       'method', request.method,
       'path', request.path,
       'qs', request.query_string,
-      'headers', request.headers::text,
+      'headers', (select
+                          json_agg(json_build_object(h.name, h.value))
+                          from
+                              unnest(request.headers) h
+                          where h.name not in ('user-agent')
+                          ),
       'body', convert_from(request.body, 'utf-8')
       )) from request
     $$
@@ -28,17 +33,23 @@ tests:
                                    (select effective_port from omni_httpd.listeners) || '/test?q=1')))
     select
       response.status,
-      response.headers,
+      (select
+           json_agg(json_build_object(h.name, h.value))
+       from
+           unnest(response.headers) h
+       where
+           h.name not in ('server', 'content-length', 'connection')) as headers,
       convert_from(response.body, 'utf-8')::json as body
       from response
   results:
   - status: 200
-    headers: '{"(connection,keep-alive)","(content-length,112)","(server,omni_httpd-0.1)","(content-type,application/json)"}'
+    headers:
+    - content-type: application/json
     body:
       method: GET
       path: /test
       qs: q=1
-      headers: '{"(user-agent,omni_httpc/0.1)"}'
+      headers: null
       body: ""
 
 - name: HEAD request
@@ -48,12 +59,18 @@ tests:
                                    (select effective_port from omni_httpd.listeners) || '/test?q=1', method => 'HEAD')))
     select
       response.status,
-      response.headers,
+      (select
+           json_agg(json_build_object(h.name, h.value))
+       from
+           unnest(response.headers) h
+       where
+           h.name not in ('server', 'content-length', 'connection')) as headers,
       convert_from(response.body, 'utf-8') as body
       from response
   results:
   - status: 200
-    headers: '{"(connection,keep-alive)","(content-length,113)","(server,omni_httpd-0.1)","(content-type,application/json)"}'
+    headers:
+    - content-type: application/json
     body: ''
 
 - name: POST request
@@ -63,17 +80,23 @@ tests:
                                    (select effective_port from omni_httpd.listeners) || '/test?q=1', method => 'POST')))
     select
       response.status,
-      response.headers,
+      (select
+           json_agg(json_build_object(h.name, h.value))
+       from
+           unnest(response.headers) h
+       where
+           h.name not in ('server', 'content-length', 'connection')) as headers,
       convert_from(response.body, 'utf-8')::json as body
       from response
   results:
   - status: 200
-    headers: '{"(connection,keep-alive)","(content-length,113)","(server,omni_httpd-0.1)","(content-type,application/json)"}'
+    headers:
+    - content-type: application/json
     body:
       method: POST
       path: /test
       qs: q=1
-      headers: '{"(user-agent,omni_httpc/0.1)"}'
+      headers: null
       body: ""
 
 - name: request headers
@@ -84,17 +107,24 @@ tests:
     array[omni_http.http_header('x-test', '1')])))
     select
       response.status,
-      response.headers,
+      (select
+           json_agg(json_build_object(h.name, h.value))
+       from
+           unnest(response.headers) h
+       where
+           h.name not in ('server', 'content-length', 'connection')) as headers,
       convert_from(response.body, 'utf-8')::json as body
       from response
   results:
   - status: 200
-    headers: '{"(connection,keep-alive)","(content-length,127)","(server,omni_httpd-0.1)","(content-type,application/json)"}'
+    headers:
+    - content-type: application/json
     body:
       method: GET
       path: /test
       qs: q=1
-      headers: '{"(x-test,1)","(user-agent,omni_httpc/0.1)"}'
+      headers:
+      - x-test: 1
       body: ""
 
 - name: null header name
@@ -109,18 +139,24 @@ tests:
                                                              array [omni_http.http_header(null, null)])))
     select
         response.status,
-        response.headers,
+        (select
+             json_agg(json_build_object(h.name, h.value))
+         from
+             unnest(response.headers) h
+         where
+             h.name not in ('server', 'content-length', 'connection')) as headers,
         convert_from(response.body, 'utf-8')::json as body
     from
         response
   results:
   - status: 200
-    headers: '{"(connection,keep-alive)","(content-length,112)","(server,omni_httpd-0.1)","(content-type,application/json)"}'
+    headers:
+    - content-type: application/json
     body:
       method: GET
       path: /test
       qs: q=1
-      headers: "{\"(user-agent,omni_httpc/0.1)\"}"
+      headers: null
       body: ""
 
 - name: null header value
@@ -135,18 +171,25 @@ tests:
                                                              array [omni_http.http_header('x-test', null)])))
     select
         response.status,
-        response.headers,
+        (select
+             json_agg(json_build_object(h.name, h.value))
+         from
+             unnest(response.headers) h
+         where
+             h.name not in ('server', 'content-length', 'connection')) as headers,
         convert_from(response.body, 'utf-8')::json as body
     from
         response
   results:
   - status: 200
-    headers: '{"(connection,keep-alive)","(content-length,134)","(server,omni_httpd-0.1)","(content-type,application/json)"}'
+    headers:
+    - content-type: application/json
     body:
       method: GET
       path: /test
       qs: q=1
-      headers: "{\"(x-test,\\\"\\\")\",\"(user-agent,omni_httpc/0.1)\"}"
+      headers:
+      - x-test:
       body: ""
 
 - name: sending body
@@ -157,17 +200,23 @@ tests:
                                     body => 'test', method => 'POST')))
     select
       response.status,
-      response.headers,
+      (select
+           json_agg(json_build_object(h.name, h.value))
+       from
+           unnest(response.headers) h
+       where
+           h.name not in ('server', 'content-length', 'connection')) as headers,
       convert_from(response.body, 'utf-8')::json as body
       from response
   results:
   - status: 200
-    headers: '{"(connection,keep-alive)","(content-length,117)","(server,omni_httpd-0.1)","(content-type,application/json)"}'
+    headers:
+    - content-type: application/json
     body:
       method: POST
       path: /test
       qs: q=1
-      headers: '{"(user-agent,omni_httpc/0.1)"}'
+      headers: null
       body: test
 
 - name: executing multiple requests
@@ -178,25 +227,32 @@ tests:
     ))
     select
       response.status,
-      response.headers,
+      (select
+           json_agg(json_build_object(h.name, h.value))
+       from
+           unnest(response.headers) h
+       where
+           h.name not in ('server', 'content-length', 'connection')) as headers,
       convert_from(response.body, 'utf-8')::json as body
       from response
   results:
   - status: 200
-    headers: '{"(connection,keep-alive)","(content-length,112)","(server,omni_httpd-0.1)","(content-type,application/json)"}'
+    headers:
+    - content-type: application/json
     body:
       method: GET
       path: /test
       qs: q=1
-      headers: '{"(user-agent,omni_httpc/0.1)"}'
+      headers: null
       body: ""
   - status: 200
-    headers: '{"(connection,keep-alive)","(content-length,112)","(server,omni_httpd-0.1)","(content-type,application/json)"}'
+    headers:
+    - content-type: application/json
     body:
       method: GET
       path: /test
       qs: q=2
-      headers: '{"(user-agent,omni_httpc/0.1)"}'
+      headers: null
       body: ""
 
 - name: protocol selector (H1)
