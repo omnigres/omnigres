@@ -45,4 +45,4 @@ $$
                 raise SystemExit(rc)
         except SystemExit as e:
             plpy.error("pip failure", detail=stderr_str.getvalue())
-$$
+$$;

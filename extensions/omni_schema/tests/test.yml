@@ -13,6 +13,8 @@ tests:
     inner join pg_class on pg_class.oid = un.extconfig where extname = 'omni_schema'
     order by relname
   results:
+  - relname: auxiliary_tools
+    extcondition:
   - relname: languages
     extcondition:
   - relname: migrations

@@ -27,3 +27,14 @@ create function read(fs local_fs, path text, file_offset bigint default 0,
                      chunk_size int default null) returns bytea as
 'MODULE_PATHNAME',
 'local_fs_read' language c;
+
+-- Checks
+
+do
+$$
+    begin
+        if not omni_vfs_types_v1.is_valid_fs('local_fs') then
+            raise exception 'local_fs is not a valid vfs';
+        end if;
+    end;
+$$ language plpgsql;

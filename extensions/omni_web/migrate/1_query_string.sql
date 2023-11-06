@@ -12,19 +12,3 @@ as
 $$
 select omni_web.parse_query_string(convert_from(query_string, 'UTF8'));
 $$ language sql;
-
-create function param_get_all(params params, param text) returns setof text
-    strict immutable
-as
-$$
-select
-    params[i + 1] as value
-from
-    unnest(params) with ordinality t(v, i)
-where
-    v = param and
-    i % 2 = 1
-order by
-    i asc;
-$$
-    language sql;
