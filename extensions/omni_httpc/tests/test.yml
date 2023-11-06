@@ -94,7 +94,7 @@ tests:
       method: GET
       path: /test
       qs: q=1
-      headers: '{"(x-test,1)","(user-agent,omni_httpc/0.1)"}'
+      headers: '{"(x-test,1)","(user-agent,omni_httpc/0.1)", "(content-length, 0)"}'
       body: ""
 
 - name: null header name
