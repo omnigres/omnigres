@@ -5,6 +5,7 @@ list(PREPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
 enable_testing()
 
+add_subdirectory(misc/inja)
 add_subdirectory(pg_yregress)
 add_subdirectory(dynpgext)
 add_subdirectory(libpgaug)
