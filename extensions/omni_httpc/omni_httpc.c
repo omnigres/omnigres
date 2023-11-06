@@ -317,6 +317,16 @@ static h2o_httpclient_head_cb on_connect(h2o_httpclient_t *client, const char *e
   *_method = req->method;
   *num_headers = req->num_headers;
   *headers = req->headers;
+  /*
+  required to prevent malformed host header with unix domain sockets
+  for eg. when calling http://[unix:/var/run/docker.sock]/_ping
+  h2o sets the host header to [unix:/var/run/docker.sock] and golang
+  disallows '/' in host header value with 400 Bad request
+*/
+  const char *uds_prefix = "[unix:";
+  if (strncmp(req->url.authority.base, uds_prefix, strlen(uds_prefix)) == 0) {
+    req->url.authority.len = 0;
+  }
   *url = req->url;
   *body = req->request_body;
   *proceed_req_cb = NULL;

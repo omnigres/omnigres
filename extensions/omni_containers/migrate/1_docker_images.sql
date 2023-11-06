@@ -2,12 +2,27 @@
 create function docker_images_json()
     returns jsonb
 as
-'MODULE_PATHNAME',
-'docker_images_json'
-    language c;
+$$
+declare
+response omni_httpc.http_response;
+begin
+    select * into response from omni_httpc.http_execute(
+        omni_httpc.http_request(
+            'http://[unix:/var/run/docker.sock]/v1.41/images/json'
+        )
+    );
+    if response.status = 200 then
+        return convert_from(response.body, 'UTF8');
+    else
+        raise exception 'Can''t list docker images' using
+            detail = format('Error code %s: %s', response.status, convert_from(response.body, 'UTF8')::jsonb);
+    end if;
+end;
+$$ language plpgsql;
 
 comment
     on function docker_images_json() is 'Private API';
+
 
 -- API: PUBLIC
 create view docker_images as
