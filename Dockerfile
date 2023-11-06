@@ -1,5 +1,8 @@
 # syntax=docker/dockerfile:1.5
 
+# Version of Omnigres
+ARG OMNIGRES_VERSION=current
+
 # Version of PostgreSQL
 ARG PG=16.0
 # Build type
@@ -51,10 +54,12 @@ RUN cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DPG=${PG} -DCMAKE_BUILD_PARALLEL_LEV
 
 # Omnigres build
 FROM builder AS build
+ARG OMNIGRES_VERSION
+ENV OMNIGRES_VERSION=${OMNIGRES_VERSION}
 COPY --chown=${UID} . /omni
 COPY --link --from=postgres-build --chown=${UID} /omni/.pg /omni/.pg
 WORKDIR /build
-RUN cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DPG=${PG} /omni
+RUN cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DPG=${PG} /omni -DOMNIGRES_VERSION=${OMNIGRES_VERSION}
 RUN make -j ${BUILD_PARALLEL_LEVEL} all
 RUN make package
 
