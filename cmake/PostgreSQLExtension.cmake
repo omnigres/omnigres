@@ -80,7 +80,11 @@
 # VERSION Version of the extension. Is used when generating the control file.
 # Optional, typically used only in scenarios when versions must be fixed.
 #
+# By default, version is picked from git revision, unless overriden by the following
+# CMake variables:
 #
+# * OMNIGRES_VERSION: sets a version for all extensions
+# * <EXTENSION_NAME_CAPITALIZED>_VERSION: sets a version for a particular extension
 #
 # Defines the following targets:
 #
