@@ -26,10 +26,8 @@ endfunction()
 
         add_postgresql_extension(
                 omni_ext
-                VERSION 0.1
                 SCHEMA omni_ext
                 RELOCATABLE false
-                SCRIPTS omni_ext--0.1.sql
                 SOURCES omni_ext.c control_file.c init.c workers.c strverscmp.c
                 DEPENDS_ON libgluepg_stc dynpgext
                 UNVERSIONED_SO ON

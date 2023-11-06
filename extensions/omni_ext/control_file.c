@@ -110,7 +110,7 @@ static char *dynamic_library_name(const char *name) {
   Assert(name);
 
   char *filename = (char *)name;
-  char *resolved;
+  char *resolved = NULL;
 
   while (true) {
     bool has_path = first_dir_separator(filename) != NULL;
@@ -140,7 +140,7 @@ static char *dynamic_library_name(const char *name) {
   if (filename != name) {
     pfree(filename);
   }
-  return resolved;
+  return (resolved != NULL && strlen(resolved) == 0) ? NULL : resolved;
 }
 
 void find_control_files(void (*callback)(const char *control_path, void *data), void *data) {
