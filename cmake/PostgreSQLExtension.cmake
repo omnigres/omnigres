@@ -98,7 +98,6 @@
 #
 # NAME_update_results Updates pg_regress test expectations to match results
 # test_verbose_NAME Runs tests verbosely
-include(Inja)
 find_program(PGCLI pgcli)
 find_program(NETCAT nc REQUIRED)
 
@@ -189,6 +188,8 @@ function(add_postgresql_extension NAME)
             target_compile_definitions(${NAME} PUBLIC DYNPGEXT_SUPPLEMENTARY)
         endif()
     endif()
+
+    add_dependencies(${NAME} inja)
 
     if(_ext_SOURCES)
         target_compile_definitions(${NAME} PUBLIC "$<$<NOT:$<STREQUAL:${CMAKE_BUILD_TYPE},Release>>:DEBUG>")
@@ -307,7 +308,7 @@ fi
 # Create file (using $$ for pid to avoid race conditions)
 for f in $(ls \"$_dir/\"*.sql | sort -n)
   do
-  cat \"$f\" >> \"$1/_$$_${NAME}--${_ext_VERSION}.sql\"
+  $<TARGET_FILE:inja> \"$f\" >> \"$1/_$$_${NAME}--${_ext_VERSION}.sql\"
 done
 # Move it into proper location at once
 mv \"$1/_$$_${NAME}--${_ext_VERSION}.sql\" \"$1/${NAME}--${_ext_VERSION}.sql\"
