@@ -35,10 +35,11 @@ declare
     ts8601 timestamp with time zone := now();
 begin
 
-
     if not request.path like '/%' then
         request.path := '/' || request.path;
     end if;
+
+    request.path := omni_web.uri_encode(request.path);
 
     if endpoint_url is null then
         endpoint_url := omni_aws.s3_endpoint_url(request.bucket, region);
