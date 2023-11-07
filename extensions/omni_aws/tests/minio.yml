@@ -47,6 +47,18 @@ tests:
                                                                          minio))
   results: [ ]
 
+- name: list objects under a path that needs escaping
+  query: |
+    select *
+    from
+        omni_aws.aws_execute(access_key_id => 'minioadmin', secret_access_key => 'minioadmin',
+                             request => omni_aws.s3_list_objects_v2(bucket => 'omnigres-dev-test', path => '/te st'),
+                             endpoint_url => 'http://127.0.0.1:' || (select
+                                                                         inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
+                                                                     from
+                                                                         minio))
+  error: NoSuchKey
+
 - name: put object
   query: |
     select *

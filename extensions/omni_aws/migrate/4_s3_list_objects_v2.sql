@@ -101,6 +101,8 @@ begin
         region := request.region;
     end if;
 
+    request.path := omni_web.uri_encode(request.path);
+
     return omni_httpc.http_request(endpoint_url ||
                                    request.path || (case when length(query) > 0 then '?' || query else '' end),
                                    headers => array [
