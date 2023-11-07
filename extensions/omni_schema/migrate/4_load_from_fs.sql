@@ -81,6 +81,7 @@ begin
                    left join omni_schema.auxiliary_tools
                              on files.name like concat(coalesce(auxiliary_tools.filename_stem, '%'), '.',
                                                        auxiliary_tools.filename_extension)
+               order by coalesce(auxiliary_tools.priority, languages.priority) desc, name
         loop
             if rec.language is null and rec.processor is not null then
                 if not exists(select from pg_extension where extname = rec.processor_extension) then
