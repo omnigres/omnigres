@@ -154,7 +154,7 @@ create table employees (
 ```
 
 Now you can update your Python files (in the mounted volume) to include Flask functionality. For example, you can define endpoints to fetch list of all employees, fetch a particular employee, as well as create a new employee record.
-``` py hl_lines="26-30"
+``` py hl_lines="39-43"
 from omni_python import pg
 from omni_http import omni_httpd
 from omni_http.omni_httpd import flask
