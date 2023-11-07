@@ -5,7 +5,8 @@ create table languages
     language                 name not null,
     extension                name,
     file_processor           name,
-    file_processor_extension name
+    file_processor_extension name,
+    priority                 integer not null default 0
 );
 
 insert
