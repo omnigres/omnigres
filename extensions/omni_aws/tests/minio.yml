@@ -3,6 +3,7 @@ instance:
   init:
   - create extension omni_aws cascade
   - create extension omni_containers cascade
+  - create extension if not exists omni_httpc cascade
 
 tests:
 
@@ -70,6 +71,27 @@ tests:
                                                                          inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
                                                                      from
                                                                          minio))
+
+- name: downloading pre-signed url
+  query: |
+    select
+        convert_from(body, 'utf-8') as body
+    from
+        omni_httpc.http_execute(omni_httpc.http_request((select
+                                                             omni_aws.s3_presigned_url(bucket => 'omnigres-dev-test',
+                                                                                       path => '/test',
+                                                                                       access_key_id => 'minioadmin',
+                                                                                       secret_access_key => 'minioadmin',
+                                                                                       endpoint_url =>
+                                                                                               'http://127.0.0.1:' ||
+                                                                                               (select
+                                                                                                    inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
+                                                                                                from
+                                                                                                    minio)
+                                                                 ))))
+  results:
+  - body: text
+
 - name: put object under a name that needs escaping
   query: |
     select *
@@ -81,6 +103,27 @@ tests:
                                                                          inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
                                                                      from
                                                                          minio))
+
+- name: downloading pre-signed url for path that needs escaping
+  query: |
+    select
+        convert_from(body, 'utf-8') as body
+    from
+        omni_httpc.http_execute(omni_httpc.http_request((select
+                                                             omni_aws.s3_presigned_url(bucket => 'omnigres-dev-test',
+                                                                                       path => '/t est',
+                                                                                       access_key_id => 'minioadmin',
+                                                                                       secret_access_key => 'minioadmin',
+                                                                                       endpoint_url =>
+                                                                                               'http://127.0.0.1:' ||
+                                                                                               (select
+                                                                                                    inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
+                                                                                                from
+                                                                                                    minio)
+                                                                 ))))
+  results:
+  - body: text
+
 - name: put a binary object
   query: |
     select *

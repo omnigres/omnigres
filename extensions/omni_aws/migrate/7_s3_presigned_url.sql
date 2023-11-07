@@ -24,6 +24,7 @@ begin
         path := '/' || path;
     end if;
 
+    path := omni_web.uri_encode(path);
 
     if endpoint_url is null then
         endpoint_url := omni_aws.s3_endpoint_url(bucket, region);
