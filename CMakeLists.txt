@@ -5,15 +5,17 @@ list(PREPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
 enable_testing()
 
-add_subdirectory(misc/inja)
-add_subdirectory(pg_yregress)
-add_subdirectory(dynpgext)
-add_subdirectory(libpgaug)
-add_subdirectory(libgluepg_curl)
-add_subdirectory(libgluepg_yyjson)
-add_subdirectory(libgluepg_stc)
-add_subdirectory(extensions)
-add_subdirectory(languages)
+include(Common)
+
+add_subdirectory_once(misc/inja)
+add_subdirectory_once(pg_yregress)
+add_subdirectory_once(dynpgext)
+add_subdirectory_once(libpgaug)
+add_subdirectory_once(libgluepg_curl)
+add_subdirectory_once(libgluepg_yyjson)
+add_subdirectory_once(libgluepg_stc)
+add_subdirectory_once(extensions)
+add_subdirectory_once(languages)
 
 include(CPM)
 CPMAddPackage(

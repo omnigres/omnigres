@@ -1,2 +1,2 @@
-add_subdirectory(omni_python)
-add_subdirectory(omni_http)
+add_subdirectory_once(omni_python)
+add_subdirectory_once(omni_http)
