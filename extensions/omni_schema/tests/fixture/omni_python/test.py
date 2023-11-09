@@ -1,7 +1,8 @@
 from omni_python import pg
 
 import another_module
-
+import module1
+import module1.submod
 
 @pg
 def fun1(v: str) -> int:
@@ -16,6 +17,17 @@ def fun2(v: str) -> str:
 @pg
 def fun3() -> str:
     return another_module.impl()
+
+
+@pg
+def fun4() -> str:
+    return module1.impl()
+
+
+@pg
+def fun5() -> str:
+    return module1.submod.impl()
+
 
 @pg
 def add(v1: str, v2: str) -> str:

@@ -24,6 +24,8 @@ tests:
     - load_from_fs: a_load_time_test.py
     - load_from_fs: another_module.py
     - load_from_fs: foo.py
+    - load_from_fs: module1/__init__.py
+    - load_from_fs: module1/submod.py
     - load_from_fs: test.py
   # omni_python integration
   - query: select fun1('test')
@@ -36,6 +38,14 @@ tests:
     query: select fun3()
     results:
     - fun3: another module
+  - name: loaded `module1`
+    query: select fun4()
+    results:
+    - fun4: module1
+  - name: loaded `module1.submod`
+    query: select fun5()
+    results:
+    - fun5: submod
   # requirements.txt-dependant code
   - query: |
       select add('-539980584635519517644606174820023097370977572779217236866897631496501.40991196066825563084376519821275241099',
