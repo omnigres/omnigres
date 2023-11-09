@@ -1,5 +1,7 @@
 from omni_python import pg
 
+import another_module
+
 
 @pg
 def fun1(v: str) -> int:
@@ -10,6 +12,10 @@ def fun1(v: str) -> int:
 def fun2(v: str) -> str:
     return v[::-1]
 
+
+@pg
+def fun3() -> str:
+    return another_module.impl()
 
 @pg
 def add(v1: str, v2: str) -> str:

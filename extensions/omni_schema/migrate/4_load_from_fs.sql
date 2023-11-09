@@ -119,9 +119,9 @@ begin
                                rec.file_processor_extension is null then
                                 -- Can use the file processor
                                 execute format(
-                                        'select array_agg(processor) from %s(%L::text, filename => %L::text, replace => true) processor',
+                                        'select array_agg(processor) from %s(%L::text, filename => %L::text, replace => true, fs => %L::%s) processor',
                                         rec.file_processor,
-                                        rec.code, rec.name) into regprocs;
+                                        rec.code, rec.name, fs::text, pg_typeof(fs)) into regprocs;
                                 if array_length(regprocs, 1) > 0 then
                                     return next rec.name;
                                     continue;
