@@ -1,4 +1,5 @@
-create function create_functions(code text, filename text default null, replace boolean default false) returns setof regprocedure
+create function create_functions(code text, filename text default null, replace boolean default false,
+                                 fs anyelement default null::bool) returns setof regprocedure
     language plpgsql
 as
 $$
@@ -8,7 +9,8 @@ declare
     fun  regprocedure;
 begin
     lock table pg_proc in access exclusive mode;
-    for rec in select * from omni_python.functions(code, filename)
+    for rec in select *
+               from omni_python.functions(code => code, filename => filename, fs => fs::text, fs_type => pg_typeof(fs))
         loop
             select
                 array_to_string(array_agg(name || ' ' || type), ', ')

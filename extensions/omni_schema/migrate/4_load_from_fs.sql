@@ -67,8 +67,8 @@ begin
     delete from omni_schema.class;
     -- Execute
     for rec in select
-                   case when path = '' then '' else path || '/' end || name      as name,
-                   convert_from(omni_vfs.read(fs, path || '/' || name), 'utf-8') as code,
+                   case when path = '' then '' else path || '/' end || name as name,
+                   omni_vfs.read(fs, path || '/' || name)                   as code,
                    language,
                    extension,
                    file_processor,
@@ -81,63 +81,71 @@ begin
                    left join omni_schema.auxiliary_tools
                              on files.name like concat(coalesce(auxiliary_tools.filename_stem, '%'), '.',
                                                        auxiliary_tools.filename_extension)
+               where
+                   auxiliary_tools.id is not null or
+                   languages.id is not null
                order by coalesce(auxiliary_tools.priority, languages.priority) desc, name
         loop
-            if rec.language is null and rec.processor is not null then
-                if not exists(select from pg_extension where extname = rec.processor_extension) then
-                    raise notice 'Extension % required for auxiliary tool (required for %) is not installed', rec.processor_extension, rec.name;
-                else
-                    execute format('select %s(%L::text)', rec.processor, rec.code);
-                end if;
-                continue;
-            end if;
-            if rec.code ~ 'omni_schema\[\[ignore\]\]' then
-                -- Ignore the file
-                continue;
-            end if;
-            if rec.language = 'sql' then
-                execute rec.code;
-            else
-                if rec.language is null then
-                    -- Ignore file
+            declare
+                rec_code text;
+            begin
+                rec_code := convert_from(rec.code, 'utf-8');
+                if rec.language is null and rec.processor is not null then
+                    if not exists(select from pg_extension where extname = rec.processor_extension) then
+                        raise notice 'Extension % required for auxiliary tool (required for %) is not installed', rec.processor_extension, rec.name;
+                    else
+                        execute format('select %s(%L::text)', rec.processor, rec_code);
+                    end if;
                     continue;
                 end if;
-                -- Check if the language is available
-                if not exists(select from pg_extension where extname = rec.extension) then
-                    raise notice 'Extension % required for language % (required for %) is not installed', rec.extension, rec.language, rec.name;
-                    -- Don't include it in the list of loaded files
+                if rec_code ~ 'omni_schema\[\[ignore\]\]' then
+                    -- Ignore the file
                     continue;
+                end if;
+                if rec.language = 'sql' then
+                    execute rec_code;
                 else
-                    -- Prepare and execute the SQL create function construct
-                    declare
-                        sql_snippet text;
-                        regprocs    regprocedure[];
-                    begin
-                        if rec.file_processor is not null then
-                            if (rec.file_processor_extension is not null and
-                                exists(select from pg_extension where extname = rec.file_processor_extension)) or
-                               rec.file_processor_extension is null then
-                                -- Can use the file processor
-                                execute format(
-                                        'select array_agg(processor) from %s(%L::text, filename => %L::text, replace => true) processor',
-                                        rec.file_processor,
-                                        rec.code, rec.name) into regprocs;
-                                if array_length(regprocs, 1) > 0 then
-                                    return next rec.name;
-                                    continue;
+                    if rec.language is null then
+                        -- Ignore file
+                        continue;
+                    end if;
+                    -- Check if the language is available
+                    if not exists(select from pg_extension where extname = rec.extension) then
+                        raise notice 'Extension % required for language % (required for %) is not installed', rec.extension, rec.language, rec.name;
+                        -- Don't include it in the list of loaded files
+                        continue;
+                    else
+                        -- Prepare and execute the SQL create function construct
+                        declare
+                            sql_snippet text;
+                            regprocs    regprocedure[];
+                        begin
+                            if rec.file_processor is not null then
+                                if (rec.file_processor_extension is not null and
+                                    exists(select from pg_extension where extname = rec.file_processor_extension)) or
+                                   rec.file_processor_extension is null then
+                                    -- Can use the file processor
+                                    execute format(
+                                            'select array_agg(processor) from %s(%L::text, filename => %L::text, replace => true, fs => %L::%s) processor',
+                                            rec.file_processor,
+                                            rec_code, rec.name, fs::text, pg_typeof(fs)) into regprocs;
+                                    if array_length(regprocs, 1) > 0 then
+                                        return next rec.name;
+                                        continue;
+                                    end if;
                                 end if;
                             end if;
-                        end if;
-                        if rec.code ~ 'SQL\[\[.*\]\]' then
-                            sql_snippet := format('%s language %I as %L',
-                                                  substring(rec.code from 'SQL\[\[(.*?)\]\]'), rec.language,
-                                                  rec.code);
-                            execute sql_snippet;
-                        end if;
-                    end;
+                            if rec_code ~ 'SQL\[\[.*\]\]' then
+                                sql_snippet := format('%s language %I as %L',
+                                                      substring(rec_code from 'SQL\[\[(.*?)\]\]'), rec.language,
+                                                      rec_code);
+                                execute sql_snippet;
+                            end if;
+                        end;
+                    end if;
                 end if;
-            end if;
-            return next rec.name;
+                return next rec.name;
+            end;
         end loop;
     -- New procs
     insert

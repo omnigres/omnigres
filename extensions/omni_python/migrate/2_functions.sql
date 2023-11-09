@@ -1,4 +1,4 @@
-create function functions(code text, filename text default null)
+create function functions(code text, filename text default null, fs text default null, fs_type regtype default null)
     returns table
             (
                 name     name,
@@ -33,6 +33,47 @@ $$
 
     sys.path.insert(0, site_packages)
     import omni_python
+
+    # Consider omni_vfs as a source of custom imports
+    if fs is not None:
+        have_omni_vfs = plpy.execute(
+            plpy.prepare("select count(*) from pg_extension where extname = 'omni_vfs'")
+        )[0]['count'] > 0
+        if have_omni_vfs:
+            import importlib.abc, importlib.machinery
+            class CustomImporter(importlib.abc.MetaPathFinder, importlib.abc.Loader):
+                query = f"""
+                         select $1 as filename from omni_vfs.file_info('{fs}'::{fs_type}, $1) where kind = 'file'
+                         union
+                         select $2 as filename from omni_vfs.file_info('{fs}'::{fs_type}, $2) where kind = 'file'
+                         """
+                @classmethod
+                def find_spec(cls, fullname, path, target=None):
+                    results = plpy.execute(
+                        plpy.prepare(cls.query, ["text", "text"]),
+                        [f"{os.path.join(*fullname.split('.'))}.py",
+                         f"{os.path.join(*fullname.split('.'))}/__init__.py"]
+                    )
+                    if len(results) > 0:
+                        return importlib.machinery.ModuleSpec(fullname, cls, is_package=True)
+
+                @classmethod
+                def create_module(self, spec):
+                    return types.ModuleType(spec.name)
+
+                @classmethod
+                def exec_module(cls, mod):
+                    source = plpy.execute(
+                        plpy.prepare(
+                            f"""with files as ({cls.query})
+                             select omni_vfs.read('{fs}'::{fs_type}, filename) as source from files
+                             """, ["text", "text"]),
+                        [f"{os.path.join(*mod.__name__.split('.'))}.py",
+                         f"{os.path.join(*mod.__name__.split('.'))}/__init__.py"])[0]["source"]
+                    exec(source, globals(), mod.__dict__)
+
+            sys.meta_path.insert(0, CustomImporter)
+    #
 
     code_locals = {}
 
