@@ -12,10 +12,8 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_containers
-        VERSION 0.1
         SCHEMA omni_containers
         RELOCATABLE false
-        SCRIPTS omni_containers--0.1.sql
         SOURCES omni_containers.c init.c
         DEPENDS_ON libpgaug libgluepg_curl libgluepg_yyjson dynpgext omni_ext)
 

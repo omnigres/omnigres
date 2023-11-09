@@ -10,10 +10,8 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_http
-        VERSION 0.1
         SCHEMA omni_http
-        RELOCATABLE false
-        SCRIPTS omni_http--0.1.sql)
+        RELOCATABLE false)
 
 find_package(Doxygen)
 

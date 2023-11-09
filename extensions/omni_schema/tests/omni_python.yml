@@ -21,6 +21,7 @@ tests:
       from
         omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/omni_python')) order by load_from_fs asc
     results:
+    - load_from_fs: a_load_time_test.py
     - load_from_fs: foo.py
     - load_from_fs: test.py
   # omni_python integration
