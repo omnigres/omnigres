@@ -1,4 +1,20 @@
 -- API: PRIVATE
+create function docker_api_base_url()
+    returns text
+as
+'MODULE_PATHNAME',
+'docker_api_base_url'
+    language c;
+
+-- API: PRIVATE
+create function docker_host_ip()
+    returns text
+as
+'MODULE_PATHNAME',
+'docker_host_ip'
+    language c;
+
+-- API: PRIVATE
 create function docker_images_json()
     returns jsonb
 as
@@ -8,7 +24,7 @@ response omni_httpc.http_response;
 begin
     select * into response from omni_httpc.http_execute(
         omni_httpc.http_request(
-            'http://[unix:/var/run/docker.sock]/v1.41/images/json'
+            format('http://%s/images/json', omni_containers.docker_api_base_url())
         )
     );
     if response.status = 200 then

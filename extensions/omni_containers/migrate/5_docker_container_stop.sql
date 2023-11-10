@@ -8,7 +8,7 @@ response omni_httpc.http_response;
 begin
     select * into response from omni_httpc.http_execute(
         omni_httpc.http_request(
-            format('http://[unix:/var/run/docker.sock]/v1.41/containers/%s/stop', id),
+            format('http://%s/containers/%s/stop', omni_containers.docker_api_base_url(), id),
             'POST'
         )
     );

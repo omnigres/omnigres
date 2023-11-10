@@ -48,16 +48,25 @@ begin
         if post_body->'HostConfig' is null then
             post_body = jsonb_set(post_body, '{HostConfig}', '{"ExtraHosts": []}');
         end if;
-        post_body = jsonb_set(post_body, '{HostConfig,ExtraHosts}',
-        -- how to get env var DOCKER_HOST_IP ?
-        coalesce(post_body->'HostConfig'->'ExtraHosts', '[]')::jsonb || to_jsonb(format('%s:host-gateway', attach)));
+
+        if length(omni_containers.docker_host_ip()) = 0 then
+            post_body = jsonb_set(post_body, '{HostConfig,ExtraHosts}', 
+                coalesce(post_body->'HostConfig'->'ExtraHosts', '[]')::jsonb || to_jsonb(format('%s:host-gateway',
+                attach))
+            );
+        else
+            post_body = jsonb_set(post_body, '{HostConfig,ExtraHosts}',
+                coalesce(post_body->'HostConfig'->'ExtraHosts', '[]')::jsonb || to_jsonb(format('%s:%s',
+                attach, omni_containers.docker_host_ip()))
+            );
+        end if;
     end if;
 
     loop
         retry_creating = false;
         -- Attempt to create the container
         select * into response from omni_httpc.http_execute(omni_httpc.http_request(
-            'http://[unix:/var/run/docker.sock]/v1.41/containers/create',
+            format('http://%s/containers/create', omni_containers.docker_api_base_url()),
             'POST',
             array[
                 omni_http.http_header('Content-Type', 'application/json')
@@ -73,7 +82,8 @@ begin
                     raise notice 'Pulling image %', image;
                     select * into response from omni_httpc.http_execute(omni_httpc.http_request(
                         format(
-                            'http://[unix:/var/run/docker.sock]/v1.41/images/create?fromImage=%s&tag=latest',
+                            'http://%s/images/create?fromImage=%s&tag=latest',
+                            omni_containers.docker_api_base_url(),
                             omni_web.url_encode(normalized_image)
                         ),
                         'POST')
@@ -99,7 +109,7 @@ begin
 
     if start = true then
         select * into response from omni_httpc.http_execute(omni_httpc.http_request(
-            format('http://[unix:/var/run/docker.sock]/v1.41/containers/%s/start', container_id),
+            format('http://%s/containers/%s/start', omni_containers.docker_api_base_url(), container_id),
             'POST'
         ));
         if response.status != 204 then
@@ -110,7 +120,7 @@ begin
 
     if wait = true then
         select * into response from omni_httpc.http_execute(omni_httpc.http_request(
-            format('http://[unix:/var/run/docker.sock]/v1.41/containers/%s/wait', container_id),
+            format('http://%s/containers/%s/wait', omni_containers.docker_api_base_url(), container_id),
             'POST'
         ));
         if response.status != 200 then

@@ -58,7 +58,7 @@ begin
 
     select * into response from omni_httpc.http_execute(
         omni_httpc.http_request(
-            format('http://[unix:/var/run/docker.sock]/v1.41/containers/%s/logs?', id) || query_params
+            format('http://%s/containers/%s/logs?', omni_containers.docker_api_base_url(), id) || query_params
         )
     );
 
