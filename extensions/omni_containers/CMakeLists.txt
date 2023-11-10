@@ -19,4 +19,4 @@ add_postgresql_extension(
         REQUIRES omni_httpc omni_web)
 
 target_compile_definitions(omni_containers PUBLIC ${CMAKE_C_BYTE_ORDER})
-target_link_libraries(omni_containers libgluepg_curl libgluepg_yyjson libpgaug dynpgext)
+target_link_libraries(omni_containers dynpgext)

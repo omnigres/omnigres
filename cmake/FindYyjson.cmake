@@ -1,3 +1,0 @@
-include(CPM)
-
-CPMAddPackage(GITHUB_REPOSITORY "ibireme/yyjson" GIT_TAG "0.6.0" OPTIONS "BUILD_SHARED_LIBS OFF")
