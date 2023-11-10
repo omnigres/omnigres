@@ -29,10 +29,10 @@ begin
             normalized_image = image;
     end case;
 
-    post_body = post_body || format('{"Image": "%s"}', normalized_image)::jsonb;
+    post_body = post_body || jsonb_build_object('Image', normalized_image);
 
     if cmd is not null then
-        post_body = post_body || format('{"Cmd": ["sh", "-c", "%s"]}', cmd)::jsonb;
+        post_body = post_body || jsonb_build_object('Cmd', jsonb_build_array('sh', '-c', cmd));
     end if;
 
     if attach is not null then
