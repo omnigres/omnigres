@@ -6,7 +6,7 @@ instance:
   config:
     listen_addresses: 0.0.0.0
   init:
-  - create extension omni_containers
+  - create extension omni_containers cascade
 
 tests:
 - name: Ensure we pull an image

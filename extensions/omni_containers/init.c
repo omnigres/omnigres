@@ -4,8 +4,6 @@
 #include <utils/guc.h>
 // clang-format on
 
-#include <libgluepg_curl.h>
-
 #include "omni_containers.h"
 
 DYNPGEXT_MAGIC;

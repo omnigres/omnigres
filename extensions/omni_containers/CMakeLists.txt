@@ -15,7 +15,8 @@ add_postgresql_extension(
         SCHEMA omni_containers
         RELOCATABLE false
         SOURCES omni_containers.c init.c
-        DEPENDS_ON libpgaug libgluepg_curl libgluepg_yyjson dynpgext omni_ext)
+        DEPENDS_ON dynpgext omni_ext
+        REQUIRES omni_httpc omni_web)
 
 target_compile_definitions(omni_containers PUBLIC ${CMAKE_C_BYTE_ORDER})
-target_link_libraries(omni_containers libgluepg_curl libgluepg_yyjson libpgaug dynpgext)
+target_link_libraries(omni_containers dynpgext)

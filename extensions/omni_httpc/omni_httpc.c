@@ -317,6 +317,22 @@ static h2o_httpclient_head_cb on_connect(h2o_httpclient_t *client, const char *e
   *_method = req->method;
   *num_headers = req->num_headers;
   *headers = req->headers;
+  /*
+  From https://h2o.examp1e.net/configure/proxy_directives.html#proxy.reverse.url
+
+  "In addition to TCP/IP over IPv4 and IPv6, the proxy handler can also connect to an HTTP server
+  listening to a Unix socket. Path to the unix socket should be surrounded by square brackets, and
+  prefixed with unix: (e.g. http://[unix:/path/to/socket]/path)"
+*/
+  const char *uds_prefix = "[unix:";
+  /*
+  required to prevent malformed host header with unix domain sockets for eg. when calling
+  http://[unix:/var/run/docker.sock]/_ping h2o sets the host header to [unix:/var/run/docker.sock]
+  and golang disallows '/' in host header value with 400 Bad request
+  */
+  if (strncmp(req->url.authority.base, uds_prefix, strlen(uds_prefix)) == 0) {
+    req->url.authority.len = 0;
+  }
   *url = req->url;
   *body = req->request_body;
   *proceed_req_cb = NULL;
