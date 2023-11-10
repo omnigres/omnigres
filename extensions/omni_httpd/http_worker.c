@@ -178,26 +178,38 @@ void http_worker(Datum db_oid) {
       // When all HTTP workers will do the same, the master worker will start serving the
       // socket list.
 
-      cvec_fd fds = accept_fds(MyBgworkerEntry->bgw_extra);
-      if (cvec_fd_empty(&fds)) {
+      cvec_fd_fd fds = accept_fds(MyBgworkerEntry->bgw_extra);
+      if (cvec_fd_fd_empty(&fds)) {
         SPI_finish();
         PopActiveSnapshot();
         AbortCurrentTransaction();
         continue;
       }
 
+      // At first, assume all fds are new (so we need to set up listeners)
+      cvec_fd_fd new_fds = cvec_fd_fd_clone(fds);
       // Disposing allocated listener/query pairs and their associated data
       // (such as sockets)
       {
         clist_listener_contexts_iter iter = clist_listener_contexts_begin(&listener_contexts);
         while (iter.ref != NULL) {
-          // FIXME: wrong assumption, new socket fd may be different
-          // if it is the same socket being sent (without the current one being closed)
-          if (cvec_fd_get(&fds, iter.ref->fd) != NULL) {
-            // We still have this fd, don't dispose it
-            clist_listener_contexts_next(&iter);
-            continue;
+          // Do we have this socket in the new packet?
+          c_foreach(it, cvec_fd_fd, new_fds) {
+            // Compare by their master fd
+            if (it.ref->master_fd == iter.ref->master_fd) {
+              // If we do, continue using the listener
+              clist_listener_contexts_next(&iter);
+              // close the incoming  because we aren't going to be using it
+              // and it may be polluting the fd table
+              close(it.ref->fd);
+              // and ensure we don't set up a listener for it
+              cvec_fd_fd_erase_at(&new_fds, it);
+              // process the next listener
+              goto next_ctx;
+            } else {
+            }
           }
+          // Otherwise, dispose of the listener
           if (iter.ref->plan != NULL) {
             SPI_freeplan(iter.ref->plan);
             iter.ref->plan = NULL;
@@ -212,13 +224,16 @@ void http_worker(Datum db_oid) {
           h2o_context_dispose(&iter.ref->context);
           MemoryContextDelete(iter.ref->memory_context);
           iter = clist_listener_contexts_erase_at(&listener_contexts, iter);
+        next_ctx : {}
         }
       }
 
-      c_FOREACH(i, cvec_fd, fds) {
-        int fd = *i.ref;
+      // Set up new listeners as necessary
+      c_FOREACH(i, cvec_fd_fd, new_fds) {
+        int fd = (i.ref)->fd;
 
         listener_ctx c = {.fd = fd,
+                          .master_fd = (i.ref)->master_fd,
                           .socket = NULL,
                           .plan = NULL,
                           .memory_context =
@@ -240,6 +255,7 @@ void http_worker(Datum db_oid) {
           ereport(WARNING, errmsg("socket error: %s", strerror(e)));
         }
       }
+      cvec_fd_fd_drop(&new_fds);
 
       // Now we're ready to work with the results of the query we made earlier:
       if (handlers_query_rc == SPI_OK_SELECT) {
@@ -288,11 +304,11 @@ void http_worker(Datum db_oid) {
             ReleaseSysCache(roleTup);
           }
 
-          const cvec_fd_value *fd = cvec_fd_at(&fds, index);
+          const cvec_fd_fd_value *fd = cvec_fd_fd_at(&fds, index);
           Assert(fd != NULL);
           listener_ctx *listener_ctx = NULL;
           c_foreach(iter, clist_listener_contexts, listener_contexts) {
-            if (iter.ref->fd == *fd) {
+            if (iter.ref->master_fd == fd->master_fd) {
               listener_ctx = iter.ref;
               break;
             }
@@ -372,7 +388,7 @@ void http_worker(Datum db_oid) {
       SPI_finish();
       PopActiveSnapshot();
       AbortCurrentTransaction();
-      cvec_fd_drop(&fds);
+      cvec_fd_fd_drop(&fds);
     }
 
     event_loop_suspended = false;
@@ -509,7 +525,7 @@ static void setup_server() {
 
   h2o_pathconf_t *pathconf = register_handler(hostconf, "/", event_loop_req_handler);
 }
-static cvec_fd accept_fds(char *socket_name) {
+static cvec_fd_fd accept_fds(char *socket_name) {
   struct sockaddr_un address;
   int socket_fd;
 
@@ -533,7 +549,7 @@ try_connect:
     if (e == EAGAIN || e == EWOULDBLOCK) {
       if (atomic_load(&worker_reload)) {
         // Don't try to get fds, roll with the reload
-        return cvec_fd_init();
+        return cvec_fd_fd_init();
       } else {
         goto try_connect;
       }
@@ -544,12 +560,12 @@ try_connect:
     ereport(ERROR, errmsg("error connecting to sharing socket: %s", strerror(e)));
   }
 
-  cvec_fd result;
+  cvec_fd_fd result;
 
   do {
     errno = 0;
     if (atomic_load(&worker_reload)) {
-      result = cvec_fd_init();
+      result = cvec_fd_fd_init();
       break;
     }
     result = recv_fds(socket_fd);

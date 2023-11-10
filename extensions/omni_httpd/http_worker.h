@@ -47,6 +47,10 @@ typedef struct st_listener_ctx {
    */
   int fd;
   /**
+   * @brief Underlying master file descriptor
+   */
+  int master_fd;
+  /**
    * @brief Accept context
    *
    */
@@ -99,7 +103,7 @@ static int create_listener(int fd, listener_ctx *listener_ctx);
  * @param socket_name
  * @return
  */
-static cvec_fd accept_fds(char *socket_name);
+static cvec_fd_fd accept_fds(char *socket_name);
 
 /**
  * @brief Number of fields in http_request type

@@ -33,14 +33,12 @@
 
 static int send_fds_with_buffer(int sock, cvec_fd *fds, void *buffer) {
   struct msghdr msghdr;
-  char nothing = '!';
   struct iovec payload_ptr;
   struct cmsghdr *cmsg;
-  int i;
   unsigned n_fds = cvec_fd_size(fds);
 
-  payload_ptr.iov_base = &nothing;
-  payload_ptr.iov_len = 1;
+  payload_ptr.iov_base = cvec_fd_front(fds);
+  payload_ptr.iov_len = sizeof(cvec_fd_value) * cvec_fd_size(fds);
 
   msghdr.msg_name = NULL;
   msghdr.msg_namelen = 0;
@@ -65,16 +63,16 @@ int send_fds(int sock, cvec_fd *fds) {
   return send_fds_with_buffer(sock, fds, &buffer);
 }
 
-static cvec_fd recv_fds_with_buffer(int sock, void *buffer) {
+static cvec_fd_fd recv_fds_with_buffer(int sock, void *buffer) {
   struct msghdr msghdr;
-  char nothing;
   unsigned n_fds;
   struct iovec payload_ptr;
   struct cmsghdr *cmsg;
   int i;
+  int fds[sizeof(int) * MAX_N_FDS];
 
-  payload_ptr.iov_base = &nothing;
-  payload_ptr.iov_len = 1;
+  payload_ptr.iov_base = fds;
+  payload_ptr.iov_len = sizeof(int) * MAX_N_FDS;
 
   msghdr.msg_name = NULL;
   msghdr.msg_namelen = 0;
@@ -84,7 +82,7 @@ static cvec_fd recv_fds_with_buffer(int sock, void *buffer) {
   msghdr.msg_control = buffer;
   msghdr.msg_controllen = CMSG_SPACE(sizeof(int) * MAX_N_FDS);
 
-  cvec_fd result = cvec_fd_with_capacity(MAX_N_FDS);
+  cvec_fd_fd result = cvec_fd_fd_with_capacity(MAX_N_FDS);
   if (recvmsg(sock, &msghdr, 0) < 0)
     return result;
 
@@ -93,13 +91,14 @@ static cvec_fd recv_fds_with_buffer(int sock, void *buffer) {
     return result;
   n_fds = (cmsg->cmsg_len - CMSG_LEN(0)) / sizeof(int);
 
-  for (i = 0; i < n_fds; i++)
-    cvec_fd_push(&result, ((int *)CMSG_DATA(cmsg))[i]);
+  for (i = 0; i < n_fds; i++) {
+    cvec_fd_fd_push(&result, (fd_fd){.fd = ((int *)CMSG_DATA(cmsg))[i], .master_fd = fds[i]});
+  }
 
   return result;
 }
 
-cvec_fd recv_fds(int sock) {
+cvec_fd_fd recv_fds(int sock) {
   FD_BUFFER(MAX_N_FDS) buffer;
 
   return recv_fds_with_buffer(sock, &buffer);
