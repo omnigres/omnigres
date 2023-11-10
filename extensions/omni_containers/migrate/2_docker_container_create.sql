@@ -20,7 +20,7 @@ declare
     response omni_httpc.http_response;
     container_id text;
 begin
-    case regexp_count(image, '/')
+    case (length(image) - length(replace(image, '/', '')))
         when 0 then -- No slashes, it's a library
             normalized_image = 'docker.io/library/' || image ;
         when 1 then -- One slash, it's on docker.io
