@@ -114,7 +114,8 @@ omnigres=# select subtract(5, 10);
 
 For Flask framework integration, we have a few more steps.
 
-Create `omni_httpd` extension to be able to handle HTTP requests.
+Ensure to create `omni_httpd` extension to be able to handle HTTP requests.
+
 ```postgresql
 create extension if not exists omni_httpd cascade;
 ```
@@ -122,25 +123,6 @@ create extension if not exists omni_httpd cascade;
 Add the following in `requirements.txt` file.
 ```
 omni_http[Flask]
-```
-
-Create HTTP listeners for our Flask application. For example, let's add a HTTP listener for port 5000.
-```postgresql
-with
-    listener as (insert into omni_httpd.listeners (address, port) values ('0.0.0.0', 5000) returning id),
-    handler as (insert into omni_httpd.handlers (query) values
-                                                 (
-                                                 $$ select handle(request.*) from request$$
-       ) returning id)
-insert
-into
-    omni_httpd.listeners_handlers (listener_id, handler_id)
-select
-    listener.id,
-    handler.id
-from
-    listener,
-    handler;
 ```
 
 Let's say you have a table called `employees`.
@@ -192,11 +174,7 @@ def get_employee(employee_id):
     employee = plpy.execute(plpy.prepare("select * from employees where id = $1", ["int"]), [employee_id])
     return employees_to_json(employee)
 
-app_ = flask.Adapter(app)
-
-@pg
-def handle(req: omni_httpd.HTTPRequest) -> omni_httpd.HTTPOutcome:
-    return app_(req)
+handle = pg(flask.Adapter(app))
 ```
 
 !!! info "Flask integration with Omnigres"
@@ -218,21 +196,34 @@ def handle(req: omni_httpd.HTTPRequest) -> omni_httpd.HTTPOutcome:
     Note: We use `plpy` for now, but we should use DB API compatible APIs and/or other 
     frameworks (such as SQLAlchemy) which will be available very soon.
 
-Make sure to add port mapping for 5000 when running Omnigres via Docker.
+Make sure to add port mapping for 8080 (this is default `omni_httpd` is
+configured with) when running Omnigres via Docker (using the same volume as
+before).
+
 ```shell
 docker run --name omnigres \
            -e POSTGRES_PASSWORD=omnigres \
            -e POSTGRES_USER=omnigres \
            -e POSTGRES_DB=omnigres \
            --mount source=omnigres,target=/var/lib/postgresql/data -v $(pwd)/python-files:/python-files \
-           -p 127.0.0.1:5450:5432 -p 127.0.0.1:5000:5000 --rm ghcr.io/omnigres/omnigres-slim:latest
+           -p 127.0.0.1:5450:5432 -p 127.0.0.1:8000:8000 \
+           --rm ghcr.io/omnigres/omnigres-slim:latest
+```
+
+Setup HTTP handler for out Flask application:
+
+```postgresql
+update omni_httpd.handlers
+set
+    query =
+        $$select handle(request.*) from request$$;
 ```
 
 You can hit the endpoints defined in the Flask code above.
 
 Fetch all employees:
 ```shell
-$ curl http://localhost:5000/employees
+$ curl http://localhost:8080/employees
 [
     {
         "id": 1,
@@ -252,7 +243,7 @@ $ curl http://localhost:5000/employees
 Create a new employee:
 ```shell
 $ curl --request POST \
-  --url http://localhost:5000/employees \
+  --url http://localhost:8080/employees \
   --header 'Content-Type: application/json' \
   --data '{
   "name": "Daniel",
@@ -264,6 +255,6 @@ $ curl --request POST \
 
 Fetch a particular employee:
 ```shell
-$ curl http://localhost:5000/employees/3
+$ curl http://localhost:8080/employees/3
 [{"id": 3, "name": "Daniel", "department": "Marketing", "salary": 70000}]
 ```

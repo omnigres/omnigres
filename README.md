@@ -57,24 +57,89 @@ DOCKER_BUILDKIT=1 docker build . -t ghcr.io/omnigres/omnigres
 Here we expect you are running the [container image](#-runner--quick-start), which has
 omni_httpd and omni_web extensions provisioned by default.
 
-Let's start with a traditional example:
+Let's start with a traditional example. Here we w ill instruct the handler that
+is provisioned by omni_httpd by default to use the enclosed query to greet the
+world.
 
-```sql
-update omni_httpd.handlers
-set
-    query =
-        $$select omni_httpd.http_response('Hello, world!') from request;$$;
-```
-
-Here we instruct the handler that is provisioned by omni_httpd by default
-to use the enclosed query to greet the world:
+Below, we'll show examples in Python and plain SQL (or PL/pgSQL). Support for
+more languages is coming!
 
 ```shell
 $ curl localhost:8080
 Hello, world!
 ```
 
+<details>
+<summary>Python (Flask) implementation</summary>
+
+```python
+from omni_python import pg
+from flask import Flask
+from omni_http.omni_httpd import flask
+
+app = Flask('myapp')
+
+
+@app.route('/')
+def hello():
+    return "Hello, world!"
+
+
+handle = pg(flask.Adapter(app))
+```
+
+To connect the endpoint:
+
+```sql
+update omni_httpd.handlers
+set
+    query =
+        $$select handle(request.*) from request$$;
+```
+
+**NB**: Please note that you will need to
+[follow Python setup steps](https://docs.omnigres.org/omni_python/intro/)
+for the time being before our CLI tooling is ready.
+
+</details>
+
+<details>
+<summary>Plain SQL</summary>
+
+You can also achieve the same using plain SQL with very little setup.
+
+```sql
+update omni_httpd.handlers
+set
+    query =
+        $$select omni_httpd.http_response('Hello, world!') from request$$;
+```
+
+</details>
+
 Now, let's make it more personal and let it greet the requester by name.
+
+```shell
+$ curl "localhost:8080?name=John"
+Hello, John!
+```
+
+<details>
+<summary>Python (Flask) implementation</summary>
+
+```python
+from flask import request  # we need to access `request`
+
+
+@app.route('/')
+def hello():
+    return f"Hello, {request.args.get('name', 'world')}!"
+```
+
+</details>
+
+<details>
+<summary>Plain SQL</summary>
 
 ```sql
 update omni_httpd.handlers
@@ -82,18 +147,10 @@ set
     query =
         $$select omni_httpd.http_response('Hello, ' || 
                    coalesce(omni_web.param_get(request.query_string, 'name'), 'world') || '!')
-          from request;$$;
+          from request$$;
 ```
 
-Now, it'll respond in a personalized manner if `name` query string parameter is provided:
-
-```shell
-$ curl localhost:8080
-Hello, world!
-
-$ curl "localhost:8080?name=John"
-Hello, John!
-```
+</details>
 
 This, of course, only barely scratches the surface, but it may give you a very high-level concept
 of how Omnigres web services can be built.
