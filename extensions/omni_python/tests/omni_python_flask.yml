@@ -22,9 +22,8 @@ instance:
     #language=Python
     - |
       from omni_python import pg
-      from omni_http import omni_httpd
       from omni_http.omni_httpd import flask
-      from flask import Flask
+      from flask import Flask, make_response, request
       import json
 
       app = Flask('myapp')
@@ -33,25 +32,17 @@ instance:
       
       @app.route('/post/body', methods=['POST'])
       def do_post():
-          from flask import make_response, request
           resp = make_response(request.data)
           return resp
       
       
       @app.route('/post/headers', methods=['POST'])
       def do_headers():
-          from flask import make_response, request
           resp = make_response(json.dumps({**request.headers}))
           return resp
       
       
-      app_ = flask.Adapter(app)
-      
-      
-      @pg
-      def handle(request: omni_httpd.HTTPRequest) -> omni_httpd.HTTPOutcome:
-          return app_(request)
-
+      handle = pg(flask.Adapter(app))
 
 tests:
 - name: POST body

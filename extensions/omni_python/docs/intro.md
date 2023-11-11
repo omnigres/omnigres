@@ -158,7 +158,7 @@ Now you can update your Python files (in the mounted volume) to include Flask fu
 from omni_python import pg
 from omni_http import omni_httpd
 from omni_http.omni_httpd import flask
-from flask import Flask, jsonify, make_response
+from flask import Flask, jsonify, make_response, request
 import uuid
 
 app = Flask('myapp')
@@ -168,7 +168,6 @@ def employees_to_json(employees):
 
 @app.route('/employees', methods=['POST'])
 def create_employee():
-    from flask import make_response, request
     json_data = json.loads(request.data.decode('UTF-8'))
 
     employee_name = json_data.get('name')
