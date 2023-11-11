@@ -108,7 +108,7 @@ $$
                  decimal.Decimal: 'numeric', float: 'double precision'}
 
     def resolve_type(function, arg):
-        type = function.__annotations__[arg]
+        type = inspect.getfullargspec(function).annotations[arg]
         if hasattr(type, '__pg_type_hint__') and callable(type.__pg_type_hint__):
             type.__pg_type_hint__.__globals__.update(code_locals)
             type = type.__pg_type_hint__()
@@ -135,7 +135,7 @@ $$
                 return 'unknown'
 
     def process_argument(function, arg):
-        type = function.__annotations__[arg]
+        type = inspect.getfullargspec(function).annotations[arg]
         if hasattr(type, '__pg_type_hint__') and callable(type.__pg_type_hint__):
             type.__pg_type_hint__.__globals__.update(code_locals)
             type = type.__pg_type_hint__()
@@ -164,8 +164,8 @@ $$
     from textwrap import dedent
 
     return [(pgargs.get('name', name),
-             [a for a in inspect.getfullargspec(f).args],
-             [resolve_type(f, a) for a in inspect.getfullargspec(f).args], resolve_type(f, 'return'),
+             [a for a in inspect.getfullargspec(f).args if a != 'self'],
+             [resolve_type(f, a) for a in inspect.getfullargspec(f).args if a != 'self'], resolve_type(f, 'return'),
              dedent("""
              import sys
              if '__omni_python__functions__' in GD:
@@ -182,6 +182,6 @@ $$
                          site_packages=site_packages,
                          args=', '.join(
                              [process_argument(f, a) for a in
-                              inspect.getfullargspec(f).args])))
+                              inspect.getfullargspec(f).args if a != 'self'])))
             for name, f, pgargs in pg_functions]
 $$;
