@@ -36,6 +36,10 @@ instance:
           return resp
       
       
+      @app.route('/post/content-type', methods=['POST'])
+      def do_content_type():
+          return request.content_type or "undefined"
+      
       @app.route('/post/headers', methods=['POST'])
       def do_headers():
           resp = make_response(json.dumps({**request.headers}))
@@ -50,10 +54,35 @@ tests:
              convert_from(body, 'utf-8') as body
          from
              omni_httpd.http_response_from_http_outcome(
-                     handle(omni_httpd.http_request('/post/body', method => 'POST',
+                     handle(omni_httpd.http_request('/post/body',
+                                                    method => 'POST',
                                                     body => 'hello')))
   results:
   - body: hello
+
+- name: Content-Type
+  query: select
+             convert_from(body, 'utf-8') as body
+         from
+             omni_httpd.http_response_from_http_outcome(
+                     handle(omni_httpd.http_request('/post/content-type',
+                                                    method => 'POST',
+                                                    headers => array [omni_http.http_header('Content-Type', 'application/json')],
+                                                    body => '{}')))
+  results:
+  - body: application/json
+
+- name: content-type
+  query: select
+             convert_from(body, 'utf-8') as body
+         from
+             omni_httpd.http_response_from_http_outcome(
+                     handle(omni_httpd.http_request('/post/content-type',
+                                                    method => 'POST',
+                                                    headers => array [omni_http.http_header('content-type', 'application/json')],
+                                                    body => '{}')))
+  results:
+  - body: application/json
 
 - name: POST headers
   query: select

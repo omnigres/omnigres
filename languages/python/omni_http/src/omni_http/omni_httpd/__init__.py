@@ -19,7 +19,10 @@ class HTTPRequest:
         environ = {'wsgi.version': (1, 0), 'wsgi.url_scheme': 'http', 'wsgi.input': io.BytesIO(self.body or b""), 'wsgi.multithread': False,
                    'REQUEST_METHOD': self.method, 'PATH_INFO': self.path, 'QUERY_STRING': self.query_string or ''}
         for header in self.headers:
-            environ[f"HTTP_{header['name'].upper().replace('-', '_')}"] = header['value']
+            if header['name'].upper() == 'CONTENT-TYPE':
+                environ["CONTENT_TYPE"] = header['value']
+            else:
+                environ[f"HTTP_{header['name'].upper().replace('-', '_')}"] = header['value']
         
         # set content-length header to enable body stream
         if not environ.get('CONTENT_LENGTH'): # TODO: how to handle chunked data?
