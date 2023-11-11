@@ -246,3 +246,28 @@ tests:
   - name: execute it
     query: select fun1('test')
     notices: [ ]
+
+- name: exporting callables
+  steps:
+  - name: create
+    query: select *
+           from
+               omni_python.create_functions($1)
+    params:
+    #language=Python
+    - |
+      from omni_python import pg
+      
+      
+      class C:
+          def __call__(self, v: str) -> int:
+              return len(v)
+      
+      
+      fun1 = pg(C())
+    results:
+    - create_functions: fun1(text)
+  - name: execute it
+    query: select fun1('test')
+    results:
+    - fun1: 4
