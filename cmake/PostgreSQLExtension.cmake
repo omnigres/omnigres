@@ -318,7 +318,7 @@ if [ -d \"$_dir/${NAME}\" ]; then
   _dir=\"$_dir/${NAME}\"
 fi
 # Create file (using $$ for pid to avoid race conditions)
-for f in $(ls \"$_dir/\"*.sql | sort -n)
+for f in $(ls \"$_dir/\"*.sql | sort -V)
   do
   $<TARGET_FILE:inja> \"$f\" >> \"$1/_$$_${NAME}--${_ext_VERSION}.sql\"
   echo >> \"$1/_$$_${NAME}--${_ext_VERSION}.sql\"
