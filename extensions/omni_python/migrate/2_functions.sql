@@ -100,9 +100,15 @@ $$
 
     pg_functions = []
     for name, value in code_locals.items():
-        if callable(value):
-            if hasattr(value, '__pg_stored_procedure__'):
-                pg_functions.append((name, value, value.__pg_stored_procedure__))
+        if not callable(value) or not dir(value):
+            # This is a very implementation-specific fix for Flask's request
+            # import that tries to self-initialize upon inspection. That said,
+            # if `value`'s dir is empty then there's no `__pg_stored_procedure__`
+            # and we can avoid calling `hasattr` that effectively attempts to initialize
+            # the request and fails to do so, failing with a `RuntimeError`
+            continue
+        if hasattr(value, '__pg_stored_procedure__'):
+            pg_functions.append((name, value, value.__pg_stored_procedure__))
 
     __types__ = {str: 'text', bool: 'boolean', bytes: 'bytea', int: 'int',
                  decimal.Decimal: 'numeric', float: 'double precision'}
