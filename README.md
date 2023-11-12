@@ -57,7 +57,7 @@ DOCKER_BUILDKIT=1 docker build . -t ghcr.io/omnigres/omnigres
 Here we expect you are running the [container image](#-runner--quick-start), which has
 omni_httpd and omni_web extensions provisioned by default.
 
-Let's start with a traditional example. Here we w ill instruct the handler that
+Let's start with a traditional example. Here we will instruct the handler that
 is provisioned by omni_httpd by default to use the enclosed query to greet the
 world.
 
