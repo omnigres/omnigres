@@ -218,6 +218,11 @@
                 "type": "string"
               }
             },
+            "reset": {
+              "type": "boolean",
+              "description": "Reset the connection before the test",
+              "default": false
+            },
             "negative": {
               "type": "boolean",
               "description": "Test should fail",
