@@ -145,10 +145,6 @@ void http_worker(Datum db_oid) {
     bool worker_reload_test = true;
     if (atomic_compare_exchange_strong(&worker_reload, &worker_reload_test, false)) {
 
-      // Reset to TopUser
-      SetUserIdAndSecContext(TopUser, 0);
-      CurrentHandlerUser = TopUser;
-
       SetCurrentStatementStartTimestamp();
       StartTransactionCommand();
       PushActiveSnapshot(GetTransactionSnapshot());
@@ -843,10 +839,13 @@ cleanup:
   PopActiveSnapshot();
   if (succeeded) {
     CommitTransactionCommand();
+    // Restore TopUser and save it in CurrentHandlerUser
+    SetUserIdAndSecContext(TopUser, 0);
+    int _sec;
+    GetUserIdAndSecContext(&CurrentHandlerUser, &_sec);
   } else {
     AbortCurrentTransaction();
   }
-
 release:
   pthread_mutex_unlock(&msg->mutex);
 

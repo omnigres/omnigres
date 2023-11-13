@@ -401,6 +401,10 @@ Datum http_execute(PG_FUNCTION_ARGS) {
     }
   }
 
+  if (PG_ARGISNULL(1)) {
+    ereport(ERROR, errmsg("can't have null requests"));
+  }
+
   ArrayType *requests_array = PG_GETARG_ARRAYTYPE_P(1);
   ArrayIterator request_iter = array_create_iterator(requests_array, 0, NULL);
 
@@ -410,6 +414,7 @@ Datum http_execute(PG_FUNCTION_ARGS) {
   // Indicates if any target requires SSL
   bool ssl_targets = false;
 
+  bool any_requests = false;
   // For every request:
   for (int req_i = 0; req_i < num_requests; req_i++) {
 
@@ -425,6 +430,7 @@ Datum http_execute(PG_FUNCTION_ARGS) {
     if (isnull) {
       continue;
     }
+    any_requests = true;
 
     struct request *request = &requests[req_i];
     HeapTupleHeader arg_request = DatumGetHeapTupleHeader(request_datum);
@@ -526,6 +532,13 @@ Datum http_execute(PG_FUNCTION_ARGS) {
   }
   array_free_iterator(request_iter);
 
+  if (!any_requests) {
+    Tuplestorestate *tupstore = tuplestore_begin_heap(false, false, work_mem);
+    rsinfo->setResult = tupstore;
+    tuplestore_donestoring(tupstore);
+    goto done;
+  }
+
   // Adjust the socket pool capacity if necessary
   sockpool->capacity = Max(num_requests, sockpool->capacity);
 
@@ -593,6 +606,7 @@ Datum http_execute(PG_FUNCTION_ARGS) {
 
   tuplestore_donestoring(tupstore);
 
+done:
   MemoryContextSwitchTo(oldcontext);
   PG_RETURN_NULL();
 }

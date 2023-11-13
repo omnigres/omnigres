@@ -106,7 +106,15 @@ void master_worker(Datum main_arg) {
         strncpy(worker.bgw_name, name, BGW_MAXLEN);
         strncpy(worker.bgw_type, name, BGW_MAXLEN);
         strncpy(worker.bgw_extra, db->datname.data, BGW_EXTRALEN);
-        RegisterDynamicBackgroundWorker(&worker, &result.ref->second.worker);
+
+        // Ensure we allocate worker handles under the top memory context
+        MemoryContext old_context = MemoryContextSwitchTo(TopMemoryContext);
+        bool ok = RegisterDynamicBackgroundWorker(&worker, &result.ref->second.worker);
+        MemoryContextSwitchTo(old_context);
+
+        if (!ok) {
+          ereport(FATAL, errmsg("Can't register a dynamic eror"));
+        }
       }
     }
     if (scan->rs_rd->rd_tableam->scan_end) {
@@ -160,8 +168,9 @@ void database_worker(Datum db_oid) {
   BackgroundWorkerUnblockSignals();
 
   // This is how workers communicate initialization of extensions between each other
-  HTAB *rendezvous_tab = ShmemInitHash("omni_ext_worker_rendezvous", 0, max_databases,
-                                       &worker_rendezvous_ctl, HASH_ELEM | HASH_ATTACH);
+  HTAB *rendezvous_tab =
+      ShmemInitHash("omni_ext_worker_rendezvous", 0, max_databases, &worker_rendezvous_ctl,
+                    HASH_ELEM | HASH_BLOBS | HASH_ATTACH);
   LWLock *lock = &(GetNamedLWLockTranche("omni_ext_worker_rendezvous")->lock);
 
   // This stores locally initialized extensions

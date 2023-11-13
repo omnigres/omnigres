@@ -26,6 +26,13 @@ instance:
   - call omni_httpd.wait_for_configuration_reloads(1)
 
 tests:
+
+- name: NULL request
+  query: select *
+         from
+             omni_httpc.http_execute(null)
+  results: [ ]
+
 - name: default GET request
   query: |
     with response as (select * from omni_httpc.http_execute(

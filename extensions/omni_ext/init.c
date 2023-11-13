@@ -137,10 +137,9 @@ void shmem_hook() {
 
   {
     // Initialize the allocation dictionary
-    HTAB *dict = ShmemInitHash("omni_ext_allocation_dictionary",
-                               cdeq_allocation_request_size(&allocation_requests),
-                               max_allocation_dictionary_entries, &allocation_dictionary_ctl,
-                               ALLOCATION_DICTIONARY_HASH_ELEM);
+    HTAB *dict = ShmemInitHash(
+        "omni_ext_allocation_dictionary", cdeq_allocation_request_size(&allocation_requests),
+        max_allocation_dictionary_entries, &allocation_dictionary_ctl, HASH_ELEM | HASH_STRINGS);
 
     LWLock *lock = &(GetNamedLWLockTranche("omni_ext_allocation_dictionary")->lock);
 
@@ -178,7 +177,7 @@ void shmem_hook() {
 
   {
     HTAB *dict = ShmemInitHash("omni_ext_worker_rendezvous", 0, max_databases,
-                               &worker_rendezvous_ctl, HASH_ELEM);
+                               &worker_rendezvous_ctl, HASH_ELEM | HASH_BLOBS);
   }
 
   LWLockRelease(AddinShmemInitLock);

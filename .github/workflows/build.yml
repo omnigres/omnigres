@@ -68,7 +68,7 @@ jobs:
     - uses: actions/cache@v3
       with:
         path: .pg
-        key: ${{ matrix.os }}-pg-${{ matrix.pgver }}-${{ hashFiles('cmake/FindPostgreSQL.cmake') }}
+        key: ${{ matrix.os }}-pg-${{ matrix.pgver }}-${{ matrix.build_type }}-${{ hashFiles('cmake/FindPostgreSQL.cmake') }}
 
     - uses: actions/cache@v3
       with:
