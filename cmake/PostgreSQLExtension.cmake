@@ -318,8 +318,22 @@ if [ -d \"$_dir/${NAME}\" ]; then
   _dir=\"$_dir/${NAME}\"
 fi
 # Create file (using $$ for pid to avoid race conditions)
+
 for f in $(ls \"$_dir/\"*.sql | sort -V)
   do
+  filename=$(basename \"$f\")
+  if [[ $filename =~ ([0-9]+)_ ]]; then
+    migration_number=\${BASH_REMATCH[1]}
+    if grep -q \" $migration_number \" <<< \"$unique_versions\"; then
+      echo \"Error: Duplicate migration number found: $migration_number in filename: $filename\" >&2
+      exit 1
+    else
+      unique_versions+=\" $migration_number \"
+    fi
+  else
+    echo \"Error: Unable to extract migration version from filename: $filename\" >&2
+    exit 1
+  fi
   $<TARGET_FILE:inja> \"$f\" >> \"$1/_$$_${NAME}--${_ext_VERSION}.sql\"
   echo >> \"$1/_$$_${NAME}--${_ext_VERSION}.sql\"
 done
@@ -327,7 +341,7 @@ done
 mv \"$1/_$$_${NAME}--${_ext_VERSION}.sql\" \"$1/${NAME}--${_ext_VERSION}.sql\"
 # Calling another command (a kludge for testing)
 if [ -z \"$2\" ]; then
-  # No comamnd
+  # No command
   exit 0
 fi
 command=$2
