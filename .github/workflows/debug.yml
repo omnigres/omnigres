@@ -22,7 +22,7 @@ on:
       pgver:
         description: 'Postgres version'
         required: true
-        default: '15'
+        default: '16'
       build_type:
         description: 'Build type'
         required: true
