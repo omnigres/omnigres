@@ -4,7 +4,7 @@
 the database.
 
 ## Prerequisites
-Docker engine API should be accessible to the PostgreSQL instance which is configurable through the env variable `DOCKER_HOST` if not set it defaults to unix domain socket at `/var/run/docker.sock`
+Docker engine API should be accessible to the PostgreSQL instance which is configurable through the env variable `DOCKER_HOST` if not set it defaults to unix domain socket `unix:///var/run/docker.sock`
 
 ## Create container
 Create and start a container with `busybox` image(pull if not already present) and run `echo Hello world` command in it

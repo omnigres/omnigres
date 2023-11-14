@@ -236,7 +236,7 @@ By default, all tests are rolled back to ensure clean environment. However, in
 some cases, tests need to commit (for example, to test deferred constraints).
 
 When this is necessary, the `commit` property of a test should be set
-to `false`:
+to `true`:
 
 ```yaml
 - query: insert into table values (...)
