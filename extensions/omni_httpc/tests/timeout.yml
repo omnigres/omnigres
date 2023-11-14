@@ -1,0 +1,96 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_EXT_SO
+    max_worker_processes: 64
+  init:
+  - set session omni_httpd.init_port = 0
+  - create extension omni_httpd cascade
+  - create extension omni_httpc cascade
+  - delete
+    from
+        omni_httpd.configuration_reloads
+  - |
+    update omni_httpd.handlers
+    set
+        query = $$
+      select pg_sleep(2), omni_httpd.http_response(json_build_object(
+      'method', request.method,
+      'path', request.path,
+      'qs', request.query_string,
+      'headers', (select json_agg(json_build_object(h.name, h.value))
+                          from
+                              unnest(request.headers) h
+                          where h.name not in ('user-agent')
+                          ),
+      'body', convert_from(request.body, 'utf-8')
+      )) from request
+    $$
+  - call omni_httpd.wait_for_configuration_reloads(1)
+
+tests:
+
+- name: works as is
+  query: |
+    with
+        response as (select *
+                     from
+                         omni_httpc.http_execute(
+                                 omni_httpc.http_request('http://127.0.0.1:' ||
+                                                         (select effective_port from omni_httpd.listeners) ||
+                                                         '/test?q=1')))
+    select
+        response.status,
+        (select
+             json_agg(json_build_object(h.name, h.value))
+         from
+             unnest(response.headers) h
+         where
+             h.name not in ('server', 'content-length', 'connection')) as headers,
+        convert_from(response.body, 'utf-8')::json                     as body
+    from
+        response
+  results:
+  - status: 200
+    headers:
+    - content-type: application/json
+    body:
+      method: GET
+      path: /test
+      qs: q=1
+      headers: null
+      body: ""
+
+- name: short first byte timeout
+  query: |
+    with
+        response as (select *
+                     from
+                         omni_httpc.http_execute_with_options(
+                                 omni_httpc.http_execute_options(first_byte_timeout => 100),
+                                 omni_httpc.http_request('http://127.0.0.1:' ||
+                                                         (select effective_port from omni_httpd.listeners) ||
+                                                         '/test?q=1')))
+    select
+        error
+    from
+        response
+  results:
+  - error: first byte timeout
+
+- name: short timeout
+  # Not sure how to test it yet because first byte == response (currently)
+  skip: true
+  query: |
+    with
+        response as (select *
+                     from
+                         omni_httpc.http_execute_with_options(omni_httpc.http_execute_options(timeout => 100),
+                                                              omni_httpc.http_request('http://127.0.0.1:' ||
+                                                                                      (select effective_port from omni_httpd.listeners) ||
+                                                                                      '/test?q=1')))
+    select
+        error
+    from
+        response
+  results:

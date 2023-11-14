@@ -2,7 +2,9 @@ create type http_execute_options as
 (
     http2_ratio           smallint,
     http3_ratio           smallint,
-    force_cleartext_http2 bool
+    force_cleartext_http2 bool,
+    timeout               int,
+    first_byte_timeout    int
 );
 
 create domain valid_http_execute_options as http_execute_options
@@ -12,10 +14,13 @@ create domain valid_http_execute_options as http_execute_options
         );
 
 create function http_execute_options(http2_ratio integer default 0, http3_ratio integer default 0,
-                                     force_cleartext_http2 bool default false) returns http_execute_options
+                                     force_cleartext_http2 bool default false,
+                                     timeout int default null,
+                                     first_byte_timeout int default null) returns http_execute_options
 as
 $$
-select row (http2_ratio, http3_ratio, force_cleartext_http2)::omni_httpc.valid_http_execute_options
+select
+    row (http2_ratio, http3_ratio, force_cleartext_http2, timeout, first_byte_timeout)::omni_httpc.valid_http_execute_options
 $$ language sql immutable;
 
 create function http_execute(variadic requests http_request[]) returns setof http_response

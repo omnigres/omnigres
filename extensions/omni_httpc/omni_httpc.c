@@ -399,6 +399,20 @@ Datum http_execute(PG_FUNCTION_ARGS) {
     if (!isnull && DatumGetBool(option_force_cleartext_http2)) {
       ctx.force_cleartext_http2 = 1;
     }
+
+    Datum option_first_byte_timeout = GetAttributeByName(options, "first_byte_timeout", &isnull);
+    int first_byte_timeout = IO_TIMEOUT;
+    if (!isnull) {
+      first_byte_timeout = DatumGetInt32(option_first_byte_timeout);
+    }
+    ctx.first_byte_timeout = first_byte_timeout;
+
+    Datum option_timeout = GetAttributeByName(options, "timeout", &isnull);
+    int timeout = IO_TIMEOUT;
+    if (!isnull) {
+      timeout = DatumGetInt32(option_timeout);
+    }
+    ctx.connect_timeout = ctx.io_timeout = ctx.keepalive_timeout = timeout;
   }
 
   if (PG_ARGISNULL(1)) {
