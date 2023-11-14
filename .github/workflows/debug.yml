@@ -14,7 +14,11 @@ on:
       os:
         description: 'OS'
         required: true
-        default: 'ubuntu-latest'
+        type: choice
+        options:
+        - ubuntu-latest
+        - macos-13
+        default: ubuntu-latest
       build:
         description: 'Build Omnigres?'
         required: true
@@ -39,7 +43,7 @@ jobs:
         ref: ${{ github.event.inputs.ref }}
 
     - name: Install OpenSSL
-      if: github.event.inputs.os == 'macos-12'
+      if: github.event.inputs.os == 'macos-13'
       env:
         HOMEBREW_NO_AUTO_UPDATE: "1"
         HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: "1"
@@ -57,10 +61,10 @@ jobs:
 
     - name: Setup Docker on macOS using Colima, Lima-VM, and Homebrew.
       uses: douglascamata/setup-docker-macos-action@v1-alpha
-      if: github.event.inputs.os == 'macos-12' # No need to check on Linux, it's there
+      if: github.event.inputs.os == 'macos-13' # No need to check on Linux, it's there
 
     - name: Configure Docker host on macOS
-      if: github.event.inputs.os == 'macos-12'
+      if: github.event.inputs.os == 'macos-13'
       run: |
         echo "DOCKER_HOST=$(docker context inspect -f '{{ .Endpoints.docker.Host }}')" >> $GITHUB_ENV
         echo "DOCKER_HOST_IP=192.168.5.2" >> $GITHUB_ENV
