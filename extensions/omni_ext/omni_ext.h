@@ -23,10 +23,8 @@ extern dsa_area *My_dsa_area;
 extern void *My_dsa_mem;
 extern pid_t My_dsa_pid;
 
-#if PG_MAJORVERSION_NUM < 14
-#define ALLOCATION_DICTIONARY_HASH_ELEM HASH_ELEM
-#else
-#define ALLOCATION_DICTIONARY_HASH_ELEM HASH_ELEM | HASH_STRINGS
+#ifndef HASH_STRINGS
+#define HASH_STRINGS 0
 #endif
 
 #define ALLOCATION_DICTIONARY_KEY_SIZE 128

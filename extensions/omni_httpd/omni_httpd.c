@@ -171,7 +171,7 @@ static inline Datum add_header(Datum headers, char *name, char *value, bool appe
     ereport(ERROR, (errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE), errmsg("integer out of range")));
 
   return array_set_element(EOHPGetRWDatum(&eah->hdr), 1, &indx, HeapTupleGetDatum(header), false,
-                           -1, -1, false, TYPALIGN_INT);
+                           -1, -1, false, eah->typalign);
 }
 
 PG_FUNCTION_INFO_V1(http_response);

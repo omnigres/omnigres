@@ -187,7 +187,7 @@ void allocate_shmem_runtime(const dynpgext_handle *handle, const char *name, siz
   HTAB *dict = ShmemInitHash("omni_ext_allocation_dictionary",
                              cdeq_allocation_request_size(&allocation_requests),
                              max_allocation_dictionary_entries, &allocation_dictionary_ctl,
-                             ALLOCATION_DICTIONARY_HASH_ELEM | HASH_ATTACH);
+                             HASH_ELEM | HASH_STRINGS | HASH_ATTACH);
 
   LWLock *lock = &(GetNamedLWLockTranche("omni_ext_allocation_dictionary")->lock);
 
@@ -241,7 +241,7 @@ void *dynpgext_lookup_shmem(const char *name) {
   HTAB *dict = ShmemInitHash("omni_ext_allocation_dictionary",
                              cdeq_allocation_request_size(&allocation_requests),
                              max_allocation_dictionary_entries, &allocation_dictionary_ctl,
-                             ALLOCATION_DICTIONARY_HASH_ELEM | HASH_ATTACH);
+                             HASH_ELEM | HASH_STRINGS | HASH_ATTACH);
   LWLock *lock = &(GetNamedLWLockTranche("omni_ext_allocation_dictionary")->lock);
   LWLockAcquire(lock, LW_SHARED);
   bool found = false;

@@ -83,7 +83,7 @@ if(NOT DEFINED PG_CONFIG)
     endif()
 
     # This is where we manage all PostgreSQL installations
-    set(PGDIR "${CMAKE_CURRENT_LIST_DIR}/../.pg/${CMAKE_HOST_SYSTEM_NAME}" CACHE STRING "Path where to manage Postgres builds")
+    set(PGDIR "${CMAKE_CURRENT_LIST_DIR}/../.pg/${CMAKE_HOST_SYSTEM_NAME}-${CMAKE_BUILD_TYPE}" CACHE STRING "Path where to manage Postgres builds")
     get_filename_component(pgdir "${PGDIR}" ABSOLUTE)
 
     # This is where we manage selected PostgreSQL version's installations
@@ -99,6 +99,9 @@ if(NOT DEFINED PG_CONFIG)
         # We use this to test multi-language features
         set(BUILD_POSTGRES_WITH_PYTHON ON)
 
+
+        set(extra_configure_args "")
+
         if(BUILD_POSTGRES_WITH_PYTHON)
             find_package(Python3 REQUIRED COMPONENTS Interpreter Development)
             if(Python3_FOUND)
@@ -106,7 +109,7 @@ if(NOT DEFINED PG_CONFIG)
                     message(WARNING "We currently require Python 3.9 and above. Some tests may fail")
                 endif()
                 set(ENV{PYTHON} ${Python3_EXECUTABLE})
-                set(extra_configure_args --with-python)
+                string(APPEND extra_configure_args "--with-python")
             else()
                 message(WARNING "Can't find Python, disabling its support in Postgres. Some tests may fail")
             endif()
@@ -120,10 +123,13 @@ if(NOT DEFINED PG_CONFIG)
             set(ENV{LDFLAGS} "${OLD_LDLAGS} -L ${OPENSSL_ROOT_DIR}/lib")
         endif()
 
+        if(CMAKE_BUILD_TYPE IN_LIST "Release;RelWithDebInfo")
+        else()
+            string(APPEND extra_configure_args " --enable-debug --enable-cassert")
+        endif()
+
         execute_process(
-                COMMAND ./configure --enable-debug --prefix "${PGDIR_VERSION}/build" --without-icu
-                --with-ssl=openssl
-                ${extra_configure_args}
+                COMMAND bash -c "./configure ${extra_configure_args} --prefix \"${PGDIR_VERSION}/build\" --without-icu --with-ssl=openssl"
                 WORKING_DIRECTORY "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}"
                 RESULT_VARIABLE pg_configure_result)
 
