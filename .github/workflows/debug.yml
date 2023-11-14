@@ -86,6 +86,14 @@ jobs:
       run: cmake --build ${{github.workspace}}/build --parallel --config ${{github.event.inputs.build_type}}
 
     - name: Setup upterm session
+      # upterm having trouble working on macos
+      if: github.event.inputs.os != 'macos-13'
       uses: lhotari/action-upterm@v1
+      with:
+        limit-access-to-actor: true
+
+    - name: Setup tmate session
+      if: github.event.inputs.os == 'macos-13'
+      uses: mxschmitt/action-tmate@v3
       with:
         limit-access-to-actor: true
