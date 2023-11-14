@@ -14,6 +14,7 @@ instance:
 tests:
 
 - name: Python signature extraction
+  commit: true
   steps:
   - query: |
       select
@@ -56,3 +57,14 @@ tests:
   - query: select foo(3)
     results:
     - foo: true
+
+- name: call a function that uses an imported module
+  query: select fun5()
+  results:
+  - fun5: submod
+
+- name: call a function that uses an imported module on a reset connection
+  reset: true
+  query: select fun5()
+  results:
+  - fun5: submod

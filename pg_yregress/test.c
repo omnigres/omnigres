@@ -118,6 +118,9 @@ proceed:
   } else {
     conn = default_conn;
   }
+  if (test->reset && !in_transaction) {
+    PQreset(conn);
+  }
   assert(conn != NULL);
 
   // We will store notices here

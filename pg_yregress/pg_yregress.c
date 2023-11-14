@@ -56,6 +56,21 @@ static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
 
     {
       // Is the test meant to be negative? As in "if test succeeds, it's a failure"
+      struct fy_node *reset = fy_node_mapping_lookup_by_string(test, STRLIT("reset"));
+      y_test->reset = false;
+
+      if (reset != NULL) {
+        if (!fy_node_is_boolean(reset)) {
+          fprintf(stderr, "reset should be a boolean, got: %s",
+                  fy_emit_node_to_string(reset, FYECF_DEFAULT));
+          return false;
+        }
+        y_test->reset = fy_node_get_boolean(reset);
+      }
+    }
+
+    {
+      // Is the test meant to be negative? As in "if test succeeds, it's a failure"
       struct fy_node *negative = fy_node_mapping_lookup_by_string(test, STRLIT("negative"));
 
       if (negative != NULL) {

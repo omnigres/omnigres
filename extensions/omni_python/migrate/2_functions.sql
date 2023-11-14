@@ -34,6 +34,10 @@ $$
     sys.path.insert(0, site_packages)
     import omni_python
 
+    have_omni_vfs = False
+
+    imports = {}
+
     # Consider omni_vfs as a source of custom imports
     if fs is not None:
         have_omni_vfs = plpy.execute(
@@ -42,37 +46,38 @@ $$
         if have_omni_vfs:
             import importlib.abc, importlib.machinery
             class CustomImporter(importlib.abc.MetaPathFinder, importlib.abc.Loader):
-                query = f"""
-                         select $1 as filename from omni_vfs.file_info('{fs}'::{fs_type}, $1) where kind = 'file'
-                         union
-                         select $2 as filename from omni_vfs.file_info('{fs}'::{fs_type}, $2) where kind = 'file'
-                         """
-                @classmethod
-                def find_spec(cls, fullname, path, target=None):
+                def __init__(self, fs_type, fs):
+                    self.query = f"""
+                             select $1 as filename from omni_vfs.file_info('{fs}'::{fs_type}, $1) where kind = 'file'
+                             union
+                             select $2 as filename from omni_vfs.file_info('{fs}'::{fs_type}, $2) where kind = 'file'
+                             """
+
+                def find_spec(self, fullname, path, target=None):
                     results = plpy.execute(
-                        plpy.prepare(cls.query, ["text", "text"]),
+                        plpy.prepare(self.query, ["text", "text"]),
                         [f"{os.path.join(*fullname.split('.'))}.py",
                          f"{os.path.join(*fullname.split('.'))}/__init__.py"]
                     )
                     if len(results) > 0:
-                        return importlib.machinery.ModuleSpec(fullname, cls, is_package=True)
+                        return importlib.machinery.ModuleSpec(fullname, self, is_package=True)
 
-                @classmethod
                 def create_module(self, spec):
                     return types.ModuleType(spec.name)
 
-                @classmethod
-                def exec_module(cls, mod):
-                    source = plpy.execute(
+                def exec_module(self, mod):
+                    result = plpy.execute(
                         plpy.prepare(
-                            f"""with files as ({cls.query})
-                             select omni_vfs.read('{fs}'::{fs_type}, filename) as source from files
+                            f"""with files as ({self.query})
+                             select omni_vfs.read('{fs}'::{fs_type}, filename) as source, filename from files
                              """, ["text", "text"]),
                         [f"{os.path.join(*mod.__name__.split('.'))}.py",
-                         f"{os.path.join(*mod.__name__.split('.'))}/__init__.py"])[0]["source"]
-                    exec(source, globals(), mod.__dict__)
+                         f"{os.path.join(*mod.__name__.split('.'))}/__init__.py"])[0]
+                    module = compile(result["source"], result["filename"], "exec")
+                    imports[mod.__name__] = result["source"]
+                    exec(module, globals(), mod.__dict__)
 
-            sys.meta_path.insert(0, CustomImporter)
+            sys.meta_path.insert(0, CustomImporter(fs_type, fs))
     #
 
     code_locals = {}
@@ -80,6 +85,8 @@ $$
     hash = hashlib.sha256(code.encode()).hexdigest()
     try:
         exec(compile(code, filename or 'unnamed.py', 'exec'), code_locals)
+        if have_omni_vfs:
+            sys.meta_path.pop(0)
         if '__omni_python_functions__' not in GD:
             GD['__omni_python__functions__'] = {}
         GD['__omni_python__functions__'][hash] = code_locals
@@ -169,6 +176,27 @@ $$
 
     from textwrap import dedent
 
+    imports_assignment = ast.Dict([ast.Constant(module) for module, source in imports.items()],
+                                  [ast.Constant(source) for module, source in imports.items()])
+    loader = dedent(f"""
+    class CustomImporter(__import__('importlib.abc').abc.MetaPathFinder, __import__('importlib.abc').abc.Loader):
+        __imports = {ast.unparse(imports_assignment)}
+        def find_spec(self, fullname, path, target=None):
+            mod = self.__imports.get(fullname)
+            if mod:
+               return __import__('importlib.machinery').machinery.ModuleSpec(fullname, self, is_package=True)
+
+        def create_module(self, spec):
+            import types
+            return types.ModuleType(spec.name)
+
+        def exec_module(self, mod):
+            source = self.__imports[mod.__name__]
+            exec(source, globals(), mod.__dict__)
+    sys.meta_path.insert(0, CustomImporter())
+    del CustomImporter
+    """)
+
     return [(pgargs.get('name', name),
              [a for a in inspect.getfullargspec(f).args if a != 'self'],
              [resolve_type(f, a) for a in inspect.getfullargspec(f).args if a != 'self'], resolve_type(f, 'return'),
@@ -180,11 +208,14 @@ $$
              else:
                  GD['__omni_python__functions__'] = {{}}
              sys.path.insert(0, {site_packages})
+             {loader}
              {code}
+             sys.meta_path.pop(0)
              GD['__omni_python__functions__']['{hash}'] = locals()
              return {name}({args})
              """).format(hash=hash, code=code,
                          name=name,
+                         loader=loader,
                          site_packages=site_packages,
                          args=', '.join(
                              [process_argument(f, a) for a in

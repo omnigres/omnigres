@@ -411,3 +411,20 @@ tests:
     auth_method: trust
     options: null
     error: null
+
+- name: reset test
+  tests:
+  - name: prepare for reset
+    query: select set_config('pg_yregress.test', 'yes', false)
+    commit: true
+
+  - name: before reset
+    query: select current_setting('pg_yregress.test')
+    results:
+    - current_setting: yes
+
+  - name: after reset
+    reset: true
+    query: select current_setting('pg_yregress.test', true)
+    results:
+    - current_setting: null
