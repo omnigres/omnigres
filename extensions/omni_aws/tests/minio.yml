@@ -185,8 +185,9 @@ tests:
 
 
 - name: stop minio
+  # long timeout because on some machine it takes a while
   query: |
     select
-        omni_containers.docker_container_stop(inspect ->> 'Id')
+        omni_containers.docker_container_stop(inspect ->> 'Id', timeout => 30000)
     from
         minio

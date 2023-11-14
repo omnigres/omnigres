@@ -195,11 +195,13 @@ headers      | {"(age,500311)","(cache-control,max-age=604800)","(content-type,\
 
 #### Options
 
-|                    Option | Type     | Description                                                                     | Default |
-|--------------------------:|----------|---------------------------------------------------------------------------------|---------|
-|           **http2_ratio** | smallint | Percentage of requests to be attempted with HTTP/2 `(0..100)` [^ratio]          | `0`     |
+|                    Option | Type     | Description                                                            | Default |
+|--------------------------:|----------|------------------------------------------------------------------------|---------|
+|           **http2_ratio** | smallint | Percentage of requests to be attempted with HTTP/2 `(0..100)` [^ratio] | `0`     |
 |           **http3_ratio** | smallint | Percentage of requests to be attempted with HTTP/3 `(0..100)` [^ratio] | `0`     |
-| **force_cleartext_http2** | bool     | Allow HTTP/2 to be used without SSL                                             | `false` |
+| **force_cleartext_http2** | bool     | Allow HTTP/2 to be used without SSL                                    | `false` |
+|    **first_byte_timeout** | int      | Timeout before first bytes received in milliseconds.                   | 5000    |
+|               **timeout** | int      | General timeout                                                        | 5000    |
 
 !!! tip "More options will be added in the near future"
 
