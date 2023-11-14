@@ -63,7 +63,7 @@ jobs:
       if: matrix.os == 'macos-13'
       run: |
         echo "DOCKER_HOST=$(docker context inspect -f '{{ .Endpoints.docker.Host }}')" >> $GITHUB_ENV
-        echo "DOCKER_HOST_IP=192.168.5.2" >> $GITHUB_ENV
+        echo "DOCKER_HOST_IP=$(ifconfig | grep -E 'inet ' | grep -v '127.0.0.1' | awk '{ print $2}' | head -n 1)" >> $GITHUB_ENV
 
     - uses: actions/cache@v3
       with:
