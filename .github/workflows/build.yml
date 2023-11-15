@@ -16,7 +16,7 @@ jobs:
     strategy:
       matrix:
         pgver: [ 16, 15, 14, 13 ]
-        os: [ ubuntu-latest, macos ]
+        os: [ buildjet-4vcpu-ubuntu-2204, macos ]
         build_type: [Debug, Release]
         exclude:
         - os: macos
@@ -61,12 +61,6 @@ jobs:
     - name: Build
       run: cmake --build ${{github.workspace}}/build --parallel --config ${{matrix.build_type}}
 
-    - name: Cache Docker images
-      if: matrix.os != 'macos'
-      uses: omnigres/docker-cache@958f32b52e5881b23855dc30de9169ab11df0d39
-      with:
-        key: docker-${{ runner.os }}
-
     - name: Test
       working-directory: ${{github.workspace}}/build
       run: TMPDIR=$RUNNER_TEMP ctest -timeout 1000 --force-new-ctest-process --verbose --output-on-failure -j $(nproc) -C ${{matrix.build_type}}
@@ -89,7 +83,7 @@ jobs:
 
   # Ensure it can be built against externally-supplied Postgres
   build-external-pg:
-    runs-on: ubuntu-latest
+    runs-on: buildjet-4vcpu-ubuntu-2204
 
     steps:
     - uses: actions/checkout@v3
@@ -108,7 +102,7 @@ jobs:
 
   # Ensure every extension can be built independently
   build-extensions-independently:
-    runs-on: ubuntu-latest
+    runs-on: buildjet-4vcpu-ubuntu-2204
 
     steps:
     - uses: actions/checkout@v3
