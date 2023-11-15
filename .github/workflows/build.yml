@@ -16,54 +16,32 @@ jobs:
     strategy:
       matrix:
         pgver: [ 16, 15, 14, 13 ]
-        os: [ ubuntu-latest, macos-13 ]
+        os: [ ubuntu-latest, macos ]
         build_type: [Debug, Release]
         exclude:
-        - os: macos-13
+        - os: macos
           pgver: 15
-        - os: macos-13
+        - os: macos
           pgver: 14
-        - os: macos-13
+        - os: macos
           pgver: 13
-        - os: macos-13
+        - os: macos
           pgver: 12
-        - os: macos-13
+        - os: macos
           pgver: 11
       fail-fast: false
-    # The CMake configure and build commands are platform agnostic and should work equally well on Windows or Mac.
-    # You can convert this to a matrix build if you need cross-platform coverage.
-    # See: https://docs.github.com/en/free-pro-team@latest/actions/learn-github-actions/managing-complex-workflows#using-a-build-matrix
-    runs-on: ${{ matrix.os }}
+
+    # self-hosted runner requires installation of the following components:
+    # XCode Command Line Tools
+    # Docker
+    # Homebrew
+    # * Python3
+    # * coreutils
+    # * cmake
+    runs-on: ${{ matrix.os == 'macos' && 'self-hosted' || matrix.os }}
 
     steps:
     - uses: actions/checkout@v3
-
-    - name: Set up Homebrew
-      uses: Homebrew/actions/setup-homebrew@master
-      if: matrix.os == 'macos-13'
-      with:
-        cask: false # remove this if you need `brew install --cask`
-        test-bot: false # remove this if you need `brew test-bot`
-
-    - name: Install necessary dependencies
-      # OpenSSL
-      if: matrix.os == 'macos-13'
-      env:
-        HOMEBREW_NO_AUTO_UPDATE: "1"
-        HOMEBREW_NO_INSTALLED_DEPENDENTS_CHECK: "1"
-        HOMEBREW_NO_INSTALL_CLEANUP: "1"
-      run: |
-        brew install openssl@3.0 lima
-
-    - name: Setup Docker on macOS using Colima, Lima-VM, and Homebrew.
-      uses: douglascamata/setup-docker-macos-action@v1-alpha.10
-      if: matrix.os == 'macos-13' # No need to check on Linux, it's there
-
-    - name: Configure Docker host on macOS
-      if: matrix.os == 'macos-13'
-      run: |
-        echo "DOCKER_HOST=$(docker context inspect -f '{{ .Endpoints.docker.Host }}')" >> $GITHUB_ENV
-        echo "DOCKER_HOST_IP=$(ifconfig | grep -E 'inet ' | grep -v '127.0.0.1' | awk '{ print $2}' | head -n 1)" >> $GITHUB_ENV
 
     - uses: actions/cache@v3
       with:
@@ -84,6 +62,7 @@ jobs:
       run: cmake --build ${{github.workspace}}/build --parallel --config ${{matrix.build_type}}
 
     - name: Cache Docker images
+      if: matrix.os != 'macos'
       uses: omnigres/docker-cache@958f32b52e5881b23855dc30de9169ab11df0d39
       with:
         key: docker-${{ runner.os }}
