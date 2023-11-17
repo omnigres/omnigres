@@ -353,6 +353,20 @@ tests:
   query: select
 ```
 
+## Resetting connection
+
+Sometimes it is useful to reset a connection to the database to test certain
+behaviors (for example, ensuring that functionality works across different
+backend instances). For this, `reset` property can be set to `true`:
+
+```yaml
+tests:
+# ...
+- name: clean slate test
+  reset: true
+  query: ...
+```
+
 ## Configuring instances
 
 Tests may have one more instances they run on. By default, `pg_yregress` will provision one. However, if you want to configure the instance or add more than one, you can use

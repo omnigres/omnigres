@@ -11,6 +11,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 * Test suites (YAML files) can now be named using optional `name` property.
+* Tests can now reset connections with the boolean `reset` property.
 
 ## [0.2.0]
 
