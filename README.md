@@ -195,13 +195,29 @@ cmake --build build --parallel
 make psql_<COMPONENT_NAME> # for example, `psql_omni_containers`
 ```
 
-To use a specific Python version use the cmake flag `-DPython3_EXECUTABLE=/path`.
+### Troubleshooting
 
-If you have trouble building you may need to clear build artefacts:
+<details>
+<summary>cmake not picking up Python version you want?</summary>
+
+To use a specific Python build use the cmake flag `Python3_EXECUTABLE`:
 
 ```
-rm -r .pg build/CMakeCache.txt
+cmake -S . -B build -DPython3_EXECUTABLE=/path/to/python
 ```
+
+</details>
+
+<details>
+<summary>Build fails for whatever other reason?</summary>
+
+Remove `build` and `.pg` directories for a clean rebuild:
+
+```
+rm -rf .pg build
+```
+
+</details>
 
 ### Running tests
 
