@@ -83,7 +83,12 @@ if(NOT DEFINED PG_CONFIG)
     endif()
 
     # This is where we manage all PostgreSQL installations
-    set(PGDIR "${CMAKE_CURRENT_LIST_DIR}/../.pg/${CMAKE_HOST_SYSTEM_NAME}-${CMAKE_BUILD_TYPE}" CACHE STRING "Path where to manage Postgres builds")
+    set(BUILD_TYPE "${CMAKE_BUILD_TYPE}")
+    if(NOT BUILD_TYPE)
+        set(BUILD_TYPE "Debug")
+    endif()
+
+    set(PGDIR "${CMAKE_CURRENT_LIST_DIR}/../.pg/${CMAKE_HOST_SYSTEM_NAME}-${BUILD_TYPE}" CACHE STRING "Path where to manage Postgres builds")
     get_filename_component(pgdir "${PGDIR}" ABSOLUTE)
 
     # This is where we manage selected PostgreSQL version's installations
@@ -123,9 +128,9 @@ if(NOT DEFINED PG_CONFIG)
             set(ENV{LDFLAGS} "${OLD_LDLAGS} -L ${OPENSSL_ROOT_DIR}/lib")
         endif()
 
-        if(CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+        if(BUILD_TYPE STREQUAL "RelWithDebInfo")
             string(APPEND extra_configure_args " --enable-debug")
-        elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
+        elseif(BUILD_TYPE STREQUAL "Release")
         else()
             string(APPEND extra_configure_args " --enable-debug --enable-cassert")
         endif()
