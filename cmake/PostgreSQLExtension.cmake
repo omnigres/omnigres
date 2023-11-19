@@ -149,6 +149,8 @@ function(add_postgresql_extension NAME)
         add_library(${NAME} MODULE ${_ext_SOURCES})
     endif()
 
+    add_dependencies(${NAME} check_git_commit_hash)
+
     foreach(requirement ${_ext_REQUIRES})
         if(NOT TARGET ${requirement})
             if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../${requirement}")
