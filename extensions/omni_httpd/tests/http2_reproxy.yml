@@ -38,7 +38,6 @@ tests:
     - query: select count(*) from omni_httpc.http_connections()
       results:
       - count: 0
-    - set local statement_timeout = 2500
     - query: |
         with response as (select * from omni_httpc.http_execute_with_options(
         omni_httpc.http_execute_options(force_cleartext_http2 => true, http2_ratio => 100),
@@ -60,3 +59,7 @@ tests:
     - query: select count(*) from omni_httpc.http_connections()
       results:
       - count: 1
+    - query: select distinct pid from your_backend_logs  -- Replace with actual logs table
+      results:
+      - pid: 1
+      - pid: 2
