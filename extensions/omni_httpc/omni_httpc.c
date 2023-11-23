@@ -450,12 +450,11 @@ Datum http_execute(PG_FUNCTION_ARGS) {
     HeapTupleHeader arg_request = DatumGetHeapTupleHeader(request_datum);
 
     // URL
-    text *arg_url =
-        (text *)PG_DETOAST_DATUM_PACKED(GetAttributeByName(arg_request, "url", &isnull));
-
+    Datum url = GetAttributeByName(arg_request, "url", &isnull);
     if (isnull) {
       ereport(ERROR, errmsg("URL can't be NULL"));
     }
+    text *arg_url = (text *)PG_DETOAST_DATUM_PACKED(url);
 
     if (h2o_url_parse(VARDATA_ANY(arg_url), VARSIZE_ANY_EXHDR(arg_url), &request->url) == -1) {
       ereport(ERROR, errmsg("can't parse URL"), errdetail("%s", text_to_cstring(arg_url)));
