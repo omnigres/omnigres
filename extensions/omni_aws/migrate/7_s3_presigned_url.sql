@@ -5,7 +5,7 @@ create function
                      secret_access_key text,
                      expires int default 604800, -- 7 days
                      region text default 'us-east-1',
-                     endpoint_url text default null
+                     endpoint s3_endpoint default omni_aws.aws_s3_endpoint()
 ) returns text
     language plpgsql
     immutable
@@ -18,19 +18,24 @@ declare
     ts8601     timestamp
                    with
                        time zone := now();
+    endpoint_url text;
+    endpoint_uri omni_web.uri;
 begin
+
+    path := omni_web.uri_encode(path);
+
+    endpoint_url :=
+            omni_aws.endpoint_url(endpoint, bucket => bucket, region => region, path => path);
+    endpoint_uri := omni_web.text_to_uri(endpoint_url);
+
+    path := endpoint_uri.path;
 
     if not path like '/%' then
         path := '/' || path;
     end if;
 
-    path := omni_web.uri_encode(path);
-
-    if endpoint_url is null then
-        endpoint_url := omni_aws.s3_endpoint_url(bucket, region);
-    else
-        path := '/' || bucket || path;
-    end if;
+    raise notice '%', path;
+    raise notice '%', endpoint_url;
 
     credential := access_key_id || '/'
                       || to_char((ts8601 at time zone 'UTC'), 'YYYYMMDD') ||
@@ -49,7 +54,7 @@ begin
                     'X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=' || omni_web.url_encode(credential) ||
                     '&X-Amz-Date=' || amz_date || '&X-Amz-Expires=' || expires || '&X-Amz-SignedHeaders=host',
                     array [
-                            'host:' || substring(endpoint_url from '^[a-zA-Z]+://(.*)')
+                        'host:' || endpoint_uri.host || coalesce(':' || endpoint_uri.port, '')
                         ],
                     '{"host"}',
                     'UNSIGNED-PAYLOAD'
@@ -57,7 +62,7 @@ begin
             secret_access_key
         );
 
-    return endpoint_url || path ||
+    return endpoint_url ||
            '?X-Amz-Algorithm=AWS4-HMAC-SHA256' ||
            '&X-Amz-Credential=' || omni_web.url_encode(credential) ||
            '&X-Amz-Date=' || amz_date ||

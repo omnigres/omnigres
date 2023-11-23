@@ -1,0 +1,85 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_web
+
+tests:
+
+- name: null
+  query: select omni_web.text_to_uri(null)
+  results:
+  - text_to_uri: null
+
+- name: smoke test
+  query: |
+    with
+        urls as (select
+                     omni_web.text_to_uri(url)
+                 from
+                     (values
+                          ('https://example.com'),
+                          ('https://example.com:65000'),
+                          ('https://example.com:8080/a/b/c?q#a'),
+                          ('https://example.com:8080/a/b/c/?q#a'),
+                          ('https://foo:bar@example.com')) t(url))
+    select
+        (text_to_uri).*
+    from
+        urls
+  results:
+  - scheme: https
+    user_info: null
+    host: example.com
+    path: null
+    port: null
+    query: null
+    fragment: null
+  - scheme: https
+    user_info: null
+    host: example.com
+    path: null
+    port: 65000
+    query: null
+    fragment: null
+  - scheme: https
+    user_info: null
+    host: example.com
+    path: a/b/c
+    port: 8080
+    query: q
+    fragment: a
+  - scheme: https
+    user_info: null
+    host: example.com
+    path: a/b/c/
+    port: 8080
+    query: q
+    fragment: a
+  - scheme: https
+    user_info: foo:bar
+    host: example.com
+    path: null
+    port: null
+    query: null
+    fragment: null
+
+- name: casting
+  query: |
+    with
+        urls as (select
+                     url::omni_web.uri
+                 from
+                     (values
+                          ('https://example.com')) t(url))
+    select
+        (url).*
+    from
+        urls
+  results:
+  - scheme: https
+    user_info: null
+    host: example.com
+    path: null
+    port: null
+    query: null
+    fragment: null

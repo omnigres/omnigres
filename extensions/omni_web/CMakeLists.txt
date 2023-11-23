@@ -15,9 +15,10 @@ add_postgresql_extension(
         omni_web
         SCHEMA omni_web
         RELOCATABLE false
-        SOURCES omni_web.c urlencode.c)
+        SOURCES omni_web.c urlencode.c
+        DEPENDS_ON libpgaug)
 
-target_link_libraries(omni_web uriparser)
+target_link_libraries(omni_web uriparser libpgaug)
 
 find_package(Doxygen)
 
