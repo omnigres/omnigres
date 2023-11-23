@@ -27,25 +27,27 @@ tests:
                                container)
 
 - name: create a bucket
+  notices: [ ]
   query: |
     select *
     from
         omni_aws.aws_execute(access_key_id => 'minioadmin', secret_access_key => 'minioadmin',
                              request => omni_aws.s3_create_bucket(bucket := 'omnigres-dev-test'),
-                             endpoint_url => 'http://127.0.0.1:' || (select
-                                                                         inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
-                                                                     from
-                                                                         minio))
+                             endpoint => omni_aws.s3_endpoint('http://127.0.0.1:' || (select
+                                                                                          inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
+                                                                                      from
+                                                                                          minio)))
+
 - name: list objects
   query: |
     select *
     from
         omni_aws.aws_execute(access_key_id => 'minioadmin', secret_access_key => 'minioadmin',
                              request => omni_aws.s3_list_objects_v2(bucket => 'omnigres-dev-test', path => '/'),
-                             endpoint_url => 'http://127.0.0.1:' || (select
-                                                                         inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
-                                                                     from
-                                                                         minio))
+                             endpoint => omni_aws.s3_endpoint('http://127.0.0.1:' || (select
+                                                                                          inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
+                                                                                      from
+                                                                                          minio)))
   results: [ ]
 
 - name: list objects under a path that needs escaping
@@ -54,10 +56,10 @@ tests:
     from
         omni_aws.aws_execute(access_key_id => 'minioadmin', secret_access_key => 'minioadmin',
                              request => omni_aws.s3_list_objects_v2(bucket => 'omnigres-dev-test', path => '/te st'),
-                             endpoint_url => 'http://127.0.0.1:' || (select
-                                                                         inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
-                                                                     from
-                                                                         minio))
+                             endpoint => omni_aws.s3_endpoint('http://127.0.0.1:' || (select
+                                                                                          inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
+                                                                                      from
+                                                                                          minio)))
   error: NoSuchKey
 
 - name: put object
@@ -67,10 +69,10 @@ tests:
         omni_aws.aws_execute(access_key_id => 'minioadmin', secret_access_key => 'minioadmin',
                              request => omni_aws.s3_put_object(bucket := 'omnigres-dev-test', path => '/test',
                                                                payload => 'text'),
-                             endpoint_url => 'http://127.0.0.1:' || (select
-                                                                         inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
-                                                                     from
-                                                                         minio))
+                             endpoint => omni_aws.s3_endpoint('http://127.0.0.1:' || (select
+                                                                                          inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
+                                                                                      from
+                                                                                          minio)))
 
 - name: downloading pre-signed url
   query: |
@@ -82,12 +84,12 @@ tests:
                                                                                        path => '/test',
                                                                                        access_key_id => 'minioadmin',
                                                                                        secret_access_key => 'minioadmin',
-                                                                                       endpoint_url =>
-                                                                                               'http://127.0.0.1:' ||
-                                                                                               (select
-                                                                                                    inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
-                                                                                                from
-                                                                                                    minio)
+                                                                                       endpoint => omni_aws.s3_endpoint(
+                                                                                                   'http://127.0.0.1:' ||
+                                                                                                   (select
+                                                                                                        inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
+                                                                                                    from
+                                                                                                        minio))
                                                                  ))))
   results:
   - body: text
@@ -99,10 +101,10 @@ tests:
         omni_aws.aws_execute(access_key_id => 'minioadmin', secret_access_key => 'minioadmin',
                              request => omni_aws.s3_put_object(bucket := 'omnigres-dev-test', path => '/t est',
                                                                payload => 'text'),
-                             endpoint_url => 'http://127.0.0.1:' || (select
-                                                                         inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
-                                                                     from
-                                                                         minio))
+                             endpoint => omni_aws.s3_endpoint('http://127.0.0.1:' || (select
+                                                                                          inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
+                                                                                      from
+                                                                                          minio)))
 
 - name: downloading pre-signed url for path that needs escaping
   query: |
@@ -114,12 +116,12 @@ tests:
                                                                                        path => '/t est',
                                                                                        access_key_id => 'minioadmin',
                                                                                        secret_access_key => 'minioadmin',
-                                                                                       endpoint_url =>
-                                                                                               'http://127.0.0.1:' ||
-                                                                                               (select
-                                                                                                    inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
-                                                                                                from
-                                                                                                    minio)
+                                                                                       endpoint => omni_aws.s3_endpoint(
+                                                                                                   'http://127.0.0.1:' ||
+                                                                                                   (select
+                                                                                                        inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
+                                                                                                    from
+                                                                                                        minio))
                                                                  ))))
   results:
   - body: text
@@ -131,10 +133,10 @@ tests:
         omni_aws.aws_execute(access_key_id => 'minioadmin', secret_access_key => 'minioadmin',
                              request => omni_aws.s3_put_object(bucket := 'omnigres-dev-test', path => '/bin',
                                                                payload => decode('00FF', 'hex')),
-                             endpoint_url => 'http://127.0.0.1:' || (select
-                                                                         inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
-                                                                     from
-                                                                         minio))
+                             endpoint => omni_aws.s3_endpoint('http://127.0.0.1:' || (select
+                                                                                          inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
+                                                                                      from
+                                                                                          minio)))
 
 - name: put objects
   query: |
@@ -146,10 +148,10 @@ tests:
                                  omni_aws.s3_put_object(bucket := 'omnigres-dev-test', path => '/test22',
                                                         payload => 'text')
                                  ],
-                             endpoint_url => 'http://127.0.0.1:' || (select
-                                                                         inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
-                                                                     from
-                                                                         minio))
+                             endpoint => omni_aws.s3_endpoint('http://127.0.0.1:' || (select
+                                                                                          inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
+                                                                                      from
+                                                                                          minio)))
 
 - name: list objects
   query: |
@@ -160,10 +162,10 @@ tests:
     from
         omni_aws.aws_execute(access_key_id => 'minioadmin', secret_access_key => 'minioadmin',
                              request => omni_aws.s3_list_objects_v2(bucket => 'omnigres-dev-test', path => '/'),
-                             endpoint_url => 'http://127.0.0.1:' || (select
-                                                                         inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
-                                                                     from
-                                                                         minio))
+                             endpoint => omni_aws.s3_endpoint('http://127.0.0.1:' || (select
+                                                                                          inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
+                                                                                      from
+                                                                                          minio)))
     order by
         key asc
   results:

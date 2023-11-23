@@ -25,7 +25,7 @@ create function aws_request(request s3_put_object,
                             access_key_id text,
                             secret_access_key text,
                             region text default 'us-east-1',
-                            endpoint_url text default null)
+                            endpoint s3_endpoint default omni_aws.aws_s3_endpoint())
     returns omni_httpc.http_request
     language plpgsql
     immutable
@@ -33,25 +33,29 @@ as
 $$
 declare
     ts8601 timestamp with time zone := now();
+    endpoint_url text;
+    endpoint_uri omni_web.uri;
 begin
-
-    if not request.path like '/%' then
-        request.path := '/' || request.path;
-    end if;
-
-    request.path := omni_web.uri_encode(request.path);
-
-    if endpoint_url is null then
-        endpoint_url := omni_aws.s3_endpoint_url(request.bucket, region);
-    else
-        request.path := '/' || request.bucket || request.path;
-    end if;
 
     if request.region is not null then
         region := request.region;
     end if;
 
-    return omni_httpc.http_request(endpoint_url || request.path,
+    request.path := omni_web.uri_encode(request.path);
+
+    endpoint_url :=
+            omni_aws.endpoint_url(endpoint, bucket => request.bucket, region => region, path => request.path);
+    endpoint_uri := omni_web.text_to_uri(endpoint_url);
+
+    request.path := endpoint_uri.path;
+
+    if not request.path like '/%' then
+        request.path := '/' || request.path;
+    end if;
+
+    return omni_httpc.http_request(endpoint_url
+                                       || (case when endpoint_uri.path is null then '/' else '' end)
+        ,
                                    method => 'PUT',
                                    body => request.payload,
                                    headers => array [
@@ -82,7 +86,8 @@ begin
                                                                        'content-type:' || request.content_type,
                                                                        'host:'
                                                                        ||
-                                                                       substring(endpoint_url from '^[a-zA-Z]+://(.*)'),
+                                                                       endpoint_uri.host ||
+                                                                       coalesce(':' || endpoint_uri.port, ''),
                                                                        'x-amz-content-sha256:' ||
                                                                        encode(digest(request.payload, 'sha256'), 'hex'),
                                                                        'x-amz-date:' ||
@@ -103,7 +108,7 @@ create function aws_execute(
     access_key_id text,
     secret_access_key text,
     region text default 'us-east-1',
-    endpoint_url text default null,
+    endpoint s3_endpoint default omni_aws.aws_s3_endpoint(),
     request s3_put_object default null)
     returns void
     language plpgsql
@@ -114,9 +119,9 @@ declare
 begin
     for rec in select *
                from
-                   omni_aws.aws_execute(access_key_id => access_key_id, secret_access_key := secret_access_key,
-                                        region := region,
-                                        endpoint_url := endpoint_url, requests => array [request])
+                   omni_aws.aws_execute(access_key_id => access_key_id, secret_access_key => secret_access_key,
+                                        region => region,
+                                        endpoint => endpoint, requests => array [request])
         loop
             if rec.error is not null then
                 raise '%', rec.error;
@@ -130,7 +135,7 @@ create function aws_execute(
     access_key_id text,
     secret_access_key text,
     region text default 'us-east-1',
-    endpoint_url text default null,
+    endpoint s3_endpoint default omni_aws.aws_s3_endpoint(),
     requests s3_put_object[] default array []::s3_put_object[])
     returns table
             (
@@ -153,7 +158,7 @@ begin
                     variadic (select
                                   array_agg(omni_aws.aws_request(request => r.*, access_key_id => access_key_id,
                                                                  secret_access_key => secret_access_key,
-                                                                 region => _region, endpoint_url => endpoint_url))
+                                                                 region => _region, endpoint => endpoint))
                               from
                                   unnest(requests) r))
         loop
