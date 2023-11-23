@@ -33,6 +33,12 @@ tests:
              omni_httpc.http_execute(null)
   results: [ ]
 
+- name: NULL url
+  query: select *
+         from
+             omni_httpc.http_execute(omni_httpc.http_request(null))
+  error: URL can't be NULL
+
 - name: default GET request
   query: |
     with response as (select * from omni_httpc.http_execute(
