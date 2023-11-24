@@ -50,5 +50,5 @@ as
 $$
 select
         replace(replace(endpoint.url, '${bucket}', bucket), '${region}', region) ||
-        (case when path = '/' then '' else path end)
+        (case when path = '/' then '' else '/' || ltrim(path, '/') end)
 $$;
