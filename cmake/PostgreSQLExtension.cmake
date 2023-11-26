@@ -114,10 +114,10 @@ function(find_pg_yregress_tests dir)
         endif()
         file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${NAME}_FindRegressTests.cmake"
                 CONTENT "
-file(GLOB_RECURSE files RELATIVE ${CMAKE_CURRENT_LIST_DIR} LIST_DIRECTORIES false ${dir}/*.yml ${dir}/*.yaml)
+file(GLOB_RECURSE files RELATIVE ${dir} LIST_DIRECTORIES false ${dir}/*.yml ${dir}/*.yaml)
 list(SORT files)
 foreach(file \${files})
-    add_test(\"${NAME}/\${file}\" ${CMAKE_BINARY_DIR}/script_${NAME} ${_ext_dir} \"$<TARGET_FILE:pg_yregress>\" \"${dir}/../\${file}\")
+    add_test(\"${NAME}/\${file}\" ${CMAKE_BINARY_DIR}/script_${NAME} ${_ext_dir} \"$<TARGET_FILE:pg_yregress>\" \"${dir}/\${file}\")
     set_tests_properties(\"${NAME}/\${file}\" PROPERTIES
     WORKING_DIRECTORY \"${CMAKE_CURRENT_BINARY_DIR}\"
     ENVIRONMENT \"PGCONFIG=${PG_CONFIG};PGSHAREDIR=${_share_dir};OMNI_EXT_SO=$<$<TARGET_EXISTS:omni_ext>:$<TARGET_FILE:omni_ext>>\")
