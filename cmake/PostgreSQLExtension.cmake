@@ -449,7 +449,11 @@ ${_loadextensions} \
     endif()
 
     if(_ext_TESTS OR NOT DEFINED _ext_TESTS)
-        find_pg_yregress_tests("${CMAKE_CURRENT_SOURCE_DIR}/tests")
+        set (_tests_dir "${CMAKE_CURRENT_SOURCE_DIR}/tests")
+        if (EXISTS "${_tests_dir}/${NAME}" AND IS_DIRECTORY "${_tests_dir}/${NAME}")
+            set(_tests_dir "${_tests_dir}/${NAME}")
+        endif()
+        find_pg_yregress_tests("${_tests_dir}")
     endif()
 
     if(INITDB AND CREATEDB AND (PSQL OR PGCLI) AND PG_CTL)
