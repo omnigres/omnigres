@@ -449,7 +449,7 @@ ${_loadextensions} \
     endif()
 
     if(_ext_TESTS OR NOT DEFINED _ext_TESTS)
-        set (_tests_dir "${CMAKE_CURRENT_SOURCE_DIR}/tests")
+        set(_tests_dir "${CMAKE_CURRENT_SOURCE_DIR}/tests")
         if (EXISTS "${_tests_dir}/${NAME}" AND IS_DIRECTORY "${_tests_dir}/${NAME}")
             set(_tests_dir "${_tests_dir}/${NAME}")
         endif()
