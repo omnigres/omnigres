@@ -421,6 +421,8 @@ proceed:
 
     while ((step = fy_node_sequence_iterate(steps, &iter))) {
       ytest *y_test = (ytest *)fy_node_get_meta(step);
+      // save notice receiver arg of parent test for multi-step tests
+      y_test->prev_notices = notices;
       if (!step_failed) {
         bool errored = false;
         bool step_success = ytest_run_internal(
@@ -496,7 +498,7 @@ proceed:
     fy_node_mapping_append(test->node, notices_key, notices);
   }
 
-  PQsetNoticeReceiver(conn, prev_notice_receiver, NULL);
+  PQsetNoticeReceiver(conn, prev_notice_receiver, test->prev_notices);
 
   // Handle `todo` tests
   struct fy_node *todo = fy_node_mapping_lookup_by_string(test->node, STRLIT("todo"));
