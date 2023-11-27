@@ -53,6 +53,13 @@ jobs:
         path: ${{github.workspace}}/build/_deps
         key: ${{ github.workflow }}-cpm-modules-${{ hashFiles('extensions/**/CMakeLists.txt', '*/CMakeLists.txt', 'cmake/*.cmake') }}
 
+    # This is to address the fact that we build .pg in different directories on our current macOS runners
+    # and thus we need to ensure that install_name of the libraries is correct and the binaries are linked correctly
+    # as well.
+    - name: Update install_name for libraries
+      if: matrix.os == 'macos'
+      run: ci/macos_install_name .pg
+
     - name: Configure
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type

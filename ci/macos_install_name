@@ -1,0 +1,39 @@
+#! /usr/bin/env bash
+
+DIRECTORY=$(realpath $1)
+
+if [[ -z "$DIRECTORY" ]]; then
+    echo "Usage: $0 path_to_directory"
+    exit 1
+fi
+
+is_mach_o() {
+    local file=$1
+    if file "$file" | grep -q 'Mach-O'; then
+        return 0  # It's a Mach-O file
+    else
+        return 1  # Not a Mach-O file
+    fi
+}
+
+update_dylibs() {
+    find "$DIRECTORY" -type f -name 'libpq*.dylib' | while read -r dylib; do
+        install_name=$(otool -D ${dylib} | tail -1)
+        dylib_name=$(basename ${dylib})
+        echo -n "Updating install name for $dylib_name: "
+        install_name_tool -id "$dylib" "$dylib"
+        dylib_path=$(realpath $dylib)
+        find "$DIRECTORY" -type f -perm +111 | while read -r binary; do
+                    if is_mach_o $binary; then
+                      install_name_tool -change "$install_name" "$dylib_path" "$binary"
+                      binary_basename=$(basename ${binary})
+                      echo -n "$binary_basename "
+                    fi
+        done
+        echo
+    done
+}
+
+update_dylibs
+
+echo "Update process complete."
