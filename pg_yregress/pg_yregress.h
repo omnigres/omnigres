@@ -99,6 +99,8 @@ typedef struct {
     } query;
   } info;
   struct fy_node *node;
+  // To restore PQsetNoticeReceiver
+  struct fy_node *prev_notices;
   bool commit;
   bool negative;
   bool reset;

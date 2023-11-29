@@ -199,6 +199,32 @@ tests:
   # Ensure no notices get here
   notices: [ ]
 
+- name: multi-step constraint trigger notices
+  steps:
+  - query: create table constraint_trigger_notices(id int)
+  - query: |
+      create function constraint_trigger_notices() returns trigger as $$
+      begin
+        raise notice 'raising notice %', new.id;
+        return new;
+      end;
+      $$ language plpgsql
+  - query: |
+      create constraint trigger constraint_trigger_notices after insert on constraint_trigger_notices
+      deferrable initially deferred
+      for each row execute function constraint_trigger_notices()
+    commit: true
+  - query: insert into constraint_trigger_notices values (1)
+    # Ensure no notices get here
+    notices: [ ]
+  - query: insert into constraint_trigger_notices values (2)
+    # Ensure no notices get here
+    notices: [ ]
+  commit: true
+  notices:
+  - raising notice 1
+  - raising notice 2
+
 - name: binary format
   query: select true as value
   binary: true
