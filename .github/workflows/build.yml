@@ -43,10 +43,24 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    # This is done to address the problem on macOS where .pg built in a directory of one
+    # GitHub Action runner won't work when restored in another one since dylds have install_name pointing
+    # to the original location. We include the hash of their path into the cache name.
+    - name: Get path hash
+      if: matrix.os == 'macos'
+      run: |
+        echo "PATH_SUFFIX=-$(pwd | sha256sum | awk '{print $1}')" >> $GITHUB_ENV
+
+    # On other systems, make it explicitly empty
+    - name: Get path hash
+      if: matrix.os != 'macos'
+      run: |
+        echo "PATH_SUFFIX=" >> $GITHUB_ENV
+
     - uses: actions/cache@v3
       with:
         path: .pg
-        key: ${{ matrix.os }}-pg-${{ matrix.pgver }}-${{ matrix.build_type }}-${{ hashFiles('cmake/FindPostgreSQL.cmake') }}
+        key: ${{ matrix.os }}-pg-${{ matrix.pgver }}-${{ matrix.build_type }}-${{ hashFiles('cmake/FindPostgreSQL.cmake') }}${{ env.PATH_SUFFIX }}
 
     - uses: actions/cache@v3
       with:
