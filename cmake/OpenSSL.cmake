@@ -1,4 +1,4 @@
-include(CPM)
+include(${CMAKE_SOURCE_DIR}/cmake/CPM.cmake)
 if(NOT DEFINED OPENSSL_CONFIGURED)
 
     # Required to configure OpenSSL
