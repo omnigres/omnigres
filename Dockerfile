@@ -48,9 +48,11 @@ RUN git config --global --add safe.directory '*'
 # PostgreSQL build
 FROM builder AS postgres-build
 COPY docker/CMakeLists.txt /omni/CMakeLists.txt
-COPY cmake/FindPostgreSQL.cmake cmake/OpenSSL.cmake docker/PostgreSQLExtension.cmake /omni/cmake/
+COPY cmake/FindPostgreSQL.cmake cmake/OpenSSL.cmake cmake/CPM.cmake docker/PostgreSQLExtension.cmake /omni/cmake/
 WORKDIR /build
 RUN cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DPGVER=${PG} -DCMAKE_BUILD_PARALLEL_LEVEL=${BUILD_PARALLEL_LEVEL} /omni
+# This is a workaround for libcrypto/libssl build in-tree:
+RUN cp _deps/openssl-src/libcrypto.so.3  _deps/openssl-src/libssl.so.3 /omni/.pg/Linux-${BUILD_TYPE}/${PG}/build/lib
 
 # Omnigres build
 FROM builder AS build
