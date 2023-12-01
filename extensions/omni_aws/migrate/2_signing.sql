@@ -1,30 +1,31 @@
-create function hash_string_to_sign(
-    algorithm text,
-    ts8601 timestamp with time zone,
-    region text,
-    service text,
-    canonical_request_hash text,
-    secret_access_key text)
-    returns text
-    language sql
-    immutable
-as
-$$
-select
-    encode(hmac((((((((algorithm || chr(10) ||
-                       to_char((ts8601 at time zone 'UTC'), 'YYYYMMDD"T"HH24MISS"Z"') || chr(10) ||
-                       to_char((ts8601 at time zone 'UTC'), 'YYYYMMDD')) || '/' || region) || '/') ||
-                    service) || '/aws4_request') || chr(10)) || canonical_request_hash)::bytea, hmac('aws4_request',
-                                                                                                     hmac(
-                                                                                                             service::bytea,
-                                                                                                             hmac(
-                                                                                                                     region::bytea,
-                                                                                                                     hmac(
-                                                                                                                             to_char((ts8601 at time zone 'UTC'), 'YYYYMMDD'),
-                                                                                                                             ('AWS4' || secret_access_key),
-                                                                                                                             'sha256'),
-                                                                                                                     'sha256'),
-                                                                                                             'sha256'),
-                                                                                                     'sha256'),
-                'sha256'), 'hex')
+CREATE FUNCTION hash_string_to_sign(
+    algorithm TEXT,
+    ts8601 TIMESTAMP WITH TIME ZONE,
+    region TEXT,
+    service TEXT,
+    canonical_request_hash TEXT,
+    secret_access_key TEXT)
+RETURNS TEXT
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    intermediate_key TEXT;
+BEGIN
+    intermediate_key := hmac('aws4_request',
+                            hmac(service::BYTEA,
+                                 hmac(region::BYTEA,
+                                      hmac(to_char((ts8601 AT TIME ZONE 'UTC'), 'YYYYMMDD'),
+                                           ('AWS4' || secret_access_key),
+                                           'sha256'),
+                                      'sha256'),
+                                 'sha256'),
+                            'sha256')::TEXT;
+
+    RETURN encode(hmac((algorithm || CHR(10) ||
+                       to_char((ts8601 AT TIME ZONE 'UTC'), 'YYYYMMDD"T"HH24MISS"Z"') || CHR(10) ||
+                       to_char((ts8601 AT TIME ZONE 'UTC'), 'YYYYMMDD') || '/' || region || '/' ||
+                       service || '/aws4_request' || CHR(10) || canonical_request_hash)::BYTEA,
+                      intermediate_key::BYTEA,
+                      'sha256'), 'hex');
+END;
 $$;
