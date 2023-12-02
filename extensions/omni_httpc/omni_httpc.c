@@ -456,7 +456,8 @@ Datum http_execute(PG_FUNCTION_ARGS) {
     }
     text *arg_url = (text *)PG_DETOAST_DATUM_PACKED(url);
 
-    if (h2o_url_parse(VARDATA_ANY(arg_url), VARSIZE_ANY_EXHDR(arg_url), &request->url) == -1) {
+    if (h2o_url_parse(pool, VARDATA_ANY(arg_url), VARSIZE_ANY_EXHDR(arg_url), &request->url) ==
+        -1) {
       ereport(ERROR, errmsg("can't parse URL"), errdetail("%s", text_to_cstring(arg_url)));
     }
 
