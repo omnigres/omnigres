@@ -107,7 +107,8 @@ begin
             omni_aws.endpoint_url(endpoint, bucket => request.bucket, region => region, path => request.path);
     endpoint_uri := omni_web.text_to_uri(endpoint_url);
 
-    request.path := endpoint_uri.path;
+    -- here null path is same as root
+    request.path := coalesce(endpoint_uri.path, '/');
 
     if not request.path like '/%' then
         request.path := '/' || request.path;

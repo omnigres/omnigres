@@ -29,7 +29,7 @@ $$
 declare
     ts8601  timestamp with time zone := now();
     path    text                     := '/';
-    payload bytea;
+    payload bytea                    := convert_to('', 'utf-8');
     endpoint_url text;
     endpoint_uri omni_web.uri;
 begin
@@ -38,16 +38,12 @@ begin
         region := request.region;
     end if;
 
-    payload :=
-            convert_to(
-                    '<CreateBucketConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"></CreateBucketConfiguration>',
-                    'utf-8');
-
     endpoint_url :=
             omni_aws.endpoint_url(endpoint, bucket => request.bucket, region => region);
     endpoint_uri := omni_web.text_to_uri(endpoint_url);
 
-    path := endpoint_uri.path;
+    -- here null path is same as root
+    path := coalesce(endpoint_uri.path, '/');
 
     if not path like '/%' then
         path := '/' || request.bucket;
@@ -72,7 +68,7 @@ begin
                                                'AWS4-HMAC-SHA256 Credential=' || access_key_id || '/'
                                                    || to_char((ts8601 at time zone 'UTC'), 'YYYYMMDD') ||
                                                '/' || region ||
-                                               '/s3/aws4_request, SignedHeaders=content-type;host;x-amz-content-sha256;x-amz-date;content-type, Signature='
+                                               '/s3/aws4_request, SignedHeaders=content-type;host;x-amz-content-sha256;x-amz-date, Signature='
                                                    || omni_aws.hash_string_to_sign(
                                                        'AWS4-HMAC-SHA256',
                                                        ts8601,

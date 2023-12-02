@@ -72,7 +72,7 @@ begin
                                                'AWS4-HMAC-SHA256 Credential=' || access_key_id || '/'
                                                    || to_char((ts8601 at time zone 'UTC'), 'YYYYMMDD') ||
                                                '/' || region ||
-                                               '/s3/aws4_request, SignedHeaders=content-type;host;x-amz-content-sha256;x-amz-date;content-type, Signature='
+                                               '/s3/aws4_request, SignedHeaders=content-type;host;x-amz-content-sha256;x-amz-date, Signature='
                                                    || omni_aws.hash_string_to_sign(
                                                        'AWS4-HMAC-SHA256',
                                                        ts8601,
