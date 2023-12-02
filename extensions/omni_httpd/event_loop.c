@@ -181,7 +181,7 @@ static void on_message(h2o_multithread_receiver_t *receiver, h2o_linklist_t *mes
       overrides->upstream =
           (h2o_url_t *)h2o_mem_alloc_pool(&req->pool, sizeof(*overrides->upstream), 1);
 
-      h2o_url_parse(proxy.url, strlen(proxy.url), overrides->upstream);
+      h2o_url_parse(&req->pool, proxy.url, strlen(proxy.url), overrides->upstream);
 
       prepare_req_for_reprocess(req);
 
