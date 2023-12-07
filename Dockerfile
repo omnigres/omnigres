@@ -25,11 +25,11 @@ ARG PLRUST_VERSION=1.2.6
 FROM debian:${DEBIAN_VER}-slim AS builder
 RUN echo "deb http://deb.debian.org/debian bullseye-backports main contrib non-free" >> /etc/apt/sources.list 
 RUN apt-get update
-RUN apt install -y wget build-essential git clang lld flex libreadline-dev zlib1g-dev libssl-dev tmux lldb gdb make perl python3-dev python3-venv python3-pip netcat
+RUN apt-get install -y wget build-essential git clang lld flex libreadline-dev zlib1g-dev libssl-dev tmux lldb gdb make perl python3-dev python3-venv python3-pip netcat
 # current cmake is too old
 ARG DEBIAN_VER
 ENV DEBIAN_VER=${DEBIAN_VER}
-RUN apt install -y cmake -t ${DEBIAN_VER}-backports
+RUN apt-get install -y cmake -t ${DEBIAN_VER}-backports
 ARG USER
 ARG UID
 ARG PG
@@ -71,7 +71,7 @@ ARG PLRUST_VERSION
 ENV PLRUST_VERSION=${PLRUST_VERSION}
 ARG PG
 ENV PG=${PG}
-RUN apt-get update && apt install -y curl pkg-config git build-essential libssl-dev libclang-dev flex libreadline-dev zlib1g-dev crossbuild-essential-arm64 crossbuild-essential-amd64
+RUN apt-get update && apt-get install -y curl pkg-config git build-essential libssl-dev libclang-dev flex libreadline-dev zlib1g-dev crossbuild-essential-arm64 crossbuild-essential-amd64
 USER postgres
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 RUN . "$HOME/.cargo/env" && \
@@ -83,7 +83,7 @@ RUN git clone https://github.com/tcdi/plrust.git plrust && cd plrust && git chec
 RUN . "$HOME/.cargo/env" && cd plrust/plrustc && ./build.sh && mv ../build/bin/plrustc ~/.cargo/bin && cd ..
 RUN . "$HOME/.cargo/env" && cd plrust/plrust && cargo install cargo-pgrx --locked
 USER root
-RUN PG_VER=${PG%.*} && apt install -y postgresql-server-dev-${PG_VER}
+RUN PG_VER=${PG%.*} && apt-get install -y postgresql-server-dev-${PG_VER}
 RUN chown -R postgres /usr/share/postgresql /usr/lib/postgresql
 USER postgres
 RUN PG_VER=${PG%.*} && . "$HOME/.cargo/env" && cargo pgrx init --pg${PG_VER} /usr/bin/pg_config
@@ -103,8 +103,8 @@ COPY --from=build /build/python-index /python-packages
 COPY --from=build /build/python-wheels /python-wheels
 COPY docker/initdb-slim/* /docker-entrypoint-initdb.d/
 RUN cp -R /omni/extension $(pg_config --sharedir)/ && cp -R /omni/*.so $(pg_config --pkglibdir)/ && rm -rf /omni
-RUN apt-get update && apt -y install libtclcl1 libpython3.9 libperl5.32
-RUN PG_VER=${PG%.*} && apt-get update && apt -y install postgresql-pltcl-${PG_VER} postgresql-plperl-${PG_VER} postgresql-plpython3-${PG_VER} python3-dev python3-venv python3-pip
+RUN apt-get update && apt-get -y install libtclcl1 libpython3.9 libperl5.32
+RUN PG_VER=${PG%.*} && apt-get update && apt-get -y install postgresql-pltcl-${PG_VER} postgresql-plperl-${PG_VER} postgresql-plpython3-${PG_VER} python3-dev python3-venv python3-pip
 EXPOSE 8080
 EXPOSE 5432
 
@@ -115,11 +115,11 @@ COPY docker/initdb/* /docker-entrypoint-initdb.d/
 RUN PG_VER=${PG%.*} && cp /plrust-release/plrust-pg${PG_VER}/usr/lib/postgresql/${PG_VER}/lib/plrust.so $(pg_config --pkglibdir) && \
     cp /plrust-release/plrust-pg${PG_VER}/usr/share/postgresql/${PG_VER}/extension/plrust* $(pg_config --sharedir)/extension && \
     rm -rf /plrust-release
-RUN apt -y install libclang-dev build-essential crossbuild-essential-arm64 crossbuild-essential-amd64
+RUN apt-get -y install libclang-dev build-essential crossbuild-essential-arm64 crossbuild-essential-amd64
 COPY --from=plrust /var/lib/postgresql/.cargo /var/lib/postgresql/.cargo
 COPY --from=plrust /var/lib/postgresql/.rustup /var/lib/postgresql/.rustup
 ENV PATH="/var/lib/postgresql/.cargo/bin:$PATH"
-RUN PG_VER=${PG%.*} && apt install -y postgresql-server-dev-${PG_VER}
+RUN PG_VER=${PG%.*} && apt-get install -y postgresql-server-dev-${PG_VER}
 USER postgres
 RUN PG_VER=${PG%.*} && rustup default 1.72.0 && cargo pgrx init --pg${PG_VER} /usr/bin/pg_config
 # Prime the compiler so it doesn't take forever on first compilation
