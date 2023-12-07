@@ -11,7 +11,7 @@ if(NOT DEFINED OPENSSL_CONFIGURED)
 
         if(NOT OPENSSL_PERL_CONFIGURED)
             if(perl_ADDED)
-                execute_process(COMMAND sh -c "${perl_SOURCE_DIR}/Configure -des -Dprefix=${perl_BINARY_DIR}" WORKING_DIRECTORY ${perl_SOURCE_DIR} RESULT_VARIABLE CONFIGURE_RC)
+                execute_process(COMMAND ./Configure -des -Dprefix=${perl_BINARY_DIR} WORKING_DIRECTORY ${perl_SOURCE_DIR} RESULT_VARIABLE CONFIGURE_RC)
                 if(NOT CONFIGURE_RC EQUAL 0)
                     message(FATAL_ERROR "Failed to configure Perl")
                 endif()
