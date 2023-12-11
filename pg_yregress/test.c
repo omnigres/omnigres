@@ -94,7 +94,21 @@ proceed:
 
   assert(test->instance != NULL);
   PGconn *conn;
-  if (default_conn == NULL) {
+  // create connection to other database each time
+  if (test->instance->managed && test->database.base != NULL) {
+    char *conninfo;
+
+    asprintf(&conninfo, "host=127.0.0.1 port=%d dbname=%s user=yregress",
+             test->instance->info.managed.port, test->database.base);
+
+    conn = PQconnectdb(conninfo);
+    if (PQstatus(conn) == CONNECTION_BAD) {
+      tap_counter++;
+      taprintf("not ok %d - %.*s # Can't connect: %s\n", tap_counter,
+               (int)IOVEC_STRLIT(ytest_name(test)), PQerrorMessage(conn));
+      return false;
+    }
+  } else if (default_conn == NULL) {
     struct fy_node *test_container = fy_node_get_parent(test->node);
     assert(fy_node_is_sequence(test_container));
     struct fy_node *maybe_instance = fy_node_get_parent(test_container);
@@ -405,7 +419,7 @@ proceed:
     void *iter = NULL;
     struct fy_node *step;
 
-    if (test->kind == ytest_kind_tests || !in_transaction) {
+    if ((test->kind == ytest_kind_tests && test->transaction) || !in_transaction) {
       PGresult *begin_result = PQexec(conn, "begin");
       PQclear(begin_result);
     }
@@ -426,7 +440,8 @@ proceed:
       if (!step_failed) {
         bool errored = false;
         bool step_success = ytest_run_internal(
-            conn, y_test, test->kind == ytest_kind_tests ? false : true, sub_test, &errored);
+            conn, y_test, (test->kind == ytest_kind_tests && test->transaction) ? false : true,
+            sub_test, &errored);
 
         // Stop proceeding further if the step has failed
         if (!step_success) {
@@ -470,7 +485,7 @@ proceed:
 
     tap_counter = saved_tap_counter;
 
-    if (test->kind == ytest_kind_tests || !in_transaction) {
+    if ((test->kind == ytest_kind_tests && test->transaction) || !in_transaction) {
       PGresult *txend_result = PQexec(conn, test->commit ? "commit" : "rollback");
       PQclear(txend_result);
     }
@@ -578,17 +593,20 @@ report:
   if (todo_allocated) {
     free((void *)todo_reason.base);
   }
-
+  // free connection to other database because it is recreated each time
+  if (test->instance->managed && test->database.base != NULL) {
+    PQfinish(conn);
+  }
   return is_todo ? true : success;
 #undef taprintf
 }
 
 bool ytest_run(ytest *test) { return ytest_run_internal(NULL, test, false, 0, NULL); }
-bool ytest_run_without_transaction(ytest *test) {
+bool ytest_run_without_transaction(ytest *test, int sub_test) {
   // FIXME: this is only used for initializing instances and those create subtests,
   // that's why we use subtest indentation of 1. But the name of the function doesn't really reflect
   // any of this
-  return ytest_run_internal(NULL, test, true, 1, NULL);
+  return ytest_run_internal(NULL, test, true, sub_test, NULL);
 }
 
 iovec_t ytest_name(ytest *test) {
