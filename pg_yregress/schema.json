@@ -303,6 +303,15 @@
                 }
               ]
             },
+            "database": {
+              "description": "Database name to connect to",
+              "type": "string"
+            },
+            "transaction": {
+              "description": "Wrap test into a transaction",
+              "type": "boolean",
+              "default": true
+            },
             "error": {
               "oneOf": [
                 {
