@@ -1,0 +1,23 @@
+instance:
+  init:
+  - create extension omni_types cascade
+
+tests:
+- name: pg_column_size 
+  query: select pg_column_size(omni_types.unit())
+  results:
+  - pg_column_size: 1
+
+- name: in/out
+  query: |
+    select ''::omni_types.unit
+    unit
+  results:
+  - unit:
+
+- name: binary send/recv
+  query: |
+    select omni_types.unit_send(omni_types.unit())
+    unit_send
+  results:
+  - unit_send: \x

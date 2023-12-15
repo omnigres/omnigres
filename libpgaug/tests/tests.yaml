@@ -1,0 +1,16 @@
+tests:
+- query: select switch_to_new()
+  results:
+  - switch_to_new: true
+
+- query: select switch_back_to_old()
+  results:
+  - switch_back_to_old: true
+
+- query: select switch_back_to_old_with_return()
+  results:
+  - switch_back_to_old_with_return: true
+
+- query: select siwtch_when_finalizing()
+  results:
+  - siwtch_when_finalizing: true

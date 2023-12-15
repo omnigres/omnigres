@@ -1,0 +1,64 @@
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_EXT_SO
+  init:
+    - create extension omni_ext_test cascade
+
+tests:
+  - name: shmem
+    steps:
+      - name: Should be initialized since it's preloaded
+        query: select omni_ext_test.alloc_shmem_global()
+        results:
+          - alloc_shmem_global: test
+
+      - name: database-local
+        query: select omni_ext_test.alloc_shmem_database_local()
+        results:
+          - alloc_shmem_database_local: 'testdb 0'
+      
+#CREATE DATABASE another_db;
+#\connect another_db
+#CREATE EXTENSION omni_ext_test CASCADE;
+#NOTICE:  installing required extension "omni_ext"
+#SELECT omni_ext_test.alloc_shmem_database_local();
+# alloc_shmem_database_local 
+#----------------------------
+# testdb 1
+#(1 row)
+
+  - name: reloading
+    steps:
+      - name: preloaded value
+        query: select omni_ext_test.alloc_shmem_global()
+        results:
+        - alloc_shmem_global: test
+      - name: modify value
+        query: select omni_ext_test.update_global_value('updated')
+        results:
+          - update_global_value: updated
+      - name: re-load again
+        query: select omni_ext.load('omni_ext_test')
+        results:
+          - load: 0.1
+      - name: should not be rolled back to the initial value
+        query: select omni_ext_test.alloc_shmem_global()
+        results:
+        - alloc_shmem_global: updated
+        
+
+  - name: database local bgworker
+    steps:
+    - query: select omni_ext_test.wait_for_table('local_worker_started')
+      results:
+      - wait_for_table: true
+    
+    #\d global_worker_started;
+  
+  - name: global bg worker
+    steps:
+    - query: SELECT omni_ext_test.wait_for_table('global_worker_started')
+      results:
+      - wait_for_table: false
+    
+    #\d global_worker_started;

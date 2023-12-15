@@ -15,7 +15,6 @@ add_postgresql_extension(
         SCHEMA omni_types
         RELOCATABLE false
         SOURCES omni_types.c unit.c sum_type.c
-        REGRESS unit sum_type
 )
 
 add_library(libomnitypes INTERFACE)
