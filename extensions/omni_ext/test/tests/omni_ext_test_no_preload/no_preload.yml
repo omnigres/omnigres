@@ -28,12 +28,3 @@ tests:
         query: select omni_ext_test_no_preload.alloc_shmem_database_local()
         results:
         - alloc_shmem_database_local: testdb 0
-
-#CREATE DATABASE another_db;
-#\connect another_db
-#CREATE EXTENSION omni_ext_test_no_preload CASCADE;
-#NOTICE:  installing required extension "omni_ext"
-#SELECT omni_ext_test_no_preload.alloc_shmem_database_local();
-# alloc_shmem_database_local 
-#----------------------------
-# testdb 1

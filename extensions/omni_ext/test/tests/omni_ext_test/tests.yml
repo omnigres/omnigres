@@ -16,16 +16,6 @@ tests:
         query: select omni_ext_test.alloc_shmem_database_local()
         results:
           - alloc_shmem_database_local: 'testdb 0'
-      
-#CREATE DATABASE another_db;
-#\connect another_db
-#CREATE EXTENSION omni_ext_test CASCADE;
-#NOTICE:  installing required extension "omni_ext"
-#SELECT omni_ext_test.alloc_shmem_database_local();
-# alloc_shmem_database_local 
-#----------------------------
-# testdb 1
-#(1 row)
 
   - name: reloading
     steps:
@@ -52,13 +42,9 @@ tests:
     - query: select omni_ext_test.wait_for_table('local_worker_started')
       results:
       - wait_for_table: true
-    
-    #\d global_worker_started;
   
   - name: global bg worker
     steps:
     - query: SELECT omni_ext_test.wait_for_table('global_worker_started')
       results:
       - wait_for_table: false
-    
-    #\d global_worker_started;
