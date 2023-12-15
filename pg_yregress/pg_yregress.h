@@ -104,10 +104,14 @@ typedef struct {
   bool commit;
   bool negative;
   bool reset;
+  // If false don't execute begin statement, set to true by default
+  bool transaction;
+  // connect to other database
+  iovec_t database;
 } ytest;
 
 bool ytest_run(ytest *test);
-bool ytest_run_without_transaction(ytest *test);
+bool ytest_run_without_transaction(ytest *test, int sub_test);
 
 iovec_t ytest_name(ytest *test);
 

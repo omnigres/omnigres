@@ -172,7 +172,7 @@ connect:
               if (cur_step >= init_step) {
                 // We want to keep the effects of these steps and therefore we don't
                 // wrap them into a rolled back transaction.
-                success = ytest_run_without_transaction((ytest *)fy_node_get_meta(step));
+                success = ytest_run_without_transaction((ytest *)fy_node_get_meta(step), 1);
                 if (!success) {
                   break;
                 }

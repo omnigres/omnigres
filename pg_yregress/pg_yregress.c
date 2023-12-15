@@ -70,6 +70,41 @@ static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
     }
 
     {
+      // Is the test meant to be ran on a different database?
+      struct fy_node *database = fy_node_mapping_lookup_by_string(test, STRLIT("database"));
+      y_test->database.base = NULL;
+
+      if (database != NULL) {
+        if (!fy_node_is_scalar(database)) {
+          fprintf(stderr, "database should be a string, got: %s",
+                  fy_emit_node_to_string(database, FYECF_DEFAULT));
+          return false;
+        }
+        if (!managed) {
+          fprintf(stderr, "Can't use `database` in unmanaged instances\n");
+          return false;
+        }
+        y_test->database.base = fy_node_get_scalar(database, &y_test->database.len);
+      }
+    }
+
+    {
+      // Don't execute begin statement if false
+      struct fy_node *transaction = fy_node_mapping_lookup_by_string(test, STRLIT("transaction"));
+
+      if (transaction != NULL) {
+        if (!fy_node_is_boolean(transaction)) {
+          fprintf(stderr, "transaction should be a boolean, got: %s",
+                  fy_emit_node_to_string(transaction, FYECF_DEFAULT));
+          return false;
+        }
+        y_test->transaction = fy_node_get_boolean(transaction);
+      } else {
+        y_test->transaction = true;
+      }
+    }
+
+    {
       // Is the test meant to be negative? As in "if test succeeds, it's a failure"
       struct fy_node *negative = fy_node_mapping_lookup_by_string(test, STRLIT("negative"));
 
@@ -482,8 +517,14 @@ static int execute_document(struct fy_document *fyd, bool managed, char *host, i
 
     while ((test = fy_node_sequence_iterate(tests, &iter)) != NULL) {
       ytest *y_test = fy_node_get_meta(test);
-      if (!ytest_run(y_test)) {
-        succeeded = false;
+      if (y_test->transaction) {
+        if (!ytest_run(y_test)) {
+          succeeded = false;
+        }
+      } else {
+        if (!ytest_run_without_transaction(y_test, 0)) {
+          succeeded = false;
+        }
       }
       // Currently, ytest_run() may change the node by replacing node of one type
       // with another, and we need to continue from there on.

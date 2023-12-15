@@ -367,6 +367,28 @@ tests:
   query: ...
 ```
 
+## Running queries outside explicit transaction block
+
+All the test queries are executed inside an explicit transaction block (by executing `BEGIN`) to rollback or commit side effects of tests but some queries like `CREATE DATABASE` fail with `CREATE DATABASE cannot run inside a transaction block` if executed in a transaction block. To run such queries set `transaction` property(`true` by default) to `false`:
+
+```yaml
+- name: create database outside transaction
+  transaction: false
+  query: create database another_db
+```
+
+## Connecting to another database
+
+To connect to other database in a test set `database` property to name of the other database
+
+```yaml
+- name: connect to different database
+  database: another_db
+  query: select current_database()
+  results:
+  - current_database: another_db
+```
+
 ## Configuring instances
 
 Tests may have one more instances they run on. By default, `pg_yregress` will provision one. However, if you want to configure the instance or add more than one, you can use
@@ -457,6 +479,7 @@ pg_yregress -U omnigres -W tests.yml
 
     * `instance` and `instances` configuration keys
     * `restart` tests
+    * `database`
 
 ## Configuring test suite
 

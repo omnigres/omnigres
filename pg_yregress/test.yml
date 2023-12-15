@@ -454,3 +454,23 @@ tests:
     query: select current_setting('pg_yregress.test', true)
     results:
     - current_setting: null
+
+- name: create database outside transaction
+  transaction: false
+  tests:
+  - query: create database another_db_success
+  - query: select datname from pg_database where datname = 'another_db_success'
+    results:
+    - datname: another_db_success
+  - name: connect to other database
+    query: select current_database()
+    database: another_db_success
+    results:
+    - current_database: another_db_success
+
+- name: create database in transaction fail
+  # transaction: true # default value of transaction
+  query: create database another_db_fail
+  error:
+    severity: ERROR
+    message: CREATE DATABASE cannot run inside a transaction block
