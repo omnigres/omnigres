@@ -1,4 +1,6 @@
-![Omnigres](header_logo.svg)
+<p align="center">
+<img src="board.webp" alt="Omnigres: We want back to the drawing board">
+</p>
 
 <p align="center">
 <a href="https://docs.omnigres.org"><b>Documentation</b></a> |
