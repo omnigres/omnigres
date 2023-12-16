@@ -306,11 +306,11 @@ tests:
     results:
     - sum_type: 'pet((Charlie,dog))'
 
-  - query: select row ('John', '01/10/1980')::person::sum_type
+  - query: select row ('John', to_date('01/10/1980', 'MM/DD/YYYY'))::person::sum_type
     results:
     - row: person((John,1980-01-10))
 
-  - query: select row ('John', '01/01/1980')::person::sum_type;
+  - query: select row ('John', to_date('01/01/1980', 'MM/DD/YYYY'))::person::sum_type;
     results:
     - row: 'person((John,1980-01-01))'
 
@@ -318,11 +318,11 @@ tests:
     results:
     - row: pet((Charlie,dog))
 
-  - query: select row ('John', '01/01/1980')::person::sum_type::person;
+  - query: select row ('John', to_date('01/01/1980', 'MM/DD/YYYY'))::person::sum_type::person;
     results: 
     - row: '(John,1980-01-01)'
 
-  - query: select row ('John', '01/01/1980')::person::sum_type::pet;
+  - query: select row ('John', to_date('01/10/1980', 'MM/DD/YYYY'))::person::sum_type::pet;
     results:
     - row: null
 
