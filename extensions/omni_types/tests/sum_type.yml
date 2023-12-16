@@ -1,0 +1,658 @@
+instance:
+  init:
+  - create extension omni_types cascade
+  - |
+      create or replace function get_type_size(data_type regtype)
+      returns integer as
+      $$
+        select
+      typlen
+      from
+        pg_type
+      where
+        oid = data_type
+      $$
+        language sql;
+
+tests:
+- name: Empty
+  steps:
+  - query: select omni_types.sum_type('empty', variadic array []::regtype[])
+    results:
+    - sum_type: empty
+
+  - describe_types: &describe_types |
+      SELECT n.nspname AS schema,
+        pg_catalog.format_type ( t.oid, NULL ) AS name,
+        pg_catalog.obj_description ( t.oid, 'pg_type' ) AS description
+      FROM pg_catalog.pg_type t
+      LEFT JOIN pg_catalog.pg_namespace n
+        ON n.oid = t.typnamespace
+      WHERE ( t.typrelid = 0
+            OR ( SELECT c.relkind = 'c'
+                    FROM pg_catalog.pg_class c
+                    WHERE c.oid = t.typrelid
+                )
+        )
+        AND NOT EXISTS
+            ( SELECT 1
+                FROM pg_catalog.pg_type el
+                WHERE el.oid = t.typelem
+                    AND el.typarray = t.oid
+            )
+        AND n.nspname <> 'pg_catalog'
+        AND n.nspname <> 'information_schema'
+        AND pg_catalog.pg_type_is_visible ( t.oid )
+        ORDER BY 1, 2
+    query: *describe_types 
+    results:
+    - schema: public
+      name: empty
+      description: null
+
+  - dump_types: &dump_types select typ as typname,variants from omni_types.sum_types
+    query: *dump_types
+    results:
+    - typname: empty
+      variants: "{}"
+
+  - query: select null::empty is null as is_null;
+    results:
+    - is_null: true
+
+- name: Single fixed size by val
+  steps:
+  - query: |
+      select omni_types.sum_type('sum_type', 'integer')
+      sum_type
+    results:
+    - sum_type: sum_type
+
+  - query: select typ as typname,variants from omni_types.sum_types
+    results:
+    - typname: sum_type
+      variants: "{integer}"
+  
+  - query: select get_type_size('sum_type')
+    results:
+    - get_type_size: 8
+  
+  - query: select 'integer(100)'::sum_type
+    results:
+    - sum_type: integer(100)
+  
+  - query: select 'integer(100)'::sum_type::integer
+    results:
+    - int4: 100
+
+  - query: select 100::sum_type
+    results:
+    - sum_type: integer(100)
+
+- name: Multiple fixed size by val
+  steps:
+  - query: select omni_types.sum_type('sum_type', 'integer', 'bigint')
+    results:
+    - sum_type: sum_type
+
+  - query: *describe_types
+    results:
+    - schema: public
+      name: sum_type
+      description: null
+
+  - query: *dump_types
+    results:
+    - typname: sum_type
+      variants: '{integer,bigint}'
+
+  - query: select get_type_size('sum_type')
+    results:
+    - get_type_size: 12
+  
+  - query: select 'integer(1000)'::sum_type
+    results:
+    - sum_type: 'integer(1000)'
+
+  - query: select 'integer(1000)'::sum_type::integer
+    results:
+    - int4: 1000
+  
+  - query: select 1000::sum_type
+    results:
+    - sum_type: 'integer(1000)'
+
+  - query: select 'bigint(10000000000)'::sum_type
+    results:
+    - sum_type: bigint(10000000000)
+  
+  - query: select 10000000000::bigint::sum_type
+    results:
+    - sum_type: bigint(10000000000)
+
+- name: Single fixed size
+  steps:
+  - query: select omni_types.sum_type('sum_type', 'name')
+    results:
+    - sum_type: sum_type
+    
+  - query: *describe_types
+    results:
+    - schema: public
+      name: sum_type
+      description: null
+    
+  - query: *dump_types
+    results:
+    - typname: sum_type
+      variants: '{name}'
+
+  - query: select get_type_size('sum_type')
+    results:
+    - get_type_size : 68
+
+  - query: select 'name(test)'::sum_type
+    results:
+    - sum_type: 'name(test)'
+
+  - query: select 'name(test)'::sum_type::name
+    results:
+    - name : test
+    
+  - query: select 'test'::name::sum_type
+    results:
+    - sum_type: 'name(test)'
+
+- name: Multiple mixed variable and fixed size
+  steps:
+  - query: select omni_types.sum_type('sum_type', 'text', 'integer', 'name')
+    results:
+    - sum_type: sum_type
+  
+  - query: *describe_types
+    results:
+    - schema: public
+      name: sum_type
+      description: null
+  
+  - query: *dump_types
+    results:
+    - typname: sum_type
+      variants: '{text,integer,name}'
+
+  - query: select get_type_size('sum_type')
+    results:
+    - get_type_size: -1
+
+  - query: select 'text(Hello)'::sum_type
+    results:
+    - sum_type: 'text(Hello)'
+
+  - query: select 'text(Hello)'::sum_type::text
+    results:
+    - text: Hello
+  
+  - query: select 'Hello'::text::sum_type
+    results:
+    - sum_type: 'text(Hello)'
+
+  - query: select 'integer(1000)'::sum_type
+    results:
+    - sum_type: 'integer(1000)'
+
+  - query: select 'integer(1000)'::sum_type::integer
+    results:
+    - int4: 1000
+
+  - query: select 1000::sum_type
+    results:
+    - sum_type: integer(1000)
+
+  - query: select 'name(test)'::sum_type
+    results:
+    - sum_type: 'name(test)'
+
+  - query: select 'name(test)'::sum_type::name
+    results:
+    - name: test
+
+  - query: select 'test'::name::sum_type
+    results:
+    - sum_type: 'name(test)'
+
+- name: Domains
+  steps:
+  - query: create domain height as integer check (value > 0);
+  - query: create domain age as integer check (value > 0 and value < 200);
+  - query: select omni_types.sum_type('sum_type', 'height', 'age');
+    results:
+    - sum_type: sum_type
+  
+  - query: *describe_types
+    results:
+    - schema: public
+      name: age
+      description: null
+    - schema: public
+      name: height
+      description: null
+    - schema: public
+      name: sum_type
+      description: null
+
+  - query: *dump_types
+    results:
+    - typname: sum_type
+      variants: '{height,age}'
+
+  - query: select get_type_size('sum_type')
+    results:
+    - get_type_size: 8
+
+  - query: select 'height(100)'::sum_type
+    results:
+    - sum_type: 'height(100)'
+
+  - query: select 'age(100)'::sum_type
+    results:
+    - sum_type: 'age(100)'
+
+  - name: Can't cast domain types, use functions
+    query: select sum_type_from_height(100)
+    results:
+    - sum_type_from_height: 'height(100)'
+
+  - query: select sum_type_from_age(100)
+    results:
+    - sum_type_from_age: 'age(100)'
+
+- name: Composite types
+  steps:
+  - query: create type person as (name text, dob  date)
+  - query: create type animal as enum ('dog', 'cat', 'fish', 'other')
+  - query: create type pet as (name text, animal animal)
+  - query: select omni_types.sum_type('sum_type', 'person', 'pet')
+    results:
+    - sum_type: sum_type
+  
+  - query: *describe_types
+    results:
+    - schema: public
+      name: animal
+      description: null
+    - schema: public
+      name: person
+      description: null
+    - schema: public
+      name: pet
+      description: null
+    - schema: public
+      name: sum_type
+      description: null
+  - query: *dump_types
+    results:
+    - typname: sum_type
+      variants: '{person,pet}'
+
+  - query: select get_type_size('sum_type')
+    results:
+    - get_type_size: -1
+
+  - query: select $$person((John, 01/01/1980))$$::sum_type
+    results:
+    - sum_type: 'person((John,1980-01-01))'
+
+  - query: select $$pet((Charlie,dog))$$::sum_type
+    results:
+    - sum_type: 'pet((Charlie,dog))'
+
+  - query: select row ('John', to_date('01/10/1980', 'MM/DD/YYYY'))::person::sum_type
+    results:
+    - row: person((John,1980-01-10))
+
+  - query: select row ('John', to_date('01/01/1980', 'MM/DD/YYYY'))::person::sum_type;
+    results:
+    - row: 'person((John,1980-01-01))'
+
+  - query: select row ('Charlie','dog')::pet::sum_type;
+    results:
+    - row: pet((Charlie,dog))
+
+  - query: select row ('John', to_date('01/01/1980', 'MM/DD/YYYY'))::person::sum_type::person;
+    results: 
+    - row: '(John,1980-01-01)'
+
+  - query: select row ('John', to_date('01/10/1980', 'MM/DD/YYYY'))::person::sum_type::pet;
+    results:
+    - row: null
+
+  - query: select row ('Charlie','dog')::pet::sum_type::pet;
+    results:
+    - row: (Charlie,dog)
+
+  - query: select row ('Charlie','dog')::pet::sum_type::person;
+    results:
+    - row: null
+
+- name: Casting variants to different types
+  steps:
+  - query: select omni_types.sum_type('sum_type', 'integer', 'boolean');
+    results:
+    - sum_type: sum_type
+
+  - query: *describe_types
+    results:
+    - schema: public
+      name: sum_type
+      description: null
+
+  - query: *dump_types
+    results:
+    - typname: sum_type
+      variants: '{integer,boolean}' 
+
+  - query: select 100::sum_type::boolean;
+    results:
+    - bool: false
+
+  - query: select true::sum_type::integer;
+    results:
+    - int4: null
+
+- name: Duplicates
+  query: select omni_types.sum_type('sum_type', 'integer', 'integer')
+  error:
+    severity: ERROR
+    message: Sum types can not contain duplicate variants
+  
+- name: Determining variant
+  steps:
+  - query: select omni_types.sum_type('sum_type', 'integer', 'boolean');
+    results:
+    - sum_type: sum_type
+
+  - query: *describe_types
+    results:
+    - schema: public
+      name: sum_type
+      description: null
+
+  - query: *dump_types
+    results:
+    - typname: sum_type
+      variants: '{integer,boolean}'
+
+  - query: select omni_types.variant(100::sum_type);
+    results:
+    - variant: integer
+
+  - query: select omni_types.variant(true::sum_type)
+    results:
+    - variant: boolean
+  
+  - name: Invalid type
+    query: select omni_types.variant(10);
+    results:
+    - variant: null
+
+- name: TOASTing
+  steps:
+  - query: select omni_types.sum_type('sum_type', 'text', 'integer')
+    results:
+    - sum_type: sum_type
+  
+  - query: *describe_types
+    results:
+    - schema: public
+      name: sum_type
+      description: null
+
+  - query: *dump_types
+    results:
+    - typname: sum_type
+      variants: '{text,integer}'
+      
+  - query: create table test (val sum_type)
+  - query: alter table test alter val set storage external
+  - query: insert into test values (repeat('a', 100000)::text::sum_type),(1000)
+  - query: select omni_types.variant(val) from test
+    results:
+    - variant: text
+    - variant: integer
+
+  - query: |
+      select (case when omni_types.variant(val) = 'text'::regtype then length(val::text)
+             when omni_types.variant(val) = 'integer'::regtype then val::integer
+             else null end) from test;
+    results:
+    - case: 100000
+    - case: 1000
+
+- name: Pseudo-types can't be used
+  query: select omni_types.sum_type('sum_type', 'text', 'anyarray')
+  error:
+    severity: ERROR
+    message: Pseudo-types can't be variants
+- name: Binary I/O
+  steps:
+  - query: select omni_types.sum_type('sum_type', 'text', 'integer')
+    results:
+    - sum_type: sum_type
+
+  - query: |
+      select typsend = 'sum_type_send'::regproc as valid_send,
+        typreceive = 'sum_type_recv'::regproc as valid_recv
+        from pg_type
+        where oid = 'sum_type'::regtype
+    results:
+    - valid_send: true
+      valid_recv: true
+
+  - query: select sum_type_recv(sum_type_send('text(Hello)'))
+    results:
+    - sum_type_recv: 'text(Hello)'
+
+  - query: select sum_type_recv(sum_type_send('integer(1000)'))
+    results:
+    - sum_type_recv: 'integer(1000)'
+
+  - name: Malformed input
+    query: select sum_type_recv(E''::bytea)
+    error:
+      severity: ERROR
+      message: input is too short to fit a discriminant
+
+- name: Insufficient data in message
+  steps:
+  - query: select omni_types.sum_type('sum_type', 'text', 'integer')
+    results:
+    - sum_type: sum_type
+
+  - query: select sum_type_recv(int4send(1))
+    error:
+      severity: ERROR
+      message:  insufficient data left in message
+
+- name: Invalid discriminant
+  steps:
+  - query: select omni_types.sum_type('sum_type', 'text', 'integer')
+    results:
+    - sum_type: sum_type
+
+  - query: select sum_type_recv(int4send(2))
+    error:
+      severity: ERROR
+      message: invalid discriminant
+
+- name: Adding variants
+  steps:
+  - query: select omni_types.sum_type('sum_type', 'boolean', 'bigint')
+    results:
+    - sum_type: sum_type
+    
+  - query: *describe_types
+    results:
+    - schema: public
+      name: sum_type
+      description: null
+
+  - query: *dump_types
+    results:
+    - typname: sum_type
+      variants: '{boolean,bigint}'  
+
+  - query: select omni_types.add_variant('sum_type', 'integer')
+    results:
+    - add_variant: 
+
+  - query: *dump_types
+    results:
+    - typname: sum_type
+      variants: '{boolean,bigint,integer}'
+
+  - query: select 'integer(1000)'::sum_type
+    results:
+    - sum_type: 'integer(1000)'
+  
+  - query: select 'bigint(1000)'::sum_type
+    results:
+    - sum_type: 'bigint(1000)'
+
+  - query: select 'boolean(t)'::sum_type
+    results:
+    - sum_type: 'boolean(t)'
+
+- name: Adding variants to variable sized type
+  steps:
+  - query: select omni_types.sum_type('sum_type', 'boolean', 'text')
+    results:
+    - sum_type: sum_type
+
+  - query: *describe_types
+    results:
+    - schema: public
+      name: sum_type
+      description: null
+
+  - query: *dump_types
+    results:
+    - typname: sum_type
+      variants: '{boolean,text}'
+
+  - query: select omni_types.add_variant('sum_type', 'bigint')
+    results:
+    - add_variant:  
+
+  - query: *dump_types
+    results:
+    - typname: sum_type
+      variants: '{boolean,text,bigint}'
+      
+  - query: select 'text(test)'::sum_type
+    results:
+    - sum_type: 'text(test)'
+    
+  - query: select 'bigint(1000)'::sum_type
+    results:
+    - sum_type: 'bigint(1000)'
+    
+  - query: select 'boolean(t)'::sum_type;
+    results:
+    - sum_type: 'boolean(t)'
+
+- name: Adding larger (invalid) variants to fixed sized type
+  steps:
+  - query: select omni_types.sum_type('sum_type', 'boolean')
+    results:
+    - sum_type: sum_type
+
+  - query: *describe_types
+    results:
+    - schema: public
+      name: sum_type
+      description: null
+
+  - query: *dump_types
+    results:
+    - typname: sum_type
+      variants: '{boolean}'
+
+  - query: select omni_types.add_variant('sum_type', 'bigint')
+    error:
+      severity: ERROR
+      message: variant type size must not be larger than that of the largest existing variant type's
+      detail: 'largest existing variant size: 1, variant type size: 8'
+
+- name: Adding duplicate variants
+  steps:
+  - query: select omni_types.sum_type('sum_type', 'integer')
+    results:
+    - sum_type: sum_type
+
+  - query: *describe_types
+    results:
+    - schema: public
+      name: sum_type
+      description: null
+
+  - query: *dump_types
+    results:
+    - typname: sum_type
+      variants: '{integer}'
+
+  - name: |
+      Using a different name for the same type here intentionally 
+      to make sure it is checked against OIDs
+    query: select omni_types.add_variant('sum_type', 'int4');
+    error:
+      severity: ERROR
+      message: Sum types can not contain duplicate variants
+      #context: |
+      #  PL/pgSQL function omni_types.sum_type_unique_variants_trigger_func() line 12 at RAISE
+      #  SQL statement "update omni_types.sum_types set variants = array_append(variants, $1) where typ = $2"
+
+- name: Sum type with unit
+  steps:
+  - query: create domain ok as omni_types.unit
+  - query: create domain result as integer
+  - query: select omni_types.sum_type('sum_type', 'ok', 'result')
+    results:
+    - sum_type: sum_type
+  
+  - query: *describe_types
+    results:
+    - schema: public
+      name: ok
+      description: null
+    - schema: public
+      name: result
+      description: null
+    - schema: public
+      name: sum_type
+      description: null
+
+  - query: *dump_types
+    results:
+    - typname: sum_type
+      variants: '{ok,result}'
+
+  - query: select sum_type_from_ok(omni_types.unit())
+    results:
+    - sum_type_from_ok: 'ok()'
+
+  - query: *describe_types
+    results:
+    - schema: public
+      name: ok
+      description: null
+    - schema: public
+      name: result
+      description: null
+    - schema: public
+      name: sum_type
+      description: null
+
+  - query: *dump_types
+    results:
+    - typname: sum_type
+      variants: '{ok,result}'

@@ -1,0 +1,20 @@
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_EXT_SO
+  init:
+  - create extension omni_ext cascade
+
+tests:
+  - name: load
+    query: select omni_ext.load('omni_ext_test')
+    results:
+      - load: 0.1
+
+  - name: load version
+    steps:
+      - query: select omni_ext.load('omni_ext_test', 'unknown')
+        results:
+          - load:
+      - query: select omni_ext.load('omni_ext_test', '0.1')
+        results:
+          - load: 0.1
