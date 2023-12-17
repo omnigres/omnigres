@@ -19,6 +19,8 @@
 #include <utils/array.h>
 #include <utils/builtins.h>
 
+// customize h2o_fatal
+#include "omni_httpc.h"
 #include <h2o.h>
 
 #include "ca-bundle.h"
@@ -667,4 +669,11 @@ Datum http_connections(PG_FUNCTION_ARGS) {
 
   MemoryContextSwitchTo(oldcontext);
   PG_RETURN_NULL();
+}
+
+PG_FUNCTION_INFO_V1(http_fatal);
+
+Datum http_fatal(PG_FUNCTION_ARGS) {
+  h2o_fatal("oops!");
+  PG_RETURN_VOID();
 }
