@@ -115,7 +115,7 @@ target_include_directories(omni_prolog_stub PRIVATE "${PLBASE}/include")
 set_target_properties(omni_prolog_stub PROPERTIES PREFIX "" SUFFIX ".so")
 
 add_custom_command(OUTPUT prolog_saved
-        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/omni_prolog.pl
+        DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/omni_prolog.pl omni_prolog_stub
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
         COMMAND ${SWIPL} -f none -F none -g true -t "consult('${CMAKE_CURRENT_SOURCE_DIR}/omni_prolog.pl'),qsave_program('prolog_saved',[goal(true),toplevel(prolog),init_file(none),stand_alone(true),undefined(error),verbose(true)])"
         # Trigger a rebuild for the extension. Not pretty but does the job
