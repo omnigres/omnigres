@@ -191,6 +191,7 @@ foreign_t query(term_t query, term_t args, term_t out, control_t handle) {
     list = args;
 
     ctx = (struct query_ctx *)palloc0(sizeof(*ctx));
+    SPI_connect();
 
 #if PG_MAJORVERSION_NUM > 13
     ParamListInfo params = makeParamList(list_len);
@@ -362,6 +363,7 @@ foreign_t query(term_t query, term_t args, term_t out, control_t handle) {
 complete:
   SPI_cursor_close(ctx->portal);
   pfree(ctx);
+  SPI_finish();
   return FALSE;
 }
 
@@ -411,12 +413,13 @@ Datum plprologX_call_handler(PG_FUNCTION_ARGS, bool sandbox) {
   ReturnSetInfo *rs = NULL;
   Tuplestorestate *tupstore;
   MemoryContext oldcontext, per_query_ctx;
+  MemoryContext main_context = CurrentMemoryContext;
   if (fcinfo->flinfo->fn_retset) {
     // If we're returning a set, prepare everything needed
     rs = (ReturnSetInfo *)fcinfo->resultinfo;
     rs->returnMode = SFRM_Materialize;
 
-    per_query_ctx = rs->econtext->ecxt_per_query_memory;
+    main_context = per_query_ctx = rs->econtext->ecxt_per_query_memory;
     oldcontext = MemoryContextSwitchTo(per_query_ctx);
   }
 
@@ -453,8 +456,6 @@ Datum plprologX_call_handler(PG_FUNCTION_ARGS, bool sandbox) {
 
   term_t file = PL_new_term_ref();
   PL_put_atom_chars(file, proname);
-
-  SPI_connect();
 
   PL_thread_attr_t engine_attr = {
       .cancel = NULL,
@@ -510,11 +511,17 @@ Datum plprologX_call_handler(PG_FUNCTION_ARGS, bool sandbox) {
     }
 
     bool isnull = false;
-    if (!term_t_to_datum(result_term, &result, &result_oid, false)) {
-      ereport(WARNING, errmsg("unsupported result type %s, returning null",
-                              result_oid == InvalidOid ? "Invalid" : format_type_be(result_oid)));
-      result = 0;
-      isnull = true;
+    {
+      // Ensure we use the "main" context as we are likely in SPI context
+      // while asking for solutions (is `query` was used)
+      MemoryContext _ctx = MemoryContextSwitchTo(main_context);
+      if (!term_t_to_datum(result_term, &result, &result_oid, false)) {
+        ereport(WARNING, errmsg("unsupported result type %s, returning null",
+                                result_oid == InvalidOid ? "Invalid" : format_type_be(result_oid)));
+        result = 0;
+        isnull = true;
+      }
+      MemoryContextSwitchTo(_ctx);
     }
 
     if ((result_oid != result_type_oid && result_oid != InvalidOid) &&
@@ -567,8 +574,6 @@ Datum plprologX_call_handler(PG_FUNCTION_ARGS, bool sandbox) {
   }
 
   PL_close_query(query);
-
-  SPI_finish();
 
   PL_set_engine(old_engine, NULL);
   PL_destroy_engine(current_engine);
