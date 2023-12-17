@@ -74,10 +74,8 @@ endif()
 
 add_postgresql_extension(
         omni_prolog
-        VERSION 0.1
         SCHEMA omni_prolog
         RELOCATABLE false
-        SCRIPTS omni_prolog--0.1.sql
         SOURCES omni_prolog.c install.c)
 
 target_compile_definitions(omni_prolog PRIVATE __SWI_PROLOG __SWI_EMBEDDED_)
