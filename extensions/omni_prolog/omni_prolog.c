@@ -392,7 +392,7 @@ void install_if_needed() {
     SPI_execute_with_args("select probin from pg_proc where proname = $1", 1, (Oid[1]){TEXTOID},
                           (Datum[1]){PointerGetDatum(cstring_to_text("plprologu_call_handler"))},
                           (char[1]){' '}, false, 1);
-    char *path = SPI_getvalue(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1);
+    char *path = strdup(SPI_getvalue(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1));
     SPI_finish();
 
     PL_initialise(1, (char *[1]){path});
