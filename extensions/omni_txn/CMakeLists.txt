@@ -14,5 +14,5 @@ add_postgresql_extension(
         omni_txn
         SCHEMA omni_txn
         RELOCATABLE false
-        SOURCES omni_txn.c
+        REQUIRES omni_var
 )

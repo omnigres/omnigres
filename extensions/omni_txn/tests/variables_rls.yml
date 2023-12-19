@@ -1,7 +1,7 @@
 $schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
 instance:
   init:
-  - create extension omni_txn
+  - create extension omni_txn cascade
   - create table items (user_id int not null, item text)
   - alter table items enable row level security
   - insert into items values (1, 'test'), (2, 'another')
