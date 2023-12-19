@@ -50,6 +50,9 @@ Datum set(PG_FUNCTION_ARGS) {
     ereport(ERROR, errmsg("variable name must not be a null"));
   }
   Oid value_type = get_fn_expr_argtype(fcinfo->flinfo, 1);
+  if (value_type == InvalidOid) {
+    ereport(ERROR, errmsg("value type can't be inferred"));
+  }
   bool byval = get_typbyval(value_type);
   TransactionId txnid = GetCurrentTransactionId();
   if (last_used_txnid != txnid) {
@@ -89,6 +92,9 @@ Datum get(PG_FUNCTION_ARGS) {
     ereport(ERROR, errmsg("variable name must not be a null"));
   }
   Oid value_type = get_fn_expr_argtype(fcinfo->flinfo, 1);
+  if (value_type == InvalidOid) {
+    ereport(ERROR, errmsg("default value type can't be inferred"));
+  }
   TransactionId txnid = GetCurrentTransactionIdIfAny();
   if (txnid == InvalidTransactionId || last_used_txnid != txnid) {
     // No variables as we haven't set anything in the current session
