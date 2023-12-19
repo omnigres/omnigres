@@ -72,8 +72,7 @@ Datum set(PG_FUNCTION_ARGS) {
     // (matching the context of the hash table)
     // Otherwise it may be a shorter-lifetime context and then we may end
     // up with something unexpected here
-    MemoryContext old_context = CurrentMemoryContext;
-    MemoryContextSwitchTo(TopTransactionContext);
+    MemoryContext old_context = MemoryContextSwitchTo(TopTransactionContext);
     var->value = PointerGetDatum(PG_DETOAST_DATUM_COPY(PG_GETARG_DATUM(1)));
     MemoryContextSwitchTo(old_context);
   }
