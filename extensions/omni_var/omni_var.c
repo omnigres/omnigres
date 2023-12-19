@@ -1,5 +1,5 @@
 /**
- * @file omni_txn.c
+ * @file omni_var.c
  *
  */
 
@@ -16,9 +16,9 @@
 
 PG_MODULE_MAGIC;
 
-PG_FUNCTION_INFO_V1(set_variable);
+PG_FUNCTION_INFO_V1(set);
 
-PG_FUNCTION_INFO_V1(get_variable);
+PG_FUNCTION_INFO_V1(get);
 
 static TransactionId last_used_txnid = InvalidTransactionId;
 static HTAB *current_tab = NULL;
@@ -34,7 +34,7 @@ static int nvars = 0;
 
 void _PG_init() {
   DefineCustomIntVariable(
-      "omni_txn.estimated_initial_variables_count", "Estimated number of transaction variables",
+      "omni_var.estimated_initial_txn_variables_count", "Estimated number of transaction variables",
       "Estimated number of transaction variables, changes apply to the next transaction", &nvars,
       1024, 0, 65535, PGC_USERSET, 0, NULL, NULL, NULL);
 }
@@ -45,8 +45,7 @@ void _PG_init() {
 #define TXN_HASH_ELEM HASH_ELEM | HASH_STRINGS
 #endif
 
-Datum set_variable(PG_FUNCTION_ARGS) {
-  ereport(WARNING, errmsg("omni_txn.set_variable is deprecated, use omni_var.set"));
+Datum set(PG_FUNCTION_ARGS) {
   if (PG_ARGISNULL(0)) {
     ereport(ERROR, errmsg("variable name must not be a null"));
   }
@@ -57,7 +56,7 @@ Datum set_variable(PG_FUNCTION_ARGS) {
     // Initialize a new table. Old table will be deallocated with the transaction context
     const HASHCTL info = {
         .hcxt = TopTransactionContext, .keysize = NAMEDATALEN, .entrysize = sizeof(Variable)};
-    current_tab = hash_create("omni_txn variables", nvars, &info, TXN_HASH_ELEM | HASH_CONTEXT);
+    current_tab = hash_create("omni_var variables", nvars, &info, TXN_HASH_ELEM | HASH_CONTEXT);
     last_used_txnid = txnid;
   }
 
@@ -85,8 +84,7 @@ Datum set_variable(PG_FUNCTION_ARGS) {
   return var->value;
 }
 
-Datum get_variable(PG_FUNCTION_ARGS) {
-  ereport(WARNING, errmsg("omni_txn.get is deprecated, use omni_var.get"));
+Datum get(PG_FUNCTION_ARGS) {
   if (PG_ARGISNULL(0)) {
     ereport(ERROR, errmsg("variable name must not be a null"));
   }
@@ -110,7 +108,7 @@ Datum get_variable(PG_FUNCTION_ARGS) {
     }
     return var->value;
   }
-  // If not found, return the default value
+// If not found, return the default value
 default_value:
   if (PG_ARGISNULL(1)) {
     PG_RETURN_NULL();

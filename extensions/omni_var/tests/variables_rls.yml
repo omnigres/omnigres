@@ -1,0 +1,32 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_var
+  - create table items (user_id int not null, item text)
+  - alter table items enable row level security
+  - insert into items values (1, 'test'), (2, 'another')
+  - create policy items_owners on items using (user_id = omni_var.get('current_user', null::int))
+  - create role runner
+  - grant select on items to runner
+  - grant usage on schema omni_var to runner
+  - set role runner
+
+tests:
+
+- name: no user
+  query: select user_id, item from items
+  results: []
+
+- name: user 1
+  steps:
+  - select omni_var.set('current_user', 1::int)
+  - query: select item from items
+    results:
+    - item: test
+
+- name: user 2
+  steps:
+  - select omni_var.set('current_user', 2::int)
+  - query: select item from items
+    results:
+    - item: another

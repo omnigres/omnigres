@@ -1,0 +1,107 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_var
+
+
+tests:
+
+- name: null as a name
+  tests:
+  - query: select omni_var.set(null, null::int8)
+    error: variable name must not be a null
+  - query: select omni_var.get(null, 1::int8)
+    error: variable name must not be a null
+
+- name: storing and retrieving a null
+  steps:
+  - query: select omni_var.set('test', null::int8)
+    results:
+    - set: null
+  - query: select omni_var.get('test', 1::int8)
+    results:
+    - get: null
+
+- name: storing and retrieving a byval variable
+  steps:
+  - query: select omni_var.set('test', 1::int8)
+    results:
+    - set: 1
+  - query: select omni_var.get('test', null::int8)
+    results:
+    - get: 1
+
+- name: storing and retrieving a byval variable with a wrong type
+  steps:
+  - query: select omni_var.set('test', 1::int8)
+    results:
+    - set: 1
+  - query: select omni_var.get('test', null::int4)
+    error:
+      severity: ERROR
+      message: type mismatch
+      detail: expected bigint, got integer
+
+- name: storing, updating and retrieving a byval variable
+  steps:
+  - query: select omni_var.set('test', 1::int8)
+    results:
+    - set: 1
+  - query: select omni_var.set('test', 2::int4)
+    results:
+    - set: 2
+  - query: select omni_var.get('test', null::int4)
+    results:
+    - get: 2
+
+- name: retrieving a byval variable (default value)
+  steps:
+  - query: select omni_var.get('test', 1::int8)
+    results:
+    - get: 1
+
+- name: byval variable not accessible after rolled back transaction
+  tests:
+    - steps:
+      - query: select omni_var.set('test', 1::int8)
+        results:
+        - set: 1
+      - query: select omni_var.get('test', null::int8)
+        results:
+        - get: 1
+    - query: select omni_var.get('test', null::int8)
+      results:
+      - get: null
+
+- name: byval variable not accessible after committed transaction
+  tests:
+  - steps:
+    - query: select omni_var.set('test', 1::int8)
+      results:
+      - set: 1
+    - query: select omni_var.get('test', null::int8)
+      results:
+      - get: 1
+    commit: true
+  - query: select omni_var.get('test', null::int8)
+    results:
+    - get: null
+
+- name: storing and retrieving a varsize variable
+  steps:
+  - query: select omni_var.set('test', 'test'::text)
+    results:
+    - set: test
+  - query: select omni_var.get('test', null::text)
+    results:
+    - get: test
+
+- name: storing and retrieving a composite type variable
+  steps:
+  - create type test as (a int, b int)
+  - query: select omni_var.set('test', row (1,2)::test)
+    results:
+    - set: (1,2)
+  - query: select omni_var.get('test', null::test)
+    results:
+    - get: (1,2)
