@@ -22,6 +22,15 @@ tests:
     results:
     - get: null
 
+- name: storing and retrieving a null varlen
+  steps:
+  - query: select omni_var.set('test', null::text)
+    results:
+    - set: null
+  - query: select omni_var.get('test', null::text)
+    results:
+    - get: null
+
 - name: storing and retrieving a byval variable
   steps:
   - query: select omni_var.set('test', 1::int8)

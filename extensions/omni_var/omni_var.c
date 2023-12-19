@@ -64,7 +64,7 @@ Datum set(PG_FUNCTION_ARGS) {
   Variable *var = (Variable *)hash_search(current_tab, PG_GETARG_NAME(0), HASH_ENTER, &found);
   if (byval) {
     var->value = PG_GETARG_DATUM(1);
-  } else {
+  } else if (!PG_ARGISNULL(1)) {
     // Ensure we copy the value into the top transaction context
     // (matching the context of the hash table)
     // Otherwise it may be a shorter-lifetime context and then we may end
