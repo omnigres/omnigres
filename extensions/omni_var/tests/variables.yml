@@ -114,3 +114,19 @@ tests:
   - query: select omni_var.get('test', null::test)
     results:
     - get: (1,2)
+
+- name: subtransactions aren't affecting transaction
+  steps:
+  - select omni_var.set('test', true)
+  - query: select omni_var.get('test', null::boolean)
+    results:
+    - get: true
+  - savepoint a
+  - query: select omni_var.get('test', null::boolean)
+    results:
+    - get: true
+  - select omni_var.set('test', false)
+  - rollback to savepoint a
+  - query: select omni_var.get('test', null::boolean)
+    results:
+    - get: false

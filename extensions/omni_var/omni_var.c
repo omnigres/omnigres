@@ -54,7 +54,7 @@ Datum set(PG_FUNCTION_ARGS) {
     ereport(ERROR, errmsg("value type can't be inferred"));
   }
   bool byval = get_typbyval(value_type);
-  TransactionId txnid = GetCurrentTransactionId();
+  TransactionId txnid = GetTopTransactionId();
   if (last_used_txnid != txnid) {
     // Initialize a new table. Old table will be deallocated with the transaction context
     const HASHCTL info = {
@@ -94,7 +94,7 @@ Datum get(PG_FUNCTION_ARGS) {
   if (value_type == InvalidOid) {
     ereport(ERROR, errmsg("default value type can't be inferred"));
   }
-  TransactionId txnid = GetCurrentTransactionIdIfAny();
+  TransactionId txnid = GetTopTransactionIdIfAny();
   if (txnid == InvalidTransactionId || last_used_txnid != txnid) {
     // No variables as we haven't set anything in the current session
     goto default_value;
