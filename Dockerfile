@@ -50,7 +50,7 @@ FROM builder AS postgres-build
 COPY docker/CMakeLists.txt /omni/CMakeLists.txt
 COPY cmake/FindPostgreSQL.cmake cmake/OpenSSL.cmake docker/PostgreSQLExtension.cmake /omni/cmake/
 WORKDIR /build
-RUN cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DPG=${PG} -DCMAKE_BUILD_PARALLEL_LEVEL=${BUILD_PARALLEL_LEVEL} /omni
+RUN cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DPGVER=${PG} -DCMAKE_BUILD_PARALLEL_LEVEL=${BUILD_PARALLEL_LEVEL} /omni
 
 # Omnigres build
 FROM builder AS build
@@ -59,7 +59,7 @@ ENV OMNIGRES_VERSION=${OMNIGRES_VERSION}
 COPY --chown=${UID} . /omni
 COPY --link --from=postgres-build --chown=${UID} /omni/.pg /omni/.pg
 WORKDIR /build
-RUN cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DPG=${PG} /omni -DOMNIGRES_VERSION=${OMNIGRES_VERSION}
+RUN cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DPGVER=${PG} /omni -DOMNIGRES_VERSION=${OMNIGRES_VERSION}
 RUN make -j ${BUILD_PARALLEL_LEVEL} all
 RUN make package
 
