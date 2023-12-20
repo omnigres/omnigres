@@ -1,2 +1,2 @@
 INHERIT: ../../mkdocs.base.yml
-site_name: omni_txn
+site_name: omni_var
