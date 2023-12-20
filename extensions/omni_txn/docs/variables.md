@@ -39,23 +39,23 @@ In order to get a variable from the transaction's context, one needs to specify
 a default value with a type in order to get a value:
 
 ```postgresql
-select omni_txn.get('my_variable', false)
+select omni_txn.get_variable('my_variable', false)
 ```
 
 The above will return the value of `my_variable` or `false` if it is not found.
 
 !!! tip "Will the default value be returned if variable is set to `null`?"
 
-    No, if `set_variable` was used to set a `null` value, `get` will 
+    No, if `set_variable` was used to set a `null` value, `get_variable` will 
     return `null`.
 
-If a mismatching type information is passed to `get`,
-`get` will raise an error indicating the mismatching types in details.
+If a mismatching type information is passed to `get_variable`,
+`get_variable` will raise an error indicating the mismatching types in details.
 
 ```postgresql
 begin;
 select omni_txn.set_variable('var', 1::int);
-select omni_txn.get('var', false);
+select omni_txn.get_variable('var', false);
 -- ERROR:  type mismatch
 -- DETAIL:  expected integer, got boolean
 ```
