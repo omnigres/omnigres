@@ -1,7 +1,7 @@
 # Transaction Variables
 
-`omni_var` extension provides functionality for storing typed information in a
-transactional scope.
+`omni_var` extension provides functionality for storing typed information in a transactional (and sub-transactional)
+scope.
 
 This is most useful to maintain information across multiple queries in the
 transaction, particularly with RLS (Row Level Security) policies in mind.
