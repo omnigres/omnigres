@@ -220,8 +220,7 @@ Datum get(PG_FUNCTION_ARGS) {
       PG_RETURN_NULL();
     }
     if (var->variable_value.oid != value_type) {
-      ereport(
-          ERROR, errmsg("type mismatch"),
+      ereport(ERROR, errmsg("type mismatch"),
               errdetail("expected %s, got %s", format_type_be(var->variable_value.oid),
                         format_type_be(value_type)));
     }
