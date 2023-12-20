@@ -114,8 +114,13 @@ void transaction_callback(XactEvent event, void *arg) {
       subtransaction_callback_registered = false;
     }
     if (transaction_callback_registered) {
+#if PG_MAJORVERSION_NUM >= 16
+      // Only unregister in Postgres >= 16 as per
+      // https://github.com/postgres/postgres/commit/4d2a844242dcfb34e05dd0d880b1a283a514b16b In all
+      // other versions, this callback will stay with its minimal (however, non-zero) cost.
       UnregisterXactCallback(transaction_callback, NULL);
       transaction_callback_registered = false;
+#endif
     }
   default:
     // nothing to do
