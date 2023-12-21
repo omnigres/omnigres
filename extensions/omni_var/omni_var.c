@@ -33,7 +33,11 @@ typedef struct VariableValue {
 
 typedef struct {
   NameData name;
-  VariableValue variable_value;
+  // Pointer to the last value
+  VariableValue *variable_value;
+  // The initial allocation, `variable_value` points to it at the beginning
+  // to avoid an additional allocation call
+  VariableValue initial_allocation;
 } Variable;
 
 static int nvars = 0;
@@ -70,7 +74,7 @@ static void subtransaction_callback(SubXactEvent event, SubTransactionId xact_id
     // For every variable:
     while ((var = (Variable *)hash_seq_search(&seq_status)) != NULL) {
 
-      VariableValue *vvar = &var->variable_value;
+      VariableValue *vvar = var->variable_value;
 
       while (vvar != NULL) {
         if (vvar->subxactid >= xact_id) {
@@ -86,11 +90,11 @@ static void subtransaction_callback(SubXactEvent event, SubTransactionId xact_id
           }
         } else {
           // If it was set at a lower subxact, use it
-          if (vvar != &var->variable_value) {
-            // Copy if it is not the top value.
+          if (vvar != var->variable_value) {
+            // Use it if it is not the top value.
             // We are not freeing up other values that may stand between the var and the value
             // as they will be freed with the transaction.
-            memcpy(&var->variable_value, vvar, sizeof(var->variable_value));
+            var->variable_value = vvar;
           }
           break;
         }
@@ -165,38 +169,46 @@ Datum set(PG_FUNCTION_ARGS) {
   bool found;
   Variable *var = (Variable *)hash_search(current_tab, PG_GETARG_NAME(0), HASH_ENTER, &found);
 
-  if (found && var->variable_value.subxactid < subtxnid) {
-    // If the current sub-transaction is newer than the one used, copy the old value
+  VariableValue *vvar = var->variable_value;
+  if (found && vvar->subxactid < subtxnid) {
+    // If the current sub-transaction is newer than the one used, allocate the new value
+    VariableValue *previous = vvar;
     MemoryContext old_context = MemoryContextSwitchTo(TopTransactionContext);
-    VariableValue *previous = (VariableValue *)palloc(sizeof(VariableValue));
+    vvar = (VariableValue *)palloc(sizeof(VariableValue));
     MemoryContextSwitchTo(old_context);
-    memcpy(previous, &var->variable_value, sizeof(var->variable_value));
-    var->variable_value.previous = previous;
+    // Ensure variable points to it
+    var->variable_value = vvar;
+    // Ensure this new variable value points to the previous one
+    vvar->previous = previous;
   } else {
+    if (!found) {
+      // Important: initialize the point to the initial allocation
+      vvar = var->variable_value = &var->initial_allocation;
+    }
     // Otherwise, there are no older values
-    var->variable_value.previous = NULL;
+    vvar->previous = NULL;
   }
 
   if (byval) {
-    var->variable_value.value = PG_GETARG_DATUM(1);
+    vvar->value = PG_GETARG_DATUM(1);
   } else if (!PG_ARGISNULL(1)) {
     // Ensure we copy the value into the top transaction context
     // (matching the context of the hash table)
     // Otherwise it may be a shorter-lifetime context and then we may end
     // up with something unexpected here
     MemoryContext old_context = MemoryContextSwitchTo(TopTransactionContext);
-    var->variable_value.value = PointerGetDatum(PG_DETOAST_DATUM_COPY(PG_GETARG_DATUM(1)));
+    vvar->value = PointerGetDatum(PG_DETOAST_DATUM_COPY(PG_GETARG_DATUM(1)));
     MemoryContextSwitchTo(old_context);
   }
-  var->variable_value.oid = value_type;
-  var->variable_value.isnull = PG_ARGISNULL(1);
-  var->variable_value.subxactid = subtxnid;
+  vvar->oid = value_type;
+  vvar->isnull = PG_ARGISNULL(1);
+  vvar->subxactid = subtxnid;
 
   if (PG_ARGISNULL(1)) {
     PG_RETURN_NULL();
   }
 
-  return var->variable_value.value;
+  return vvar->value;
 }
 
 Datum get(PG_FUNCTION_ARGS) {
@@ -216,15 +228,16 @@ Datum get(PG_FUNCTION_ARGS) {
   bool found = false;
   Variable *var = (Variable *)hash_search(current_tab, PG_GETARG_NAME(0), HASH_ENTER, &found);
   if (found) {
-    if (var->variable_value.isnull) {
+    VariableValue *vvar = var->variable_value;
+    if (vvar->isnull) {
       PG_RETURN_NULL();
     }
-    if (var->variable_value.oid != value_type) {
-      ereport(ERROR, errmsg("type mismatch"),
-              errdetail("expected %s, got %s", format_type_be(var->variable_value.oid),
-                        format_type_be(value_type)));
+    if (vvar->oid != value_type) {
+      ereport(
+          ERROR, errmsg("type mismatch"),
+          errdetail("expected %s, got %s", format_type_be(vvar->oid), format_type_be(value_type)));
     }
-    return var->variable_value.value;
+    return vvar->value;
   }
 // If not found, return the default value
 default_value:
