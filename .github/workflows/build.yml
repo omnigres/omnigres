@@ -16,7 +16,7 @@ jobs:
     strategy:
       matrix:
         pgver: [ 16, 15, 14, 13 ]
-        os: [ buildjet-4vcpu-ubuntu-2204, macos ]
+        os: [ warp-ubuntu-latest-x64-4x, macos ]
         build_type: [Debug, Release]
         exclude:
         - os: macos
@@ -97,7 +97,7 @@ jobs:
 
   # Ensure it can be built against externally-supplied Postgres
   build-external-pg:
-    runs-on: buildjet-4vcpu-ubuntu-2204
+    runs-on: warp-ubuntu-latest-x64-4x
 
     steps:
     - uses: actions/checkout@v3
@@ -116,7 +116,7 @@ jobs:
 
   # Ensure every extension can be built independently
   build-extensions-independently:
-    runs-on: buildjet-4vcpu-ubuntu-2204
+    runs-on: warp-ubuntu-latest-x64-4x
 
     steps:
     - uses: actions/checkout@v3
