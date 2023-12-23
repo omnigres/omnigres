@@ -1599,7 +1599,7 @@ static void deparseFuncExprWindowless(StringInfo str, Node *node) {
     deparseSQLValueFunction(str, castNode(SQLValueFunction, node));
     break;
   case T_TypeCast:
-    deparseTypeCast(str, castNode(TypeCast, node));
+    deparseTypeCast(str, castNode(TypeCast, node), DEPARSE_NODE_CONTEXT_FUNC_EXPR);
     break;
   case T_CoalesceExpr:
     deparseCoalesceExpr(str, castNode(CoalesceExpr, node));
@@ -2382,7 +2382,7 @@ static void deparseFuncCall(StringInfo str, FuncCall *func_call) {
     deparseExpr(str, lsecond(func_call->args));
     appendStringInfoChar(str, ')');
     return;
-  } else if (func_call->funcformat == COERCE_SQL_SYNTAX && list_length(func_name) == 2 &&
+  } else if (func_call->funcformat == COERCE_SQL_SYNTAX && list_length(func_call->funcname) == 2 &&
              strcmp(strVal(linitial(func_call->funcname)), "pg_catalog") == 0 &&
              strcmp(strVal(lsecond(func_call->funcname)), "system_user") == 0) {
       appendStringInfoString(str, "SYSTEM_USER");
@@ -3607,8 +3607,7 @@ static void deparseColumnDef(StringInfo str, ColumnDef *column_def) {
     appendStringInfoChar(str, ' ');
   }
 
-  if (column_def->storage_name)
-	{
+  if (column_def->storage_name) {
 		appendStringInfoString(str, "STORAGE ");
 		appendStringInfoString(str, column_def->storage_name);
 		appendStringInfoChar(str, ' ');
@@ -3620,11 +3619,10 @@ static void deparseColumnDef(StringInfo str, ColumnDef *column_def) {
     appendStringInfoChar(str, ' ');
   }
 
-  if (column_def->compression != NULL)
-	{
+  if (column_def->compression != NULL) {
 		appendStringInfoString(str, "COMPRESSION ");
 		appendStringInfoString(str, column_def->compression);
-		
+  }
 
   if (column_def->fdwoptions != NULL) {
     deparseCreateGenericOptions(str, column_def->fdwoptions);
