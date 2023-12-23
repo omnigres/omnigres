@@ -3,8 +3,9 @@ name: Build
 on:
   push:
     branches: [ "master" ]
-  pull_request:
+  pull_request_target:
     branches: [ "master" ]
+    types: [ labeled, synchronize, opened ]
   schedule:
     - cron: '33 13 * * *'
 
@@ -16,6 +17,22 @@ env:
   DOCKER_CI_HOST: ci-docker
 
 jobs:
+  pr:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Leave comment on PR
+      if: github.event_name != 'push' && github.event.label.name == 'approve-ci'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const issue_number = context.payload.pull_request.number;
+          const message = 'Please wait until CI run is approved (watch out for the `approve-ci` label) ⏲️';
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: issue_number,
+            body: message
+          });
   build:
     strategy:
       matrix:
@@ -35,6 +52,7 @@ jobs:
           pgver: 11
       fail-fast: false
 
+    if: github.event_name == 'push' || github.event.label.name == 'approve-ci'
     runs-on: ${{ matrix.os }}
 
     steps:
