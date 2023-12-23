@@ -33,17 +33,17 @@ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
 */
 // clang-format off
-
+#include <postgres.h>
+#include <fmgr.h>
 
 #if PG_MAJORVERSION_NUM == 16
 
-#include "postgres.h"
 #include "catalog/index.h"
 #include "catalog/pg_am.h"
 #include "catalog/pg_attribute.h"
 #include "catalog/pg_class.h"
 #include "catalog/pg_trigger.h"
-
+#include "commands/defrem.h"
 #include "commands/trigger.h"
 #include "common/keywords.h"
 #include "common/kwlookup.h"
@@ -10003,6 +10003,9 @@ static void deparseStmt(StringInfo str, Node *node) {
   }
 }
 
+void omni_sql_deparseRawStmt(StringInfo str, RawStmt *raw_stmt) {
+  return deparseRawStmt(str, raw_stmt);
+}
 
 #endif // PG_MAJORVERSION_NUM == 16
 // clang-format on
