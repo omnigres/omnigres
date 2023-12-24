@@ -68,6 +68,8 @@ typedef enum DeparseNodeContext {
   DEPARSE_NODE_CONTEXT_XMLNAMESPACES,
   DEPARSE_NODE_CONTEXT_CREATE_TYPE,
   DEPARSE_NODE_CONTEXT_ALTER_TYPE,
+  DEPARSE_NODE_CONTEXT_SET_STATEMENT,
+  DEPARSE_NODE_CONTEXT_FUNC_EXPR,
   // Identifier vs constant context
   DEPARSE_NODE_CONTEXT_IDENTIFIER,
   DEPARSE_NODE_CONTEXT_CONSTANT
@@ -147,7 +149,7 @@ static void deparseSelectStmt(StringInfo str, SelectStmt *stmt);
 static void deparseIntoClause(StringInfo str, IntoClause *into_clause);
 static void deparseRangeVar(StringInfo str, RangeVar *range_var, DeparseNodeContext context);
 static void deparseResTarget(StringInfo str, ResTarget *res_target, DeparseNodeContext context);
-static void deparseRawStmt(StringInfo str, RawStmt *raw_stmt);
+void deparseRawStmt(StringInfo str, RawStmt *raw_stmt);
 static void deparseAlias(StringInfo str, Alias *alias);
 static void deparseWindowDef(StringInfo str, WindowDef *window_def);
 static void deparseColumnRef(StringInfo str, ColumnRef *column_ref);
@@ -166,8 +168,9 @@ static void deparseRangeSubselect(StringInfo str, RangeSubselect *range_subselec
 static void deparseRangeFunction(StringInfo str, RangeFunction *range_func);
 static void deparseAArrayExpr(StringInfo str, A_ArrayExpr *array_expr);
 static void deparseRowExpr(StringInfo str, RowExpr *row_expr);
-static void deparseTypeCast(StringInfo str, TypeCast *type_cast);
+static void deparseTypeCast(StringInfo str, TypeCast *type_cast, DeparseNodeContext context);
 static void deparseTypeName(StringInfo str, TypeName *type_name);
+static void deparseIntervalTypmods(StringInfo str, TypeName *type_name);
 static void deparseNullTest(StringInfo str, NullTest *null_test);
 static void deparseCaseExpr(StringInfo str, CaseExpr *case_expr);
 static void deparseCaseWhen(StringInfo str, CaseWhen *case_when);
@@ -197,13 +200,18 @@ static void deparseFuncCall(StringInfo str, FuncCall *func_call);
 static void deparseMinMaxExpr(StringInfo str, MinMaxExpr *min_max_expr);
 static void deparseXmlExpr(StringInfo str, XmlExpr *xml_expr);
 static void deparseXmlSerialize(StringInfo str, XmlSerialize *xml_serialize);
+static void deparseJsonIsPredicate(StringInfo str, JsonIsPredicate *json_is_predicate);
+static void deparseJsonObjectAgg(StringInfo str, JsonObjectAgg *json_object_agg);
+static void deparseJsonArrayAgg(StringInfo str, JsonArrayAgg *json_array_agg);
+static void deparseJsonObjectConstructor(StringInfo str, JsonObjectConstructor *json_object_constructor);
+static void deparseJsonArrayConstructor(StringInfo str, JsonArrayConstructor *json_array_constructor);
+static void deparseJsonArrayQueryConstructor(StringInfo str, JsonArrayQueryConstructor *json_array_query_constructor);
 static void deparseConstraint(StringInfo str, Constraint *constraint);
 static void deparseSchemaStmt(StringInfo str, Node *node);
 static void deparseExecuteStmt(StringInfo str, ExecuteStmt *execute_stmt);
 static void deparseTriggerTransition(StringInfo str, TriggerTransition *trigger_transition);
 static void deparseCreateOpClassItem(StringInfo str, CreateOpClassItem *create_op_class_item);
 static void deparseAConst(StringInfo str, A_Const *a_const);
-static void deparseCurrentOfExpr(StringInfo str, CurrentOfExpr *current_of_expr);
 static void deparseGroupingFunc(StringInfo str, GroupingFunc *grouping_func);
 
 static void deparsePreparableStmt(StringInfo str, Node *node);
@@ -245,131 +253,195 @@ static void deparseAnyNameSkipLast(StringInfo str, List *parts) {
   }
 }
 
-// "a_expr" / "b_expr" in gram.y
-static void deparseExpr(StringInfo str, Node *node) {
-  if (node == NULL)
-    return;
-  switch (nodeTag(node)) {
-  case T_FuncCall:
-    deparseFuncCall(str, castNode(FuncCall, node));
-    break;
-  case T_XmlExpr:
-    deparseXmlExpr(str, castNode(XmlExpr, node));
-    break;
-  case T_TypeCast:
-    deparseTypeCast(str, castNode(TypeCast, node));
-    break;
-  case T_A_Const:
-    deparseAConst(str, castNode(A_Const, node));
-    break;
-  case T_ColumnRef:
-    deparseColumnRef(str, castNode(ColumnRef, node));
-    break;
-  case T_A_Expr:
-    deparseAExpr(str, castNode(A_Expr, node), DEPARSE_NODE_CONTEXT_NONE);
-    break;
-  case T_CaseExpr:
-    deparseCaseExpr(str, castNode(CaseExpr, node));
-    break;
-  case T_A_ArrayExpr:
-    deparseAArrayExpr(str, castNode(A_ArrayExpr, node));
-    break;
-  case T_NullTest:
-    deparseNullTest(str, castNode(NullTest, node));
-    break;
-  case T_XmlSerialize:
-    deparseXmlSerialize(str, castNode(XmlSerialize, node));
-    break;
-  case T_ParamRef:
-    deparseParamRef(str, castNode(ParamRef, node));
-    break;
-  case T_BoolExpr:
-    deparseBoolExpr(str, castNode(BoolExpr, node));
-    break;
-  case T_SubLink:
-    deparseSubLink(str, castNode(SubLink, node));
-    break;
-  case T_RowExpr:
-    deparseRowExpr(str, castNode(RowExpr, node));
-    break;
-  case T_CoalesceExpr:
-    deparseCoalesceExpr(str, castNode(CoalesceExpr, node));
-    break;
-  case T_SetToDefault:
-    deparseSetToDefault(str, castNode(SetToDefault, node));
-    break;
-  case T_A_Indirection:
-    deparseAIndirection(str, castNode(A_Indirection, node));
-    break;
-  case T_CollateClause:
-    deparseCollateClause(str, castNode(CollateClause, node));
-    break;
-  case T_CurrentOfExpr:
-    deparseCurrentOfExpr(str, castNode(CurrentOfExpr, node));
-    break;
-  case T_SQLValueFunction:
-    deparseSQLValueFunction(str, castNode(SQLValueFunction, node));
-    break;
-  case T_MinMaxExpr:
-    deparseMinMaxExpr(str, castNode(MinMaxExpr, node));
-    break;
-  case T_BooleanTest:
-    deparseBooleanTest(str, castNode(BooleanTest, node));
-    break;
-  case T_GroupingFunc:
-    deparseGroupingFunc(str, castNode(GroupingFunc, node));
-    break;
-  default:
-    elog(ERROR, "deparse: unpermitted node type in a_expr/b_expr: %d", (int)nodeTag(node));
-    break;
-  }
+// "func_expr" in gram.y
+static void deparseFuncExpr(StringInfo str, Node *node)
+{
+	switch (nodeTag(node))
+	{
+		case T_FuncCall:
+			deparseFuncCall(str, castNode(FuncCall, node));
+			break;
+		case T_SQLValueFunction:
+			deparseSQLValueFunction(str, castNode(SQLValueFunction, node));
+			break;
+		case T_MinMaxExpr:
+			deparseMinMaxExpr(str, castNode(MinMaxExpr, node));
+			break;
+		case T_CoalesceExpr:
+			deparseCoalesceExpr(str, castNode(CoalesceExpr, node));
+			break;
+		case T_XmlExpr:
+			deparseXmlExpr(str, castNode(XmlExpr, node));
+			break;
+		case T_XmlSerialize:
+			deparseXmlSerialize(str, castNode(XmlSerialize, node));
+			break;
+		case T_JsonObjectAgg:
+			deparseJsonObjectAgg(str, castNode(JsonObjectAgg, node));
+			break;
+		case T_JsonArrayAgg:
+			deparseJsonArrayAgg(str, castNode(JsonArrayAgg, node));
+			break;
+		case T_JsonObjectConstructor:
+			deparseJsonObjectConstructor(str, castNode(JsonObjectConstructor, node));
+			break;
+		case T_JsonArrayConstructor:
+			deparseJsonArrayConstructor(str, castNode(JsonArrayConstructor, node));
+			break;
+		case T_JsonArrayQueryConstructor:
+			deparseJsonArrayQueryConstructor(str, castNode(JsonArrayQueryConstructor, node));
+			break;
+		default:
+			elog(ERROR, "deparse: unpermitted node type in func_expr: %d",
+				 (int) nodeTag(node));
+			break;
+	}
+}
+
+static void deparseCExpr(StringInfo str, Node *node);
+
+// "a_expr" in gram.y
+static void deparseExpr(StringInfo str, Node *node)
+{
+	if (node == NULL)
+		return;
+	switch (nodeTag(node))
+	{
+		case T_ColumnRef:
+		case T_A_Const:
+		case T_ParamRef:
+		case T_A_Indirection:
+		case T_CaseExpr:
+		case T_SubLink:
+		case T_A_ArrayExpr:
+		case T_RowExpr:
+		case T_GroupingFunc:
+			deparseCExpr(str, node);
+			break;
+		case T_TypeCast:
+			deparseTypeCast(str, castNode(TypeCast, node), DEPARSE_NODE_CONTEXT_NONE);
+			break;
+		case T_CollateClause:
+			deparseCollateClause(str, castNode(CollateClause, node));
+			break;
+		case T_A_Expr:
+			deparseAExpr(str, castNode(A_Expr, node), DEPARSE_NODE_CONTEXT_NONE);
+			break;
+		case T_BoolExpr:
+			deparseBoolExpr(str, castNode(BoolExpr, node));
+			break;
+		case T_NullTest:
+			deparseNullTest(str, castNode(NullTest, node));
+			break;
+		case T_BooleanTest:
+			deparseBooleanTest(str, castNode(BooleanTest, node));
+			break;
+		case T_JsonIsPredicate:
+			deparseJsonIsPredicate(str, castNode(JsonIsPredicate, node));
+			break;
+		case T_SetToDefault:
+			deparseSetToDefault(str, castNode(SetToDefault, node));
+			break;
+		case T_FuncCall:
+		case T_SQLValueFunction:
+		case T_MinMaxExpr:
+		case T_CoalesceExpr:
+		case T_XmlExpr:
+		case T_XmlSerialize:
+		case T_JsonObjectAgg:
+		case T_JsonArrayAgg:
+		case T_JsonObjectConstructor:
+		case T_JsonArrayConstructor:
+		case T_JsonArrayQueryConstructor:
+			deparseFuncExpr(str, node);
+			break;
+		default:
+			// Note that this is also the fallthrough for deparseBExpr and deparseCExpr
+			elog(ERROR, "deparse: unpermitted node type in a_expr/b_expr/c_expr: %d",
+				 (int) nodeTag(node));
+			break;
+	}
+}
+
+// "b_expr" in gram.y
+static void deparseBExpr(StringInfo str, Node *node)
+{
+	if (IsA(node, XmlExpr)) {
+		deparseXmlExpr(str, castNode(XmlExpr, node));
+		return;
+	}
+
+	if (IsA(node, A_Expr)) {
+		A_Expr *a_expr = castNode(A_Expr, node);
+		// Other kinds are handled by "c_expr", with parens added around them
+		if (a_expr->kind == AEXPR_OP || a_expr->kind == AEXPR_DISTINCT || a_expr->kind == AEXPR_NOT_DISTINCT) {
+			deparseAExpr(str, a_expr, DEPARSE_NODE_CONTEXT_NONE);
+			return;
+		}
+	}
+
+	if (IsA(node, BoolExpr)) {
+		BoolExpr *bool_expr = castNode(BoolExpr, node);
+		if (bool_expr->boolop == NOT_EXPR) {
+			deparseBoolExpr(str, bool_expr);
+			return;
+		}
+	}
+
+	deparseCExpr(str, node);
 }
 
 // "c_expr" in gram.y
-static void deparseCExpr(StringInfo str, Node *node) {
-  switch (nodeTag(node)) {
-  case T_ColumnRef:
-    deparseColumnRef(str, castNode(ColumnRef, node));
-    break;
-  case T_A_Const:
-    deparseAConst(str, castNode(A_Const, node));
-    break;
-  case T_TypeCast:
-    deparseTypeCast(str, castNode(TypeCast, node));
-    break;
-  case T_A_Expr:
-    appendStringInfoChar(str, '(');
-    deparseAExpr(str, castNode(A_Expr, node), DEPARSE_NODE_CONTEXT_NONE);
-    appendStringInfoChar(str, ')');
-    break;
-  case T_ParamRef:
-    deparseParamRef(str, castNode(ParamRef, node));
-    break;
-  case T_A_Indirection:
-    deparseAIndirection(str, castNode(A_Indirection, node));
-    break;
-  case T_CaseExpr:
-    deparseCaseExpr(str, castNode(CaseExpr, node));
-    break;
-  case T_FuncCall:
-    deparseFuncCall(str, castNode(FuncCall, node));
-    break;
-  case T_SubLink:
-    deparseSubLink(str, castNode(SubLink, node));
-    break;
-  case T_A_ArrayExpr:
-    deparseAArrayExpr(str, castNode(A_ArrayExpr, node));
-    break;
-  case T_RowExpr:
-    deparseRowExpr(str, castNode(RowExpr, node));
-    break;
-  case T_GroupingFunc:
-    deparseGroupingFunc(str, castNode(GroupingFunc, node));
-    break;
-  default:
-    elog(ERROR, "deparse: unpermitted node type in c_expr: %d", (int)nodeTag(node));
-    break;
-  }
+static void deparseCExpr(StringInfo str, Node *node)
+{
+	switch (nodeTag(node))
+	{
+		case T_ColumnRef:
+			deparseColumnRef(str, castNode(ColumnRef, node));
+			break;
+		case T_A_Const:
+			deparseAConst(str, castNode(A_Const, node));
+			break;
+		case T_ParamRef:
+			deparseParamRef(str, castNode(ParamRef, node));
+			break;
+		case T_A_Indirection:
+			deparseAIndirection(str, castNode(A_Indirection, node));
+			break;
+		case T_CaseExpr:
+			deparseCaseExpr(str, castNode(CaseExpr, node));
+			break;
+		case T_SubLink:
+			deparseSubLink(str, castNode(SubLink, node));
+			break;
+		case T_A_ArrayExpr:
+			deparseAArrayExpr(str, castNode(A_ArrayExpr, node));
+			break;
+		case T_RowExpr:
+			deparseRowExpr(str, castNode(RowExpr, node));
+			break;
+		case T_GroupingFunc:
+			deparseGroupingFunc(str, castNode(GroupingFunc, node));
+			break;
+		case T_FuncCall:
+		case T_SQLValueFunction:
+		case T_MinMaxExpr:
+		case T_CoalesceExpr:
+		case T_XmlExpr:
+		case T_XmlSerialize:
+		case T_JsonObjectAgg:
+		case T_JsonArrayAgg:
+		case T_JsonObjectConstructor:
+		case T_JsonArrayConstructor:
+		case T_JsonArrayQueryConstructor:
+			deparseFuncExpr(str, node);
+			break;
+		default:
+			appendStringInfoChar(str, '(');
+			deparseExpr(str, node);
+			appendStringInfoChar(str, ')');
+			break;
+	}
 }
 
 // "expr_list" in gram.y
@@ -681,7 +753,7 @@ static void deparseCreateGenericOptions(StringInfo str, List *options) {
     if (lnext(options, lc))
       appendStringInfoString(str, ", ");
   }
-  appendStringInfoString(str, ") ");
+  appendStringInfoString(str, ")");
 }
 
 // "common_func_opt_item" in gram.y
@@ -1124,6 +1196,8 @@ static void deparseVarList(StringInfo str, List *l) {
         deparseOptBooleanOrString(str, strVal(&a_const->val));
       else
         Assert(false);
+    } else if (IsA(lfirst(lc), TypeCast)) {
+      deparseTypeCast(str, castNode(TypeCast, lfirst(lc)), DEPARSE_NODE_CONTEXT_SET_STATEMENT);
     } else {
       Assert(false);
     }
@@ -1379,6 +1453,27 @@ static void deparseWhereClause(StringInfo str, Node *node) {
   }
 }
 
+// "where_or_current_clause" in gram.y
+//
+// Note this method adds a trailing space if a value is output
+static void deparseWhereOrCurrentClause(StringInfo str, Node *node)
+{
+	if (node == NULL)
+		return;
+
+	appendStringInfoString(str, "WHERE ");
+
+	if (IsA(node, CurrentOfExpr)) {
+		CurrentOfExpr *current_of_expr = castNode(CurrentOfExpr, node);
+		appendStringInfoString(str, "CURRENT OF ");
+		appendStringInfoString(str, quote_identifier(current_of_expr->cursor_name));
+	} else {
+		deparseExpr(str, node);
+	}
+
+	appendStringInfoChar(str, ' ');
+}
+
 // "group_by_list" in gram.y
 static void deparseGroupByList(StringInfo str, List *l) {
   ListCell *lc = NULL;
@@ -1504,7 +1599,7 @@ static void deparseFuncExprWindowless(StringInfo str, Node *node) {
     deparseSQLValueFunction(str, castNode(SQLValueFunction, node));
     break;
   case T_TypeCast:
-    deparseTypeCast(str, castNode(TypeCast, node));
+    deparseTypeCast(str, castNode(TypeCast, node), DEPARSE_NODE_CONTEXT_FUNC_EXPR);
     break;
   case T_CoalesceExpr:
     deparseCoalesceExpr(str, castNode(CoalesceExpr, node));
@@ -1543,12 +1638,12 @@ static void deparseIndexElem(StringInfo str, IndexElem *index_elem) {
     switch (nodeTag(index_elem->expr)) {
     case T_FuncCall:
     case T_SQLValueFunction:
-    case T_TypeCast:
     case T_CoalesceExpr:
     case T_MinMaxExpr:
     case T_XmlExpr:
     case T_XmlSerialize:
       deparseFuncExprWindowless(str, index_elem->expr);
+      appendStringInfoString(str, " ");
       break;
     default:
       appendStringInfoChar(str, '(');
@@ -1939,8 +2034,10 @@ static void deparseSelectStmt(StringInfo str, SelectStmt *stmt) {
 
     if (IsA(stmt->limitCount, A_Const) && castNode(A_Const, stmt->limitCount)->isnull)
       appendStringInfoString(str, "ALL");
-    else
+    else if (stmt->limitOption == LIMIT_OPTION_WITH_TIES)
       deparseCExpr(str, stmt->limitCount);
+    else
+      deparseExpr(str, stmt->limitCount);
 
     appendStringInfoChar(str, ' ');
 
@@ -2039,7 +2136,7 @@ static void deparseRangeVar(StringInfo str, RangeVar *range_var, DeparseNodeCont
   removeTrailingSpace(str);
 }
 
-static void deparseRawStmt(StringInfo str, RawStmt *raw_stmt) {
+void deparseRawStmt(StringInfo str, RawStmt *raw_stmt) {
   if (raw_stmt->stmt == NULL)
     elog(ERROR, "deparse error in deparseRawStmt: RawStmt with empty Stmt");
 
@@ -2221,7 +2318,18 @@ static void deparseFuncCall(StringInfo str, FuncCall *func_call) {
      * keyword parameter style when its called as a keyword, not as a regular function (i.e.
      * pg_catalog.timezone) Note that the arguments are swapped in this case
      */
-    deparseExpr(str, lsecond(func_call->args));
+    Expr* e = lsecond(func_call->args);
+
+    if (IsA(e, A_Expr)) {
+      appendStringInfoChar(str, '(');
+    }
+    
+    deparseExpr(str, (Node*) e);
+
+    if (IsA(e, A_Expr)) {
+      appendStringInfoChar(str, ')');
+    }
+
     appendStringInfoString(str, " AT TIME ZONE ");
     deparseExpr(str, linitial(func_call->args));
     return;
@@ -2274,6 +2382,11 @@ static void deparseFuncCall(StringInfo str, FuncCall *func_call) {
     deparseExpr(str, lsecond(func_call->args));
     appendStringInfoChar(str, ')');
     return;
+  } else if (func_call->funcformat == COERCE_SQL_SYNTAX && list_length(func_call->funcname) == 2 &&
+             strcmp(strVal(linitial(func_call->funcname)), "pg_catalog") == 0 &&
+             strcmp(strVal(lsecond(func_call->funcname)), "system_user") == 0) {
+      appendStringInfoString(str, "SYSTEM_USER");
+      return;
   }
 
   deparseFuncName(str, func_call->funcname);
@@ -2477,10 +2590,10 @@ static void deparseAExpr(StringInfo str, A_Expr *a_expr, DeparseNodeContext cont
 
   bool need_lexpr_parens =
       a_expr->lexpr != NULL &&
-      (IsA(a_expr->lexpr, BoolExpr) || IsA(a_expr->lexpr, NullTest) || IsA(a_expr->lexpr, A_Expr));
+      (IsA(a_expr->lexpr, BoolExpr) || IsA(a_expr->lexpr, BooleanTest) || IsA(a_expr->lexpr, NullTest) || IsA(a_expr->lexpr, A_Expr));
   bool need_rexpr_parens =
       a_expr->rexpr != NULL &&
-      (IsA(a_expr->rexpr, BoolExpr) || IsA(a_expr->rexpr, NullTest) || IsA(a_expr->rexpr, A_Expr));
+      (IsA(a_expr->rexpr, BoolExpr) || IsA(a_expr->rexpr, BooleanTest) || IsA(a_expr->rexpr, NullTest) || IsA(a_expr->rexpr, A_Expr));
 
   switch (a_expr->kind) {
   case AEXPR_OP: /* normal operator */
@@ -3102,12 +3215,12 @@ static void deparseRowExpr(StringInfo str, RowExpr *row_expr) {
   appendStringInfoChar(str, ')');
 }
 
-static void deparseTypeCast(StringInfo str, TypeCast *type_cast) {
+static void deparseTypeCast(StringInfo str, TypeCast *type_cast, DeparseNodeContext context) {
   bool need_parens = false;
 
   Assert(type_cast->typeName != NULL);
 
-  if (IsA(type_cast->arg, A_Expr)) {
+  if (IsA(type_cast->arg, A_Expr) || context == DEPARSE_NODE_CONTEXT_FUNC_EXPR) {
     appendStringInfoString(str, "CAST(");
     deparseExpr(str, type_cast->arg);
     appendStringInfoString(str, " AS ");
@@ -3140,6 +3253,12 @@ static void deparseTypeCast(StringInfo str, TypeCast *type_cast) {
           appendStringInfoString(str, "false");
           return;
         }
+      } else if (strcmp(typename, "interval") == 0 && context == DEPARSE_NODE_CONTEXT_SET_STATEMENT &&
+                 IsA(&a_const->val, String)) {
+        appendStringInfoString(str, "interval ");
+        deparseAConst(str, a_const);
+        deparseIntervalTypmods(str, type_cast->typeName);
+        return;
       }
     }
 
@@ -3228,70 +3347,11 @@ static void deparseTypeName(StringInfo str, TypeName *type_name) {
     } else if (strcmp(name, "interval") == 0 && list_length(type_name->typmods) == 0) {
       appendStringInfoString(str, "interval");
     } else if (strcmp(name, "interval") == 0 && list_length(type_name->typmods) >= 1) {
-      Assert(IsA(linitial(type_name->typmods), A_Const));
-      Assert(IsA(&castNode(A_Const, linitial(type_name->typmods))->val, Integer));
-
-      int fields = intVal(&castNode(A_Const, linitial(type_name->typmods))->val);
-
       appendStringInfoString(str, "interval");
+			deparseIntervalTypmods(str, type_name);
 
-      // This logic is based on intervaltypmodout in timestamp.c
-      switch (fields) {
-      case INTERVAL_MASK(YEAR):
-        appendStringInfoString(str, " year");
-        break;
-      case INTERVAL_MASK(MONTH):
-        appendStringInfoString(str, " month");
-        break;
-      case INTERVAL_MASK(DAY):
-        appendStringInfoString(str, " day");
-        break;
-      case INTERVAL_MASK(HOUR):
-        appendStringInfoString(str, " hour");
-        break;
-      case INTERVAL_MASK(MINUTE):
-        appendStringInfoString(str, " minute");
-        break;
-      case INTERVAL_MASK(SECOND):
-        appendStringInfoString(str, " second");
-        break;
-      case INTERVAL_MASK(YEAR) | INTERVAL_MASK(MONTH):
-        appendStringInfoString(str, " year to month");
-        break;
-      case INTERVAL_MASK(DAY) | INTERVAL_MASK(HOUR):
-        appendStringInfoString(str, " day to hour");
-        break;
-      case INTERVAL_MASK(DAY) | INTERVAL_MASK(HOUR) | INTERVAL_MASK(MINUTE):
-        appendStringInfoString(str, " day to minute");
-        break;
-      case INTERVAL_MASK(DAY) | INTERVAL_MASK(HOUR) | INTERVAL_MASK(MINUTE) | INTERVAL_MASK(SECOND):
-        appendStringInfoString(str, " day to second");
-        break;
-      case INTERVAL_MASK(HOUR) | INTERVAL_MASK(MINUTE):
-        appendStringInfoString(str, " hour to minute");
-        break;
-      case INTERVAL_MASK(HOUR) | INTERVAL_MASK(MINUTE) | INTERVAL_MASK(SECOND):
-        appendStringInfoString(str, " hour to second");
-        break;
-      case INTERVAL_MASK(MINUTE) | INTERVAL_MASK(SECOND):
-        appendStringInfoString(str, " minute to second");
-        break;
-      case INTERVAL_FULL_RANGE:
-        // Nothing
-        break;
-      default:
-        Assert(false);
-        break;
-      }
-
-      if (list_length(type_name->typmods) == 2) {
-        int precision = intVal(&castNode(A_Const, lsecond(type_name->typmods))->val);
-        if (precision != INTERVAL_FULL_PRECISION)
-          appendStringInfo(str, "(%d)", precision);
-      }
-
-      skip_typmods = true;
-    } else {
+			skip_typmods = true;
+		} else {
       appendStringInfoString(str, "pg_catalog.");
       appendStringInfoString(str, name);
     }
@@ -3299,33 +3359,109 @@ static void deparseTypeName(StringInfo str, TypeName *type_name) {
     deparseAnyName(str, type_name->names);
   }
 
-  if (list_length(type_name->typmods) > 0 && !skip_typmods) {
-    appendStringInfoChar(str, '(');
-    foreach (lc, type_name->typmods) {
-      if (IsA(lfirst(lc), A_Const))
-        deparseAConst(str, lfirst(lc));
-      else if (IsA(lfirst(lc), ParamRef))
-        deparseParamRef(str, lfirst(lc));
-      else if (IsA(lfirst(lc), ColumnRef))
-        deparseColumnRef(str, lfirst(lc));
-      else
-        Assert(false);
+  if (list_length(type_name->typmods) > 0 && !skip_typmods)
+	{
+		appendStringInfoChar(str, '(');
+		foreach(lc, type_name->typmods)
+		{
+			if (IsA(lfirst(lc), A_Const))
+				deparseAConst(str, lfirst(lc));
+			else if (IsA(lfirst(lc), ParamRef))
+				deparseParamRef(str, lfirst(lc));
+			else if (IsA(lfirst(lc), ColumnRef))
+				deparseColumnRef(str, lfirst(lc));
+			else
+				Assert(false);
 
-      if (lnext(type_name->typmods, lc))
-        appendStringInfoString(str, ", ");
-    }
-    appendStringInfoChar(str, ')');
+			if (lnext(type_name->typmods, lc))
+				appendStringInfoString(str, ", ");
+		}
+		appendStringInfoChar(str, ')');
+	}
+
+	foreach(lc, type_name->arrayBounds)
+	{
+		appendStringInfoChar(str, '[');
+		if (IsA(lfirst(lc), Integer) && intVal(lfirst(lc)) != -1)
+			deparseSignedIconst(str, lfirst(lc));
+		appendStringInfoChar(str, ']');
+	}
+
+	if (type_name->pct_type)
+		appendStringInfoString(str, "%type");
+}
+
+// Handle typemods for Interval types separately
+// so that they can be applied appropriately for different contexts.
+// For example, when using `SET` a query like `INTERVAL 'x' hour TO minute`
+// the `INTERVAL` keyword is specified first.
+// In all other contexts, intervals use the `'x'::interval` style.
+static void deparseIntervalTypmods(StringInfo str, TypeName *type_name)
+{
+	const char *name = strVal(lsecond(type_name->names));
+	Assert(strcmp(name, "interval") == 0);
+	Assert(list_length(type_name->typmods) >= 1);
+  Assert(IsA(linitial(type_name->typmods), A_Const));
+  Assert(IsA(&castNode(A_Const, linitial(type_name->typmods))->val, Integer));
+
+  int fields = intVal(&castNode(A_Const, linitial(type_name->typmods))->val);
+
+  appendStringInfoString(str, "interval");
+
+  // This logic is based on intervaltypmodout in timestamp.c
+  switch (fields) {
+    case INTERVAL_MASK(YEAR):
+      appendStringInfoString(str, " year");
+      break;
+    case INTERVAL_MASK(MONTH):
+      appendStringInfoString(str, " month");
+      break;
+    case INTERVAL_MASK(DAY):
+      appendStringInfoString(str, " day");
+      break;
+    case INTERVAL_MASK(HOUR):
+      appendStringInfoString(str, " hour");
+      break;
+    case INTERVAL_MASK(MINUTE):
+      appendStringInfoString(str, " minute");
+      break;
+    case INTERVAL_MASK(SECOND):
+      appendStringInfoString(str, " second");
+      break;
+    case INTERVAL_MASK(YEAR) | INTERVAL_MASK(MONTH):
+      appendStringInfoString(str, " year to month");
+      break;
+    case INTERVAL_MASK(DAY) | INTERVAL_MASK(HOUR):
+      appendStringInfoString(str, " day to hour");
+      break;
+    case INTERVAL_MASK(DAY) | INTERVAL_MASK(HOUR) | INTERVAL_MASK(MINUTE):
+      appendStringInfoString(str, " day to minute");
+      break;
+    case INTERVAL_MASK(DAY) | INTERVAL_MASK(HOUR) | INTERVAL_MASK(MINUTE) | INTERVAL_MASK(SECOND):
+      appendStringInfoString(str, " day to second");
+      break;
+    case INTERVAL_MASK(HOUR) | INTERVAL_MASK(MINUTE):
+      appendStringInfoString(str, " hour to minute");
+      break;
+    case INTERVAL_MASK(HOUR) | INTERVAL_MASK(MINUTE) | INTERVAL_MASK(SECOND):
+      appendStringInfoString(str, " hour to second");
+      break;
+    case INTERVAL_MASK(MINUTE) | INTERVAL_MASK(SECOND):
+      appendStringInfoString(str, " minute to second");
+      break;
+    case INTERVAL_FULL_RANGE:
+      // Nothing
+      break;
+    default:
+      Assert(false);
+      break;
   }
 
-  foreach (lc, type_name->arrayBounds) {
-    appendStringInfoChar(str, '[');
-    if (IsA(lfirst(lc), Integer) && intVal(lfirst(lc)) != -1)
-      deparseSignedIconst(str, lfirst(lc));
-    appendStringInfoChar(str, ']');
+  if (list_length(type_name->typmods) == 2) {
+    int precision = intVal(&castNode(A_Const, lsecond(type_name->typmods))->val);
+    if (precision != INTERVAL_FULL_PRECISION)
+      appendStringInfo(str, "(%d)", precision);
   }
-
-  if (type_name->pct_type)
-    appendStringInfoString(str, "%type");
 }
 
 static void deparseNullTest(StringInfo str, NullTest *null_test) {
@@ -3424,7 +3560,16 @@ static void deparseMinMaxExpr(StringInfo str, MinMaxExpr *min_max_expr) {
 }
 
 static void deparseBooleanTest(StringInfo str, BooleanTest *boolean_test) {
-  deparseExpr(str, (Node *)boolean_test->arg);
+  bool need_parens = IsA(boolean_test->arg, BoolExpr);
+
+	if (need_parens)
+		appendStringInfoChar(str, '(');
+
+	deparseExpr(str, (Node *) boolean_test->arg);
+
+	if (need_parens)
+		appendStringInfoChar(str, ')');
+
   switch (boolean_test->booltesttype) {
   case IS_TRUE:
     appendStringInfoString(str, " IS TRUE");
@@ -3462,10 +3607,21 @@ static void deparseColumnDef(StringInfo str, ColumnDef *column_def) {
     appendStringInfoChar(str, ' ');
   }
 
+  if (column_def->storage_name) {
+		appendStringInfoString(str, "STORAGE ");
+		appendStringInfoString(str, column_def->storage_name);
+		appendStringInfoChar(str, ' ');
+	}
+
   if (column_def->raw_default != NULL) {
     appendStringInfoString(str, "USING ");
     deparseExpr(str, column_def->raw_default);
     appendStringInfoChar(str, ' ');
+  }
+
+  if (column_def->compression != NULL) {
+		appendStringInfoString(str, "COMPRESSION ");
+		appendStringInfoString(str, column_def->compression);
   }
 
   if (column_def->fdwoptions != NULL) {
@@ -3723,7 +3879,7 @@ static void deparseDeleteStmt(StringInfo str, DeleteStmt *delete_stmt) {
     appendStringInfoChar(str, ' ');
   }
 
-  deparseWhereClause(str, delete_stmt->whereClause);
+  deparseWhereOrCurrentClause(str, delete_stmt->whereClause);
 
   if (list_length(delete_stmt->returningList) > 0) {
     appendStringInfoString(str, "RETURNING ");
@@ -3914,6 +4070,8 @@ static void deparseTableLikeClause(StringInfo str, TableLikeClause *table_like_c
   else {
     if (table_like_clause->options & CREATE_TABLE_LIKE_COMMENTS)
       appendStringInfoString(str, "INCLUDING COMMENTS ");
+    if (table_like_clause->options & CREATE_TABLE_LIKE_COMPRESSION)
+			appendStringInfoString(str, "INCLUDING COMPRESSION ");
     if (table_like_clause->options & CREATE_TABLE_LIKE_CONSTRAINTS)
       appendStringInfoString(str, "INCLUDING CONSTRAINTS ");
     if (table_like_clause->options & CREATE_TABLE_LIKE_DEFAULTS)
@@ -4007,7 +4165,7 @@ static void deparseConstraint(StringInfo str, Constraint *constraint) {
     break;
   case CONSTR_DEFAULT:
     appendStringInfoString(str, "DEFAULT ");
-    deparseExpr(str, constraint->raw_expr);
+    deparseBExpr(str, constraint->raw_expr);
     break;
   case CONSTR_IDENTITY:
     appendStringInfoString(str, "GENERATED ");
@@ -4040,6 +4198,8 @@ static void deparseConstraint(StringInfo str, Constraint *constraint) {
     break;
   case CONSTR_UNIQUE:
     appendStringInfoString(str, "UNIQUE ");
+    if (constraint->nulls_not_distinct)
+				appendStringInfoString(str, "NULLS NOT DISTINCT ");
     break;
   case CONSTR_EXCLUSION:
     appendStringInfoString(str, "EXCLUDE ");
@@ -4188,6 +4348,17 @@ static void deparseConstraint(StringInfo str, Constraint *constraint) {
     appendStringInfoString(str, ") ");
   }
 
+  switch (constraint->contype)
+	{
+		case CONSTR_PRIMARY:
+		case CONSTR_UNIQUE:
+		case CONSTR_EXCLUSION:
+			deparseOptWith(str, constraint->options);
+			break;
+		default:
+			break;
+	}
+
   if (constraint->indexname != NULL)
     appendStringInfo(str, "USING INDEX %s ", quote_identifier(constraint->indexname));
 
@@ -4272,7 +4443,24 @@ static void deparseCreateFunctionStmt(StringInfo str, CreateFunctionStmt *create
       deparseReturnStmt(str, castNode(ReturnStmt, create_function_stmt->sql_body));
     else {
       appendStringInfoString(str, "BEGIN ATOMIC ");
-      deparseExprList(str, castNode(List, create_function_stmt->sql_body));
+      if (IsA(create_function_stmt->sql_body, List), linitial((List *) create_function_stmt->sql_body) != NULL)
+			{
+				List *body_stmt_list = castNode(List, linitial((List *) create_function_stmt->sql_body));
+				foreach(lc, body_stmt_list)
+				{
+					if (IsA(lfirst(lc), ReturnStmt))
+					{
+						deparseReturnStmt(str, lfirst_node(ReturnStmt, lc));
+						appendStringInfoString(str, "; ");
+					}
+					else
+					{
+						deparseStmt(str, lfirst(lc));
+						appendStringInfoString(str, "; ");
+					}
+				}
+			}
+
       appendStringInfoString(str, "END ");
     }
   }
@@ -4439,13 +4627,13 @@ static void deparsePartitionSpec(StringInfo str, PartitionSpec *partition_spec) 
   appendStringInfoString(str, "PARTITION BY ");
   switch (partition_spec->strategy) {
     case PARTITION_STRATEGY_LIST:
-      appendStringInfoString(str, "list");
+      appendStringInfoString(str, "LIST");
       break;
-   case PARTITION_STRATEGY_RANGE:
-      appendStringInfoString(str, "range");
+    case PARTITION_STRATEGY_HASH:
+      appendStringInfoString(str, "HASH");
       break;
-   case PARTITION_STRATEGY_HASH:
-      appendStringInfoString(str, "hash");
+    case PARTITION_STRATEGY_RANGE:
+      appendStringInfoString(str, "RANGE");
       break;
   }
 
@@ -5597,7 +5785,7 @@ static void deparseAlterTableCmd(StringInfo str, AlterTableCmd *alter_table_cmd,
     appendStringInfoString(str, "DISABLE TRIGGER ");
     break;
   case AT_EnableTrigAll: /* ENABLE TRIGGER ALL */
-    appendStringInfoString(str, "ENABLE TRIGGER ");
+    appendStringInfoString(str, "ENABLE TRIGGER ALL");
     break;
   case AT_DisableTrigAll: /* DISABLE TRIGGER ALL */
     appendStringInfoString(str, "DISABLE TRIGGER ALL ");
@@ -6207,6 +6395,22 @@ static void deparseTransactionStmt(StringInfo str, TransactionStmt *transaction_
   removeTrailingSpace(str);
 }
 
+// Determine if we hit SET TIME ZONE INTERVAL, that has special syntax not
+// supported for other SET statements
+static bool isSetTimeZoneInterval(VariableSetStmt* stmt)
+{
+	if (!(strcmp(stmt->name, "timezone") == 0 &&
+		  list_length(stmt->args) == 1 &&
+		  IsA(linitial(stmt->args), TypeCast)))
+		return false;
+
+	TypeName* typeName = castNode(TypeCast, linitial(stmt->args))->typeName;
+
+	return (list_length(typeName->names) == 2 &&
+		strcmp(strVal(linitial(typeName->names)), "pg_catalog") == 0 &&
+		strcmp(strVal(llast(typeName->names)), "interval") == 0);
+}
+
 static void deparseVariableSetStmt(StringInfo str, VariableSetStmt *variable_set_stmt) {
   ListCell *lc;
 
@@ -6215,9 +6419,14 @@ static void deparseVariableSetStmt(StringInfo str, VariableSetStmt *variable_set
     appendStringInfoString(str, "SET ");
     if (variable_set_stmt->is_local)
       appendStringInfoString(str, "LOCAL ");
-    deparseVarName(str, variable_set_stmt->name);
-    appendStringInfoString(str, " TO ");
-    deparseVarList(str, variable_set_stmt->args);
+    if (isSetTimeZoneInterval(variable_set_stmt)) {
+			appendStringInfoString(str, "TIME ZONE ");
+			deparseVarList(str, variable_set_stmt->args);
+		} else {
+      deparseVarName(str, variable_set_stmt->name);
+      appendStringInfoString(str, " TO ");
+      deparseVarList(str, variable_set_stmt->args);
+    }
     break;
   case VAR_SET_DEFAULT: /* SET var TO DEFAULT */
     appendStringInfoString(str, "SET ");
@@ -6510,6 +6719,8 @@ static void deparseCopyStmt(StringInfo str, CopyStmt *copy_stmt) {
             appendStringInfoString(str, "BINARY");
           else if (strcmp(format, "csv") == 0)
             appendStringInfoString(str, "CSV");
+          else if (strcmp(format, "text") == 0)
+            appendStringInfoString(str, "TEXT");
           else
             Assert(false);
         } else if (strcmp(def_elem->defname, "freeze") == 0) {
@@ -7056,23 +7267,24 @@ static void deparseGrantStmt(StringInfo str, GrantStmt *grant_stmt) {
 static void deparseGrantRoleStmt(StringInfo str, GrantRoleStmt *grant_role_stmt) {
   ListCell *lc;
 
-  DefElem *opt = (DefElem *)linitial(grant_role_stmt->opt);
-
   if (grant_role_stmt->is_grant)
     appendStringInfoString(str, "GRANT ");
   else
     appendStringInfoString(str, "REVOKE ");
 
-  if (!grant_role_stmt->is_grant) {
-    ListCell *item;
-    foreach(item, grant_role_stmt->opt) {
-      DefElem *opt = (DefElem *) lfirst(item);
-      char *optval = defGetString(opt);
-      if (strcmp(opt->defname, "admin") == 0) {
-        appendStringInfoString(str, "ADMIN OPTION FOR ");
-      }
-      // TODO: other options
+  if (!grant_role_stmt->is_grant && list_length(grant_role_stmt->opt)) {
+    DefElem *defelem = castNode(DefElem, linitial(grant_role_stmt->opt));
+    Assert(!castNode(Boolean, defelem->arg)->boolval);
+
+    if (strcmp("admin", defelem->defname) == 0) {
+      appendStringInfoString(str, "ADMIN ");
+    } else if (strcmp("inherit", defelem->defname) == 0) {
+      appendStringInfoString(str, "INHERIT ");
+    } else if (strcmp("set", defelem->defname) == 0) {
+      appendStringInfoString(str, "SET ");
     }
+
+    appendStringInfoString(str, "OPTION FOR ");
   }
 
   foreach (lc, grant_role_stmt->granted_roles) {
@@ -7090,22 +7302,40 @@ static void deparseGrantRoleStmt(StringInfo str, GrantRoleStmt *grant_role_stmt)
   deparseRoleList(str, grant_role_stmt->grantee_roles);
   appendStringInfoChar(str, ' ');
 
-  if (!grant_role_stmt->is_grant) {
-    ListCell *item;
-    foreach(item, grant_role_stmt->opt) {
-      DefElem *opt = (DefElem *) lfirst(item);
-      char *optval = defGetString(opt);
-      if (strcmp(opt->defname, "admin") == 0) {
-        appendStringInfoString(str, "ADMIN OPTION FOR ");
-      }
-      // TODO: other options
+  if (grant_role_stmt->is_grant) {
+		if (list_length(grant_role_stmt->opt) > 0) {
+			appendStringInfoString(str, "WITH ");
+		}
+
+		foreach(lc, grant_role_stmt->opt) {
+			DefElem *defelem = castNode(DefElem, lfirst(lc));
+			if (strcmp("admin", defelem->defname) == 0) {
+				appendStringInfoString(str, "ADMIN ");
+				appendStringInfoString(str, castNode(Boolean, defelem->arg)->boolval ? "OPTION" : "FALSE");
+			} else if (strcmp("inherit", defelem->defname) == 0) {
+				appendStringInfoString(str, "INHERIT ");
+				appendStringInfoString(str, castNode(Boolean, defelem->arg)->boolval ? "OPTION" : "FALSE");
+			} else if (strcmp("set", defelem->defname) == 0) {
+				appendStringInfoString(str, "SET ");
+				appendStringInfoString(str, castNode(Boolean, defelem->arg)->boolval ? "OPTION" : "FALSE");
+			}
+      if (lnext(grant_role_stmt->opt, lc)) {
+				appendStringInfoChar(str, ',');
+			}
+
+			appendStringInfoChar(str, ' ');
     }
+
   }
 
   if (grant_role_stmt->grantor) {
     appendStringInfoString(str, "GRANTED BY ");
     deparseRoleSpec(str, castNode(RoleSpec, grant_role_stmt->grantor));
   }
+
+  if (grant_role_stmt->behavior == DROP_CASCADE) {
+		appendStringInfoString(str, "CASCADE ");
+	}
 
   removeTrailingSpace(str);
 }
@@ -7138,7 +7368,7 @@ static void deparseIndexStmt(StringInfo str, IndexStmt *index_stmt) {
     appendStringInfoString(str, "IF NOT EXISTS ");
 
   if (index_stmt->idxname != NULL) {
-    appendStringInfoString(str, index_stmt->idxname);
+    appendStringInfoString(str, quote_identifier(index_stmt->idxname));
     appendStringInfoChar(str, ' ');
   }
 
@@ -8409,7 +8639,7 @@ static void deparseVariableShowStmt(StringInfo str, VariableShowStmt *variable_s
   else if (strcmp(variable_show_stmt->name, "session_authorization") == 0)
     appendStringInfoString(str, "SESSION AUTHORIZATION");
   else if (strcmp(variable_show_stmt->name, "all") == 0)
-    appendStringInfoString(str, "SESSION ALL");
+    appendStringInfoString(str, "ALL");
   else
     appendStringInfoString(str, quote_identifier(variable_show_stmt->name));
 }
@@ -8722,10 +8952,6 @@ static void deparseClosePortalStmt(StringInfo str, ClosePortalStmt *close_portal
   }
 }
 
-static void deparseCurrentOfExpr(StringInfo str, CurrentOfExpr *current_of_expr) {
-  appendStringInfoString(str, "CURRENT OF ");
-  appendStringInfoString(str, quote_identifier(current_of_expr->cursor_name));
-}
 
 static void deparseCreateTrigStmt(StringInfo str, CreateTrigStmt *create_trig_stmt) {
   ListCell *lc;
@@ -9000,7 +9226,241 @@ static void deparseXmlSerialize(StringInfo str, XmlSerialize *xml_serialize) {
   deparseExpr(str, xml_serialize->expr);
   appendStringInfoString(str, " AS ");
   deparseTypeName(str, xml_serialize->typeName);
+
+  if (xml_serialize->indent) {
+		appendStringInfoString(str, " INDENT");
+	}
+
   appendStringInfoString(str, ")");
+}
+
+static void deparseJsonFormat(StringInfo str, JsonFormat *json_format)
+{
+	if (json_format == NULL || json_format->format_type == JS_FORMAT_DEFAULT)
+		return;
+
+	appendStringInfoString(str, "FORMAT JSON ");
+
+	switch (json_format->encoding)
+	{
+		case JS_ENC_UTF8:
+			appendStringInfoString(str, "ENCODING utf8 ");
+			break;
+		case JS_ENC_UTF16:
+			appendStringInfoString(str, "ENCODING utf16 ");
+			break;
+		case JS_ENC_UTF32:
+			appendStringInfoString(str, "ENCODING utf32 ");
+			break;
+		case JS_ENC_DEFAULT:
+			// no encoding specified
+			break;
+	}
+}
+
+static void deparseJsonIsPredicate(StringInfo str, JsonIsPredicate *j)
+{
+	deparseExpr(str, j->expr);
+	appendStringInfoChar(str, ' ');
+
+	deparseJsonFormat(str, castNode(JsonFormat, j->format));
+
+	appendStringInfoString(str, "IS ");
+
+	switch (j->item_type)
+	{
+		case JS_TYPE_ANY:
+			appendStringInfoString(str, "JSON ");
+			break;
+		case JS_TYPE_ARRAY:
+			appendStringInfoString(str, "JSON ARRAY ");
+			break;
+		case JS_TYPE_OBJECT:
+			appendStringInfoString(str, "JSON OBJECT ");
+			break;
+		case JS_TYPE_SCALAR:
+			appendStringInfoString(str, "JSON SCALAR ");
+			break;
+	}
+
+	if (j->unique_keys)
+		appendStringInfoString(str, "WITH UNIQUE ");
+
+	removeTrailingSpace(str);
+}
+
+// "json_value_expr" in gram.y
+static void deparseJsonValueExpr(StringInfo str, JsonValueExpr *json_value_expr)
+{
+	deparseExpr(str, (Node *) json_value_expr->raw_expr);
+	appendStringInfoChar(str, ' ');
+	deparseJsonFormat(str, json_value_expr->format);
+}
+
+// "json_value_expr_list" in gram.y
+static void deparseJsonValueExprList(StringInfo str, List *exprs)
+{
+	ListCell *lc;
+	foreach(lc, exprs)
+	{
+		deparseJsonValueExpr(str, lfirst(lc));
+		removeTrailingSpace(str);
+		if (lnext(exprs, lc))
+			appendStringInfoString(str, ", ");
+	}
+	appendStringInfoChar(str, ' ');
+}
+
+// "json_name_and_value" in gram.y
+static void deparseJsonKeyValue(StringInfo str, JsonKeyValue *json_key_value)
+{
+	deparseExpr(str, (Node *) json_key_value->key);
+	appendStringInfoString(str, ": ");
+	deparseJsonValueExpr(str, json_key_value->value);
+}
+
+// "json_name_and_value_list" in gram.y
+static void deparseJsonKeyValueList(StringInfo str, List *exprs)
+{
+	ListCell *lc;
+	foreach(lc, exprs)
+	{
+		deparseJsonKeyValue(str, lfirst(lc));
+		removeTrailingSpace(str);
+		if (lnext(exprs, lc))
+			appendStringInfoString(str, ", ");
+	}
+	appendStringInfoChar(str, ' ');
+}
+
+static void deparseJsonOutput(StringInfo str, JsonOutput *json_output)
+{
+	if (json_output == NULL)
+		return;
+
+	Assert(json_output->returning != NULL);
+
+	appendStringInfoString(str, "RETURNING ");
+	deparseTypeName(str, json_output->typeName);
+	appendStringInfoChar(str, ' ');
+	deparseJsonFormat(str, json_output->returning->format);
+}
+
+static void deparseJsonObjectAgg(StringInfo str, JsonObjectAgg *json_object_agg)
+{
+	Assert(json_object_agg->constructor != NULL);
+
+	appendStringInfoString(str, "JSON_OBJECTAGG(");
+	deparseJsonKeyValue(str, json_object_agg->arg);
+
+	if (json_object_agg->absent_on_null)
+		appendStringInfoString(str, "ABSENT ON NULL ");
+
+	if (json_object_agg->unique)
+		appendStringInfoString(str, "WITH UNIQUE ");
+
+	deparseJsonOutput(str, json_object_agg->constructor->output);
+
+	removeTrailingSpace(str);
+	appendStringInfoString(str, ") ");
+
+	if (json_object_agg->constructor->agg_filter)
+	{
+		appendStringInfoString(str, "FILTER (WHERE ");
+		deparseExpr(str, json_object_agg->constructor->agg_filter);
+		appendStringInfoString(str, ") ");
+	}
+
+	if (json_object_agg->constructor->over)
+	{
+		struct WindowDef *over = json_object_agg->constructor->over;
+		appendStringInfoString(str, "OVER ");
+		if (over->name)
+			appendStringInfoString(str, over->name);
+		else
+			deparseWindowDef(str, over);
+	}
+
+	removeTrailingSpace(str);
+}
+
+static void deparseJsonArrayAgg(StringInfo str, JsonArrayAgg *json_array_agg)
+{
+	Assert(json_array_agg->constructor != NULL);
+
+	appendStringInfoString(str, "JSON_ARRAYAGG(");
+	deparseJsonValueExpr(str, json_array_agg->arg);
+	deparseOptSortClause(str, json_array_agg->constructor->agg_order);
+
+	if (!json_array_agg->absent_on_null)
+		appendStringInfoString(str, "NULL ON NULL ");
+
+	deparseJsonOutput(str, json_array_agg->constructor->output);
+
+	removeTrailingSpace(str);
+	appendStringInfoString(str, ") ");
+
+	if (json_array_agg->constructor->agg_filter)
+	{
+		appendStringInfoString(str, "FILTER (WHERE ");
+		deparseExpr(str, json_array_agg->constructor->agg_filter);
+		appendStringInfoString(str, ") ");
+	}
+
+	if (json_array_agg->constructor->over)
+	{
+		struct WindowDef *over = json_array_agg->constructor->over;
+		appendStringInfoString(str, "OVER ");
+		if (over->name)
+			appendStringInfoString(str, over->name);
+		else
+			deparseWindowDef(str, over);
+	}
+
+	removeTrailingSpace(str);
+}
+
+static void deparseJsonObjectConstructor(StringInfo str, JsonObjectConstructor *json_object_constructor)
+{
+	appendStringInfoString(str, "JSON_OBJECT(");
+	deparseJsonKeyValueList(str, json_object_constructor->exprs);
+
+	if (json_object_constructor->absent_on_null)
+		appendStringInfoString(str, "ABSENT ON NULL ");
+
+	if (json_object_constructor->unique)
+		appendStringInfoString(str, "WITH UNIQUE ");
+
+	deparseJsonOutput(str, json_object_constructor->output);
+
+	removeTrailingSpace(str);
+	appendStringInfoChar(str, ')');
+}
+
+static void deparseJsonArrayConstructor(StringInfo str, JsonArrayConstructor *json_array_constructor)
+{
+	appendStringInfoString(str, "JSON_ARRAY(");
+	deparseJsonValueExprList(str, json_array_constructor->exprs);
+
+	if (!json_array_constructor->absent_on_null)
+		appendStringInfoString(str, "NULL ON NULL ");
+
+	deparseJsonOutput(str, json_array_constructor->output);
+
+	removeTrailingSpace(str);
+	appendStringInfoChar(str, ')');
+}
+
+static void deparseJsonArrayQueryConstructor(StringInfo str, JsonArrayQueryConstructor *json_array_query_constructor)
+{
+	appendStringInfoString(str, "JSON_ARRAY(");
+
+	deparseSelectStmt(str, castNode(SelectStmt, json_array_query_constructor->query));
+	deparseJsonFormat(str, json_array_query_constructor->format);
+	deparseJsonOutput(str, json_array_query_constructor->output);
+
+	removeTrailingSpace(str);
+	appendStringInfoChar(str, ')');
 }
 
 static void deparseGroupingFunc(StringInfo str, GroupingFunc *grouping_func) {
