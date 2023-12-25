@@ -193,7 +193,7 @@ Below is the current list of components being worked on, experimented with and d
 To build and run Omnigres, you would need:
 
 * a recent C compiler
-* OpenSSL 3.1+
+* OpenSSL 3.2 (**optional**, will be built if not available)
 * cmake >= 3.25.1
 * (optionally, to use omni_containers or run a full set of tests) a recent
   version of Docker
