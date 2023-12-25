@@ -484,7 +484,26 @@ export EXTENSION_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"
 rm -rf \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\"
 ${INITDB} -D \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" --no-clean --no-sync --locale=C --encoding=UTF8
 export SOCKDIR=$(mktemp -d)
-echo host all all all trust >>  \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}/pg_hba.conf\"
+if [ -z \"$POSTGRESQLCONF\" ]; then
+  if [ -f \"${CMAKE_CURRENT_SOURCE_DIR}/postgresql.conf\" ]; then
+    export POSTGRESQLCONF=\"${CMAKE_CURRENT_SOURCE_DIR}/postgresql.conf\"
+  fi
+fi
+echo \"Using postgresql.conf: $POSTGRESQLCONF\"
+if [ -z \"$PGHBACONF\" ]; then
+ if [ -f \"${CMAKE_CURRENT_SOURCE_DIR}/pg_hba.conf\" ]; then
+    export PGHBACONF=\"${CMAKE_CURRENT_SOURCE_DIR}/pg_hba.conf\"
+  fi
+fi
+if [ -n \"$POSTGRESQLCONF\" ]; then
+ (cat \"$POSTGRESQLCONF\"  || exit 1) > \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}/postgresql.conf\"
+fi
+if [ -n \"$PGHBACONF\" ]; then
+  echo \"Using pg_hba.conf: $PGBACONF\"
+  cp \"$PGHBACONF\" \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}/pg_hba.conf\" || exit 1
+else
+  echo host all all all trust >>  \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}/pg_hba.conf\"
+fi
 PGSHAREDIR=${_share_dir} \
 ${PG_CTL} start -D \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" \
 -o \"-c max_worker_processes=64 -c listen_addresses=* -c port=$PGPORT $<IF:$<BOOL:${_ext_SHARED_PRELOAD}>,-c shared_preload_libraries='${_target_file_name}$<COMMA>$<$<TARGET_EXISTS:omni_ext>:$<TARGET_FILE:omni_ext>>',-c shared_preload_libraries='$<$<TARGET_EXISTS:omni_ext>:$<TARGET_FILE:omni_ext>>'>\" \
