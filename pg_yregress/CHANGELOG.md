@@ -14,6 +14,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Tests can now reset connections with the boolean `reset` property.
 * Tests can now be executed without a transaction (for non-transactional commands) using optional `transaction` property
 * Tests can now be executed on a different database using optional `database` property
+* Default encoding and locale for databases can be specified using `encoding` and `locale` property of `instance`
 
 ## [0.2.0]
 

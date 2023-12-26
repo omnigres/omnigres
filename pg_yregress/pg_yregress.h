@@ -26,6 +26,8 @@ typedef struct {
     struct {
       iovec_t datadir;
       uint16_t port;
+      iovec_t encoding;
+      iovec_t locale;
     } managed;
     struct {
       char *host;

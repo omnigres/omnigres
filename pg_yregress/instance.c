@@ -213,8 +213,10 @@ void yinstance_start(yinstance *instance) {
     // Initialize the cluster
     char *initdb_command;
     asprintf(&initdb_command,
-             "%s/pg_ctl initdb -o '-A trust -U yregress --no-clean --no-sync' -s -D %s", bindir,
-             datadir);
+             "%s/pg_ctl initdb -o '-A trust -U yregress --no-clean --no-sync --encoding=%.*s "
+             "--locale=%.*s' -s -D %s",
+             bindir, (int)IOVEC_STRLIT(instance->info.managed.encoding),
+             (int)IOVEC_STRLIT(instance->info.managed.locale), datadir);
     system(initdb_command);
 
     // Add configuration
