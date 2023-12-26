@@ -103,6 +103,14 @@ COPY docker/initdb-slim/* /docker-entrypoint-initdb.d/
 RUN cp -R /omni/extension $(pg_config --sharedir)/ && cp -R /omni/*.so $(pg_config --pkglibdir)/ && rm -rf /omni
 RUN apt-get update && apt-get -y install libtclcl1 libpython3.11 libperl5.36
 RUN PG_VER=${PG%.*} && apt-get update && apt-get -y install postgresql-pltcl-${PG_VER} postgresql-plperl-${PG_VER} postgresql-plpython3-${PG_VER} python3-dev python3-venv python3-pip
+RUN apt-get -y install curl
+RUN curl -fsSL https://pkgs.tailscale.com/stable/debian/bookworm.noarmor.gpg | tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null && \
+    curl -fsSL https://pkgs.tailscale.com/stable/debian/bookworm.tailscale-keyring.list | tee /etc/apt/sources.list.d/tailscale.list
+RUN apt-get update && apt-get -y install tailscale
+COPY docker/entrypoint.sh /usr/local/bin/omnigres-entrypoint.sh
+ENTRYPOINT ["omnigres-entrypoint.sh"]
+CMD ["postgres"]
+EXPOSE 22
 EXPOSE 8080
 EXPOSE 5432
 
