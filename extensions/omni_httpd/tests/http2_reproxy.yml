@@ -8,6 +8,55 @@ instance:
   - set session omni_httpd.no_init = true
   - create extension omni_httpd cascade
   - create extension omni_httpc cascade
+  - create sequence test_sequence;
+  - |
+    create function handler(request omni_httpd.http_request) returns omni_httpd.http_outcome
+        language plpgsql
+    as
+    $$
+    declare
+        first bool;
+        a     bigint;
+        b     bigint;
+    begin
+        -- determine who's first
+        first := pg_try_advisory_lock(1000);
+        if not first then
+            perform pg_advisory_lock(1001);
+        end if;
+        -- get sequence
+        a := nextval('test_sequence');
+        if first then
+            -- wait until 2nd part arrives by trying to acquire lock
+            while pg_try_advisory_lock(1001)
+                loop
+                    -- but releasing if acquired
+                    perform pg_advisory_unlock(1001);
+                end loop;
+            -- We can't acquire the 2nd lock anymore
+            -- We're done here
+            perform pg_advisory_unlock(1000);
+            -- Now wait until the 2nd party unlocks
+            perform pg_advisory_lock(1001);
+            -- Grab another sequence
+            b := nextval('test_sequence');
+            -- Unlock second lock
+            perform pg_advisory_unlock(1001);
+        else
+            -- Wait until 1st party unlocks
+            perform pg_advisory_lock(1000);
+            -- Unlock 2nd lock
+            perform pg_advisory_unlock(1001);
+            -- We don't care when we close 2nd part
+            -- all that matters is that they start at the same time
+            b := a;
+            -- Unlock first lock
+            perform pg_advisory_unlock(1000);
+        end if;
+        return omni_httpd.http_response(jsonb_build_object('first', first, 'sequence',
+                                                           jsonb_build_array(a, b)));
+    end
+    $$
   - call omni_httpd.wait_for_configuration_reloads(1)
   - |
     with
@@ -17,11 +66,9 @@ instance:
                     omni_httpd.cascading_query(name, query order by priority desc nulls last)
                   from
                     (values
-                    ('sleep',
-                    $$select omni_httpd.http_response(pg_backend_pid()::text || pg_sleep(2)::text) from request where request.path = '/sleep'$$, 1),
-                    ('other',
-                      $$select omni_httpd.http_response(pg_backend_pid()::text)$$,
-                      1)) as routes(name, query, priority)
+                         ('test',
+                          $$select handler(request.*) from request where request.path = '/'$$,
+                          1)) as routes(name, query, priority)
                       returning id)
       insert into
         omni_httpd.listeners_handlers (listener_id, handler_id)
@@ -38,25 +85,36 @@ tests:
     - query: select count(*) from omni_httpc.http_connections()
       results:
       - count: 0
-    - set local statement_timeout = 2500
     - query: |
         with response as (select * from omni_httpc.http_execute_with_options(
         omni_httpc.http_execute_options(force_cleartext_http2 => true, http2_ratio => 100),
-        omni_httpc.http_request('http://127.0.0.1:' || (select effective_port from omni_httpd.listeners where port = 0) || '/sleep'),
-        omni_httpc.http_request('http://127.0.0.1:' || (select effective_port from omni_httpd.listeners where port = 0) || '/sleep')
+        omni_httpc.http_request(
+                        'http://127.0.0.1:' || (select effective_port from omni_httpd.listeners where port = 0) || '/'),
+        omni_httpc.http_request(
+                        'http://127.0.0.1:' || (select effective_port from omni_httpd.listeners where port = 0) || '/')
         ))
         select
         response.version >> 8 as http_version,
         response.status,
-        dense_rank() over (order by convert_from(response.body, 'utf-8')::integer) as pid
+        convert_from(response.body, 'utf-8')::jsonb -> 'sequence' as response,
+        response.error
         from response
+        order by
+            convert_from(response.body, 'utf-8')::jsonb -> 'first' desc
       results:
       - http_version: 2
+        error: null
         status: 200
-        pid: 1
+        # starts first, finishes last
+        response: [ 1,3 ]
       - http_version: 2
+        error: null
         status: 200
-        pid: 2
+        # starts when the first request is already in progress
+        response: [ 2,2 ]
+        # therefore, we can guarantee that these were executed in different backends
+        # at the same time while using a single http connection
+    # (as long as we are use httpc won't open a new connection altogether):
     - query: select count(*) from omni_httpc.http_connections()
       results:
       - count: 1
