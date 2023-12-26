@@ -4,8 +4,13 @@ if(NOT DEFINED OPENSSL_CONFIGURED)
     set(OPENSSL_USE_STATIC_LIBS ON CACHE INTERNAL "OpenSSL")
     find_package(OpenSSL)
 
-    if(NOT OPENSSL_FOUND OR NOT OPENSSL_VERSION VERSION_EQUAL "3.2")
+    if(NOT OPENSSL_FOUND OR NOT OPENSSL_VERSION VERSION_GREATER_EQUAL "3.0")
 
+        if(OPENSSL_FOUND)
+            message(STATUS "OpenSSL version is expected to be 3.0 or greater, found ${OPENSSL_VERSION}")
+        else()
+            message(STATUS "No OpenSSL with static library has been found")
+        endif()
 
         find_package(Perl)
         if(PERL_FOUND AND PERL_VERSION_STRING VERSION_GREATER_EQUAL "5.10") # Version requirement from NOTES-PERL.md

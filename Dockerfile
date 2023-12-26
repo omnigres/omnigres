@@ -13,9 +13,9 @@ ARG USER=omni
 ARG UID=501
 # Version of Alpine Linux for the builder
 # Currently set to a snaposhot of `edge` to get the minimum requires version of `cmake` (3.25.1)
-ARG DEBIAN_VER=bullseye
+ARG DEBIAN_VER=bookworm
 # Version of Alpine Linux for PostgreSQL container
-ARG DEBIAN_VER_PG=bullseye
+ARG DEBIAN_VER_PG=bookworm
 # Build parallelism
 ARG BUILD_PARALLEL_LEVEL
 # plrust version
@@ -23,9 +23,9 @@ ARG PLRUST_VERSION=1.2.6
 
 # Base builder image
 FROM debian:${DEBIAN_VER}-slim AS builder
-RUN echo "deb http://deb.debian.org/debian bullseye-backports main contrib non-free" >> /etc/apt/sources.list 
+RUN echo "deb http://deb.debian.org/debian bookworm-backports main contrib non-free" >> /etc/apt/sources.list
 RUN apt-get update
-RUN apt-get install -y wget build-essential git clang lld flex libreadline-dev zlib1g-dev libssl-dev tmux lldb gdb make perl python3-dev python3-venv python3-pip netcat
+RUN apt-get install -y wget build-essential git clang lld flex libreadline-dev zlib1g-dev libssl-dev tmux lldb gdb make perl python3-dev python3-venv python3-pip netcat-traditional
 # current cmake is too old
 ARG DEBIAN_VER
 ENV DEBIAN_VER=${DEBIAN_VER}
@@ -51,8 +51,6 @@ COPY docker/CMakeLists.txt /omni/CMakeLists.txt
 COPY cmake/FindPostgreSQL.cmake cmake/OpenSSL.cmake cmake/CPM.cmake docker/PostgreSQLExtension.cmake /omni/cmake/
 WORKDIR /build
 RUN cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DPGVER=${PG} -DCMAKE_BUILD_PARALLEL_LEVEL=${BUILD_PARALLEL_LEVEL} /omni
-# This is a workaround for libcrypto/libssl build in-tree:
-RUN cp _deps/openssl-src/libcrypto.so.3  _deps/openssl-src/libssl.so.3 /omni/.pg/Linux-${BUILD_TYPE}/${PG}/build/lib
 
 # Omnigres build
 FROM builder AS build
@@ -103,7 +101,7 @@ COPY --from=build /build/python-index /python-packages
 COPY --from=build /build/python-wheels /python-wheels
 COPY docker/initdb-slim/* /docker-entrypoint-initdb.d/
 RUN cp -R /omni/extension $(pg_config --sharedir)/ && cp -R /omni/*.so $(pg_config --pkglibdir)/ && rm -rf /omni
-RUN apt-get update && apt-get -y install libtclcl1 libpython3.9 libperl5.32
+RUN apt-get update && apt-get -y install libtclcl1 libpython3.11 libperl5.36
 RUN PG_VER=${PG%.*} && apt-get update && apt-get -y install postgresql-pltcl-${PG_VER} postgresql-plperl-${PG_VER} postgresql-plpython3-${PG_VER} python3-dev python3-venv python3-pip
 EXPOSE 8080
 EXPOSE 5432
