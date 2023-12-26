@@ -482,7 +482,7 @@ if [ -z \"$PGPORT\" ]; then
 fi
 export EXTENSION_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"
 rm -rf \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\"
-${INITDB} -D \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" --no-clean --no-sync
+${INITDB} -D \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" --no-clean --no-sync --locale=C --encoding=UTF8
 export SOCKDIR=$(mktemp -d)
 echo host all all all trust >>  \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}/pg_hba.conf\"
 PGSHAREDIR=${_share_dir} \

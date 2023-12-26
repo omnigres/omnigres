@@ -428,6 +428,40 @@ static int execute_document(struct fy_document *fyd, bool managed, char *host, i
           y_instance->is_default = fy_node_get_boolean(is_default);
         }
 
+        struct fy_node *encoding =
+            fy_node_mapping_lookup_by_string(y_instance->node, STRLIT("encoding"));
+        if (encoding != NULL) {
+          if (!fy_node_is_scalar(encoding)) {
+            fprintf(stderr, "encoding should be a string, got: %s",
+                    fy_emit_node_to_string(encoding, FYECF_DEFAULT));
+            return 1;
+          }
+          if (managed) {
+            y_instance->info.managed.encoding.base =
+                fy_node_get_scalar(encoding, &y_instance->info.managed.encoding.len);
+          }
+        } else if (managed) {
+          // default encoding
+          y_instance->info.managed.encoding = (iovec_t){.base = "UTF8", .len = strlen("UTF8")};
+        }
+
+        struct fy_node *locale =
+            fy_node_mapping_lookup_by_string(y_instance->node, STRLIT("locale"));
+        if (locale != NULL) {
+          if (!fy_node_is_scalar(locale)) {
+            fprintf(stderr, "locale should be a string, got: %s",
+                    fy_emit_node_to_string(locale, FYECF_DEFAULT));
+            return 1;
+          }
+          if (managed) {
+            y_instance->info.managed.locale.base =
+                fy_node_get_scalar(locale, &y_instance->info.managed.locale.len);
+          }
+        } else if (managed) {
+          // default locale
+          y_instance->info.managed.locale = (iovec_t){.base = "C", .len = strlen("C")};
+        }
+
         break;
       default:
         fprintf(stderr, "instance member has an unsupported shape: %s",

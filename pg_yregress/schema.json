@@ -55,6 +55,14 @@
         "hba": {
           "type": "string",
           "description": "pg_hba.conf config"
+        },
+        "encoding": {
+          "type": "string",
+          "description": "default encoding for database"
+        },
+        "locale": {
+          "type": "string",
+          "description": "default locale for database"
         }
       }
     },
