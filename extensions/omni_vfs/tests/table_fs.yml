@@ -1,0 +1,385 @@
+instances:
+  default:
+    init:
+    - create extension omni_vfs cascade
+
+tests:
+
+- name: create a table filesystem
+  query: select omni_vfs.table_fs('fs')
+
+- name: re-creating a table filesystem doesn't advance the sequence
+  steps:
+  - query: select omni_vfs.table_fs('fs')
+  - query: create table seqval as select currval('omni_vfs.table_fs_filesystems_id_seq')
+  - query: select omni_vfs.table_fs('fs')
+  - query: select true as result from seqval where currval = currval('omni_vfs.table_fs_filesystems_id_seq')
+    results:
+    - result: true
+
+- name: list table_fs files
+  steps:
+  - name: populate files
+    query: |
+      insert into omni_vfs.table_fs_files (filesystem_id, filepath, kind)
+      values 
+      ((omni_vfs.table_fs('fs')).id, '/README.md', 'file'),
+      ((omni_vfs.table_fs('fs')).id, '/tes/file', 'file'),
+      ((omni_vfs.table_fs('fs')).id, '/test/file', 'file'),
+      ((omni_vfs.table_fs('fs')).id, '/test/file1', 'file'),
+      ((omni_vfs.table_fs('fs')).id, '/test1/file', 'file'),
+      ((omni_vfs.table_fs('fs')).id, '/test1/test/file', 'file')
+  
+  - name: list files in root dir
+    query: select * from omni_vfs.list(omni_vfs.table_fs('fs'), '') order by name asc
+    results:
+    - name: README.md
+      kind: file
+    - name: tes
+      kind: dir
+    - name: test
+      kind: dir
+    - name: test1
+      kind: dir
+  
+  - name: list files in a dir
+    query: select * from omni_vfs.list(omni_vfs.table_fs('fs'), 'test1') order by name asc
+    results:
+    - name: file
+      kind: file
+    - name: test
+      kind: dir
+  
+  - name: list a file in root dir
+    query: select * from omni_vfs.list(omni_vfs.table_fs('fs'), 'README.md') order by name asc
+    results:
+    - name: README.md
+      kind: file
+  
+  - name: list a file in dir
+    query: select * from omni_vfs.list(omni_vfs.table_fs('fs'), 'test/file') order by name asc
+    results:
+    - name: file
+      kind: file
+
+  - name: list skips a non-existent file
+    query: select * from omni_vfs.list(omni_vfs.table_fs('fs'), 'table_fs_does_not_exist.yml')
+    results: []
+  
+  - name: recursively list root dir
+    query: select * from omni_vfs.list_recursively(omni_vfs.table_fs('fs'), '') order by name asc
+    results:
+    - name: README.md
+      kind: file
+    - name: tes
+      kind: dir
+    - name: tes/file
+      kind: file
+    - name: test
+      kind: dir
+    - name: test/file
+      kind: file
+    - name: test/file1
+      kind: file
+    - name: test1
+      kind: dir
+    - name: test1/file
+      kind: file
+    - name: test1/test
+      kind: dir
+    - name: test1/test/file
+      kind: file
+  
+  - name: recursively list in a dir
+    query: select * from omni_vfs.list_recursively(omni_vfs.table_fs('fs'), 'test1') order by name asc
+    results:
+    - name: file
+      kind: file
+    - name: test
+      kind: dir
+    - name: test/file
+      kind: file
+
+- name: create dir failure
+  query: |
+    insert into omni_vfs.table_fs_files (filesystem_id, filepath, kind)
+    values 
+    ((omni_vfs.table_fs('fs')).id, '/dir', 'dir')
+  # explicit dir entries are disallowed, implicitly exists through file paths
+  error: new row for relation "table_fs_files" violates check constraint "table_fs_files_kind_check"
+
+- name: create file inside file failure
+  query: |
+    insert into omni_vfs.table_fs_files (filesystem_id, filepath, kind)
+    values 
+    ((omni_vfs.table_fs('fs')).id, '/home/john', 'file'),
+    ((omni_vfs.table_fs('fs')).id, '/home/john/file', 'file')
+  error: can't create file at /home/john/file conflicts with an existing file /home/john
+
+- name: create file at existing dir failure
+  query: |
+    insert into omni_vfs.table_fs_files (filesystem_id, filepath, kind)
+    values 
+    ((omni_vfs.table_fs('fs')).id, '/home/john/file', 'file'),
+    ((omni_vfs.table_fs('fs')).id, '/home/john', 'file')
+  error: can't create file at /home/john conflicts with dir at an existing path /home/john/file
+
+- name: create file at empty path failure
+  query: |
+    insert into omni_vfs.table_fs_files (filesystem_id, filepath, kind)
+    values 
+    ((omni_vfs.table_fs('fs')).id, '', 'file')
+  error: new row for relation "table_fs_files" violates check constraint "table_fs_files_filepath_check"
+
+- name: create files at same path failure
+  query: |
+    insert into omni_vfs.table_fs_files (filesystem_id, filepath, kind)
+    values 
+    ((omni_vfs.table_fs('fs')).id, '/file', 'file'),
+    ((omni_vfs.table_fs('fs')).id, '/file', 'file')
+  error: duplicate key value violates unique constraint "table_fs_files_filesystem_id_filepath_key"
+
+- name: create files at same path in two different filesystems
+  query: |
+    insert into omni_vfs.table_fs_files (filesystem_id, filepath, kind)
+    values 
+    ((omni_vfs.table_fs('fs1')).id, '/file', 'file'),
+    ((omni_vfs.table_fs('fs2')).id, '/file', 'file')
+
+- name: insert, read, update and delete data in file
+  steps:
+  - name: create file
+    query: |
+      insert into omni_vfs.table_fs_files (filesystem_id, filepath, kind)
+      values 
+      ((omni_vfs.table_fs('fs')).id, '/file', 'file')
+  
+  - name: insert data
+    query: |
+      insert into omni_vfs.table_fs_file_data (file, data)
+      values
+      (
+        (
+          select id from omni_vfs.table_fs_files where filepath = '/file'
+            and filesystem_id = (omni_vfs.table_fs('fs')).id
+        ),
+        'hello world'::bytea
+      )
+  
+  - name: can get file info
+    query: select size, kind from omni_vfs.file_info(omni_vfs.table_fs('fs'), 'file')
+    results:
+    - size: 11
+      kind: file
+
+  - name: file info on a non-existent file
+    query: select omni_vfs.file_info(omni_vfs.table_fs('fs'), 'does not exist')
+    results:
+    - file_info: null
+  
+  - name: all file timestamps are equal
+    query: |
+      select created_at = all(array[created_at, accessed_at, modified_at]) as equal
+      from omni_vfs.file_info(omni_vfs.table_fs('fs'), 'file')
+    results:
+    - equal: true
+  
+  - name: read data from file
+    query: select omni_vfs.read(omni_vfs.table_fs('fs'), '/file') as data
+    binary: true
+    results:
+    - data: 0x68656c6c6f20776f726c64
+  
+  - name: read data from file with offset
+    # should return world (skipping 'hello ')
+    query: select omni_vfs.read(omni_vfs.table_fs('fs'), '/file', 7) as data
+    binary: true
+    results:
+    - data: 0x776f726c64
+  
+  - name: read data from file with offset with count
+    # should return wor (skipping 'hello ')
+    query: select omni_vfs.read(omni_vfs.table_fs('fs'), '/file', 7, 3) as data
+    binary: true
+    results:
+    - data: 0x776f72
+  
+  - name: only accessed_at is updated after read operations
+    query: |
+      select
+        created_at = all(array[created_at, modified_at]) as create_update_equal,
+        accessed_at > created_at as access_greater_than_create
+      from omni_vfs.file_info(omni_vfs.table_fs('fs'), 'file')
+    results:
+    - create_update_equal: true
+      access_greater_than_create: true
+  
+  - name: update data
+    query: |
+      update omni_vfs.table_fs_file_data
+      set
+        data = 'new data'::bytea
+      where
+        file = (
+          select id from omni_vfs.table_fs_files where filepath = '/file' and
+            filesystem_id = (omni_vfs.table_fs('fs')).id
+        )
+
+  - name: both accessed_at and modified_at is updated after data update
+    query: |
+      select
+        accessed_at = all(array[accessed_at, modified_at]) as access_update_equal,
+        accessed_at > created_at as access_greater_than_create
+      from omni_vfs.file_info(omni_vfs.table_fs('fs'), 'file')
+    results:
+    - access_update_equal: true
+      access_greater_than_create: true
+
+  - name: read data from file after update
+    query: select omni_vfs.read(omni_vfs.table_fs('fs'), '/file') as data
+    binary: true
+    results:
+    - data: 0x6e65772064617461
+  
+  - name: delete file data
+    query: |
+      with deleted as (
+        delete from omni_vfs.table_fs_file_data
+        where
+          file = (
+            select id
+            from
+              omni_vfs.table_fs_files
+            where
+              filesystem_id = (omni_vfs.table_fs('fs')).id and
+              filepath = '/file'
+          ) returning file
+      )
+      select count(*) from deleted
+    results:
+    - count: 1
+  
+  - name: delete file
+    query: |
+      with deleted as (
+        delete from omni_vfs.table_fs_files
+        where
+          filepath = '/file' and filesystem_id = (omni_vfs.table_fs('fs')).id
+        returning id
+      )
+      select count(*) from deleted
+    results:
+    - count: 1
+
+
+- name: insert two data entries for a single file failure
+  steps:
+  - name: create file
+    query: |
+      insert into omni_vfs.table_fs_files (filesystem_id, filepath, kind)
+      values 
+      ((omni_vfs.table_fs('fs')).id, '/file', 'file')
+  
+  - name: insert two data entries
+    query: |
+      insert into omni_vfs.table_fs_file_data (file, data)
+      values
+      (
+        (
+          select id from omni_vfs.table_fs_files where filepath = '/file'
+            and filesystem_id = (omni_vfs.table_fs('fs')).id
+        ),
+        'hello world'::bytea
+      ),
+      (
+        (
+          select id from omni_vfs.table_fs_files where filepath = '/file'
+            and filesystem_id = (omni_vfs.table_fs('fs')).id
+        ),
+        'hello world'::bytea
+      )
+    error: duplicate key value violates unique constraint "table_fs_file_data_pkey"
+
+- name: delete file before data failure
+  steps:
+  - name: create file
+    query: |
+      insert into omni_vfs.table_fs_files (filesystem_id, filepath, kind)
+      values 
+      ((omni_vfs.table_fs('fs')).id, '/file', 'file')
+  
+  - name: insert data
+    query: |
+      insert into omni_vfs.table_fs_file_data (file, data)
+      values
+      (
+        (
+          select id from omni_vfs.table_fs_files where filepath = '/file'
+            and filesystem_id = (omni_vfs.table_fs('fs')).id
+        ),
+        'hello world'::bytea
+      )
+  
+  - name: delete file without deleting data first
+    query: |
+      delete from omni_vfs.table_fs_files
+      where
+        filepath = '/file' and filesystem_id = (omni_vfs.table_fs('fs')).id
+    error: update or delete on table "table_fs_files" violates foreign key constraint "table_fs_file_data_file_fkey" on table "table_fs_file_data"
+
+- name: data isolation between two filesystems
+  steps:
+  - name: create files
+    query: |
+      insert into omni_vfs.table_fs_files (filesystem_id, filepath, kind)
+      values 
+      ((omni_vfs.table_fs('fs1')).id, '/file', 'file'),
+      ((omni_vfs.table_fs('fs2')).id, '/file', 'file')
+  
+  - name: insert data in files
+    query: |
+      insert into omni_vfs.table_fs_file_data (file, data)
+      values
+      (
+        (
+          select id from omni_vfs.table_fs_files where filepath = '/file' and 
+          filesystem_id = (omni_vfs.table_fs('fs1')).id
+        ),
+        'first'::bytea
+      ),
+      (
+        (
+          select id from omni_vfs.table_fs_files where filepath = '/file' and 
+          filesystem_id = (omni_vfs.table_fs('fs2')).id
+        ),
+        'second'::bytea
+      )
+
+  - name: read data from files
+    query: |
+      select omni_vfs.read(omni_vfs.table_fs('fs1'), '/file') as data1,
+        omni_vfs.read(omni_vfs.table_fs('fs2'), '/file') as data2
+    binary: true
+    results:
+    - data1: 0x6669727374
+      data2: 0x7365636f6e64
+
+  - name: update data in file of first filesystem
+    query: |
+      update omni_vfs.table_fs_file_data
+      set
+        data = 'updated'::bytea
+      where
+        file = (
+          select id from omni_vfs.table_fs_files where filepath = '/file' and
+            filesystem_id = (omni_vfs.table_fs('fs1')).id
+        )
+
+  - name: only one file is updated
+    query: |
+      select omni_vfs.read(omni_vfs.table_fs('fs1'), '/file') as data1,
+        omni_vfs.read(omni_vfs.table_fs('fs2'), '/file') as data2
+    binary: true
+    results:
+    - data1: 0x75706461746564
+      data2: 0x7365636f6e64

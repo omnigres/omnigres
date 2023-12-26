@@ -87,7 +87,7 @@ typedef enum
 *		o  remove '.' (unless path reduces to only '.')
 *		o  process '..' ourselves, removing it if possible
 */
-static void
+void
 canonicalize_path_15(char *path)
 {
  char	   *p,
