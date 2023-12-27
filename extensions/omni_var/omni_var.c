@@ -226,7 +226,7 @@ Datum get(PG_FUNCTION_ARGS) {
   }
 
   bool found = false;
-  Variable *var = (Variable *)hash_search(current_tab, PG_GETARG_NAME(0), HASH_ENTER, &found);
+  Variable *var = (Variable *)hash_search(current_tab, PG_GETARG_NAME(0), HASH_FIND, &found);
   if (found) {
     VariableValue *vvar = var->variable_value;
     if (vvar->isnull) {
