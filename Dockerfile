@@ -6,7 +6,7 @@ ARG OMNIGRES_VERSION=current
 # Version of PostgreSQL
 ARG PG=16.1
 # Build type
-ARG BUILD_TYPE=Release
+ARG BUILD_TYPE=RelWithDebInfo
 # User name to be used for builder
 ARG USER=omni
 # Using 501 to match Colima's default
@@ -107,6 +107,7 @@ RUN apt-get -y install curl
 RUN curl -fsSL https://pkgs.tailscale.com/stable/debian/bookworm.noarmor.gpg | tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null && \
     curl -fsSL https://pkgs.tailscale.com/stable/debian/bookworm.tailscale-keyring.list | tee /etc/apt/sources.list.d/tailscale.list
 RUN apt-get update && apt-get -y install tailscale
+RUN apt-get install -y lldb-16 libc6-dbg vim valgrind # Ultimate debug toolkit
 COPY docker/entrypoint.sh /usr/local/bin/omnigres-entrypoint.sh
 ENTRYPOINT ["omnigres-entrypoint.sh"]
 CMD ["postgres"]
