@@ -241,6 +241,7 @@ function(add_postgresql_extension NAME)
     set(_pkg_dir "${CMAKE_BINARY_DIR}/packaged")
 
     if(_ext_SOURCES)
+        set(_target_file $<TARGET_FILE:${NAME}>)
         set(_target_file_name $<TARGET_FILE_NAME:${NAME}>)
     endif()
 
@@ -251,7 +252,7 @@ function(add_postgresql_extension NAME)
             GENERATE
             OUTPUT ${_control_file}
             CONTENT
-            "$<$<NOT:$<BOOL:${_ext_SOURCES}>>:#>module_pathname = '${CMAKE_CURRENT_BINARY_DIR}/${_target_file_name}'
+            "$<$<NOT:$<BOOL:${_ext_SOURCES}>>:#>module_pathname = '${_target_file}'
 $<$<NOT:$<BOOL:${_ext_COMMENT}>>:#>comment = '${_ext_COMMENT}'
 $<$<NOT:$<BOOL:${_ext_ENCODING}>>:#>encoding = '${_ext_ENCODING}'
 $<$<NOT:$<BOOL:${_ext_REQUIRES}>>:#>requires = '$<JOIN:${_ext_REQUIRES},$<COMMA>>'
@@ -415,7 +416,7 @@ export tmpdir=$(mktemp -d)
 echo local all all trust > \"$tmpdir/pg_hba.conf\"
 echo host all all all trust >> \"$tmpdir/pg_hba.conf\"
 echo hba_file=\\\'$tmpdir/pg_hba.conf\\\' > \"$tmpdir/postgresql.conf\"
-$<IF:$<BOOL:${_ext_SHARED_PRELOAD}>,echo shared_preload_libraries='${CMAKE_CURRENT_BINARY_DIR}/${_target_file_name}',echo> >> $tmpdir/postgresql.conf
+$<IF:$<BOOL:${_ext_SHARED_PRELOAD}>,echo shared_preload_libraries='${_target_file_name}',echo> >> $tmpdir/postgresql.conf
 echo ${_extra_config} >> $tmpdir/postgresql.conf
 echo max_worker_processes = 64 >> $tmpdir/postgresql.conf
 PGSHAREDIR=${_share_dir} \
@@ -506,7 +507,7 @@ else
 fi
 PGSHAREDIR=${_share_dir} \
 ${PG_CTL} start -D \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" \
--o \"-c max_worker_processes=64 -c listen_addresses=* -c port=$PGPORT $<IF:$<BOOL:${_ext_SHARED_PRELOAD}>,-c shared_preload_libraries='${_target_file_name}$<COMMA>$<$<TARGET_EXISTS:omni_ext>:$<TARGET_FILE:omni_ext>>',-c shared_preload_libraries='$<$<TARGET_EXISTS:omni_ext>:$<TARGET_FILE:omni_ext>>'>\" \
+-o \"-c max_worker_processes=64 -c listen_addresses=* -c port=$PGPORT $<IF:$<BOOL:${_ext_SHARED_PRELOAD}>,-c shared_preload_libraries='${_target_file}$<COMMA>$<$<TARGET_EXISTS:omni_ext>:$<TARGET_FILE:omni_ext>>',-c shared_preload_libraries='$<$<TARGET_EXISTS:omni_ext>:$<TARGET_FILE:omni_ext>>'>\" \
 -o -F -o -k -o \"$SOCKDIR\"
 ${CREATEDB} -h \"$SOCKDIR\" ${NAME}
 if [ -z \"$PSQLRC\" ]; then
