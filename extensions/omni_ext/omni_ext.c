@@ -115,9 +115,9 @@ int max_allocation_dictionary_entries;
 dsa_area *My_dsa_area;
 void *My_dsa_mem;
 pid_t My_dsa_pid;
-cdeq_allocation_request allocation_requests;
-cdeq_background_worker_request background_worker_requests;
-cdeq_handle handles;
+cdeq_allocation_request allocation_requests = {0};
+cdeq_background_worker_request background_worker_requests = {0};
+cdeq_handle handles = {0};
 
 HASHCTL allocation_dictionary_ctl = {.keysize = ALLOCATION_DICTIONARY_KEY_SIZE,
                                      .entrysize = sizeof(allocation_dictionary_entry)};

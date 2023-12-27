@@ -64,7 +64,7 @@
 h2o_multithread_receiver_t handler_receiver;
 h2o_multithread_queue_t *handler_queue;
 
-static clist_listener_contexts listener_contexts;
+static clist_listener_contexts listener_contexts = {NULL};
 
 static void on_message(h2o_multithread_receiver_t *receiver, h2o_linklist_t *messages) {
   while (!h2o_linklist_is_empty(messages)) {
@@ -134,8 +134,6 @@ void http_worker(Datum db_oid) {
   // Connect worker to the database
   BackgroundWorkerInitializeConnectionByOid(db_oid, InvalidOid, 0);
   TopUser = GetAuthenticatedUserId();
-
-  listener_contexts = clist_listener_contexts_init();
 
   volatile pg_atomic_uint32 *semaphore =
       dynpgext_lookup_shmem(OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE);

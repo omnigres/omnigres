@@ -88,7 +88,7 @@ static h2o_evloop_t *event_loop;
  * Maintained and used by the master worker
  *
  */
-static cvec_fd sockets;
+static cvec_fd sockets = {NULL};
 
 /**
  * @brief UNIX socket connection accept handler
@@ -223,7 +223,6 @@ void master_worker(Datum db_oid) {
   event_loop = h2o_evloop_create();
   prepare_share_fd();
 
-  sockets = cvec_fd_init();
   cmap_portsock portsocks = cmap_portsock_init();
   cvec_bgwhandle http_workers = cvec_bgwhandle_init();
 
