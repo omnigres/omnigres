@@ -133,3 +133,11 @@ tests:
   - query: select omni_var.get('test', null::int4)
     results:
     - get: 1
+
+- name: double-find bug
+  # This bug occurred because we were populating an entry in the hashtable when a variable was not found
+  steps:
+  # Ensure we set something to initialize the hashtable
+  - select omni_var.set('some', 1)
+  - select omni_var.get('test', 1)
+  - select omni_var.get('test', 1)
