@@ -211,11 +211,6 @@ void _PG_init() {
                           NULL, NULL, NULL);
   MemoryContext old_context = MemoryContextSwitchTo(TopMemoryContext);
 
-  // Initialize storage for requests
-  allocation_requests = cdeq_allocation_request_init();
-  background_worker_requests = cdeq_background_worker_request_init();
-  handles = cdeq_handle_init();
-
   // Scan the directory unless disabled
   if (getenv("OMNI_EXT_NOPRELOAD") == NULL) {
     struct load_control_file_config config = {.preload = true,
