@@ -120,7 +120,7 @@ foreach(file \${files})
     add_test(\"${NAME}/\${file}\" ${CMAKE_BINARY_DIR}/script_${NAME} ${_ext_dir} \"$<TARGET_FILE:pg_yregress>\" \"${dir}/\${file}\")
     set_tests_properties(\"${NAME}/\${file}\" PROPERTIES
     WORKING_DIRECTORY \"${CMAKE_CURRENT_BINARY_DIR}\"
-    ENVIRONMENT \"PGCONFIG=${PG_CONFIG};PGSHAREDIR=${_share_dir};OMNI_EXT_SO=$<$<TARGET_EXISTS:omni_ext>:$<TARGET_FILE:omni_ext>>\")
+    ENVIRONMENT \"PGCONFIG=${PG_CONFIG};PGSHAREDIR=${_share_dir};OMNI_EXT_SO=$<$<TARGET_EXISTS:omni_ext>:$<TARGET_FILE:omni_ext>>;EXTENSION_FILE=$<$<STREQUAL:$<TARGET_PROPERTY:${NAME},TYPE>,MODULE_LIBRARY>:$<TARGET_FILE:${NAME}>>\")
 endforeach()
 ")
         get_directory_property(current_includes TEST_INCLUDE_FILES)
