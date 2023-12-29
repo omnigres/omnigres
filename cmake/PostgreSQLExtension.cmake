@@ -151,10 +151,21 @@ function(add_postgresql_extension NAME)
 
     add_dependencies(${NAME} check_git_commit_hash)
 
+    # inja ia a default target dependency for all extensions    
+    if(NOT TARGET inja)
+        add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../../misc/inja" "${CMAKE_CURRENT_BINARY_DIR}/inja")
+    endif()
+
+    # omni_ext is required by all other extensions.
+    # When we build individual extensions separately, this condition will pass
+   if(NOT TARGET omni_ext)
+       add_subdirectory_once("${CMAKE_CURRENT_SOURCE_DIR}/../../extensions/omni_ext" "${CMAKE_CURRENT_BINARY_DIR}/../../extensions/omni_ext")
+   endif()
+
     foreach(requirement ${_ext_REQUIRES})
         if(NOT TARGET ${requirement})
             if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../${requirement}")
-                add_subdirectory_once("${CMAKE_CURRENT_SOURCE_DIR}/../${requirement}" "${CMAKE_CURRENT_BINARY_DIR}/${requirement}")
+                add_subdirectory_once("${CMAKE_CURRENT_SOURCE_DIR}/../${requirement}" "${CMAKE_CURRENT_BINARY_DIR}/../${requirement}")
             elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../../extensions/${requirement}")
                 add_subdirectory_once("${CMAKE_CURRENT_SOURCE_DIR}/../../extensions/${requirement}" "${CMAKE_CURRENT_BINARY_DIR}/extensions/${requirement}")
             elseif(EXISTS "${PostgreSQL_EXTENSION_DIR}/${requirement}.control")
