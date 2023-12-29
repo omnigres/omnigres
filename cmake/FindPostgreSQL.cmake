@@ -51,7 +51,7 @@
 # License for the specific language governing permissions and limitations under
 # the License.
 
-include(${CMAKE_CURRENT_LIST_DIR}/OpenSSL.cmake RESULT_VARIABLE file_found)
+include(${CMAKE_CURRENT_LIST_DIR}/OpenSSL.cmake)
 
 if(NOT DEFINED PG_CONFIG)
 
