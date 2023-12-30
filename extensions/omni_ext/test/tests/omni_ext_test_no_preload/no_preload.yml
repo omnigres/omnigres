@@ -28,3 +28,14 @@ tests:
         query: select omni_ext_test_no_preload.alloc_shmem_database_local()
         results:
         - alloc_shmem_database_local: testdb 0
+  
+  - name: install in separate database
+    transaction: false
+    tests:
+    - query: create database another_db
+    - query: create extension omni_ext_test_no_preload cascade
+      database: another_db
+    - query: select omni_ext_test_no_preload.alloc_shmem_database_local()
+      database: another_db
+      results:
+      - alloc_shmem_database_local: testdb 1
