@@ -21,7 +21,7 @@ tests:
   steps:
   - name: populate files
     query: |
-      insert into omni_vfs.table_fs_files (filesystem_id, filepath, kind)
+      insert into omni_vfs.table_fs_files (filesystem_id, filename, kind)
       values 
       ((omni_vfs.table_fs('fs')).id, '/README.md', 'file'),
       ((omni_vfs.table_fs('fs')).id, '/tes/file', 'file'),
@@ -100,48 +100,91 @@ tests:
     - name: test/file
       kind: file
 
-- name: create dir failure
+- name: create dir
   query: |
-    insert into omni_vfs.table_fs_files (filesystem_id, filepath, kind)
+    insert into omni_vfs.table_fs_files (filesystem_id, filename, kind)
     values 
     ((omni_vfs.table_fs('fs')).id, '/dir', 'dir')
-  # explicit dir entries are disallowed, implicitly exists through file paths
-  error: new row for relation "table_fs_files" violates check constraint "table_fs_files_kind_check"
+
+- name: table_fs_file_id returns correct id
+  steps:
+  - name: create file
+    query: |
+      insert into omni_vfs.table_fs_files (filesystem_id, filename, kind)
+      values 
+      ((omni_vfs.table_fs('fs')).id, 'dir/file', 'file')
+  
+  - name: table_fs_file_id
+    query: |
+      with file(id) as (
+        /* 
+          not the recommended way for extracting id of file 
+          but using it for testing
+        */
+        select id from omni_vfs.table_fs_files where filename = 'file'
+      )
+      select 
+        id = omni_vfs.table_fs_file_id(omni_vfs.table_fs('fs'), 'dir/file') as equal
+      from file
+    results:
+    - equal: true
+
+- name: update table_fs_files failure
+  steps:
+  - name: create file
+    query: |
+      insert into omni_vfs.table_fs_files (filesystem_id, filename, kind)
+      values 
+      ((omni_vfs.table_fs('fs')).id, '/file', 'file')
+  
+  - name: update file
+    query: |
+      update omni_vfs.table_fs_files
+      set filename = 'file2'
+      where id = omni_vfs.table_fs_file_id(omni_vfs.table_fs('fs'), '/file')
+    error: update of table_fs_files is not allowed
 
 - name: create file inside file failure
   query: |
-    insert into omni_vfs.table_fs_files (filesystem_id, filepath, kind)
+    insert into omni_vfs.table_fs_files (filesystem_id, filename, kind)
     values 
     ((omni_vfs.table_fs('fs')).id, '/home/john', 'file'),
     ((omni_vfs.table_fs('fs')).id, '/home/john/file', 'file')
-  error: can't create file at /home/john/file conflicts with an existing file /home/john
+  error: conflicts with an existing file '/home/john'
 
 - name: create file at existing dir failure
   query: |
-    insert into omni_vfs.table_fs_files (filesystem_id, filepath, kind)
+    insert into omni_vfs.table_fs_files (filesystem_id, filename, kind)
     values 
     ((omni_vfs.table_fs('fs')).id, '/home/john/file', 'file'),
     ((omni_vfs.table_fs('fs')).id, '/home/john', 'file')
-  error: can't create file at /home/john conflicts with dir at an existing path /home/john/file
+  error: duplicate key value violates unique constraint "unique_filepath"
 
-- name: create file at empty path failure
-  query: |
-    insert into omni_vfs.table_fs_files (filesystem_id, filepath, kind)
-    values 
-    ((omni_vfs.table_fs('fs')).id, '', 'file')
-  error: new row for relation "table_fs_files" violates check constraint "table_fs_files_filepath_check"
+- name: delete dir before file failure
+  steps:
+  - name: create file
+    query: |
+      insert into omni_vfs.table_fs_files (filesystem_id, filename, kind)
+      values 
+      ((omni_vfs.table_fs('fs')).id, 'dir/file', 'file')
+  
+  - name: delete dir
+    query: |
+      delete from omni_vfs.table_fs_files
+      where id = omni_vfs.table_fs_file_id(omni_vfs.table_fs('fs'), 'dir')
+    error: update or delete on table "table_fs_files" violates foreign key constraint "table_fs_files_parent_id_fkey" on table "table_fs_files"
 
 - name: create files at same path failure
   query: |
-    insert into omni_vfs.table_fs_files (filesystem_id, filepath, kind)
+    insert into omni_vfs.table_fs_files (filesystem_id, filename, kind)
     values 
     ((omni_vfs.table_fs('fs')).id, '/file', 'file'),
     ((omni_vfs.table_fs('fs')).id, '/file', 'file')
-  error: duplicate key value violates unique constraint "table_fs_files_filesystem_id_filepath_key"
+  error: duplicate key value violates unique constraint "unique_filepath"
 
 - name: create files at same path in two different filesystems
   query: |
-    insert into omni_vfs.table_fs_files (filesystem_id, filepath, kind)
+    insert into omni_vfs.table_fs_files (filesystem_id, filename, kind)
     values 
     ((omni_vfs.table_fs('fs1')).id, '/file', 'file'),
     ((omni_vfs.table_fs('fs2')).id, '/file', 'file')
@@ -150,19 +193,16 @@ tests:
   steps:
   - name: create file
     query: |
-      insert into omni_vfs.table_fs_files (filesystem_id, filepath, kind)
+      insert into omni_vfs.table_fs_files (filesystem_id, filename, kind)
       values 
       ((omni_vfs.table_fs('fs')).id, '/file', 'file')
   
   - name: insert data
     query: |
-      insert into omni_vfs.table_fs_file_data (file, data)
+      insert into omni_vfs.table_fs_file_data (file_id, data)
       values
       (
-        (
-          select id from omni_vfs.table_fs_files where filepath = '/file'
-            and filesystem_id = (omni_vfs.table_fs('fs')).id
-        ),
+        omni_vfs.table_fs_file_id(omni_vfs.table_fs('fs'), '/file'),
         'hello world'::bytea
       )
   
@@ -220,10 +260,7 @@ tests:
       set
         data = 'new data'::bytea
       where
-        file = (
-          select id from omni_vfs.table_fs_files where filepath = '/file' and
-            filesystem_id = (omni_vfs.table_fs('fs')).id
-        )
+        file_id = omni_vfs.table_fs_file_id(omni_vfs.table_fs('fs'), '/file')
 
   - name: both accessed_at and modified_at is updated after data update
     query: |
@@ -246,14 +283,8 @@ tests:
       with deleted as (
         delete from omni_vfs.table_fs_file_data
         where
-          file = (
-            select id
-            from
-              omni_vfs.table_fs_files
-            where
-              filesystem_id = (omni_vfs.table_fs('fs')).id and
-              filepath = '/file'
-          ) returning file
+          file_id = omni_vfs.table_fs_file_id(omni_vfs.table_fs('fs'), '/file')
+        returning file_id
       )
       select count(*) from deleted
     results:
@@ -264,7 +295,7 @@ tests:
       with deleted as (
         delete from omni_vfs.table_fs_files
         where
-          filepath = '/file' and filesystem_id = (omni_vfs.table_fs('fs')).id
+          id = omni_vfs.table_fs_file_id(omni_vfs.table_fs('fs'), '/file')
         returning id
       )
       select count(*) from deleted
@@ -272,30 +303,42 @@ tests:
     - count: 1
 
 
+- name: insert data entry for a dir failure
+  steps:
+  - name: create dir
+    query: |
+      insert into omni_vfs.table_fs_files (filesystem_id, filename, kind)
+      values 
+      ((omni_vfs.table_fs('fs')).id, '/dir', 'dir')
+  
+  - name: insert data entry
+    query: |
+      insert into omni_vfs.table_fs_file_data (file_id, data)
+      values
+      (
+        omni_vfs.table_fs_file_id(omni_vfs.table_fs('fs'), '/dir'),
+        'hello world'::bytea
+      )
+    error: only 'file' kind can have data associated with it, 'dir' can't
+
 - name: insert two data entries for a single file failure
   steps:
   - name: create file
     query: |
-      insert into omni_vfs.table_fs_files (filesystem_id, filepath, kind)
+      insert into omni_vfs.table_fs_files (filesystem_id, filename, kind)
       values 
       ((omni_vfs.table_fs('fs')).id, '/file', 'file')
   
   - name: insert two data entries
     query: |
-      insert into omni_vfs.table_fs_file_data (file, data)
+      insert into omni_vfs.table_fs_file_data (file_id, data)
       values
       (
-        (
-          select id from omni_vfs.table_fs_files where filepath = '/file'
-            and filesystem_id = (omni_vfs.table_fs('fs')).id
-        ),
+        omni_vfs.table_fs_file_id(omni_vfs.table_fs('fs'), '/file'),
         'hello world'::bytea
       ),
       (
-        (
-          select id from omni_vfs.table_fs_files where filepath = '/file'
-            and filesystem_id = (omni_vfs.table_fs('fs')).id
-        ),
+        omni_vfs.table_fs_file_id(omni_vfs.table_fs('fs'), '/file'),
         'hello world'::bytea
       )
     error: duplicate key value violates unique constraint "table_fs_file_data_pkey"
@@ -304,19 +347,16 @@ tests:
   steps:
   - name: create file
     query: |
-      insert into omni_vfs.table_fs_files (filesystem_id, filepath, kind)
+      insert into omni_vfs.table_fs_files (filesystem_id, filename, kind)
       values 
       ((omni_vfs.table_fs('fs')).id, '/file', 'file')
   
   - name: insert data
     query: |
-      insert into omni_vfs.table_fs_file_data (file, data)
+      insert into omni_vfs.table_fs_file_data (file_id, data)
       values
       (
-        (
-          select id from omni_vfs.table_fs_files where filepath = '/file'
-            and filesystem_id = (omni_vfs.table_fs('fs')).id
-        ),
+        omni_vfs.table_fs_file_id(omni_vfs.table_fs('fs'), '/file'),
         'hello world'::bytea
       )
   
@@ -324,34 +364,28 @@ tests:
     query: |
       delete from omni_vfs.table_fs_files
       where
-        filepath = '/file' and filesystem_id = (omni_vfs.table_fs('fs')).id
-    error: update or delete on table "table_fs_files" violates foreign key constraint "table_fs_file_data_file_fkey" on table "table_fs_file_data"
+        id = omni_vfs.table_fs_file_id(omni_vfs.table_fs('fs'), '/file')
+    error: update or delete on table "table_fs_files" violates foreign key constraint "table_fs_file_data_file_id_fkey" on table "table_fs_file_data"
 
 - name: data isolation between two filesystems
   steps:
   - name: create files
     query: |
-      insert into omni_vfs.table_fs_files (filesystem_id, filepath, kind)
+      insert into omni_vfs.table_fs_files (filesystem_id, filename, kind)
       values 
       ((omni_vfs.table_fs('fs1')).id, '/file', 'file'),
       ((omni_vfs.table_fs('fs2')).id, '/file', 'file')
   
   - name: insert data in files
     query: |
-      insert into omni_vfs.table_fs_file_data (file, data)
+      insert into omni_vfs.table_fs_file_data (file_id, data)
       values
       (
-        (
-          select id from omni_vfs.table_fs_files where filepath = '/file' and 
-          filesystem_id = (omni_vfs.table_fs('fs1')).id
-        ),
+        omni_vfs.table_fs_file_id(omni_vfs.table_fs('fs1'), '/file'),
         'first'::bytea
       ),
       (
-        (
-          select id from omni_vfs.table_fs_files where filepath = '/file' and 
-          filesystem_id = (omni_vfs.table_fs('fs2')).id
-        ),
+        omni_vfs.table_fs_file_id(omni_vfs.table_fs('fs2'), '/file'),
         'second'::bytea
       )
 
@@ -370,10 +404,7 @@ tests:
       set
         data = 'updated'::bytea
       where
-        file = (
-          select id from omni_vfs.table_fs_files where filepath = '/file' and
-            filesystem_id = (omni_vfs.table_fs('fs1')).id
-        )
+        file_id = omni_vfs.table_fs_file_id(omni_vfs.table_fs('fs1'), '/file')
 
   - name: only one file is updated
     query: |
