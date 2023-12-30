@@ -8,6 +8,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.0]
+
 ### Added
 
 * Test suites (YAML files) can now be named using optional `name` property.
@@ -27,6 +29,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 Initial release following a few months of iterative development.
 
 [Unreleased]: https://github.com/omnigres/omnigres/commits/master/pg_yregress
+
+[0.3.0]: https://github.com/omnigres/omnigres/releases/tag/pg_yregress/v0.3.0
 
 [0.2.0]: https://github.com/omnigres/omnigres/releases/tag/pg_yregress/v0.2.0
 
