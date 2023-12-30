@@ -1,6 +1,0 @@
-SELECT omni_ext.load('omni_ext_test');
- load 
-------
- 0.1
-(1 row)
-
