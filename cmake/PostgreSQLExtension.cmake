@@ -71,6 +71,8 @@
 #
 # RELOCATABLE Is extension relocatable
 #
+# SUPERUSER Only superuser can create this extension
+#
 # SHARED_PRELOAD Is this a shared preload extension
 #
 # PRIVATE If true, this extension will not be automatically packaged
@@ -131,7 +133,7 @@ endfunction()
 
 function(add_postgresql_extension NAME)
     set(_optional SHARED_PRELOAD PRIVATE UNVERSIONED_SO)
-    set(_single VERSION ENCODING SCHEMA RELOCATABLE TESTS)
+    set(_single VERSION ENCODING SCHEMA RELOCATABLE TESTS SUPERUSER)
     set(_multi SOURCES REQUIRES TESTS_REQUIRE REGRESS DEPENDS_ON)
     cmake_parse_arguments(_ext "${_optional}" "${_single}" "${_multi}" ${ARGN})
 
@@ -269,6 +271,7 @@ $<$<NOT:$<BOOL:${_ext_ENCODING}>>:#>encoding = '${_ext_ENCODING}'
 $<$<NOT:$<BOOL:${_ext_REQUIRES}>>:#>requires = '$<JOIN:${_ext_REQUIRES},$<COMMA>>'
 $<$<NOT:$<BOOL:${_ext_SCHEMA}>>:#>schema = ${_ext_SCHEMA}
 $<$<NOT:$<BOOL:${_ext_RELOCATABLE}>>:#>relocatable = ${_ext_RELOCATABLE}
+$<$<NOT:$<BOOL:${_ext_SUPERUSER}>>:#>superuser = ${_ext_SUPERUSER}
             ")
     # Packaged control file
     if(NOT ${_ext_PRIVATE})
@@ -282,7 +285,8 @@ $<$<NOT:$<BOOL:${_ext_COMMENT}>>:#>comment = '${_ext_COMMENT}'
 $<$<NOT:$<BOOL:${_ext_ENCODING}>>:#>encoding = '${_ext_ENCODING}'
 $<$<NOT:$<BOOL:${_ext_REQUIRES}>>:#>requires = '$<JOIN:${_ext_REQUIRES},$<COMMA>>'
 $<$<NOT:$<BOOL:${_ext_SCHEMA}>>:#>schema = ${_ext_SCHEMA}
-              $<$<NOT:$<BOOL:${_ext_RELOCATABLE}>>:#>relocatable = ${_ext_RELOCATABLE}
+$<$<NOT:$<BOOL:${_ext_RELOCATABLE}>>:#>relocatable = ${_ext_RELOCATABLE}
+$<$<NOT:$<BOOL:${_ext_SUPERUSER}>>:#>superuser = ${_ext_SUPERUSER}
               ")
     endif()
 
