@@ -182,12 +182,27 @@ tests:
     ((omni_vfs.table_fs('fs')).id, '/file', 'file')
   error: duplicate key value violates unique constraint "unique_filepath"
 
+- name: create two files at root path failure
+  query: |
+    insert into omni_vfs.table_fs_files (filesystem_id, filename, kind)
+    values 
+    ((omni_vfs.table_fs('fs')).id, '/', 'dir'),
+    ((omni_vfs.table_fs('fs')).id, '/', 'dir')
+  error: duplicate key value violates unique constraint "unique_filepath"
+
 - name: create files at same path in two different filesystems
   query: |
     insert into omni_vfs.table_fs_files (filesystem_id, filename, kind)
     values 
     ((omni_vfs.table_fs('fs1')).id, '/file', 'file'),
     ((omni_vfs.table_fs('fs2')).id, '/file', 'file')
+
+- name: create files at root path in two different filesystems
+  query: |
+    insert into omni_vfs.table_fs_files (filesystem_id, filename, kind)
+    values 
+    ((omni_vfs.table_fs('fs1')).id, '/', 'dir'),
+    ((omni_vfs.table_fs('fs2')).id, '/', 'dir')
 
 - name: insert, read, update and delete data in file
   steps:

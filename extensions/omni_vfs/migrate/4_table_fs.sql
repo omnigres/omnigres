@@ -14,7 +14,14 @@ create table table_fs_files
     depth         int
 );
 
-alter table table_fs_files add constraint unique_filepath unique nulls not distinct (filename, parent_id, filesystem_id);
+/*
+    Although parent_id will be stored as null for root paths, but use coalesce(parent_id, 0)
+    in where and join on clauses so that postgres planner has the option of using unique index
+    as well
+    
+    picked 0 for coalesce because id is generated column and it starts with 1 so 0 won't be generated
+*/
+create unique index unique_filepath on table_fs_files (filename, coalesce(parent_id, 0), filesystem_id);
 
 create function table_fs_files_trigger() returns trigger as
 $$
@@ -41,7 +48,7 @@ begin
             if iteration_count < components_length then
                 with dup_entry as (
                     select id, kind from table_fs_files
-                    where filesystem_id = new.filesystem_id and (parent_id = prev_component_id or prev_component_id is null) and filename = component
+                    where filesystem_id = new.filesystem_id and (coalesce(parent_id, 0) = prev_component_id or prev_component_id is null) and filename = component
                 ), new_entry(filesystem_id, filename, kind, parent_id, depth) as (
                     values
                     (new.filesystem_id, component, 'dir'::omni_vfs_types_v1.file_kind, prev_component_id, iteration_count)
@@ -148,7 +155,7 @@ with query as (
             f.id, f.filename, f.kind
         from
             r
-        inner join table_fs_files f on f.parent_id = r.id
+        inner join table_fs_files f on coalesce(f.parent_id, 0) = r.id
         inner join query q on q.depth = r.depth + 1 and q.component = f.filename
     )
     select id from r where r.depth = r.max_depth
@@ -212,7 +219,7 @@ with match(id) as (
 )
 select f.filename, f.kind
 from table_fs_files f
-inner join match m on f.parent_id = m.id or (f.id = m.id and f.kind != 'dir');
+inner join match m on coalesce(f.parent_id, 0) = m.id or (f.id = m.id and f.kind != 'dir');
 $$;
 
 create function file_info(fs table_fs, path text) returns omni_vfs_types_v1.file_info
