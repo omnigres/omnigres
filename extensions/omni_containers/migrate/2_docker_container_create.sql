@@ -49,7 +49,7 @@ begin
             post_body = jsonb_set(post_body, '{HostConfig}', '{"ExtraHosts": []}');
         end if;
 
-        if length(omni_containers.docker_host_ip()) = 0 then
+        if omni_containers.docker_host_ip() is null then
             post_body = jsonb_set(post_body, '{HostConfig,ExtraHosts}', 
                 coalesce(post_body->'HostConfig'->'ExtraHosts', '[]')::jsonb || to_jsonb(format('%s:host-gateway',
                 attach))
