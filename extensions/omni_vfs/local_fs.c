@@ -66,7 +66,7 @@ static SPIPlanPtr insert_fs = NULL;
 
 Datum local_fs(PG_FUNCTION_ARGS) {
   if (PG_ARGISNULL(0)) {
-    ereport(ERROR, errmsg("must must not be NULL"));
+    ereport(ERROR, errmsg("mount must not be NULL"));
   }
 
   text *absolute_mount = cstring_to_text(subpath(text_to_cstring(PG_GETARG_TEXT_PP(0)), "."));

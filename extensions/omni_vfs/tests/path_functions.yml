@@ -1,0 +1,82 @@
+instances:
+  default:
+    init:
+    - query: create extension omni_vfs cascade
+
+tests:
+
+- name: canonicalize
+  tests:
+  - name: canonicalize no path
+    query: select omni_vfs.canonicalize_path('')
+    results:
+    - canonicalize_path: /
+
+  - name: canonicalize absolute path (null)
+    query: select omni_vfs.canonicalize_path(null)
+    results:
+    - canonicalize_path: null
+
+  - name: canonicalize absolute path
+    query: select omni_vfs.canonicalize_path('/test/a/b/../c')
+    results:
+    - canonicalize_path: '/test/a/c'
+
+  - name: canonicalize relative path
+    query: select omni_vfs.canonicalize_path('c')
+    results:
+    - canonicalize_path: 'c'
+
+  - name: canonicalize relative path into absolute
+    query: select omni_vfs.canonicalize_path('c', absolute => true)
+    results:
+    - canonicalize_path: '/c'
+
+- name: basename
+  tests:
+  - name: basename (null)
+    query: select omni_vfs.basename(null)
+    results:
+    - basename: null
+
+  - name: basename
+    query: select omni_vfs.basename('/path/to/file')
+    results:
+    - basename: file
+
+  - name: basename with no path
+    query: select omni_vfs.basename('file')
+    results:
+    - basename: file
+
+  - name: basename with no file
+    query: select omni_vfs.basename('/')
+    results:
+    - basename: ''
+
+  - name: basename with no file -- 2
+    query: select omni_vfs.basename('/path/')
+    results:
+    - basename: ''
+
+- name: dirname
+  tests:
+  - name: dirname (null)
+    query: select omni_vfs.dirname(null)
+    results:
+    - dirname: null
+
+  - name: dirname at /
+    query: select omni_vfs.dirname('/path')
+    results:
+    - dirname: /
+
+  - name: dirname
+    query: select omni_vfs.dirname('/path/to/file')
+    results:
+    - dirname: /path/to
+
+  - name: dirname (no separators)
+    query: select omni_vfs.dirname('path')
+    results:
+    - dirname: path

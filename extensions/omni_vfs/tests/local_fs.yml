@@ -24,8 +24,12 @@ tests:
   results:
   - name: empty
     kind: dir
-  - kind: file
-    name: local_fs.yml
+  - name: local_fs.yml
+    kind: file
+  - name: path_functions.yml
+    kind: file
+  - name: table_fs.yml
+    kind: file
 
 - name: can list a file
   query: select * from omni_vfs.list(omni_vfs.local_fs('../../../../extensions/omni_vfs/tests'), 'local_fs.yml')
@@ -46,8 +50,12 @@ tests:
     kind: dir
   - name: empty/.keepme
     kind: file
-  - kind: file
-    name: local_fs.yml
+  - name: local_fs.yml
+    kind: file
+  - name: path_functions.yml
+    kind: file
+  - name: table_fs.yml
+    kind: file
 
 - name: recursive listing respects path
   query: |
