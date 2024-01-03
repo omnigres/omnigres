@@ -4,6 +4,21 @@ instance:
   - create extension omni_aws cascade
   - create extension omni_containers cascade
   - create extension if not exists omni_httpc cascade
+  - create extension if not exists omni_os
+  - |
+    create function host_addr() returns text
+        language plpgsql as
+    $$
+    declare
+        result text;
+    begin
+        select value from omni_os.env where variable = 'DOCKER_CI_HOST' into result;
+        if not found then
+            result = '127.0.0.1';
+        end if;
+        return result;
+    end
+    $$
 
 tests:
 
@@ -33,7 +48,9 @@ tests:
     from
         omni_aws.aws_execute(access_key_id => 'minioadmin', secret_access_key => 'minioadmin',
                              request => omni_aws.s3_create_bucket(bucket := 'omnigres-dev-test'),
-                             endpoint => omni_aws.s3_endpoint('http://127.0.0.1:' || (select
+                             endpoint => omni_aws.s3_endpoint(
+                                                 'http://' || host_addr() ||
+                                                 ':' || (select
                                                                                           inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
                                                                                       from
                                                                                           minio)))
@@ -44,7 +61,9 @@ tests:
     from
         omni_aws.aws_execute(access_key_id => 'minioadmin', secret_access_key => 'minioadmin',
                              request => omni_aws.s3_list_objects_v2(bucket => 'omnigres-dev-test', path => '/'),
-                             endpoint => omni_aws.s3_endpoint('http://127.0.0.1:' || (select
+                             endpoint => omni_aws.s3_endpoint(
+                                                 'http://' || host_addr() ||
+                                                 ':' || (select
                                                                                           inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
                                                                                       from
                                                                                           minio)))
@@ -56,7 +75,9 @@ tests:
     from
         omni_aws.aws_execute(access_key_id => 'minioadmin', secret_access_key => 'minioadmin',
                              request => omni_aws.s3_list_objects_v2(bucket => 'omnigres-dev-test', path => '/te st'),
-                             endpoint => omni_aws.s3_endpoint('http://127.0.0.1:' || (select
+                             endpoint => omni_aws.s3_endpoint(
+                                                 'http://' || host_addr() ||
+                                                 ':' || (select
                                                                                           inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
                                                                                       from
                                                                                           minio)))
@@ -69,7 +90,9 @@ tests:
         omni_aws.aws_execute(access_key_id => 'minioadmin', secret_access_key => 'minioadmin',
                              request => omni_aws.s3_put_object(bucket := 'omnigres-dev-test', path => '/test',
                                                                payload => 'text'),
-                             endpoint => omni_aws.s3_endpoint('http://127.0.0.1:' || (select
+                             endpoint => omni_aws.s3_endpoint(
+                                                 'http://' || host_addr() ||
+                                                 ':' || (select
                                                                                           inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
                                                                                       from
                                                                                           minio)))
@@ -80,7 +103,9 @@ tests:
         omni_aws.aws_execute(access_key_id => 'minioadmin', secret_access_key => 'minioadmin',
                              request => omni_aws.s3_put_object(bucket := 'omnigres-dev-test', path => 'test',
                                                                payload => 'text'),
-                             endpoint => omni_aws.s3_endpoint('http://127.0.0.1:' || (select
+                             endpoint => omni_aws.s3_endpoint(
+                                                 'http://' || host_addr() ||
+                                                 ':' || (select
                                                                                           inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
                                                                                       from
                                                                                           minio)))
@@ -96,7 +121,9 @@ tests:
                                                                                        access_key_id => 'minioadmin',
                                                                                        secret_access_key => 'minioadmin',
                                                                                        endpoint => omni_aws.s3_endpoint(
-                                                                                                   'http://127.0.0.1:' ||
+                                                                                                           'http://' ||
+                                                                                                           host_addr() ||
+                                                                                                           ':' ||
                                                                                                    (select
                                                                                                         inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
                                                                                                     from
@@ -112,7 +139,9 @@ tests:
         omni_aws.aws_execute(access_key_id => 'minioadmin', secret_access_key => 'minioadmin',
                              request => omni_aws.s3_put_object(bucket := 'omnigres-dev-test', path => '/t est',
                                                                payload => 'text'),
-                             endpoint => omni_aws.s3_endpoint('http://127.0.0.1:' || (select
+                             endpoint => omni_aws.s3_endpoint(
+                                                 'http://' || host_addr() ||
+                                                 ':' || (select
                                                                                           inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
                                                                                       from
                                                                                           minio)))
@@ -128,7 +157,9 @@ tests:
                                                                                        access_key_id => 'minioadmin',
                                                                                        secret_access_key => 'minioadmin',
                                                                                        endpoint => omni_aws.s3_endpoint(
-                                                                                                   'http://127.0.0.1:' ||
+                                                                                                           'http://' ||
+                                                                                                           host_addr() ||
+                                                                                                           ':' ||
                                                                                                    (select
                                                                                                         inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
                                                                                                     from
@@ -144,7 +175,9 @@ tests:
         omni_aws.aws_execute(access_key_id => 'minioadmin', secret_access_key => 'minioadmin',
                              request => omni_aws.s3_put_object(bucket := 'omnigres-dev-test', path => '/bin',
                                                                payload => decode('00FF', 'hex')),
-                             endpoint => omni_aws.s3_endpoint('http://127.0.0.1:' || (select
+                             endpoint => omni_aws.s3_endpoint(
+                                                 'http://' || host_addr() ||
+                                                 ':' || (select
                                                                                           inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
                                                                                       from
                                                                                           minio)))
@@ -159,7 +192,9 @@ tests:
                                  omni_aws.s3_put_object(bucket := 'omnigres-dev-test', path => '/test22',
                                                         payload => 'text')
                                  ],
-                             endpoint => omni_aws.s3_endpoint('http://127.0.0.1:' || (select
+                             endpoint => omni_aws.s3_endpoint(
+                                                 'http://' || host_addr() ||
+                                                 ':' || (select
                                                                                           inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
                                                                                       from
                                                                                           minio)))
@@ -173,7 +208,9 @@ tests:
     from
         omni_aws.aws_execute(access_key_id => 'minioadmin', secret_access_key => 'minioadmin',
                              request => omni_aws.s3_list_objects_v2(bucket => 'omnigres-dev-test', path => '/'),
-                             endpoint => omni_aws.s3_endpoint('http://127.0.0.1:' || (select
+                             endpoint => omni_aws.s3_endpoint(
+                                                 'http://' || host_addr() ||
+                                                 ':' || (select
                                                                                           inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
                                                                                       from
                                                                                           minio)))
