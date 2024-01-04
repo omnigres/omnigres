@@ -48,6 +48,9 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
+    - run: |
+        echo "Author association: ${{ github.event.pull_request.author_association }}"
+
     - uses: actions/checkout@v3
 
     # This is done to address the problem on macOS where .pg built in a directory of one
