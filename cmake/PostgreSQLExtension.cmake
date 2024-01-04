@@ -497,8 +497,15 @@ if [ -z \"$PGPORT\" ]; then
     done
 fi
 export EXTENSION_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"
-rm -rf \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\"
-${INITDB} -D \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" --no-clean --no-sync --locale=C --encoding=UTF8
+if [ -z \"$PSQLDB\" ]; then
+   PSQLDB=\"$(mktemp -d ${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}.XXXXXX)\"
+   rm -rf \"$PSQLDB\"
+fi
+if [ \"$(shopt -s nullglob; shopt -s dotglob; files=($PSQLDB/*); echo $\{#files[@]\})\" -gt 0 ]; then
+    echo PSQLDB is not empty, skipping initialization
+else
+    ${INITDB} -D \"$PSQLDB\" --no-clean --no-sync --locale=C --encoding=UTF8
+fi
 export SOCKDIR=$(mktemp -d)
 if [ -z \"$POSTGRESQLCONF\" ]; then
   if [ -f \"${CMAKE_CURRENT_SOURCE_DIR}/postgresql.conf\" ]; then
@@ -512,16 +519,16 @@ if [ -z \"$PGHBACONF\" ]; then
   fi
 fi
 if [ -n \"$POSTGRESQLCONF\" ]; then
- (cat \"$POSTGRESQLCONF\"  || exit 1) > \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}/postgresql.conf\"
+ (cat \"$POSTGRESQLCONF\"  || exit 1) > \"$PSQLDB/postgresql.conf\"
 fi
 if [ -n \"$PGHBACONF\" ]; then
   echo \"Using pg_hba.conf: $PGBACONF\"
-  cp \"$PGHBACONF\" \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}/pg_hba.conf\" || exit 1
+  cp \"$PGHBACONF\" \"$PSQLDB/pg_hba.conf\" || exit 1
 else
-  echo host all all all trust >>  \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}/pg_hba.conf\"
+  echo host all all all trust >>  \"$PSQLDB/pg_hba.conf\"
 fi
 PGSHAREDIR=${_share_dir} \
-${PG_CTL} start -D \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" \
+${PG_CTL} start -D \"$PSQLDB\" \
 -o \"-c max_worker_processes=64 -c listen_addresses=* -c port=$PGPORT $<IF:$<BOOL:${_ext_SHARED_PRELOAD}>,-c shared_preload_libraries='${_target_file}$<COMMA>$<$<TARGET_EXISTS:omni_ext>:$<TARGET_FILE:omni_ext>>',-c shared_preload_libraries='$<$<TARGET_EXISTS:omni_ext>:$<TARGET_FILE:omni_ext>>'>\" \
 -o -F -o -k -o \"$SOCKDIR\"
 ${CREATEDB} -h \"$SOCKDIR\" ${NAME}
@@ -533,8 +540,8 @@ else
   echo \"Using supplied .psqlrc: $PSQLRC\"
   export PSQLRC
 fi
-        ${_cli} --set=CMAKE_BINARY_DIR=${CMAKE_BINARY_DIR} -h \"$SOCKDIR\" ${NAME}
-        ${PG_CTL} stop -D  \"${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}\" -m smart
+${_cli} --set=CMAKE_BINARY_DIR=${CMAKE_BINARY_DIR} -h \"$SOCKDIR\" ${NAME}
+${PG_CTL} stop -D  \"$PSQLDB\" -m smart
 "
                 FILE_PERMISSIONS OWNER_EXECUTE OWNER_READ OWNER_WRITE
                 )
