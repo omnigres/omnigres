@@ -43,8 +43,7 @@ jobs:
       fail-fast: false
 
     needs: [ approve ] # Require the first step to finish
-    environment:
-      name: Integrate Pull Request
+    environment: ${{ (github.event_name != 'push') && 'Integrate Pull Request' || 'master' }}
 
     runs-on: ${{ matrix.os }}
 
