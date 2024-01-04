@@ -152,6 +152,64 @@ This backend can be created by invoking `omni_vfs.local_fs(mount)`, where `mount
     under which conditions mounting of new directories is possible, and which mounts can be accessed under given
     conditions.
 
+### `omni_vfs.table_fs` (table backed file system)
+
+This backend can be created by invoking `omni_vfs.table_fs('fs')`, where `fs` is the name
+of the filesystem. The function returns `omni_vfs.table_fs` type which only contains an
+identifier of the instance that references `omni_vfs.table_fs_filesystems` table.
+
+There are two tables for this backend:
+
+* `omni_vfs.table_fs_files` for storing filesystem id, filename, kind and omni_vfs(`update` queries not allowed).
+
+* `omni_vfs.table_fs_file_data` for storing the data and timestamps of `file` kind files.
+
+#### File operation queries
+
+* The following query creates an entry for sample.txt file in `omni_vfs.table_fs_files` in `fs` table_fs filesystem. There is no need to create parent directories, they will be
+created automatically if it doesn't exist.
+```postgresql
+insert into omni_vfs.table_fs_files (filesystem_id, filename, kind)
+values 
+((omni_vfs.table_fs('fs')).id, '/dir/sample.txt', 'file');
+```
+
+* To associate data with the file created above run the following query. It creates an entry in `omni_vfs.table_fs_file_data`. A utility function named `omni_vfs.table_fs_file_id` is provided to obtain file_id given a table_fs filesystem and filename. Only a single data entry can be associated with a given file.
+```postgresql
+insert into omni_vfs.table_fs_file_data (file_id, data)
+values
+(
+omni_vfs.table_fs_file_id(omni_vfs.table_fs('fs'), '/dir/sample.txt'),
+'hello world'::bytea
+);
+```
+
+* To update and delete the associated data of a file run the following queries:
+```postgresql
+update omni_vfs.table_fs_file_data
+set
+data = 'new data'::bytea
+where
+file_id = omni_vfs.table_fs_file_id(omni_vfs.table_fs('fs'), '/dir/sample.txt');
+
+delete from omni_vfs.table_fs_file_data
+where
+file_id = omni_vfs.table_fs_file_id(omni_vfs.table_fs('fs'), '/dir/sample.txt');
+```
+
+* To delete the file entry run the following query. It only succeeds if it has no associated data entry.
+```postgresql
+delete from omni_vfs.table_fs_files
+where
+id = omni_vfs.table_fs_file_id(omni_vfs.table_fs('fs'), '/dir/sample.txt');
+```
+
+The [API](#api) described above works for `omni_vfs.table_fs` files as well. It is recommended to use those to list and read the files to get accurate access timestamp.
+
+!!! tip "Directory listing performance"
+
+    Although `omni_vfs.table_fs` can handle millions of files, it is recommended not to have more than few hundred files in one single directory to ensure optimal listing performance.
+
 ### Runtime backend dispatch
 
 In a real application, to make it possible to use different backends, one can create a file system "factory" function dependent on the environment they are in. For example, when in development, it can look like this:
