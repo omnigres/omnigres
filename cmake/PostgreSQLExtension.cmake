@@ -338,6 +338,7 @@ fi
 # Create file (using $$ for pid to avoid race conditions)
 for f in $(ls \"$_dir/\"*.sql | sort -V)
   do
+  cd \"${CMAKE_CURRENT_SOURCE_DIR}\"
   $<TARGET_FILE:inja> \"$f\" >> \"$1/_$$_${NAME}--${_ext_VERSION}.sql\"
   echo >> \"$1/_$$_${NAME}--${_ext_VERSION}.sql\"
 done
