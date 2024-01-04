@@ -27,18 +27,18 @@ jobs:
     strategy:
       matrix:
         pgver: [ 16, 15, 14, 13 ]
-        os: [ warp-ubuntu-latest-x64-4x, macos-latest ]
+        os: [ warp-ubuntu-latest-x64-4x, flyci-macos-large-latest-m1 ]
         build_type: [Debug, Release]
         exclude:
-        - os: macos-latest
+        - os: flyci-macos-large-latest-m1
           pgver: 15
-        - os: macos-latest
+        - os: flyci-macos-large-latest-m1
           pgver: 14
-        - os: macos-latest
+        - os: flyci-macos-large-latest-m1
           pgver: 13
-        - os: macos-latest
+        - os: flyci-macos-large-latest-m1
           pgver: 12
-        - os: macos-latest
+        - os: flyci-macos-large-latest-m1
           pgver: 11
       fail-fast: false
 
