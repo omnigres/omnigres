@@ -498,6 +498,7 @@ if [ -z \"$PGPORT\" ]; then
 fi
 export EXTENSION_SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}\"
 if [ -z \"$PSQLDB\" ]; then
+   mkdir -p \"${CMAKE_CURRENT_BINARY_DIR}/data\"
    PSQLDB=\"$(mktemp -d ${CMAKE_CURRENT_BINARY_DIR}/data/${NAME}.XXXXXX)\"
    rm -rf \"$PSQLDB\"
 fi
