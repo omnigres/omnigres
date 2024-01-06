@@ -114,48 +114,49 @@ begin
         request.path := '/' || request.path;
     end if;
 
-    return omni_httpc.http_request(endpoint_url
-                                       || (case when endpoint_uri.path is null then '/' else '' end)
-                                       || (case when length(query) > 0 then '?' || query else '' end),
-                                   headers => array [
-                                       omni_http.http_header(
-                                               'X-Amz-Content-Sha256',
-                                               encode(digest(payload, 'sha256'), 'hex')),
-                                       omni_http.http_header(
-                                               'X-Amz-Date',
-                                               to_char((ts8601 at time zone 'UTC'),
-                                                       'YYYYMMDD"T"HH24MISS"Z"')),
-                                       omni_http.http_header(
-                                               'Authorization',
-                                               'AWS4-HMAC-SHA256 Credential=' || access_key_id || '/'
-                                                   || to_char((ts8601 at time zone 'UTC'), 'YYYYMMDD') ||
-                                               '/' || region ||
-                                               '/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature='
-                                                   || omni_aws.hash_string_to_sign(
-                                                       'AWS4-HMAC-SHA256',
-                                                       ts8601,
-                                                       region,
-                                                       's3',
-                                                       omni_aws.hash_canonical_request(
-                                                               'GET',
-                                                               request.path,
-                                                               query,
-                                                               array ['host:' ||
-                                                                      endpoint_uri.host ||
-                                                                      coalesce(':' || endpoint_uri.port, ''),
-                                                                       'x-amz-content-sha256:' || encode(digest(payload, 'sha256'), 'hex'),
-                                                                       'x-amz-date:' ||
-                                                                       to_char((ts8601 at time zone 'UTC'),
-                                                                               'YYYYMMDD"T"HH24MISS"Z"')],
-                                                               '{"host", "x-amz-content-sha256", "x-amz-date"}',
-                                                               encode(digest(payload, 'sha256'), 'hex')
-                                                           ),
-                                                       secret_access_key
-                                                   )
-                                           )
-                                       ]
-        );
-end;
+    CREATE FUNCTION get_request_headers(
+    endpoint_url TEXT,
+    endpoint_uri RECORD,
+    query TEXT,
+    payload TEXT,
+    ts8601 TIMESTAMP WITH TIME ZONE,
+    region TEXT,
+    access_key_id TEXT,
+    secret_access_key TEXT)
+RETURNS TABLE (headers TEXT, authorization TEXT)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    canonical_request TEXT;
+    string_to_sign TEXT;
+BEGIN
+    canonical_request := omni_aws.hash_canonical_request('GET', endpoint_uri.path, query,
+        ARRAY['host:' || endpoint_uri.host || COALESCE(':' || endpoint_uri.port, ''),
+              'x-amz-content-sha256:' || encode(digest(payload, 'sha256'), 'hex'),
+              'x-amz-date:' || to_char((ts8601 AT TIME ZONE 'UTC'), 'YYYYMMDD"T"HH24MISS"Z"')],
+        '{"host", "x-amz-content-sha256", "x-amz-date"}',
+        encode(digest(payload, 'sha256'), 'hex'));
+
+    string_to_sign := omni_aws.hash_string_to_sign(
+        'AWS4-HMAC-SHA256',
+        ts8601,
+        region,
+        's3',
+        canonical_request,
+        secret_access_key
+    );
+
+    RETURN QUERY
+    SELECT
+        ARRAY[
+            omni_http.http_header('X-Amz-Content-Sha256', encode(digest(payload, 'sha256'), 'hex')),
+            omni_http.http_header('X-Amz-Date', to_char((ts8601 AT TIME ZONE 'UTC'), 'YYYYMMDD"T"HH24MISS"Z"')),
+            omni_http.http_header('Authorization', 'AWS4-HMAC-SHA256 Credential=' ||
+                access_key_id || '/' || to_char((ts8601 AT TIME ZONE 'UTC'), 'YYYYMMDD') ||
+                '/' || region || '/s3/aws4_request, SignedHeaders=host;x-amz-content-sha256;x-amz-date, Signature=' ||
+                string_to_sign)
+        ];
+END;
 $$;
 
 
