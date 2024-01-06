@@ -34,3 +34,8 @@ create function http_execute_with_options(options http_execute_options, variadic
 as
 'MODULE_PATHNAME',
 'http_execute' language c;
+
+create function http_fatal() returns void
+as
+'MODULE_PATHNAME',
+'http_fatal' language c;
