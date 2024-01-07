@@ -338,8 +338,11 @@ fi
 # Create file (using $$ for pid to avoid race conditions)
 for f in $(ls \"$_dir/\"*.sql | sort -V)
   do
+  pushd $(pwd) >/dev/null
+  cd \"${CMAKE_CURRENT_SOURCE_DIR}\"
   $<TARGET_FILE:inja> \"$f\" >> \"$1/_$$_${NAME}--${_ext_VERSION}.sql\"
   echo >> \"$1/_$$_${NAME}--${_ext_VERSION}.sql\"
+  popd >/dev/null
 done
 # Move it into proper location at once
 mv \"$1/_$$_${NAME}--${_ext_VERSION}.sql\" \"$1/${NAME}--${_ext_VERSION}.sql\"

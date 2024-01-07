@@ -16,39 +16,8 @@ create type s3_endpoint as
     url text
 );
 
-create function s3_endpoint(url text, path_style boolean default true) returns s3_endpoint
-    immutable
-    language sql
-as
-$$
-select
-    case
-        when path_style then row (rtrim(url, '/') || '/${bucket}')::omni_aws.s3_endpoint
-        else row (url)::omni_aws.s3_endpoint end
-$$;
+/*{% include "../src/s3_endpoint.sql" %}*/
+/*{% include "../src/aws_s3_endpoint.sql" %}*/
+/*{% include "../src/digitalocean_s3_endpoint.sql" %}*/
 
-create function aws_s3_endpoint() returns s3_endpoint
-    immutable
-    language sql
-as
-$$
-select row ('https://${bucket}.s3.${region}.amazonaws.com')::omni_aws.s3_endpoint
-$$;
-
-create function digitalocean_s3_endpoint() returns s3_endpoint
-    immutable
-    language sql
-as
-$$
-select row ('https://${bucket}.${region}.digitaloceanspaces.com')::omni_aws.s3_endpoint
-$$;
-
-create function endpoint_url(endpoint s3_endpoint, bucket text, region text, path text default '/') returns text
-    immutable
-    language sql
-as
-$$
-select
-        replace(replace(endpoint.url, '${bucket}', bucket), '${region}', region) ||
-        (case when path = '/' then '' else '/' || ltrim(path, '/') end)
-$$;
+/*{% include "../src/endpoint_url.sql" %}*/
