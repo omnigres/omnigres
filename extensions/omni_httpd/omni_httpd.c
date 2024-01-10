@@ -83,13 +83,23 @@ void _Dynpgext_init(const dynpgext_handle *handle) {
   default_num_http_workers = sysconf(_SC_NPROCESSORS_ONLN);
 #endif
   {
+    // Try to see if this GUC is already defined
     const char *http_workers_val = GetConfigOption("omni_httpd.http_workers", true, false);
-    int http_workers_flag = GetConfigOptionFlags("omni_httpd.http_workers", true);
-    if ((http_workers_val == NULL && !(http_workers_flag & GUC_CUSTOM_PLACEHOLDER)) ||
-        (http_workers_val != NULL && http_workers_flag & GUC_CUSTOM_PLACEHOLDER)) {
+    if (http_workers_val == NULL) {
+      // If not, define it
       DefineCustomIntVariable("omni_httpd.http_workers", "Number of HTTP workers", NULL,
                               &num_http_workers, default_num_http_workers, 1, INT_MAX, PGC_SIGHUP,
                               0, NULL, NULL, NULL);
+    } else {
+      // FIXME: this is a temporary solution
+      // For now, we're just taking the string value and converting it back to an integer
+      // This also means that when the original GUC is updated and the worker is reloading,
+      // it won't be able to pick the new value up, unless it does it manually using
+      // `GetConfigOption` + `pg_strtoint32`.
+      // This would be useful for the purpose of dynamic scaling of workers, which we don't do
+      // right now (Jan 2024)
+      // See https://github.com/omnigres/omnigres/issues/447 for more context
+      num_http_workers = pg_strtoint32(http_workers_val);
     }
   }
 
