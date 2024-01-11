@@ -107,6 +107,9 @@ void _Dynpgext_init(const dynpgext_handle *handle) {
                          sizeof(pg_atomic_uint32), init_semaphore, NULL,
                          DYNPGEXT_SCOPE_DATABASE_LOCAL);
 
+  handle->allocate_shmem(handle, OMNI_HTTPD_MASTER_WORKER, sizeof(pid_t), NULL, NULL,
+                         DYNPGEXT_SCOPE_DATABASE_LOCAL);
+
   // Prepares and registers the main background worker
   BackgroundWorker bgw = {.bgw_name = "omni_httpd",
                           .bgw_type = "omni_httpd",
@@ -116,6 +119,13 @@ void _Dynpgext_init(const dynpgext_handle *handle) {
   strncpy(bgw.bgw_library_name, handle->library_name, BGW_MAXLEN);
   handle->register_bgworker(handle, &bgw, NULL, NULL,
                             DYNPGEXT_REGISTER_BGWORKER_NOTIFY | DYNPGEXT_SCOPE_DATABASE_LOCAL);
+}
+
+void _Dynpgext_fini(const dynpgext_handle *handle) {
+  pid_t *master_worker = dynpgext_lookup_shmem(OMNI_HTTPD_MASTER_WORKER);
+  if (master_worker != NULL) {
+    kill(*master_worker, SIGTERM);
+  }
 }
 
 void _PG_init() { IsOmniHttpdWorker = false; }

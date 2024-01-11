@@ -284,11 +284,17 @@ void load_control_file(const char *control_path, void *data) {
         // Only proceed if there's a module pathname and a matching version
         bool proceed = (control_file.module_pathname != NULL) && matching_version;
         // Check if this extension was already loaded at the statup time
-        if (!config->preload) {
+        if (proceed && !config->preload) {
           c_FOREACH(it, cdeq_handle, handles) {
             // and if it was, don't proceed with it
             proceed = !(strcmp((*it.ref)->name, control_file.ext_name) == 0 &&
                         strcmp((*it.ref)->version, control_file.ext_version) == 0);
+
+            if (config->action == UNLOAD && !proceed) {
+              // However, if we're unloading, then it is the opposite: we should
+              // proceed with it
+              proceed = true;
+            }
 
             if (!proceed)
               break;
