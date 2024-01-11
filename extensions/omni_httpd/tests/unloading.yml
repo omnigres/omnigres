@@ -27,7 +27,6 @@ tests:
 - name: stops working after unloading
   steps:
   - select omni_httpd.unload()
-  - select pg_sleep(1)
   - query: |
       with
           response as (select *
