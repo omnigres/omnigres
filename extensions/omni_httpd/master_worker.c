@@ -234,6 +234,10 @@ void master_worker(Datum db_oid) {
   Assert(semaphore != NULL);
   pg_atomic_write_u32(semaphore, 0);
 
+  pid_t *master_worker = dynpgext_lookup_shmem(OMNI_HTTPD_MASTER_WORKER);
+  Assert(master_worker != NULL);
+  *master_worker = MyProcPid;
+
   while (!shutdown_worker) {
     // Start the transaction
     SPI_connect();
@@ -505,4 +509,15 @@ void master_worker(Datum db_oid) {
     while (!shutdown_worker && !worker_reload && h2o_evloop_run(event_loop, INT32_MAX) == 0)
       ;
   }
+  if (http_workers_started) {
+    ereport(LOG, errmsg("Shutting down HTTP workers"));
+    pg_atomic_write_u32(semaphore, 0);
+    c_FOREACH(i, cvec_bgwhandle, http_workers) {
+      pid_t pid;
+      if (GetBackgroundWorkerPid(*i.ref, &pid) == BGWH_STARTED) {
+        kill(pid, SIGTERM);
+      }
+    }
+  }
+  ereport(LOG, errmsg("Terminated omni_httpd"));
 }

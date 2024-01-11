@@ -32,6 +32,8 @@ static const char *OMNI_HTTPD_CONFIGURATION_NOTIFY_CHANNEL = "omni_httpd_configu
 static const char *OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE =
     "omni_httpd:" EXT_VERSION ":_configuration_reload_semaphore";
 
+static const char *OMNI_HTTPD_MASTER_WORKER = "omni_httpd:" EXT_VERSION ":_master_worker";
+
 #define HTTP_RESPONSE_TUPLE_BODY 0
 #define HTTP_RESPONSE_TUPLE_STATUS 1
 #define HTTP_RESPONSE_TUPLE_HEADERS 2

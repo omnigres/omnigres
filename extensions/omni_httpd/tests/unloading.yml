@@ -1,0 +1,46 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_EXT_SO
+    max_worker_processes: 64
+  init:
+  - create extension omni_ext
+  - create extension omni_httpd cascade
+  - create extension omni_httpc cascade
+  - call omni_httpd.wait_for_configuration_reloads(1)
+
+tests:
+- name: works
+  query: |
+    with
+        response as (select *
+                     from
+                         omni_httpc.http_execute(
+                                 omni_httpc.http_request('http://127.0.0.1:' ||
+                                                         (select effective_port from omni_httpd.listeners) || '/')))
+    select
+        response.error
+    from
+        response
+  results:
+  - error: null
+
+- name: stops working after unloading
+  steps:
+  - select
+        omni_ext.unload('omni_httpd'::cstring,
+                        (select extversion::cstring from pg_extension where extname = 'omni_httpd'))
+  - select pg_sleep(1)
+  - query: |
+      with
+          response as (select *
+                       from
+                           omni_httpc.http_execute(
+                                   omni_httpc.http_request('http://127.0.0.1:' ||
+                                                           (select effective_port from omni_httpd.listeners) || '/')))
+      select
+          response.error is null as error
+      from
+          response
+    results:
+    - error: false
