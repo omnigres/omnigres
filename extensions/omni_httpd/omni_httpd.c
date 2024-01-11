@@ -121,12 +121,14 @@ void _Dynpgext_init(const dynpgext_handle *handle) {
                             DYNPGEXT_REGISTER_BGWORKER_NOTIFY | DYNPGEXT_SCOPE_DATABASE_LOCAL);
 }
 
-void _Dynpgext_fini(const dynpgext_handle *handle) {
+static void do_unload() {
   pid_t *master_worker = dynpgext_lookup_shmem(OMNI_HTTPD_MASTER_WORKER);
-  if (master_worker != NULL) {
+  if (master_worker != NULL && *master_worker != 0) {
     kill(*master_worker, SIGTERM);
+    *master_worker = 0;
   }
 }
+void _Dynpgext_fini(const dynpgext_handle *handle) { do_unload(); }
 
 void _PG_init() { IsOmniHttpdWorker = false; }
 
@@ -336,4 +338,11 @@ Datum handlers_query_validity_trigger(PG_FUNCTION_ARGS) {
   } else {
     ereport(ERROR, errmsg("can only be called as a trigger"));
   }
+}
+
+PG_FUNCTION_INFO_V1(unload);
+
+Datum unload(PG_FUNCTION_ARGS) {
+  do_unload();
+  PG_RETURN_VOID();
 }
