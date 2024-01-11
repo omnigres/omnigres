@@ -124,7 +124,17 @@ void _Dynpgext_init(const dynpgext_handle *handle) {
 static void do_unload() {
   pid_t *master_worker = dynpgext_lookup_shmem(OMNI_HTTPD_MASTER_WORKER);
   if (master_worker != NULL && *master_worker != 0) {
+    // We are not using Postgres bgworker API because we don't have the the handle of the master
+    // worker.
+    // TODO: it would have be better if we did.
+    // The closest available API is `GetBackgroundWorkerTypeByPid` but sadly it goes for the type
+    // and not the handle.
+    // So, instead, we send a signal to the worker directly and wait until it terminates
+    // (we can't simply `waitpid` as it is not our child)
     kill(*master_worker, SIGTERM);
+    while (GetBackgroundWorkerTypeByPid(*master_worker) != NULL) {
+      CHECK_FOR_INTERRUPTS();
+    };
     *master_worker = 0;
   }
 }
