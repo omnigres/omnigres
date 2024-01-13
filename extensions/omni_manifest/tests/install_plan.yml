@@ -1,0 +1,23 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_manifest
+
+tests:
+
+- name: simple plan
+  query: |
+    select
+        omni_manifest.requirement(name, version)::text as step
+    from
+        unnest(omni_manifest.install_plan(array [omni_manifest.artifact($1::text, $2::text), omni_manifest.artifact($3::text, $4::text)]))
+  params:
+  - test=1
+  - a=1,b=2
+  - x=1
+  - a=1
+  results:
+  - step: a=1
+  - step: b=2
+  - step: test=1
+  - step: x=1

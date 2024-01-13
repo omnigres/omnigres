@@ -1,0 +1,84 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_manifest
+
+tests:
+
+- name: missing dependencies
+  query: |
+    select
+        requirement::text,
+        status
+    from
+        omni_manifest.install(array [omni_manifest.artifact($1::jsonb, $2::jsonb)])
+    order by
+        (requirement).name asc
+  params:
+  - omni: 0.1
+  - test: 0.2
+  results:
+  - requirement: omni=0.1
+    status: missing
+  - requirement: test=0.2
+    status: missing
+
+- name: some missing dependencies
+  steps:
+  - query: |
+      select
+          requirement::text,
+          status
+      from
+          omni_manifest.install(array [omni_manifest.artifact($1::jsonb, $2::jsonb)])
+      order by
+          (requirement).name asc
+    params:
+    - omni_manifest_test_2: 1
+    - omni_manifest_test_1: 1.1
+    results:
+    - requirement: omni_manifest_test_1=1.1
+      status: missing
+  - query: select
+               extname,
+               extversion
+           from
+               pg_extension
+           where
+               extname like 'omni_manifest_test_%'
+           order by
+               extname asc
+    results: [ ]
+
+- name: installing dependencies
+  steps:
+  - query: |
+      select
+          requirement::text,
+          status
+      from
+          omni_manifest.install(array [omni_manifest.artifact($1::jsonb, $2::jsonb)])
+      order by
+          (requirement).name asc
+    params:
+    - omni_manifest_test_2: 1
+    - omni_manifest_test_1: 1
+    results:
+    - requirement: omni_manifest_test_1=1
+      status: installed
+    - requirement: omni_manifest_test_2=1
+      status: installed
+  - query: select
+               extname,
+               extversion
+           from
+               pg_extension
+           where
+               extname like 'omni_manifest_test_%'
+           order by
+               extname asc
+    results:
+    - extname: omni_manifest_test_1
+      extversion: 1
+    - extname: omni_manifest_test_2
+      extversion: 1
