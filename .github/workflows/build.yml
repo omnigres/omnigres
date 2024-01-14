@@ -43,7 +43,7 @@ jobs:
       fail-fast: false
 
     needs: [ approve ] # Require the first step to finish
-    environment: ${{ (github.event_name == 'push' || contains(fromJSON('["OWNER", "MEMBER"]'), github.event.pull_request.author_association)) && 'master' || 'Integrate Pull Request' }}
+    environment: ${{ (github.event_name == 'push' || github.event_name == 'schedule' || contains(fromJSON('["OWNER", "MEMBER"]'), github.event.pull_request.author_association)) && 'master' || 'Integrate Pull Request' }}
 
     runs-on: ${{ matrix.os }}
 
