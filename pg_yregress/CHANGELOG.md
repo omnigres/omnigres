@@ -8,6 +8,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+* Test query parameters (`params`) may have been passed with trailing data from the test suite because scalars were
+  processed without their length. This could have led to sending superfluous trailing data to Postgres.
+
 ## [0.3.0]
 
 ### Added
