@@ -1,4 +1,4 @@
-create type artifact_status as enum ('installed', 'missing');
+create type artifact_status as enum ('installed', 'missing', 'updated');
 
 create type install_report as
 (
