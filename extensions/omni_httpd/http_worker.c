@@ -218,7 +218,7 @@ void http_worker(Datum db_oid) {
           h2o_context_dispose(&iter.ref->context);
           MemoryContextDelete(iter.ref->memory_context);
           iter = clist_listener_contexts_erase_at(&listener_contexts, iter);
-        next_ctx : {}
+        next_ctx: {}
         }
       }
 
