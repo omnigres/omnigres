@@ -16,7 +16,7 @@ typedef struct {
   char *comment;
   char *encoding;
   char *module_pathname;
-  char *requires;
+  char *requires_extensions;
 
   bool superuser;
   bool trusted;
