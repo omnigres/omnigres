@@ -25,15 +25,17 @@ begin
                 return next row (rec.req, 'missing')::omni_manifest.install_report;
             else
                 if not missing_requirements then
-                    execute format('create extension %s version %L', (rec.req).name, (rec.req).version);
-                    return next row (rec.req, 'installed')::omni_manifest.install_report;
+                    perform from pg_catalog.pg_extension where pg_extension.extname = rec.ext_name;
+                    if not found then
+                        execute format('create extension %s version %L', (rec.req).name, (rec.req).version);
+                        return next row (rec.req, 'installed')::omni_manifest.install_report;
+                    else
+                        execute format('alter extension %s update to %L', (rec.req).name, (rec.req).version);
+                        return next row (rec.req, 'updated')::omni_manifest.install_report;
+                    end if;
                 end if;
             end if;
         end loop;
-    if missing_requirements then
-        return;
-    end if;
-    -- Now figure out the order of these dependencies (topological sort)
     return;
 end;
 $$;

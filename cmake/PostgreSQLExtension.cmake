@@ -88,6 +88,14 @@
 # * OMNIGRES_VERSION: sets a version for all extensions
 # * <EXTENSION_NAME_CAPITALIZED>_VERSION: sets a version for a particular extension
 #
+# TARGET Custom target name (by default, `NAME`)
+#
+# NO_DEFAULT_CONTROL Do not produce a default control file (can be useful alongside with `TARGET`)
+#
+# UPGRADE_SCRIPTS In certain cases, custom upgrade scripts need to be supplied.
+#                 Currently, their vesioning is hardcoded and can't be based on extension's version
+#                 (but this can change [TODO])
+#
 # Defines the following targets:
 #
 # psql_NAME   Start extension it in a fresh database and connects with psql
@@ -114,13 +122,13 @@ function(find_pg_yregress_tests dir)
         if(NOT TARGET pg_yregress)
             add_subdirectory("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../pg_yregress" "${CMAKE_CURRENT_BINARY_DIR}/pg_yregress")
         endif()
-        file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${NAME}_FindRegressTests.cmake"
+        file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${_ext_TARGET}_FindRegressTests.cmake"
                 CONTENT "
 file(GLOB_RECURSE files RELATIVE ${dir} LIST_DIRECTORIES false ${dir}/*.yml ${dir}/*.yaml)
 list(SORT files)
 foreach(file \${files})
-    add_test(\"${NAME}/\${file}\" ${CMAKE_BINARY_DIR}/script_${NAME} ${_ext_dir} \"$<TARGET_FILE:pg_yregress>\" \"${dir}/\${file}\")
-    set_tests_properties(\"${NAME}/\${file}\" PROPERTIES
+    add_test(\"${_ext_TARGET}/\${file}\" ${CMAKE_BINARY_DIR}/script_${_ext_TARGET} ${_ext_dir} \"$<TARGET_FILE:pg_yregress>\" \"${dir}/\${file}\")
+    set_tests_properties(\"${_ext_TARGET}/\${file}\" PROPERTIES
     WORKING_DIRECTORY \"${CMAKE_CURRENT_BINARY_DIR}\"
     ENVIRONMENT \"PGCONFIG=${PG_CONFIG};PGSHAREDIR=${_share_dir};OMNI_EXT_SO=$<$<TARGET_EXISTS:omni_ext>:$<TARGET_FILE:omni_ext>>;EXTENSION_FILE=$<$<STREQUAL:$<TARGET_PROPERTY:${NAME},TYPE>,MODULE_LIBRARY>:$<TARGET_FILE:${NAME}>>\")
 endforeach()
@@ -132,10 +140,14 @@ endforeach()
 endfunction()
 
 function(add_postgresql_extension NAME)
-    set(_optional SHARED_PRELOAD PRIVATE UNVERSIONED_SO)
-    set(_single VERSION ENCODING SCHEMA RELOCATABLE TESTS SUPERUSER)
-    set(_multi SOURCES REQUIRES TESTS_REQUIRE REGRESS DEPENDS_ON)
+    set(_optional SHARED_PRELOAD PRIVATE UNVERSIONED_SO NO_DEFAULT_CONTROL)
+    set(_single VERSION ENCODING SCHEMA RELOCATABLE TESTS SUPERUSER TARGET)
+    set(_multi SOURCES REQUIRES TESTS_REQUIRE REGRESS DEPENDS_ON UPGRADE_SCRIPTS)
     cmake_parse_arguments(_ext "${_optional}" "${_single}" "${_multi}" ${ARGN})
+
+    if(NOT DEFINED _ext_TARGET)
+        set(_ext_TARGET ${NAME})
+    endif()
 
     if(NOT DEFINED _ext_VERSION)
         get_version(${NAME} _ext_VERSION)
@@ -146,12 +158,12 @@ function(add_postgresql_extension NAME)
     endif()
 
     if(NOT _ext_SOURCES)
-        add_custom_target(${NAME})
+        add_custom_target(${_ext_TARGET})
     else()
-        add_library(${NAME} MODULE ${_ext_SOURCES})
+        add_library(${_ext_TARGET} MODULE ${_ext_SOURCES})
     endif()
 
-    add_dependencies(${NAME} check_git_commit_hash)
+    add_dependencies(${_ext_TARGET} check_git_commit_hash)
 
     # inja ia a default target dependency for all extensions    
     if(NOT TARGET inja)
@@ -199,19 +211,19 @@ function(add_postgresql_extension NAME)
 #include <dynpgext.h>
     ]=])
         if(_ext_SOURCES AND TARGET dynpgext)
-            target_sources(${NAME} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/dynpgext.c")
-            target_link_libraries(${NAME} dynpgext)
-            target_compile_definitions(${NAME} PUBLIC DYNPGEXT_SUPPLEMENTARY)
+            target_sources(${_ext_TARGET} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/dynpgext.c")
+            target_link_libraries(${_ext_TARGET} dynpgext)
+            target_compile_definitions(${_ext_TARGET} PUBLIC DYNPGEXT_SUPPLEMENTARY)
         endif()
     endif()
 
-    add_dependencies(${NAME} inja)
+    add_dependencies(${_ext_TARGET} inja)
 
     if(_ext_SOURCES)
-        target_compile_definitions(${NAME} PUBLIC "$<$<NOT:$<STREQUAL:${CMAKE_BUILD_TYPE},Release>>:DEBUG>")
-        target_compile_definitions(${NAME} PUBLIC "$<$<NOT:$<STREQUAL:${CMAKE_BUILD_TYPE},Release>>:USE_ASSERT_CHECKING>")
-        target_compile_definitions(${NAME} PUBLIC "EXT_VERSION=\"${_ext_VERSION}\"")
-        target_compile_definitions(${NAME} PUBLIC "EXT_SCHEMA=\"${_ext_SCHEMA}\"")
+        target_compile_definitions(${_ext_TARGET} PUBLIC "$<$<NOT:$<STREQUAL:${CMAKE_BUILD_TYPE},Release>>:DEBUG>")
+        target_compile_definitions(${_ext_TARGET} PUBLIC "$<$<NOT:$<STREQUAL:${CMAKE_BUILD_TYPE},Release>>:USE_ASSERT_CHECKING>")
+        target_compile_definitions(${_ext_TARGET} PUBLIC "EXT_VERSION=\"${_ext_VERSION}\"")
+        target_compile_definitions(${_ext_TARGET} PUBLIC "EXT_SCHEMA=\"${_ext_SCHEMA}\"")
     endif()
 
     set(_link_flags "${PostgreSQL_SHARED_LINK_OPTIONS}")
@@ -238,7 +250,7 @@ function(add_postgresql_extension NAME)
 
     if(_ext_SOURCES)
         set_target_properties(
-                ${NAME}
+                ${_ext_TARGET}
                 PROPERTIES
                 PREFIX ""
                 SUFFIX "${_suffix}"
@@ -246,7 +258,7 @@ function(add_postgresql_extension NAME)
                 POSITION_INDEPENDENT_CODE ON)
 
         target_include_directories(
-                ${NAME}
+                ${_ext_TARGET}
                 PRIVATE ${PostgreSQL_SERVER_INCLUDE_DIRS}
                 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
     endif()
@@ -254,8 +266,14 @@ function(add_postgresql_extension NAME)
     set(_pkg_dir "${CMAKE_BINARY_DIR}/packaged")
 
     if(_ext_SOURCES)
-        set(_target_file $<TARGET_FILE:${NAME}>)
-        set(_target_file_name $<TARGET_FILE_NAME:${NAME}>)
+        set(_target_file $<TARGET_FILE:${_ext_TARGET}>)
+        set(_target_file_name $<TARGET_FILE_NAME:${_ext_TARGET}>)
+    endif()
+
+    if(DEFINED _ext_UPGRADE_SCRIPTS)
+        foreach(_script ${_ext_UPGRADE_SCRIPTS})
+            file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/${_script} DESTINATION ${_ext_dir})
+        endforeach()
     endif()
 
     # Generate control file at build time (which is when GENERATE evaluate the
@@ -291,7 +309,9 @@ $<$<NOT:$<BOOL:${_ext_SUPERUSER}>>:#>superuser = ${_ext_SUPERUSER}
     endif()
 
     # Default control file
+    if(NOT _ext_NO_DEFAULT_CONTROL)
     set(_default_control_file "${_ext_dir}/${NAME}.control")
+
     file(
         GENERATE
         OUTPUT ${_default_control_file}
@@ -308,8 +328,9 @@ $<$<NOT:$<BOOL:${_ext_SUPERUSER}>>:#>superuser = ${_ext_SUPERUSER}
                 "default_version = '${_ext_VERSION}'
 ")
     endif()
+    endif()
 
-    file(GENERATE OUTPUT ${CMAKE_BINARY_DIR}/script_${NAME}
+    file(GENERATE OUTPUT ${CMAKE_BINARY_DIR}/script_${_ext_TARGET}
             CONTENT "#! /usr/bin/env bash
 # Indicate that we've started provisioning ${NAME}
 export SCRIPT_STARTED_${NAME}=1
@@ -332,8 +353,8 @@ if ! [ -d \"$_dir\" ]; then
   # Skip
   exit 0
 fi
-if [ -d \"$_dir/${NAME}\" ]; then
-  _dir=\"$_dir/${NAME}\"
+if [ -d \"$_dir/${_ext_TARGET}\" ]; then
+  _dir=\"$_dir/${_ext_TARGET}\"
 fi
 # Create file (using $$ for pid to avoid race conditions)
 for f in $(ls \"$_dir/\"*.sql | sort -V)
@@ -360,26 +381,26 @@ $command $@
 
 
     if(_ext_SOURCES)
-        add_custom_target(package_${NAME}_extension
+        add_custom_target(package_${_ext_TARGET}_extension
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 COMMAND
                 ${CMAKE_COMMAND} -E copy_if_different
-                "${CMAKE_CURRENT_BINARY_DIR}/$<TARGET_FILE_NAME:${NAME}>"
+                "${CMAKE_CURRENT_BINARY_DIR}/$<TARGET_FILE_NAME:${_ext_TARGET}>"
                 ${_pkg_dir})
     endif()
 
-    add_custom_target(package_${NAME}_migrations
+    add_custom_target(package_${_ext_TARGET}_migrations
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-            COMMAND ${CMAKE_BINARY_DIR}/script_${NAME} ${_pkg_dir}/extension)
+            COMMAND ${CMAKE_BINARY_DIR}/script_${_ext_TARGET} ${_pkg_dir}/extension)
 
     if(NOT TARGET package)
         add_custom_target(package)
     endif()
     if(NOT ${_ext_PRIVATE})
         if(_ext_SOURCES)
-            add_dependencies(package package_${NAME}_extension package_${NAME}_migrations)
+            add_dependencies(package package_${_ext_TARGET}_extension package_${_ext_TARGET}_migrations)
         else()
-            add_dependencies(package package_${NAME}_migrations)
+            add_dependencies(package package_${_ext_TARGET}_migrations)
         endif()
     endif()
 
@@ -417,7 +438,7 @@ $command $@
             endforeach()
 
             list(JOIN _ext_REGRESS " " _ext_REGRESS_ARGS)
-            file(GENERATE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/test_${NAME}
+            file(GENERATE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/test_${_ext_TARGET}
                 CONTENT "#! /usr/bin/env bash
 ${CMAKE_BINARY_DIR}/script_${NAME} ${_ext_dir}
 # Pick random port
@@ -449,28 +470,28 @@ ${_loadextensions} \
                 FILE_PERMISSIONS OWNER_EXECUTE OWNER_READ OWNER_WRITE
             )
             add_test(
-                NAME ${NAME}
-                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-                COMMAND ${CMAKE_CURRENT_BINARY_DIR}/test_${NAME}
+                    NAME ${_ext_TARGET}
+                    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                    COMMAND ${CMAKE_CURRENT_BINARY_DIR}/test_${_ext_TARGER}
             )
         endif()
 
         add_custom_target(
-                ${NAME}_update_results
+                ${_ext_TARGET}_update_results
                 COMMAND
                 ${CMAKE_COMMAND} -E copy_if_different
-                ${CMAKE_CURRENT_BINARY_DIR}/${NAME}/results/*.out
+                ${CMAKE_CURRENT_BINARY_DIR}/${_ext_TARGET}/results/*.out
                 ${CMAKE_CURRENT_SOURCE_DIR}/expected)
         if(NOT TARGET update_test_results)
             add_custom_target(update_test_results)
         endif()
-        add_dependencies(update_test_results ${NAME}_update_results)
+        add_dependencies(update_test_results ${_ext_TARGET}_update_results)
     endif()
 
     if(_ext_TESTS OR NOT DEFINED _ext_TESTS)
         set(_tests_dir "${CMAKE_CURRENT_SOURCE_DIR}/tests")
-        if (EXISTS "${_tests_dir}/${NAME}" AND IS_DIRECTORY "${_tests_dir}/${NAME}")
-            set(_tests_dir "${_tests_dir}/${NAME}")
+        if(EXISTS "${_tests_dir}/${_ext_TARGET}" AND IS_DIRECTORY "${_tests_dir}/${_ext_TARGET}")
+            set(_tests_dir "${_tests_dir}/${_ext_TARGET}")
         endif()
         find_pg_yregress_tests("${_tests_dir}")
     endif()
@@ -482,9 +503,9 @@ ${_loadextensions} \
             set(_cli ${PSQL})
         endif()
 
-        file(GENERATE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/psql_${NAME}
+        file(GENERATE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/psql_${_ext_TARGET}
             CONTENT "#! /usr/bin/env bash
-${CMAKE_BINARY_DIR}/script_${NAME} ${_ext_dir}
+${CMAKE_BINARY_DIR}/script_${_ext_TARGET} ${_ext_dir}
 if [ -z \"$PGPORT\" ]; then
     # Try 5432 first
     export PGPORT=5432
@@ -549,16 +570,16 @@ ${PG_CTL} stop -D  \"$PSQLDB\" -m smart
 "
                 FILE_PERMISSIONS OWNER_EXECUTE OWNER_READ OWNER_WRITE
                 )
-        add_custom_target(psql_${NAME}
+        add_custom_target(psql_${_ext_TARGET}
                 WORKING_DIRECTORY "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/.."
-                COMMAND ${CMAKE_CURRENT_BINARY_DIR}/psql_${NAME})
-        add_dependencies(psql_${NAME} ${NAME} omni_ext)
+                COMMAND ${CMAKE_CURRENT_BINARY_DIR}/psql_${_ext_TARGET})
+        add_dependencies(psql_${_ext_TARGET} ${_ext_TARGET} omni_ext)
     endif()
 
     if(PG_REGRESS)
         # We add a custom target to get output when there is a failure.
         add_custom_target(
-            test_verbose_${NAME} COMMAND ${CMAKE_CTEST_COMMAND} --force-new-ctest-process
-            --verbose --output-on-failure)
+                test_verbose_${_ext_TARGET} COMMAND ${CMAKE_CTEST_COMMAND} --force-new-ctest-process
+                --verbose --output-on-failure)
     endif()
 endfunction()

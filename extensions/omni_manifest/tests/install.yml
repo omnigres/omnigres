@@ -82,3 +82,66 @@ tests:
       extversion: 1
     - extname: omni_manifest_test_2
       extversion: 1
+
+- name: upgrading dependencies
+  steps:
+  - query: |
+      select
+          requirement::text,
+          status
+      from
+          omni_manifest.install(array [omni_manifest.artifact($1::jsonb, $2::jsonb)])
+      order by
+          (requirement).name asc
+    params:
+    - omni_manifest_test_2: 1
+    - omni_manifest_test_1: 1
+    results:
+    - requirement: omni_manifest_test_1=1
+      status: installed
+    - requirement: omni_manifest_test_2=1
+      status: installed
+  - query: select
+               extname,
+               extversion
+           from
+               pg_extension
+           where
+               extname like 'omni_manifest_test_%'
+           order by
+               extname asc
+    results:
+    - extname: omni_manifest_test_1
+      extversion: 1
+    - extname: omni_manifest_test_2
+      extversion: 1
+  - query: |
+      select
+          requirement::text,
+          status
+      from
+          omni_manifest.install(array [omni_manifest.artifact($1::jsonb, $2::jsonb)])
+      order by
+          (requirement).name asc
+    params:
+    - omni_manifest_test_2: 2
+    - omni_manifest_test_1: 2
+    results:
+    - requirement: omni_manifest_test_1=2
+      status: updated
+    - requirement: omni_manifest_test_2=2
+      status: updated
+  - query: select
+               extname,
+               extversion
+           from
+               pg_extension
+           where
+               extname like 'omni_manifest_test_%'
+           order by
+               extname asc
+    results:
+    - extname: omni_manifest_test_1
+      extversion: 2
+    - extname: omni_manifest_test_2
+      extversion: 2
