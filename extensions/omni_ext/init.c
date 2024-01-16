@@ -186,6 +186,9 @@ void shmem_hook() {
 static bool _dynpgext_loader_present = true;
 
 void _PG_init() {
+  if (!process_shared_preload_libraries_in_progress) {
+    return;
+  }
   DefineCustomBoolVariable("dynpgext.loader_present",
                            "Flag indicating presence of a Dynpgext loader", NULL,
                            &_dynpgext_loader_present, true, PGC_BACKEND, 0, NULL, NULL, NULL);
