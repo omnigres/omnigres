@@ -15,7 +15,7 @@ begin
                where
                    files.name like '%.sql' and
                    migrations.name is null
-               order by files.name asc
+               order by substring(files.name from '[0-9]+')::int asc
         loop
             execute rec.code;
             return next rec.name;

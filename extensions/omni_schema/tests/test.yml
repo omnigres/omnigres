@@ -207,3 +207,37 @@ tests:
   results:
   - migrate_from_fs: 1/1_create_table_x.sql
   - migrate_from_fs: 1/2_add_column_to_x.sql
+
+- name: migrations are naturally sorted
+  steps:
+  - query: select
+               count(*)
+           from
+               omni_schema.migrations
+    results:
+    - count: 0
+  - query: |
+      select *
+      from
+          omni_schema.migrate_from_fs(omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/natsort'))
+    results:
+    - migrate_from_fs: 1_.sql
+    - migrate_from_fs: 2_.sql
+    - migrate_from_fs: 3_.sql
+    - migrate_from_fs: 04_.sql
+    - migrate_from_fs: 5_.sql
+    - migrate_from_fs: 33_.sql
+  - name: executed in the right order
+    query: |
+      select
+          value
+      from
+          test
+      order by
+          id asc
+    results:
+    - value: 2
+    - value: 3
+    - value: 4
+    - value: 5
+    - value: 33
