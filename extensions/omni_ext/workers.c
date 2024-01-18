@@ -152,11 +152,8 @@ void master_worker(Datum main_arg) {
   cmap_db_drop(&databases);
 }
 
-HASHCTL worker_rendezvous_ctl = {.keysize = sizeof(uint32),
-                                 .entrysize = sizeof(database_worker_rendezvous)};
-
-#define i_key Oid
-#define i_tag oid
+#define i_key uint64
+#define i_tag uint64
 #include <stc/cset.h>
 
 void database_worker(Datum db_oid) {
@@ -167,14 +164,8 @@ void database_worker(Datum db_oid) {
 
   BackgroundWorkerUnblockSignals();
 
-  // This is how workers communicate initialization of extensions between each other
-  HTAB *rendezvous_tab =
-      ShmemInitHash("omni_ext_worker_rendezvous", 0, max_databases, &worker_rendezvous_ctl,
-                    HASH_ELEM | HASH_BLOBS | HASH_ATTACH);
-  LWLock *lock = &(GetNamedLWLockTranche("omni_ext_worker_rendezvous")->lock);
-
-  // This stores locally initialized extensions
-  cset_oid extensions = cset_oid_init();
+  // This stores locally processed bgworker requests
+  cset_uint64 bgworker_requests = cset_uint64_init();
 
   while (!terminate) {
 
@@ -187,103 +178,60 @@ void database_worker(Datum db_oid) {
       if (tup == NULL)
         break;
       Form_pg_extension ext = (Form_pg_extension)GETSTRUCT(tup);
+
       bool is_version_null;
       Datum version_datum = heap_getattr(tup, 6, rel->rd_att, &is_version_null);
 
       text *version = is_version_null ? NULL : DatumGetTextPP(version_datum);
 
-      // With this extensions,
-      // For every dynpgext handle registered in the startup phase
-      c_FOREACH(handle, cdeq_handle, handles) {
-        // Check if this handles matches the extension we're currently looking at
-        char *cversion = text_to_cstring(version);
-        bool matching = strcmp((*handle.ref)->name, ext->extname.data) == 0 &&
-                        strcmp((*handle.ref)->version, cversion) == 0;
-        pfree(cversion);
-        // Ignore it if it's not matching
-        if (!matching)
-          continue;
+      {
+        LWLock *lock = &GetNamedLWLockTranche("omni_ext_bgworker_request")->lock;
+        // TODO: make this a shared lock but re-acquire an exclusive lock for globally started
+        // workers so that we can make this a notch faster?
+        LWLockAcquire(lock, LW_EXCLUSIVE);
+        // Iterate over background worker requests
+        HASH_SEQ_STATUS status;
+        hash_seq_init(&status, BackgroundWorkerRequests);
+        BackgroundWorkerRequest *req;
+        while ((req = hash_seq_search(&status)) != NULL) {
+          // Check if this request matches the extension we're currently looking at
+          char *cversion = text_to_cstring(version);
+          bool matching =
+              strncmp(NameStr(req->request.extname), NameStr(ext->extname), NAMEDATALEN) == 0 &&
+              strncmp(NameStr(req->request.extver), cversion, NAMEDATALEN) == 0;
 
-        // If the worker already has already initialized this extension, skip
-        if (!cset_oid_insert(&extensions, ext->oid).inserted)
-          continue;
+          pfree(cversion);
 
-        uint32 extension_hash =
-            string_hash((*handle.ref)->library_name, strlen((*handle.ref)->library_name));
-
-        // Initialize the rendezvous entry for this extension if we're the first one
-        {
-          LWLockAcquire(lock, LW_EXCLUSIVE);
-          bool extension_rendezvous_found = false;
-          database_worker_rendezvous *rendezvous = (database_worker_rendezvous *)hash_search(
-              rendezvous_tab, &extension_hash, HASH_ENTER, &extension_rendezvous_found);
-          if (!extension_rendezvous_found) {
-            rendezvous->used = false;
-            rendezvous->global_worker_starter = 0;
-          }
-          LWLockRelease(lock);
-        }
-
-        // Process background worker requests
-        c_FOREACH(bgw, cdeq_background_worker_request, background_worker_requests) {
-          // Handles must match
-          if (bgw.ref->handle != *(handle.ref))
+          // Ignore it if it's not matching
+          if (!matching)
             continue;
 
-          if ((bgw.ref->flags & DYNPGEXT_REGISTER_BGWORKER_NOTIFY) ==
-              DYNPGEXT_REGISTER_BGWORKER_NOTIFY) {
-            // Ensure this process gets the notifications as it'll do the callback as well
-            bgw.ref->bgw.bgw_notify_pid = MyProcPid;
-          }
+          // Check if we already processed this request
+          if (!cset_uint64_insert(&bgworker_requests, req->id).inserted)
+            continue;
 
-          bool global_background_worker = (bgw.ref->flags & DYNPGEXT_SCOPE_DATABASE_LOCAL) == 0;
-          bool start = true;
-          if (global_background_worker) {
-            // If this worker is not database-local (aka global), ensure we're the only ones
-            // starting it
-            LWLockAcquire(lock, LW_EXCLUSIVE);
-            bool extension_rendezvous_found = false;
-            database_worker_rendezvous *rendezvous = (database_worker_rendezvous *)hash_search(
-                rendezvous_tab, &extension_hash, HASH_ENTER, &extension_rendezvous_found);
-            if (extension_rendezvous_found) {
-              // If we are the one to start (or can self-appoint ourselves to)
-              if (rendezvous->global_worker_starter == 0 ||
-                  rendezvous->global_worker_starter == MyProcPid) {
-                rendezvous->global_worker_starter = MyProcPid;
-                // Then start it
-              } else {
-                // Otherwise don't
-                start = false;
-              }
-            }
-            LWLockRelease(lock);
-          }
-          if (start) {
-            BackgroundWorkerHandle *handle;
+          bool global_background_worker = (req->request.flags & DYNPGEXT_SCOPE_DATABASE_LOCAL) == 0;
+
+          // Since we're locking access to the entire table, we're sure that we're the only worker
+          // attempting to start this one at the moment.
+          if (!global_background_worker || (global_background_worker && !req->globally_started)) {
+            BackgroundWorker bgw = req->request.bgw;
             if (!global_background_worker) {
-              bgw.ref->bgw.bgw_main_arg = db_oid;
+              bgw.bgw_main_arg = db_oid;
             }
-            bgw.ref->bgw.bgw_restart_time = BGW_NEVER_RESTART;
-            RegisterDynamicBackgroundWorker(&bgw.ref->bgw, &handle);
-            if (bgw.ref->callback) {
-              bgw.ref->callback(handle, bgw.ref->data);
+            bgw.bgw_restart_time = BGW_NEVER_RESTART;
+            BackgroundWorkerHandle *handle;
+            RegisterDynamicBackgroundWorker(&bgw, &handle);
+            if (global_background_worker) {
+              req->globally_started = true;
             }
           }
         }
 
-        // Update the rendezvous entry for this extension to reflect its use
-        {
-          LWLockAcquire(lock, LW_EXCLUSIVE);
-          bool extension_rendezvous_found = false;
-          database_worker_rendezvous *rendezvous = (database_worker_rendezvous *)hash_search(
-              rendezvous_tab, &extension_hash, HASH_FIND, &extension_rendezvous_found);
-          if (extension_rendezvous_found) {
-            rendezvous->used = true;
-          }
-          LWLockRelease(lock);
-        }
+        LWLockRelease(lock);
       }
     }
+
     if (scan->rs_rd->rd_tableam->scan_end) {
       scan->rs_rd->rd_tableam->scan_end(scan);
     }
@@ -300,5 +248,5 @@ void database_worker(Datum db_oid) {
     CHECK_FOR_INTERRUPTS();
   }
 
-  cset_oid_drop(&extensions);
+  cset_uint64_drop(&bgworker_requests);
 }

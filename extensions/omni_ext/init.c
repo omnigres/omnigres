@@ -59,12 +59,17 @@ void shmem_request() {
     RequestAddinShmemSpace(hash_estimate_size(max_databases, sizeof(database_oid_mapping_entry)));
   }
 
+  RequestAddinShmemSpace(
+      hash_estimate_size(max_worker_processes * 2, sizeof(BackgroundWorkerRequest)));
+  RequestNamedLWLockTranche("omni_ext_bgworker_request", 1);
+
   // Allocate bulk of memory to be used for new allocations
   RequestAddinShmemSpace(shmem_size * 1024 * 1024);
 
   RequestNamedLWLockTranche("omni_ext_allocation_dictionary", 1);
   RequestNamedLWLockTranche("omni_ext_database_oid_mapping", 1);
-  RequestNamedLWLockTranche("omni_ext_worker_rendezvous", 1);
+
+  RequestAddinShmemSpace(sizeof(SharedInfo));
 }
 
 /**
@@ -176,8 +181,31 @@ void shmem_hook() {
   }
 
   {
-    HTAB *dict = ShmemInitHash("omni_ext_worker_rendezvous", 0, max_databases,
-                               &worker_rendezvous_ctl, HASH_ELEM | HASH_BLOBS);
+    bool found;
+    shared_info =
+        (SharedInfo *)ShmemInitStruct("omni_ext: shared_info", sizeof(SharedInfo), &found);
+    Assert(!found);
+    // Initialize background worker request counter
+    pg_atomic_write_u64(&shared_info->bgworker_next_id, 0);
+  }
+
+  {
+    HASHCTL bgworker_requests = {.keysize = sizeof(uint64),
+                                 .entrysize = sizeof(BackgroundWorkerRequest)};
+    BackgroundWorkerRequests =
+        ShmemInitHash("omni_ext_bgworker_requests", max_worker_processes, max_worker_processes * 2,
+                      &bgworker_requests, HASH_ELEM | HASH_BLOBS);
+    // Populate requests
+    c_FOREACH(bgw, cdeq_background_worker_request, background_worker_requests) {
+      uint64 id = pg_atomic_add_fetch_u64(&shared_info->bgworker_next_id, 1);
+      bool found;
+      BackgroundWorkerRequest *req = hash_search(BackgroundWorkerRequests, &id, HASH_ENTER, &found);
+      Assert(!found);
+      req->request = *bgw.ref;
+      req->globally_started = false;
+    }
+    // Ensure we're not holding onto these anymore
+    cdeq_background_worker_request_clear(&background_worker_requests);
   }
 
   LWLockRelease(AddinShmemInitLock);
@@ -189,6 +217,7 @@ void _PG_init() {
   if (!process_shared_preload_libraries_in_progress) {
     return;
   }
+
   DefineCustomBoolVariable("dynpgext.loader_present",
                            "Flag indicating presence of a Dynpgext loader", NULL,
                            &_dynpgext_loader_present, true, PGC_BACKEND, 0, NULL, NULL, NULL);

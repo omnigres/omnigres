@@ -41,7 +41,7 @@ BackgroundWorker bgw = {.bgw_name = "worker",
                           .bgw_flags = BGWORKER_SHMEM_ACCESS,
                           .bgw_start_time = BgWorkerStart_RecoveryFinished};
 strncpy(bgw.bgw_library_name, handle->library_name, BGW_MAXLEN);
-handle->register_bgworker(handle, &bgw, NULL, NULL,
+handle->register_bgworker(handle, &bgw,
                            DYNPGEXT_REGISTER_BGWORKER_NOTIFY | DYNPGEXT_SCOPE_GLOBAL /* can also take DYNPGEXT_SCOPE_DATABASE_LOCAL */);
 ```
 

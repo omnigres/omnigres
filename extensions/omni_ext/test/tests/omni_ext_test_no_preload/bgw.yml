@@ -1,0 +1,41 @@
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_EXT_SO
+  init:
+  - create extension omni_ext_test_no_preload cascade
+
+tests:
+
+- name: prepare another database
+  transaction: false
+  tests:
+  - create database another_db
+  - query: create extension omni_ext_test_no_preload cascade
+    database: another_db
+
+- name: database-local worker not started yet
+  query: select omni_ext_test_no_preload.wait_for_table('local_worker_started')
+  database: another_db
+  results:
+  - wait_for_table: false
+
+- name: global worker not started yet
+  query: select omni_ext_test_no_preload.wait_for_table('global_worker_started')
+  results:
+  - wait_for_table: false
+
+- name: Load the extension
+  query: select omni_ext.load('omni_ext_test_no_preload')
+  results:
+  - load: 0.1
+
+- name: database-local worker started
+  query: select omni_ext_test_no_preload.wait_for_table('local_worker_started')
+  database: another_db
+  results:
+  - wait_for_table: true
+
+- name: global worker started
+  query: select omni_ext_test_no_preload.wait_for_table('global_worker_started')
+  results:
+  - wait_for_table: true
