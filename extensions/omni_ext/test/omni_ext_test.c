@@ -11,6 +11,7 @@
 #include <catalog/pg_type.h>
 #endif
 #include <executor/spi.h>
+#include <miscadmin.h>
 #include <utils/snapmgr.h>
 #include <utils/timestamp.h>
 
@@ -33,8 +34,8 @@ int db_counter = 0;
 void cb(void *ptr, void *data) { strcpy((char *)ptr, "test"); }
 void cb_dblocal(void *ptr, void *data) { sprintf((char *)ptr, "testdb %d", db_counter++); }
 
-void global_worker(Datum arg) {
-  BackgroundWorkerInitializeConnection("omni_ext_test", NULL, 0);
+void global_worker(Datum dboid) {
+  BackgroundWorkerInitializeConnectionByOid(dboid, InvalidOid, 0);
 
   SetCurrentStatementStartTimestamp();
   StartTransactionCommand();
@@ -100,9 +101,10 @@ void _Dynpgext_init(const dynpgext_handle *handle) {
                           .bgw_function_name = "global_worker",
                           .bgw_flags = BGWORKER_SHMEM_ACCESS | BGWORKER_BACKEND_DATABASE_CONNECTION,
                           .bgw_start_time = BgWorkerStart_RecoveryFinished,
+                          .bgw_main_arg = MyDatabaseId,
                           .bgw_restart_time = BGW_NEVER_RESTART};
   strncpy(bgw.bgw_library_name, handle->library_name, BGW_MAXLEN);
-  handle->register_bgworker(handle, &bgw, NULL, NULL,
+  handle->register_bgworker(handle, &bgw,
                             DYNPGEXT_REGISTER_BGWORKER_NOTIFY | DYNPGEXT_SCOPE_GLOBAL);
 
   // Database-local background worker
@@ -114,7 +116,7 @@ void _Dynpgext_init(const dynpgext_handle *handle) {
                            .bgw_start_time = BgWorkerStart_RecoveryFinished,
                            .bgw_restart_time = BGW_NEVER_RESTART};
   strncpy(bgwl.bgw_library_name, handle->library_name, BGW_MAXLEN);
-  handle->register_bgworker(handle, &bgwl, NULL, NULL,
+  handle->register_bgworker(handle, &bgwl,
                             DYNPGEXT_REGISTER_BGWORKER_NOTIFY | DYNPGEXT_SCOPE_DATABASE_LOCAL);
 }
 

@@ -85,11 +85,10 @@ int allocation_request_cmp(const allocation_request *left, const allocation_requ
 extern cdeq_allocation_request allocation_requests;
 
 typedef struct {
-  const dynpgext_handle *handle;
   BackgroundWorker bgw;
-  void (*callback)(BackgroundWorkerHandle *handle, void *data);
-  void *data;
   dynpgext_register_bgworker_flags flags;
+  NameData extname;
+  NameData extver; // this is strictly speaking incorrect, version is a varlen
 } background_worker_request;
 
 int background_worker_request_cmp(const background_worker_request *left,
@@ -99,6 +98,20 @@ int background_worker_request_cmp(const background_worker_request *left,
 #define i_tag background_worker_request
 #define i_cmp background_worker_request_cmp
 #include <stc/cdeq.h>
+
+typedef struct {
+  uint64 id;
+  background_worker_request request;
+  bool globally_started;
+} BackgroundWorkerRequest;
+
+extern HTAB *BackgroundWorkerRequests;
+
+typedef struct {
+  pg_atomic_uint64 bgworker_next_id;
+} SharedInfo;
+
+extern SharedInfo *shared_info;
 
 /**
  * @brief Dynpgext background worker requests collected during the startup phase
@@ -126,8 +139,7 @@ void allocate_shmem_startup(const struct dynpgext_handle *handle, const char *na
  * @param bgw background worker
  */
 void register_bgworker_startup(const struct dynpgext_handle *handle, BackgroundWorker *bgw,
-                               void (*callback)(BackgroundWorkerHandle *handle, void *data),
-                               void *data, dynpgext_register_bgworker_flags flags);
+                               dynpgext_register_bgworker_flags flags);
 
 /**
  * @brief Allocates shmem during the runtime phase
@@ -149,8 +161,7 @@ void allocate_shmem_runtime(const struct dynpgext_handle *handle, const char *na
  * @param bgw background worker
  */
 void register_bgworker_runtime(const struct dynpgext_handle *handle, BackgroundWorker *bgw,
-                               void (*callback)(BackgroundWorkerHandle *handle, void *data),
-                               void *data, dynpgext_register_bgworker_flags flags);
+                               dynpgext_register_bgworker_flags flags);
 
 /**
  * @brief Get this extension's shared library name

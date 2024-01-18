@@ -33,6 +33,8 @@
 #include "omni_ext.h"
 #include "strverscmp.h"
 
+SharedInfo *shared_info;
+
 static const char *find_absolute_library_path(const char *filename) {
   const char *result = filename;
 #ifdef __linux__
@@ -125,6 +127,8 @@ HASHCTL allocation_dictionary_ctl = {.keysize = ALLOCATION_DICTIONARY_KEY_SIZE,
 HASHCTL database_oid_mapping_ctl = {.keysize = sizeof(Oid),
                                     .entrysize = sizeof(database_oid_mapping_entry)};
 
+HTAB *BackgroundWorkerRequests;
+
 int allocation_request_cmp(const allocation_request *left, const allocation_request *right) {
   if (left->callback == right->callback && left->data == right->data) {
     return 0;
@@ -167,17 +171,17 @@ void allocate_shmem_startup(const dynpgext_handle *handle, const char *name, siz
 }
 
 void register_bgworker_startup(const dynpgext_handle *handle, BackgroundWorker *bgw,
-                               void (*callback)(BackgroundWorkerHandle *handle, void *data),
-                               void *data, dynpgext_register_bgworker_flags flags) {
+                               dynpgext_register_bgworker_flags flags) {
 
   if (bgw->bgw_notify_pid == MyProcPid) {
     // Regardless of the PID of the process that will actually be registering the worker,
     // we'll know the extension wanted to be notified
     flags |= DYNPGEXT_REGISTER_BGWORKER_NOTIFY;
   }
-  background_worker_request request = {
-      .handle = handle, .callback = callback, .data = data, .flags = flags};
+  background_worker_request request = {.flags = flags};
   memcpy(&request.bgw, bgw, sizeof(BackgroundWorker));
+  strncpy(NameStr(request.extname), handle->name, NAMEDATALEN);
+  strncpy(NameStr(request.extver), handle->version, NAMEDATALEN);
   cdeq_background_worker_request_push_back(&background_worker_requests, request);
 }
 
@@ -221,19 +225,32 @@ void allocate_shmem_runtime(const dynpgext_handle *handle, const char *name, siz
 }
 
 void register_bgworker_runtime(const dynpgext_handle *handle, BackgroundWorker *bgw,
-                               void (*callback)(BackgroundWorkerHandle *handle, void *data),
-                               void *data, dynpgext_register_bgworker_flags flags) {
+                               dynpgext_register_bgworker_flags flags) {
   if ((flags & DYNPGEXT_REGISTER_BGWORKER_NOTIFY) == DYNPGEXT_REGISTER_BGWORKER_NOTIFY) {
     bgw->bgw_notify_pid = MyProcPid;
   }
-  BackgroundWorkerHandle *worker_handle;
   if ((flags & DYNPGEXT_SCOPE_DATABASE_LOCAL) == DYNPGEXT_SCOPE_DATABASE_LOCAL) {
-    // TODO: communicate with workers to start database-local workers
+    // If the worker is database-local, dispatch to the database workers
+    LWLock *lock = &GetNamedLWLockTranche("omni_ext_bgworker_request")->lock;
+    LWLockAcquire(lock, LW_EXCLUSIVE);
+    uint64 id = pg_atomic_add_fetch_u64(&shared_info->bgworker_next_id, 1);
+    bool found;
+    BackgroundWorkerRequest *request =
+        (BackgroundWorkerRequest *)hash_search(BackgroundWorkerRequests, &id, HASH_ENTER, &found);
+    Assert(!found);
+    request->request = (background_worker_request){
+        .flags = flags,
+        .bgw = *bgw,
+    };
+    strncpy(NameStr(request->request.extname), handle->name, NAMEDATALEN);
+    strncpy(NameStr(request->request.extver), handle->version, NAMEDATALEN);
+    request->globally_started = false;
+
+    LWLockRelease(lock);
   } else {
+    // Otherwise, start it right here
+    BackgroundWorkerHandle *worker_handle;
     RegisterDynamicBackgroundWorker(bgw, &worker_handle);
-    if (callback) {
-      callback(worker_handle, data);
-    }
   }
 }
 
