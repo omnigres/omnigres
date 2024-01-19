@@ -17,3 +17,7 @@ CREATE FUNCTION wait_for_table(name text)
     RETURNS bool
     AS 'MODULE_PATHNAME', 'wait_for_table'
     LANGUAGE C;
+
+create function wait_for_global_bgworker()
+    returns bool as
+'MODULE_PATHNAME' language c;

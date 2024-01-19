@@ -109,6 +109,8 @@ extern HTAB *BackgroundWorkerRequests;
 
 typedef struct {
   pg_atomic_uint64 bgworker_next_id;
+  // This is currently used by tests and nothing else:
+  char reserved[64];
 } SharedInfo;
 
 extern SharedInfo *shared_info;
