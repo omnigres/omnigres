@@ -28,7 +28,7 @@ endfunction()
                 omni_ext
                 SCHEMA omni_ext
                 RELOCATABLE false
-                SOURCES omni_ext.c control_file.c init.c workers.c strverscmp.c
+                SOURCES omni_ext.c control_file.c init.c hooks.c workers.c strverscmp.c
                 DEPENDS_ON libgluepg_stc dynpgext
                 UNVERSIONED_SO ON
                 SHARED_PRELOAD ON)
