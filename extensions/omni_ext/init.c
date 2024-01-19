@@ -185,6 +185,8 @@ void shmem_hook() {
     shared_info =
         (SharedInfo *)ShmemInitStruct("omni_ext: shared_info", sizeof(SharedInfo), &found);
     Assert(!found);
+    // ensure it's all zeroes for the sake of tests using reserved space
+    memset((void *)shared_info, 0, sizeof(SharedInfo));
     // Initialize background worker request counter
     pg_atomic_write_u64(&shared_info->bgworker_next_id, 0);
   }

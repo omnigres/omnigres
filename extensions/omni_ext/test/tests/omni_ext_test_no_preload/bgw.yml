@@ -20,9 +20,9 @@ tests:
   - wait_for_table: false
 
 - name: global worker not started yet
-  query: select omni_ext_test_no_preload.wait_for_table('global_worker_started')
+  query: select omni_ext_test_no_preload.wait_for_global_bgworker()
   results:
-  - wait_for_table: false
+  - wait_for_global_bgworker: false
 
 - name: Load the extension
   query: select omni_ext.load('omni_ext_test_no_preload')
@@ -36,6 +36,6 @@ tests:
   - wait_for_table: true
 
 - name: global worker started
-  query: select omni_ext_test_no_preload.wait_for_table('global_worker_started')
+  query: select omni_ext_test_no_preload.wait_for_global_bgworker()
   results:
-  - wait_for_table: true
+  - wait_for_global_bgworker: true

@@ -14,3 +14,7 @@ as
 'MODULE_PATHNAME',
 'wait_for_table'
     language c;
+
+create function wait_for_global_bgworker()
+    returns bool as
+'MODULE_PATHNAME' language c;
