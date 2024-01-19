@@ -406,6 +406,37 @@ Datum load(PG_FUNCTION_ARGS) {
   return CStringGetDatum(pstrdup(result));
 }
 
+bool unload_extension(char *name, char *version) {
+  struct matching_control_file_search search = {
+      .name = name, .version = version, .exact_match = NULL, .unversioned_match = NULL};
+
+  Datum value;
+
+  struct load_control_file_config config = {.preload = false,
+                                            .action = UNLOAD,
+                                            .allocate_shmem = allocate_shmem_runtime,
+                                            .expected_version = version,
+                                            .register_bgworker_function =
+                                                register_bgworker_runtime};
+
+  bool result = false;
+  find_control_files(pick_matching_control_file, &search);
+
+  if (version && search.exact_match) {
+    load_control_file(search.exact_match, (void *)&config);
+    result = true;
+  } else if (version && search.unversioned_match) {
+    // FIXME: should we only load this if `default_version` is matching?
+    load_control_file(search.unversioned_match, (void *)&config);
+    result = true;
+  } else {
+    ereport(ERROR, errmsg("No matching control file found"));
+  }
+  // TODO: free allocated resources (shmem & workers)? or should this be a responsibility
+  // of the extension to ensure this is done exactly how they need it?
+  return result;
+}
+
 PG_FUNCTION_INFO_V1(unload);
 Datum unload(PG_FUNCTION_ARGS) {
   char *name = NULL;
@@ -421,36 +452,7 @@ Datum unload(PG_FUNCTION_ARGS) {
     ereport(ERROR, errmsg("extension version is required"));
   }
 
-  struct matching_control_file_search search = {
-      .name = name, .version = version, .exact_match = NULL, .unversioned_match = NULL};
-
-  Datum value;
-
-  struct load_control_file_config config = {.preload = false,
-                                            .action = UNLOAD,
-                                            .allocate_shmem = allocate_shmem_runtime,
-                                            .expected_version = version,
-                                            .register_bgworker_function =
-                                                register_bgworker_runtime};
-
-  bool result = false;
-  WITH_TEMP_MEMCXT {
-    find_control_files(pick_matching_control_file, &search);
-
-    if (version && search.exact_match) {
-      load_control_file(search.exact_match, (void *)&config);
-      result = true;
-    } else if (version && search.unversioned_match) {
-      // FIXME: should we only load this if `default_version` is matching?
-      load_control_file(search.unversioned_match, (void *)&config);
-      result = true;
-    } else {
-      ereport(ERROR, errmsg("No matching control file found"));
-    }
-  }
-  // TODO: free allocated resources (shmem & workers)? or should this be a responsibility
-  // of the extension to ensure this is done exactly how they need it?
-  PG_RETURN_BOOL(result);
+  PG_RETURN_BOOL(unload_extension(name, version));
 }
 
 void populate_bgworker_requests_for_db(Oid dboid) {

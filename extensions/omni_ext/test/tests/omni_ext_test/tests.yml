@@ -79,3 +79,14 @@ tests:
       results:
       - nspname: public
         relname: local_worker_started
+
+  - name: unload by dropping
+    tests:
+    - query: select current_setting('omni_ext_test.done', true)
+      results:
+      - current_setting: null
+    - query: drop extension omni_ext_test
+      commit: true
+    - query: select current_setting('omni_ext_test.done')
+      results:
+      - current_setting: yes

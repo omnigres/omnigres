@@ -137,6 +137,17 @@ void _Dynpgext_init(const dynpgext_handle *handle) {
                             DYNPGEXT_REGISTER_BGWORKER_NOTIFY | DYNPGEXT_SCOPE_DATABASE_LOCAL);
 }
 
+void _Dynpgext_fini(const dynpgext_handle *handle) {
+  A_Const *val = makeNode(A_Const);
+#if PG_MAJORVERSION_NUM >= 15
+  val->val.sval = *makeString("yes");
+#else
+  val->val.type = T_String;
+  strVal(&val->val) = "yes";
+#endif
+  SetPGVariable("omni_ext_test.done", list_make1(val), false);
+}
+
 PG_FUNCTION_INFO_V1(alloc_shmem_global);
 
 Datum alloc_shmem_global(PG_FUNCTION_ARGS) {

@@ -26,9 +26,47 @@ ProcessUtility_hook_type old_process_utility_hook;
 typedef struct {
   char *name;
   char *version;
-} LoadExtension;
+} ExtensionReference;
 
 static List *pending_loads = NIL;
+static List *pending_unloads = NIL;
+
+static char *find_extension_version(char *extname, bool missing_ok) {
+  Relation rel;
+  SysScanDesc scandesc;
+  HeapTuple tuple;
+  struct ScanKeyData entry[1];
+  char *version;
+
+  rel = table_open(ExtensionRelationId, AccessShareLock);
+
+  ScanKeyInit(&entry[0], Anum_pg_extension_extname, BTEqualStrategyNumber, F_NAMEEQ,
+              CStringGetDatum(extname));
+
+  scandesc = systable_beginscan(rel, ExtensionNameIndexId, true, NULL, 1, entry);
+
+  tuple = systable_getnext(scandesc);
+
+  /* We assume that there can be at most one matching tuple */
+  if (HeapTupleIsValid(tuple)) {
+    bool is_version_null;
+    Datum version_datum =
+        heap_getattr(tuple, Anum_pg_extension_extversion, rel->rd_att, &is_version_null);
+    if (!is_version_null) {
+      version = text_to_cstring(DatumGetTextPP(version_datum));
+    }
+  }
+
+  systable_endscan(scandesc);
+
+  table_close(rel, AccessShareLock);
+
+  if (version == NULL && !missing_ok)
+    ereport(ERROR, (errcode(ERRCODE_UNDEFINED_OBJECT),
+                    errmsg("extension \"%s\" does not exist", extname)));
+
+  return version;
+}
 
 void omni_ext_process_utility_hook(PlannedStmt *pstmt, const char *queryString,
 #if PG_MAJORVERSION_NUM > 13
@@ -37,6 +75,43 @@ void omni_ext_process_utility_hook(PlannedStmt *pstmt, const char *queryString,
                                    ProcessUtilityContext context, ParamListInfo params,
                                    QueryEnvironment *queryEnv, DestReceiver *dest,
                                    QueryCompletion *qc) {
+
+  Node *node = pstmt->utilityStmt;
+  List *extensions_to_drop = NIL;
+  // Collect information necessary before execution has been completed
+  if (node != NULL) {
+    switch (nodeTag(node)) {
+    case T_DropStmt: {
+      DropStmt *stmt = castNode(DropStmt, node);
+      if (stmt->removeType == OBJECT_EXTENSION) {
+        ListCell *lc;
+        MemoryContext oldcontext = MemoryContextSwitchTo(TopTransactionContext);
+
+        foreach (lc, stmt->objects) {
+#if PG_MAJORVERSION_NUM >= 15
+          char *extname = pstrdup(lfirst_node(String, lc)->sval);
+#else
+          char *extname = pstrdup(((Value *)lfirst(lc))->val.str);
+#endif
+          Oid oid = get_extension_oid(extname, true);
+          if (oid != InvalidOid) {
+            char *extversion = pstrdup(find_extension_version(extname, false));
+            ExtensionReference *drop = palloc(sizeof(ExtensionReference));
+            drop->name = extname;
+            drop->version = extversion;
+            extensions_to_drop = lappend(extensions_to_drop, drop);
+          }
+        }
+
+        MemoryContextSwitchTo(oldcontext);
+      }
+      break;
+    }
+    default:
+      break;
+    }
+  }
+
   if (old_process_utility_hook != NULL) {
     old_process_utility_hook(pstmt, queryString,
 #if PG_MAJORVERSION_NUM > 13
@@ -50,7 +125,6 @@ void omni_ext_process_utility_hook(PlannedStmt *pstmt, const char *queryString,
 #endif
                             context, params, queryEnv, dest, qc);
   }
-  Node *node = pstmt->utilityStmt;
   if (node != NULL) {
     switch (nodeTag(node)) {
     case T_CreatedbStmt: {
@@ -58,6 +132,13 @@ void omni_ext_process_utility_hook(PlannedStmt *pstmt, const char *queryString,
       CreatedbStmt *stmt = castNode(CreatedbStmt, node);
       Oid dboid = get_database_oid(stmt->dbname, false);
       populate_bgworker_requests_for_db(dboid);
+      break;
+    }
+    case T_DropStmt: {
+      DropStmt *stmt = castNode(DropStmt, node);
+      if (stmt->removeType == OBJECT_EXTENSION) {
+        pending_unloads = extensions_to_drop;
+      }
       break;
     }
     case T_CreateExtensionStmt: {
@@ -81,45 +162,10 @@ void omni_ext_process_utility_hook(PlannedStmt *pstmt, const char *queryString,
         }
       }
       // The version was not supplied, going to find it
-
-      {
-        Oid result;
-        Relation rel;
-        SysScanDesc scandesc;
-        HeapTuple tuple;
-        struct ScanKeyData entry[1];
-
-        rel = table_open(ExtensionRelationId, AccessShareLock);
-
-        ScanKeyInit(&entry[0], Anum_pg_extension_extname, BTEqualStrategyNumber, F_NAMEEQ,
-                    CStringGetDatum(extname));
-
-        scandesc = systable_beginscan(rel, ExtensionNameIndexId, true, NULL, 1, entry);
-
-        tuple = systable_getnext(scandesc);
-
-        /* We assume that there can be at most one matching tuple */
-        if (HeapTupleIsValid(tuple)) {
-          bool is_version_null;
-          Datum version_datum =
-              heap_getattr(tuple, Anum_pg_extension_extversion, rel->rd_att, &is_version_null);
-          if (!is_version_null) {
-            version = text_to_cstring(DatumGetTextPP(version_datum));
-          }
-        }
-
-        systable_endscan(scandesc);
-
-        table_close(rel, AccessShareLock);
-
-        if (version == NULL)
-          ereport(ERROR, (errcode(ERRCODE_UNDEFINED_OBJECT),
-                          errmsg("extension \"%s\" does not exist", extname)));
-      }
-
+      version = find_extension_version(extname, false);
     version_ready: {
       MemoryContext oldcontext = MemoryContextSwitchTo(TopTransactionContext);
-      LoadExtension *load = palloc(sizeof(LoadExtension));
+      ExtensionReference *load = palloc(sizeof(ExtensionReference));
       load->name = pstrdup(extname);
       load->version = pstrdup(version);
       pending_loads = lappend(pending_loads, load);
@@ -136,8 +182,12 @@ void omni_ext_transaction_callback(XactEvent event, void *arg) {
   switch (event) {
   case XACT_EVENT_COMMIT: {
     ListCell *lc;
+    foreach (lc, pending_unloads) {
+      ExtensionReference *ext = (ExtensionReference *)lfirst(lc);
+      unload_extension(ext->name, ext->version);
+    }
     foreach (lc, pending_loads) {
-      LoadExtension *ext = (LoadExtension *)lfirst(lc);
+      ExtensionReference *ext = (ExtensionReference *)lfirst(lc);
       load_extension(ext->name, ext->version);
 
       // Process new matching entries
@@ -148,6 +198,8 @@ void omni_ext_transaction_callback(XactEvent event, void *arg) {
     // Cleanup
     list_free_deep(pending_loads);
     pending_loads = NIL;
+    list_free_deep(pending_unloads);
+    pending_unloads = NIL;
     break;
   default:
     break;

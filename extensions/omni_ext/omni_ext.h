@@ -180,6 +180,7 @@ const char *get_library_name();
 extern bool dsa_attached;
 void ensure_dsa_attached();
 
+bool unload_extension(char *name, char *version);
 char *load_extension(char *name, char *version);
 
 extern ExecutorFinish_hook_type old_executor_finish_hook;
