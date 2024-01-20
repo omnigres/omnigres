@@ -1,0 +1,227 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_manifest
+
+tests:
+
+- name: text conversion
+  tests:
+  - name: text to artifact
+    query: |
+      with
+          artifact as (select ('omni_test=1.2#req=2'::text::omni_manifest.artifact).*)
+      select
+          (self).*,
+          requirements::text
+      from
+          artifact
+    results:
+    - name: omni_test
+      version: 1.2
+      requirements: req=2
+  - name: text to artifacts
+    query: |
+      with
+          artifact as (select * from unnest(e'omni_test=1.2#req=2\nreq=2#base=0'::text::omni_manifest.artifact[]))
+      select
+          (self).*,
+          requirements::text
+      from
+          artifact
+      order by
+          name
+    results:
+    - name: omni_test
+      version: 1.2
+      requirements: req=2
+    - name: req
+      version: 2
+      requirements: base=0
+  - name: text to artifacts
+    query: |
+      with
+          artifact as (select * from unnest(e'omni_test=1.2#req=2\nreq=2#base=0'::text::omni_manifest.artifact[]))
+      select
+          (self).*,
+          requirements::text
+      from
+          artifact
+      order by
+          name
+    results:
+    - name: omni_test
+      version: 1.2
+      requirements: req=2
+    - name: req
+      version: 2
+      requirements: base=0
+
+  - name: text to artifacts (semicolon instead of newline)
+    query: |
+      with
+          artifact as (select * from unnest('omni_test=1.2#req=2;req=2#base=0'::text::omni_manifest.artifact[]))
+      select
+          (self).*,
+          requirements::text
+      from
+          artifact
+      order by
+          name
+    results:
+    - name: omni_test
+      version: 1.2
+      requirements: req=2
+    - name: req
+      version: 2
+      requirements: base=0
+
+  - name: text to artifacts (superfluous newline tolerance)
+    query: |
+      with
+          artifact as (select * from unnest(e'omni_test=1.2#req=2\nreq=2#base=0\n'::text::omni_manifest.artifact[]))
+      select
+          (self).*,
+          requirements::text
+      from
+          artifact
+      order by
+          name
+    results:
+    - name: omni_test
+      version: 1.2
+      requirements: req=2
+    - name: req
+      version: 2
+      requirements: base=0
+
+  - name: artifact to text
+    query: select 'omni_test=1.2#req=2'::text::omni_manifest.artifact::text as artifact
+    results:
+    - artifact: omni_test=1.2#req=2
+  - name: artifacts to text
+    query: select e'omni_test=1.2#req=2\nreq=2#base=0'::text::omni_manifest.artifact[]::text as artifact
+    results:
+    - artifact: omni_test=1.2#req=2;req=2#base=0
+  - name: artifacts to text
+    query: select e'omni_test=1.2#req=2\nreq=2'::text::omni_manifest.artifact[]::text as artifact
+    results:
+    - artifact: omni_test=1.2#req=2;req=2
+
+- name: JSON conversion
+  tests:
+  - name: JSON to artifact
+    query: |
+      with
+          artifact as (select
+                           ('{"target": {"omni_test": "1.2"}, "requirements": {"req": "2"}}'::json::omni_manifest.artifact).*)
+      select
+          (self).*,
+          requirements::text
+      from
+          artifact
+    results:
+    - name: omni_test
+      version: 1.2
+      requirements: req=2
+  - name: JSON to artifacts
+    query: |
+      with
+          artifact as (select *
+                       from
+                           unnest('[{"target": {"omni_test": "1.2"}, "requirements": {"req": "2"}}, {"target": {"req": "2"}, "requirements": {"base": "0"}}]'::json::omni_manifest.artifact[]))
+      select
+          (self).*,
+          requirements::text
+      from
+          artifact
+      order by
+          name
+    results:
+    - name: omni_test
+      version: 1.2
+      requirements: req=2
+    - name: req
+      version: 2
+      requirements: base=0
+  - name: artifact to JSON
+    query: select 'omni_test=1.2#req=2'::text::omni_manifest.artifact::json as artifact
+    results:
+    - artifact:
+        target:
+          omni_test: 1.2
+        requirements:
+          req: 2
+  - name: artifacts to JSON
+    query: select
+               json_array_elements(e'omni_test=1.2#req=2\nreq=2#base=0'::text::omni_manifest.artifact[]::json) as artifact
+    results:
+    - artifact:
+        target:
+          omni_test: 1.2
+        requirements:
+          req: 2
+    - artifact:
+        target:
+          req: 2
+        requirements:
+          base: 0
+
+- name: JSONB conversion
+  tests:
+  - name: JSONb to artifact
+    query: |
+      with
+          artifact as (select
+                           ('{"target": {"omni_test": "1.2"}, "requirements": {"req": "2"}}'::jsonb::omni_manifest.artifact).*)
+      select
+          (self).*,
+          requirements::text
+      from
+          artifact
+    results:
+    - name: omni_test
+      version: 1.2
+      requirements: req=2
+  - name: JSONB to artifacts
+    query: |
+      with
+          artifact as (select *
+                       from
+                           unnest('[{"target": {"omni_test": "1.2"}, "requirements": {"req": "2"}}, {"target": {"req": "2"}, "requirements": {"base": "0"}}]'::jsonb::omni_manifest.artifact[]))
+      select
+          (self).*,
+          requirements::text
+      from
+          artifact
+      order by
+          name
+    results:
+    - name: omni_test
+      version: 1.2
+      requirements: req=2
+    - name: req
+      version: 2
+      requirements: base=0
+  - name: artifact to JSONB
+    query: select 'omni_test=1.2#req=2'::text::omni_manifest.artifact::jsonb as artifact
+    results:
+    - artifact:
+        target:
+          omni_test: 1.2
+        requirements:
+          req: 2
+  - name: artifacts to JSONB
+    query: select
+               jsonb_array_elements(e'omni_test=1.2#req=2\nreq=2#base=0'::text::omni_manifest.artifact[]::jsonb) as artifact
+    results:
+    - artifact:
+        target:
+          omni_test: 1.2
+        requirements:
+          req: 2
+    - artifact:
+        target:
+          req: 2
+        requirements:
+          base: 0

@@ -106,6 +106,8 @@
 # of the `psql_NAME` session and `:CMAKE_BINARY_DIR` psql variable will be set to the current
 # build directory (`CMAKE_BINARY_DIR`)
 #
+# prepare and prepare_NAME: prepares all the control/migration files
+#
 # NAME_update_results Updates pg_regress test expectations to match results
 # test_verbose_NAME Runs tests verbosely
 find_program(PGCLI pgcli)
@@ -404,6 +406,17 @@ $command $@
         endif()
     endif()
 
+    if(NOT _ext_PRIVATE)
+        add_custom_target(prepare_${_ext_TARGET}
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                COMMAND ${CMAKE_BINARY_DIR}/script_${_ext_TARGET} ${_ext_dir})
+
+        if(NOT TARGET prepare)
+            add_custom_target(prepare)
+        endif()
+        add_dependencies(prepare prepare_${_ext_TARGET})
+    endif()
+
     if(_ext_REGRESS)
         foreach(_test ${_ext_REGRESS})
             set(_sql_file "${CMAKE_CURRENT_SOURCE_DIR}/sql/${_test}.sql")
@@ -582,4 +595,36 @@ ${PG_CTL} stop -D  \"$PSQLDB\" -m smart
                 test_verbose_${_ext_TARGET} COMMAND ${CMAKE_CTEST_COMMAND} --force-new-ctest-process
                 --verbose --output-on-failure)
     endif()
+
+    if(NOT _ext_PRIVATE AND NOT NAME STREQUAL "omni_ext")
+        get_property(omni_artifacts GLOBAL PROPERTY omni_artifacts)
+        if(NOT omni_artifacts)
+            # Make an empty file
+            set_property(GLOBAL PROPERTY omni_artifacts "${CMAKE_BINARY_DIR}/artifacts.txt")
+            get_property(omni_artifacts GLOBAL PROPERTY omni_artifacts)
+            file(WRITE "${omni_artifacts}" "")
+        endif()
+        file(APPEND "${omni_artifacts}" "${NAME}=${_ext_VERSION}")
+
+        list(LENGTH _ext_REQUIRES len)
+        if(${len} GREATER 0)
+            file(APPEND "${omni_artifacts}" "#")
+            set(_ctr 0)
+            foreach(requirement ${_ext_REQUIRES})
+                math(EXPR _ctr "${_ctr} + 1")
+                if(TARGET ${requirement})
+                    get_version(requirement _ver)
+                else()
+                    set(_ver "*")
+                endif()
+                file(APPEND "${omni_artifacts}" "${requirement}=${_ver}")
+                if(_ctr LESS len)
+                    file(APPEND "${omni_artifacts}" ",")
+                endif()
+            endforeach()
+        endif()
+
+        file(APPEND "${omni_artifacts}" "\n")
+    endif()
+
 endfunction()
