@@ -1,6 +1,10 @@
 #ifndef OMNI_EXT_H
 #define OMNI_EXT_H
 
+#include <access/xact.h>
+#include <executor/executor.h>
+#include <tcop/utility.h>
+
 #include <dynpgext.h>
 
 #include <libgluepg_stc.h>
@@ -102,7 +106,8 @@ int background_worker_request_cmp(const background_worker_request *left,
 typedef struct {
   uint64 id;
   background_worker_request request;
-  bool globally_started;
+  bool started;
+  Oid databaseOid;
 } BackgroundWorkerRequest;
 
 extern HTAB *BackgroundWorkerRequests;
@@ -174,5 +179,23 @@ const char *get_library_name();
 
 extern bool dsa_attached;
 void ensure_dsa_attached();
+
+bool unload_extension(char *name, char *version);
+char *load_extension(char *name, char *version);
+
+extern ExecutorFinish_hook_type old_executor_finish_hook;
+extern ProcessUtility_hook_type old_process_utility_hook;
+void omni_ext_executor_finish_hook(QueryDesc *queryDesc);
+void omni_ext_process_utility_hook(PlannedStmt *pstmt, const char *queryString,
+#if PG_MAJORVERSION_NUM > 13
+                                   bool readOnlyTree,
+#endif
+                                   ProcessUtilityContext context, ParamListInfo params,
+                                   QueryEnvironment *queryEnv, DestReceiver *dest,
+                                   QueryCompletion *qc);
+void omni_ext_transaction_callback(XactEvent event, void *arg);
+
+void populate_bgworker_requests_for_db(Oid dboid);
+void process_extensions_for_database(char *extname, char *extversion, Oid dboid);
 
 #endif // OMNI_EXT_H

@@ -39,7 +39,7 @@ tests:
         results:
           - update_global_value: updated
       - name: re-load again
-        query: select omni_ext.load('omni_ext_test')
+        query: select omni_ext.load('omni_ext_test', '0.1')
         results:
           - load: 0.1
       - name: should not be rolled back to the initial value
@@ -79,3 +79,14 @@ tests:
       results:
       - nspname: public
         relname: local_worker_started
+
+  - name: unload by dropping
+    tests:
+    - query: select current_setting('omni_ext_test.done', true)
+      results:
+      - current_setting: null
+    - query: drop extension omni_ext_test
+      commit: true
+    - query: select current_setting('omni_ext_test.done')
+      results:
+      - current_setting: yes

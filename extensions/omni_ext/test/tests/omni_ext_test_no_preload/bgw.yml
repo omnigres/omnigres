@@ -13,21 +13,7 @@ tests:
   - query: create extension omni_ext_test_no_preload cascade
     database: another_db
 
-- name: database-local worker not started yet
-  query: select omni_ext_test_no_preload.wait_for_table('local_worker_started')
-  database: another_db
-  results:
-  - wait_for_table: false
-
-- name: global worker not started yet
-  query: select omni_ext_test_no_preload.wait_for_global_bgworker()
-  results:
-  - wait_for_global_bgworker: false
-
-- name: Load the extension
-  query: select omni_ext.load('omni_ext_test_no_preload')
-  results:
-  - load: 0.1
+# The extension was not pre-loaded but was loaded by `create extension`, so should work:
 
 - name: database-local worker started
   query: select omni_ext_test_no_preload.wait_for_table('local_worker_started')

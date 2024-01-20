@@ -6,6 +6,8 @@
 #include <fmgr.h>
 // clang-format on
 
+#include <access/xact.h>
+#include <executor/executor.h>
 #include <miscadmin.h>
 #include <port.h>
 #include <storage/fd.h>
@@ -204,7 +206,8 @@ void shmem_hook() {
       BackgroundWorkerRequest *req = hash_search(BackgroundWorkerRequests, &id, HASH_ENTER, &found);
       Assert(!found);
       req->request = *bgw.ref;
-      req->globally_started = false;
+      req->started = false;
+      req->databaseOid = InvalidOid;
     }
     // Ensure we're not holding onto these anymore
     cdeq_background_worker_request_clear(&background_worker_requests);
@@ -277,4 +280,8 @@ void _PG_init() {
   strncpy(master_worker.bgw_library_name, get_library_name(), BGW_MAXLEN);
   RegisterBackgroundWorker(&master_worker);
   MemoryContextSwitchTo(old_context);
+
+  ProcessUtility_hook = omni_ext_process_utility_hook;
+
+  RegisterXactCallback(omni_ext_transaction_callback, NULL);
 }

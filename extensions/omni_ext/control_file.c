@@ -345,7 +345,8 @@ void load_control_file(const char *control_path, void *data) {
 
                   ereport(
                       LOG,
-                      errmsg("Loaded Dynpgext extension %s (version %s)", control_file.ext_name,
+                      errmsg("%s Dynpgext extension %s (version %s)",
+                             config->action == LOAD ? "Loaded" : "Unloaded", control_file.ext_name,
                              control_file.ext_version ? control_file.ext_version : "unspecified"));
                 }
               }

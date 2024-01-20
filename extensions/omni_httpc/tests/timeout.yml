@@ -7,9 +7,7 @@ instance:
   - set session omni_httpd.init_port = 0
   - create extension omni_httpd cascade
   - create extension omni_httpc cascade
-  - delete
-    from
-        omni_httpd.configuration_reloads
+  - call omni_httpd.wait_for_configuration_reloads(1)
   - |
     update omni_httpd.handlers
     set
