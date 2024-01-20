@@ -145,3 +145,16 @@ tests:
       extversion: 2
     - extname: omni_manifest_test_2
       extversion: 2
+
+- name: installing dependencies with any version
+  query: |
+    select
+        requirement::text,
+        status
+    from
+        omni_manifest.install('pgcrypto=*'::text)
+    order by
+        (requirement).name asc
+  results:
+  - requirement: pgcrypto=*
+    status: installed

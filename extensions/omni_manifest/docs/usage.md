@@ -118,6 +118,87 @@ It can be constructed with the `omni_manifest.artifact` function:
 (1 row)
 ```
 
+Besides that, artifacts can be constructed from and deconstructed to both text and JSON forms.
+
+The text form of a single artifact is the text representation of a requirement optionally followed by `#` (the hash
+sign) with a text representation of a list of requirements:
+
+```
+omni_manifest=1.0
+omni_httpd=1.0#omni_http=1.0
+```
+
+The text form of multiple artifacts is a semicolon-separated list:
+
+```
+omni_manifest=1.0;omni_httpd=1.0#omni_http=1.0
+```
+
+!!! Tip
+
+    For convenience, newline is also allowed instead of the semicolon:
+
+    ```
+    omni_manifest=1.0
+    omni_httpd=1.0#omni_http=1.0
+    ```
+
+JSON representation is a JSON list of objects with a `target` property containing the target requirement,
+and `requirements`
+property containing all the requirements:
+
+```json
+[
+  {
+    "target": {
+      "omni_manifest": "1.0"
+    },
+    "requirements": {}
+  },
+  {
+    "target": {
+      "omni_httpd": "1.0"
+    },
+    "requirements": {
+      "omni_http": "1.0"
+    }
+  }
+]
+```
+
+#### Examples
+
+##### From
+
+```postgresql
+select *
+from
+    unnest('omni_manifest=1.0;omni_httpd=1.0#omni_http=1.0'::text::omni_manifest.artifact[]);
+-- alternatively,
+select *
+from
+    unnest('[{"target" : {"omni_manifest" : "1.0"}, "requirements" : {}}, {"target" : {"omni_httpd" : "1.0"}, "requirements" : { "omni_http" : "1.0" }}]'::json::omni_manifest.artifact[]);
+```
+
+```
+        self         |    requirements     
+---------------------+---------------------
+ (omni_manifest,1.0) | 
+ (omni_httpd,1.0)    | {"(omni_http,1.0)"}
+(2 rows)
+```
+
+##### To
+
+```postgresql
+select
+    '[{"target" : {"omni_manifest" : "1.0"}, "requirements" : {}}, {"target" : {"omni_httpd" : "1.0"}, "requirements" : { "omni_http" : "1.0" }}]'::json::omni_manifest.artifact[]::text;
+```
+
+```
+omni_manifest=1.0;omni_httpd=1.0#omni_http=1.0
+```
+
 ## Install Plan
 
 From an array of artifacts, `omni_manifest.install_plan` can be used to show the order in which all extensions will be
@@ -151,11 +232,12 @@ from
 
 Similar to `install_plan`, `omni_manifest.install` takes an array of artifacts and attempts to install them. It returns
 a set of `omni_manifest.install_report` composite type values. Each row contains a requirement (`requirement`) and
-status (`status`, typed `requirement_status`, an enum of `installed`, `missing`, `updated`.
+status (`status`, typed `requirement_status`, an enum of `installed`, `missing`, `updated` or `kept`.
 
 For each effective requirement in the install plan, it'll attempt to install a given version. If one is not available,
 it'll report it as `missing`, otherwise, if a different version is installed it'll try to update and report it `updated`
-if successful. Otherwise, it'll try to install it and return a value of `installed`.
+if successful. Otherwise, it'll try to install it and return a value of `installed`, unless such version is already
+installed, at which point it'll return `kept`.
 
 !!! tip  "Install transactionally"
 

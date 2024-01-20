@@ -68,6 +68,19 @@ static char *find_extension_version(char *extname, bool missing_ok) {
   return version;
 }
 
+char *defGetStringByName(List *options, char *name) {
+  char *result = NULL;
+  ListCell *lc;
+  foreach (lc, options) {
+    DefElem *defelem = lfirst_node(DefElem, lc);
+    if (strncmp(defelem->defname, name, strlen(name)) == 0) {
+      result = defGetString(defelem);
+      break;
+    }
+  }
+  return result;
+}
+
 void omni_ext_process_utility_hook(PlannedStmt *pstmt, const char *queryString,
 #if PG_MAJORVERSION_NUM > 13
                                    bool readOnlyTree,
@@ -112,7 +125,15 @@ void omni_ext_process_utility_hook(PlannedStmt *pstmt, const char *queryString,
       Oid oid = get_extension_oid(stmt->extname, true);
       if (oid != InvalidOid) {
         MemoryContext oldcontext = MemoryContextSwitchTo(TopTransactionContext);
-        char *extversion = pstrdup(find_extension_version(stmt->extname, false));
+        char *extver = find_extension_version(stmt->extname, false);
+        char *new_version = defGetStringByName(stmt->options, "new_version");
+
+        // If we are trying to upgrade to the same version, skip
+        if (new_version != NULL && strncmp(extver, new_version, strlen(extver)) == 0) {
+          break;
+        }
+
+        char *extversion = pstrdup(extver);
         ExtensionReference *drop = palloc(sizeof(ExtensionReference));
         drop->name = stmt->extname;
         drop->version = extversion;
@@ -162,25 +183,13 @@ void omni_ext_process_utility_hook(PlannedStmt *pstmt, const char *queryString,
 
       AlterExtensionStmt *stmt = castNode(AlterExtensionStmt, node);
       char *extname = stmt->extname;
-      char *version = NULL;
       // Try to see if the version is supplied
-      {
-        ListCell *lc;
-        foreach (lc, stmt->options) {
-          DefElem *defelem = lfirst_node(DefElem, lc);
-          if (strncmp(defelem->defname, "new_version", sizeof("new_version")) == 0) {
-            // If we do know the version, it's easy:
-            version = defGetString(defelem);
-            // proceed
-            goto alter_version_ready;
-          }
-        }
+      char *version = defGetStringByName(stmt->options, "new_version");
+      // The version was not supplied, going to find it
+      if (version == NULL) {
+        version = find_extension_version(extname, false);
       }
 
-      // The version was not supplied, going to find it
-      version = find_extension_version(extname, false);
-
-    alter_version_ready: {
       MemoryContext oldcontext = MemoryContextSwitchTo(TopTransactionContext);
       ExtensionReference *load = palloc(sizeof(ExtensionReference));
       load->name = pstrdup(extname);
@@ -188,9 +197,6 @@ void omni_ext_process_utility_hook(PlannedStmt *pstmt, const char *queryString,
       pending_loads = lappend(pending_loads, load);
       MemoryContextSwitchTo(oldcontext);
       break;
-    }
-
-    break;
     }
     case T_CreateExtensionStmt: {
       // At this point, the extension has been created. We don't know the version necessarily,
@@ -198,23 +204,12 @@ void omni_ext_process_utility_hook(PlannedStmt *pstmt, const char *queryString,
       //
       CreateExtensionStmt *stmt = castNode(CreateExtensionStmt, node);
       char *extname = stmt->extname;
-      char *version = NULL;
       // Try to see if the version is supplied
-      {
-        ListCell *lc;
-        foreach (lc, stmt->options) {
-          DefElem *defelem = lfirst_node(DefElem, lc);
-          if (strncmp(defelem->defname, "new_version", sizeof("new_version")) == 0) {
-            // If we do know the version, it's easy:
-            version = defGetString(defelem);
-            // proceed
-            goto version_ready;
-          }
-        }
-      }
+      char *version = defGetStringByName(stmt->options, "new_version");
       // The version was not supplied, going to find it
-      version = find_extension_version(extname, false);
-    version_ready: {
+      if (version == NULL) {
+        version = find_extension_version(extname, false);
+      }
       MemoryContext oldcontext = MemoryContextSwitchTo(TopTransactionContext);
       ExtensionReference *load = palloc(sizeof(ExtensionReference));
       load->name = pstrdup(extname);
@@ -222,7 +217,6 @@ void omni_ext_process_utility_hook(PlannedStmt *pstmt, const char *queryString,
       pending_loads = lappend(pending_loads, load);
       MemoryContextSwitchTo(oldcontext);
       break;
-    }
     }
     default:
       break;
