@@ -107,6 +107,22 @@ void omni_ext_process_utility_hook(PlannedStmt *pstmt, const char *queryString,
       }
       break;
     }
+    case T_AlterExtensionStmt: {
+      AlterExtensionStmt *stmt = castNode(AlterExtensionStmt, node);
+      Oid oid = get_extension_oid(stmt->extname, true);
+      if (oid != InvalidOid) {
+        MemoryContext oldcontext = MemoryContextSwitchTo(TopTransactionContext);
+        char *extversion = pstrdup(find_extension_version(stmt->extname, false));
+        ExtensionReference *drop = palloc(sizeof(ExtensionReference));
+        drop->name = stmt->extname;
+        drop->version = extversion;
+        extensions_to_drop = lappend(extensions_to_drop, drop);
+
+        MemoryContextSwitchTo(oldcontext);
+      }
+
+      break;
+    }
     default:
       break;
     }
@@ -141,6 +157,41 @@ void omni_ext_process_utility_hook(PlannedStmt *pstmt, const char *queryString,
       }
       break;
     }
+    case T_AlterExtensionStmt: {
+      pending_unloads = extensions_to_drop;
+
+      AlterExtensionStmt *stmt = castNode(AlterExtensionStmt, node);
+      char *extname = stmt->extname;
+      char *version = NULL;
+      // Try to see if the version is supplied
+      {
+        ListCell *lc;
+        foreach (lc, stmt->options) {
+          DefElem *defelem = lfirst_node(DefElem, lc);
+          if (strncmp(defelem->defname, "new_version", sizeof("new_version")) == 0) {
+            // If we do know the version, it's easy:
+            version = defGetString(defelem);
+            // proceed
+            goto alter_version_ready;
+          }
+        }
+      }
+
+      // The version was not supplied, going to find it
+      version = find_extension_version(extname, false);
+
+    alter_version_ready: {
+      MemoryContext oldcontext = MemoryContextSwitchTo(TopTransactionContext);
+      ExtensionReference *load = palloc(sizeof(ExtensionReference));
+      load->name = pstrdup(extname);
+      load->version = pstrdup(version);
+      pending_loads = lappend(pending_loads, load);
+      MemoryContextSwitchTo(oldcontext);
+      break;
+    }
+
+    break;
+    }
     case T_CreateExtensionStmt: {
       // At this point, the extension has been created. We don't know the version necessarily,
       // but we do know the name.
@@ -170,7 +221,8 @@ void omni_ext_process_utility_hook(PlannedStmt *pstmt, const char *queryString,
       load->version = pstrdup(version);
       pending_loads = lappend(pending_loads, load);
       MemoryContextSwitchTo(oldcontext);
-    } break;
+      break;
+    }
     }
     default:
       break;

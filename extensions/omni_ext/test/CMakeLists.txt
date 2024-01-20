@@ -19,6 +19,16 @@ add_postgresql_extension(
         REQUIRES omni_ext
         VERSION 0.1)
 
+
+add_postgresql_extension(
+        omni_ext_test
+        TARGET omni_ext_test_2
+        UPGRADE_SCRIPTS tests/omni_ext_test--0.1--0.2.sql
+        NO_DEFAULT_CONTROL ON
+        VERSION 0.2
+        PRIVATE ON
+        TESTS OFF)
+
 add_postgresql_extension(
         omni_ext_test_no_preload
         SCHEMA omni_ext_test_no_preload
