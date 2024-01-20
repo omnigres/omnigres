@@ -83,50 +83,6 @@ void shmem_hook() {
     saved_shmem_startup_hook();
   }
 
-  // Calculate if we have enough `max_worker_processes`
-  bool found_bgworker_data = false;
-
-#if PG_MAJORVERSION_NUM <= 16
-  // This relies on internal knowledge of `BackgroundWorkerArray` struct.
-  // Not perfect, but I haven't found a better way to get a number of used workers
-  // at this stage
-  struct _BackgroundWorkerSlot {
-    bool in_use;
-    bool terminate;
-    pid_t pid;
-    uint64 generation;
-    BackgroundWorker worker;
-  };
-  struct _BackgroundWorkerArray {
-    int total_slots;
-    uint32 parallel_register_count;
-    uint32 parallel_terminate_count;
-    struct _BackgroundWorkerSlot slot[FLEXIBLE_ARRAY_MEMBER];
-  };
-  Size background_worker_shmem_size = offsetof(struct _BackgroundWorkerArray, slot);
-  background_worker_shmem_size =
-      add_size(background_worker_shmem_size,
-               mul_size(max_worker_processes, sizeof(struct _BackgroundWorkerSlot)));
-  struct _BackgroundWorkerArray
-#else
-#error                                                                                             \
-    "Check if BackgroundWorkerArray/BackgroundWorkerSlot have changed in this version of Postgres"
-#endif
-      *worker_array = ShmemInitStruct("Background Worker Data", background_worker_shmem_size,
-                                      &found_bgworker_data);
-
-  int total_used = cdeq_background_worker_request_size(&background_worker_requests);
-  for (int i = 0; i < worker_array->total_slots; i++) {
-    if (worker_array->slot[i].in_use)
-      total_used++;
-  }
-
-  if (max_worker_processes < total_used) {
-    ereport(ERROR, errmsg("Not enough workers allowed. Consider changing max_workers_processes "
-                          "from %d to at least %d",
-                          max_parallel_workers, total_used));
-  }
-
   LWLockAcquire(AddinShmemInitLock, LW_EXCLUSIVE);
 
   // Initialize DSA
