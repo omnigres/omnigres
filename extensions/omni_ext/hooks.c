@@ -73,7 +73,7 @@ char *defGetStringByName(List *options, char *name) {
   ListCell *lc;
   foreach (lc, options) {
     DefElem *defelem = lfirst_node(DefElem, lc);
-    if (strncmp(defelem->defname, name, strlen(name)) == 0) {
+    if (strcmp(defelem->defname, name) == 0) {
       result = defGetString(defelem);
       break;
     }
@@ -132,8 +132,7 @@ void omni_ext_process_utility_hook(PlannedStmt *pstmt, const char *queryString,
         char *new_version = defGetStringByName(stmt->options, "new_version");
 
         // If we are trying to upgrade to the same version, skip
-        if (new_version != NULL &&
-            strncmp(altered_extversion, new_version, strlen(altered_extversion)) == 0) {
+        if (new_version != NULL && strcmp(altered_extversion, new_version) == 0) {
           break;
         }
 
