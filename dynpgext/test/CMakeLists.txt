@@ -14,7 +14,7 @@ add_postgresql_extension(
         dynpgext_test
         VERSION 0.1
         SCRIPTS dynpgext_test--0.1.sql
-        PRIVATE true
+        PRIVATE TRUE
         RELOCATABLE false
         REQUIRES omni_ext
         SOURCES dynpgext_test.c)
