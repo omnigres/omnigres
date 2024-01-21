@@ -88,6 +88,9 @@ void omni_ext_process_utility_hook(PlannedStmt *pstmt, const char *queryString,
                                    ProcessUtilityContext context, ParamListInfo params,
                                    QueryEnvironment *queryEnv, DestReceiver *dest,
                                    QueryCompletion *qc) {
+  // If we are altering an extension, we'll save the version of the extension
+  // we're altering before processing to be able to check it after the processing.
+  char *altered_extversion;
 
   Node *node = pstmt->utilityStmt;
   List *extensions_to_drop = NIL;
@@ -125,15 +128,16 @@ void omni_ext_process_utility_hook(PlannedStmt *pstmt, const char *queryString,
       Oid oid = get_extension_oid(stmt->extname, true);
       if (oid != InvalidOid) {
         MemoryContext oldcontext = MemoryContextSwitchTo(TopTransactionContext);
-        char *extver = find_extension_version(stmt->extname, false);
+        altered_extversion = find_extension_version(stmt->extname, false);
         char *new_version = defGetStringByName(stmt->options, "new_version");
 
         // If we are trying to upgrade to the same version, skip
-        if (new_version != NULL && strncmp(extver, new_version, strlen(extver)) == 0) {
+        if (new_version != NULL &&
+            strncmp(altered_extversion, new_version, strlen(altered_extversion)) == 0) {
           break;
         }
 
-        char *extversion = pstrdup(extver);
+        char *extversion = pstrdup(altered_extversion);
         ExtensionReference *drop = palloc(sizeof(ExtensionReference));
         drop->name = stmt->extname;
         drop->version = extversion;
@@ -179,8 +183,6 @@ void omni_ext_process_utility_hook(PlannedStmt *pstmt, const char *queryString,
       break;
     }
     case T_AlterExtensionStmt: {
-      pending_unloads = extensions_to_drop;
-
       AlterExtensionStmt *stmt = castNode(AlterExtensionStmt, node);
       char *extname = stmt->extname;
       // Try to see if the version is supplied
@@ -190,12 +192,16 @@ void omni_ext_process_utility_hook(PlannedStmt *pstmt, const char *queryString,
         version = find_extension_version(extname, false);
       }
 
-      MemoryContext oldcontext = MemoryContextSwitchTo(TopTransactionContext);
-      ExtensionReference *load = palloc(sizeof(ExtensionReference));
-      load->name = pstrdup(extname);
-      load->version = pstrdup(version);
-      pending_loads = lappend(pending_loads, load);
-      MemoryContextSwitchTo(oldcontext);
+      Assert(altered_extversion != NULL);
+      if (strcmp(altered_extversion, version) != 0) {
+        MemoryContext oldcontext = MemoryContextSwitchTo(TopTransactionContext);
+        ExtensionReference *load = palloc(sizeof(ExtensionReference));
+        load->name = pstrdup(extname);
+        load->version = pstrdup(version);
+        pending_loads = lappend(pending_loads, load);
+        pending_unloads = extensions_to_drop;
+        MemoryContextSwitchTo(oldcontext);
+      }
       break;
     }
     case T_CreateExtensionStmt: {
