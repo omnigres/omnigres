@@ -4,7 +4,7 @@ project(omni_sql)
 if(NOT DEFINED ENV{OMNI_SQL_ALREADY_INCLUDED})
     set(ENV{OMNI_SQL_ALREADY_INCLUDED} TRUE)
 
-    list(PREPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/../../cmake)
+    list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/../../cmake)
 
     include(CPM)
     include(CTest)

@@ -5,7 +5,7 @@ include(CTest)
 include(FindPkgConfig)
 include(FindThreads)
 
-list(PREPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/../../cmake)
+list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/../../cmake)
 
 enable_testing()
 
