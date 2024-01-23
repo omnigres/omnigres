@@ -164,6 +164,58 @@ void http_worker(Datum db_oid) {
           "order by listeners.id asc",
           false, 0);
 
+      // Allocate handler information in this context instead of current SPI's context
+      // It will get deleted later.
+      MemoryContext handlers_ctx =
+          AllocSetContextCreate(TopMemoryContext, "handlers_ctx", ALLOCSET_DEFAULT_SIZES);
+      MemoryContext old_ctx = MemoryContextSwitchTo(handlers_ctx);
+
+      // This is where we record an ordered list of handlers
+      List *handlers = NIL;
+      // (which are described using this struct)
+      struct pending_handler {
+        char *query;
+        int id;
+        Name role_name;
+      };
+
+      if (handlers_query_rc == SPI_OK_SELECT) {
+        TupleDesc tupdesc = SPI_tuptable->tupdesc;
+        SPITupleTable *tuptable = SPI_tuptable;
+        for (int i = 0; i < tuptable->numvals; i++) {
+          HeapTuple tuple = tuptable->vals[i];
+          bool id_is_null = false;
+          Datum id = SPI_getbinval(tuple, tupdesc, 1, &id_is_null);
+
+          bool query_is_null = false;
+          Datum query = SPI_getbinval(tuple, tupdesc, 2, &query_is_null);
+
+          bool role_name_is_null = false;
+          Datum role_name = SPI_getbinval(tuple, tupdesc, 3, &role_name_is_null);
+
+          struct pending_handler *handler = palloc(sizeof(*handler));
+          handler->id = DatumGetInt32(id);
+          handler->query = query_is_null ? NULL : text_to_cstring(DatumGetTextPP(query));
+          handler->role_name = NULL;
+          if (!role_name_is_null) {
+            Name name = (Name)palloc(sizeof(NameData));
+            memcpy(name, DatumGetName(role_name), sizeof(*name));
+            handler->role_name = name;
+          }
+          handlers = lappend(handlers, handler);
+        }
+
+      } else {
+        ereport(WARNING, errmsg("Error fetching configuration: %s",
+                                SPI_result_code_string(handlers_query_rc)));
+      }
+      MemoryContextSwitchTo(old_ctx);
+
+      // Roll back the transaction as we don't want to hold onto it anymore
+      SPI_finish();
+      PopActiveSnapshot();
+      AbortCurrentTransaction();
+
       // Now that we have this information, we can let the master worker commit its update and
       // release the lock on the table.
 
@@ -174,9 +226,6 @@ void http_worker(Datum db_oid) {
 
       cvec_fd_fd fds = accept_fds(MyBgworkerEntry->bgw_extra);
       if (cvec_fd_fd_empty(&fds)) {
-        SPI_finish();
-        PopActiveSnapshot();
-        AbortCurrentTransaction();
         continue;
       }
 
@@ -251,45 +300,40 @@ void http_worker(Datum db_oid) {
       }
       cvec_fd_fd_drop(&new_fds);
 
-      // Now we're ready to work with the results of the query we made earlier:
-      if (handlers_query_rc == SPI_OK_SELECT) {
+      SetCurrentStatementStartTimestamp();
+      StartTransactionCommand();
+      PushActiveSnapshot(GetTransactionSnapshot());
+      SPI_connect();
 
+      // Now we're ready to work with the results of the query we made earlier:
+      {
         // Here we have to track what was the last listener id
         int last_id = 0;
         // Here we have to track what was the last index
         int index = -1;
 
-        TupleDesc tupdesc = SPI_tuptable->tupdesc;
-        SPITupleTable *tuptable = SPI_tuptable;
-        for (int i = 0; i < tuptable->numvals; i++) {
-          HeapTuple tuple = tuptable->vals[i];
-          bool id_is_null = false;
-          Datum id = SPI_getbinval(tuple, tupdesc, 1, &id_is_null);
-
-          bool query_is_null = false;
-          Datum query = SPI_getbinval(tuple, tupdesc, 2, &query_is_null);
+        ListCell *lc;
+        foreach (lc, handlers) {
+          struct pending_handler *handler = (struct pending_handler *)lfirst(lc);
 
           // Figure out socket index
-          if (last_id != DatumGetInt32(id)) {
-            last_id = DatumGetInt32(id);
+          if (last_id != handler->id) {
+            last_id = handler->id;
             index++;
           }
 
           // If no handler has matched, continue to the next row
-          if (query_is_null) {
+          if (handler->query == NULL) {
             continue;
           }
 
           Oid role_id = InvalidOid;
           bool role_superuser = false;
           {
-            bool role_name_is_null = false;
-            Datum role_name = SPI_getbinval(tuple, tupdesc, 3, &role_name_is_null);
 
-            HeapTuple roleTup = SearchSysCache1(AUTHNAME, role_name);
+            HeapTuple roleTup = SearchSysCache1(AUTHNAME, NameGetDatum(handler->role_name));
             if (!HeapTupleIsValid(roleTup)) {
-              ereport(WARNING,
-                      errmsg("role \"%s\" does not exist", NameStr(*DatumGetName(role_name))));
+              ereport(WARNING, errmsg("role \"%s\" does not exist", NameStr(*handler->role_name)));
             } else {
               Form_pg_authid rform = (Form_pg_authid)GETSTRUCT(roleTup);
               role_id = rform->oid;
@@ -309,7 +353,7 @@ void http_worker(Datum db_oid) {
           }
           Assert(listener_ctx != NULL);
 
-          char *query_string = text_to_cstring(DatumGetTextPP(query));
+          char *query_string = handler->query;
           MemoryContext memory_context = CurrentMemoryContext;
           char *request_cte = psprintf(
               // clang-format off
@@ -344,6 +388,10 @@ void http_worker(Datum db_oid) {
                                                 [REQUEST_PLAN_HEADERS] = http_header_array_oid(),
                                             });
 
+              if (plan == NULL) {
+                const char *err = SPI_result_code_string(SPI_result);
+                ereport(WARNING, errmsg("Error preparing the query: %s", err));
+              }
               Assert(plan != NULL);
               // Get role
               listener_ctx->role_id = role_id;
@@ -372,17 +420,16 @@ void http_worker(Datum db_oid) {
             PG_END_TRY();
             pfree(query);
           }
-          pfree(query_string);
         }
-      } else {
-        ereport(WARNING, errmsg("Error fetching configuration: %s",
-                                SPI_result_code_string(handlers_query_rc)));
+        // Free everything in handlers context
+        MemoryContextDelete(handlers_ctx);
+        handlers = NIL;
       }
 
+      cvec_fd_fd_drop(&fds);
       SPI_finish();
       PopActiveSnapshot();
       AbortCurrentTransaction();
-      cvec_fd_fd_drop(&fds);
     }
 
     event_loop_suspended = false;

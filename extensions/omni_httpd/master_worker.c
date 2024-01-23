@@ -17,6 +17,7 @@
 // clang-format on
 
 #include <access/xact.h>
+#include <catalog/namespace.h>
 #include <commands/async.h>
 #include <common/int.h>
 #include <executor/spi.h>
@@ -26,11 +27,13 @@
 #include <postmaster/bgworker.h>
 #include <postmaster/interrupt.h>
 #include <storage/latch.h>
+#include <storage/lmgr.h>
 #include <tcop/utility.h>
 #include <utils/builtins.h>
 #include <utils/inet.h>
 #include <utils/json.h>
 #include <utils/jsonb.h>
+#include <utils/lsyscache.h>
 #include <utils/memutils.h>
 #include <utils/snapmgr.h>
 #if PG_MAJORVERSION_NUM >= 14
@@ -207,6 +210,12 @@ void master_worker(Datum db_oid) {
   BackgroundWorkerUnblockSignals();
   BackgroundWorkerInitializeConnectionByOid(db_oid, InvalidOid, 0);
 
+  // Share our PID. We do it after initializing the connection because it'll
+  // perform this lookup on a per-database basis and we need to know our database ID.
+  pid_t *master_worker = dynpgext_lookup_shmem(OMNI_HTTPD_MASTER_WORKER);
+  Assert(master_worker != NULL);
+  pg_atomic_write_u32((pg_atomic_uint32 *)master_worker, MyProcPid);
+
   sigusr1_original_handler = pqsignal(SIGUSR1, sigusr1_handler);
 
   // Listen for configuration changes
@@ -234,10 +243,6 @@ void master_worker(Datum db_oid) {
   Assert(semaphore != NULL);
   pg_atomic_write_u32(semaphore, 0);
 
-  pid_t *master_worker = dynpgext_lookup_shmem(OMNI_HTTPD_MASTER_WORKER);
-  Assert(master_worker != NULL);
-  *master_worker = MyProcPid;
-
   while (!shutdown_worker) {
     // Start the transaction
     SPI_connect();
@@ -248,21 +253,18 @@ void master_worker(Datum db_oid) {
     // We clear this list every time to prepare an up-to-date version
     cvec_fd_clear(&sockets);
 
+    Oid nspoid = get_namespace_oid("omni_httpd", false);
+    Oid listenersoid = get_relname_relid("listeners", nspoid);
+
     // Get listeners
     while (worker_reload) {
       worker_reload = false;
 
-      // Lock this table until the end of the transaction so that nobody can modify it
+      // Lock this table so that nobody can modify it
       // and therefore change the order of listeners (this is important for coordination of
       // the master worker with http workers) as they will use the order of listeners to align
       // with the vector of sockets sent.
-      {
-        int lock_rc = SPI_execute("lock table omni_httpd.listeners in share mode", false, 0);
-        if (lock_rc != SPI_OK_UTILITY) {
-          ereport(WARNING,
-                  errmsg("can't lock omni_httpd.listeners: %s", SPI_result_code_string(lock_rc)));
-        }
-      }
+      LockRelationOid(listenersoid, ExclusiveLock);
 
       if (SPI_execute(
               "select address, port, id, effective_port from omni_httpd.listeners order by id asc",
@@ -397,18 +399,14 @@ void master_worker(Datum db_oid) {
         }
         cset_port_drop(&ports);
       }
+
+      // If there is a port ready, don't wait anymore
       if (port_ready) {
         break;
       }
-      // We're ready to wait for another update, so need to unlock the table
-      // by aborting and restarting the transaction
-      SPI_finish();
-      PopActiveSnapshot();
-      AbortCurrentTransaction();
-      SPI_connect();
-      SetCurrentStatementStartTimestamp();
-      StartTransactionCommand();
-      PushActiveSnapshot(GetTransactionSnapshot());
+
+      // Unlock the table to allow for updates to it
+      UnlockRelationOid(listenersoid, ExclusiveLock);
 
       // And then waiting
       (void)WaitLatch(MyLatch, WL_LATCH_SET | WL_TIMEOUT | WL_EXIT_ON_PM_DEATH, 1000L,
@@ -418,7 +416,7 @@ void master_worker(Datum db_oid) {
         SPI_finish();
         PopActiveSnapshot();
         AbortCurrentTransaction();
-        return;
+        goto terminate;
       }
     }
     HandleMainLoopInterrupts();
@@ -452,7 +450,7 @@ void master_worker(Datum db_oid) {
           SPI_finish();
           PopActiveSnapshot();
           AbortCurrentTransaction();
-          return;
+          goto terminate;
         }
       }
     }
@@ -465,6 +463,9 @@ void master_worker(Datum db_oid) {
       ereport(WARNING, errmsg("can't insert into omni_httpd.configuration_reloads: %s",
                               SPI_result_code_string(insert_retcode)));
     }
+
+    // Unlock the table at last
+    UnlockRelationOid(listenersoid, ExclusiveLock);
 
     // After doing this, we're ready to commit
     SPI_finish();
@@ -489,7 +490,7 @@ void master_worker(Datum db_oid) {
         RegisterDynamicBackgroundWorker(&worker, &handle);
         pid_t worker_pid;
         if (WaitForBackgroundWorkerStartup(handle, &worker_pid) == BGWH_POSTMASTER_DIED) {
-          return;
+          goto terminate;
         }
         cvec_bgwhandle_push(&http_workers, handle);
       }
@@ -499,7 +500,7 @@ void master_worker(Datum db_oid) {
         expected = cvec_bgwhandle_size(&http_workers);
         HandleMainLoopInterrupts();
         if (shutdown_worker) {
-          return;
+          goto terminate;
         }
       }
       http_workers_started = true;
@@ -509,6 +510,7 @@ void master_worker(Datum db_oid) {
     while (!shutdown_worker && !worker_reload && h2o_evloop_run(event_loop, INT32_MAX) == 0)
       ;
   }
+terminate:
   if (http_workers_started) {
     ereport(LOG, errmsg("Shutting down HTTP workers"));
     pg_atomic_write_u32(semaphore, 0);
