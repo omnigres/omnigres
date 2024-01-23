@@ -25,15 +25,23 @@ tests:
   - error: null
 
 - name: stops working after unloading
-  steps:
-  - select omni_httpd.unload()
+  # it is important to make this `tests` and not `steps` because unloading fires termination of
+  # the master worker only after the transaction has been released
+  tests:
+  - query: create table listeners as (select
+                                          effective_port::int
+                                      from
+                                          omni_httpd.listeners)
+    commit: true
+  - query: drop extension omni_httpd
+    commit: true
   - query: |
       with
           response as (select *
                        from
                            omni_httpc.http_execute(
                                    omni_httpc.http_request('http://127.0.0.1:' ||
-                                                           (select effective_port from omni_httpd.listeners) || '/')))
+                                                           (select effective_port from listeners) || '/')))
       select
           response.error is null as error
       from
