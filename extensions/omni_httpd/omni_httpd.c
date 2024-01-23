@@ -77,9 +77,11 @@ int num_http_workers;
 
 static void init_semaphore(void *ptr, void *data) { pg_atomic_init_u32(ptr, 0); }
 
+StaticAssertDecl(sizeof(pid_t) == sizeof(pg_atomic_uint32),
+                 "pid has to fit in perfectly into uint32");
+
 static void init_httpd_master_worker_pid(void *ptr, void *data) {
-  // We use -1 here to distinguish from 0 (which means we're done)
-  *(pid_t *)ptr = -1;
+  pg_atomic_write_u32((pg_atomic_uint32 *)ptr, 0);
 }
 
 void _Dynpgext_init(const dynpgext_handle *handle) {
@@ -112,7 +114,7 @@ void _Dynpgext_init(const dynpgext_handle *handle) {
                          sizeof(pg_atomic_uint32), init_semaphore, NULL,
                          DYNPGEXT_SCOPE_DATABASE_LOCAL);
 
-  handle->allocate_shmem(handle, OMNI_HTTPD_MASTER_WORKER, sizeof(pid_t),
+  handle->allocate_shmem(handle, OMNI_HTTPD_MASTER_WORKER, sizeof(pg_atomic_uint32),
                          init_httpd_master_worker_pid, NULL, DYNPGEXT_SCOPE_DATABASE_LOCAL);
 
   // Prepares and registers the main background worker
@@ -127,7 +129,7 @@ void _Dynpgext_init(const dynpgext_handle *handle) {
 }
 
 static void terminate_master_worker(void *arg) {
-  pid_t *master_worker = (pid_t *)arg;
+  pid_t pid = pg_atomic_read_u32((pg_atomic_uint32 *)arg);
 
   // We are not using Postgres bgworker API because we don't have the the handle of the master
   // worker.
@@ -137,19 +139,19 @@ static void terminate_master_worker(void *arg) {
   // So, instead, we send a signal to the worker directly and wait until it terminates
   // (we can't simply `waitpid` as it is not our child)
 
-  while (GetBackgroundWorkerTypeByPid(*master_worker) != NULL) {
+  while (GetBackgroundWorkerTypeByPid(pid) != NULL) {
     CHECK_FOR_INTERRUPTS();
   };
-  *master_worker = 0;
 }
 
 static void do_unload() {
   pid_t *master_worker = dynpgext_lookup_shmem(OMNI_HTTPD_MASTER_WORKER);
-  if (master_worker != NULL && *master_worker != 0) {
-    while (*master_worker == -1)
+  if (master_worker != NULL) {
+    pid_t pid;
+    while ((pid = pg_atomic_read_u32((pg_atomic_uint32 *)master_worker)) == 0)
       ;
 
-    if (kill(*master_worker, SIGTERM) != 0) {
+    if (kill(pid, SIGTERM) != 0) {
       int err = errno;
       if (err != ESRCH) {
         ereport(WARNING, errmsg("can't kill HTTPD: %s", strerror(err)));
