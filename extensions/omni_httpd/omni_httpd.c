@@ -77,6 +77,11 @@ int num_http_workers;
 
 static void init_semaphore(void *ptr, void *data) { pg_atomic_init_u32(ptr, 0); }
 
+static void init_httpd_master_worker_pid(void *ptr, void *data) {
+  // We use -1 here to distinguish from 0 (which means we're done)
+  *(pid_t *)ptr = -1;
+}
+
 void _Dynpgext_init(const dynpgext_handle *handle) {
   int default_num_http_workers = 10;
 #ifdef _SC_NPROCESSORS_ONLN
@@ -107,8 +112,8 @@ void _Dynpgext_init(const dynpgext_handle *handle) {
                          sizeof(pg_atomic_uint32), init_semaphore, NULL,
                          DYNPGEXT_SCOPE_DATABASE_LOCAL);
 
-  handle->allocate_shmem(handle, OMNI_HTTPD_MASTER_WORKER, sizeof(pid_t), NULL, NULL,
-                         DYNPGEXT_SCOPE_DATABASE_LOCAL);
+  handle->allocate_shmem(handle, OMNI_HTTPD_MASTER_WORKER, sizeof(pid_t),
+                         init_httpd_master_worker_pid, NULL, DYNPGEXT_SCOPE_DATABASE_LOCAL);
 
   // Prepares and registers the main background worker
   BackgroundWorker bgw = {.bgw_name = "omni_httpd",
@@ -121,23 +126,53 @@ void _Dynpgext_init(const dynpgext_handle *handle) {
                             DYNPGEXT_REGISTER_BGWORKER_NOTIFY | DYNPGEXT_SCOPE_DATABASE_LOCAL);
 }
 
+static void terminate_master_worker(void *arg) {
+  pid_t *master_worker = (pid_t *)arg;
+
+  // We are not using Postgres bgworker API because we don't have the the handle of the master
+  // worker.
+  // TODO: it would have be better if we did.
+  // The closest available API is `GetBackgroundWorkerTypeByPid` but sadly it goes for the type
+  // and not the handle.
+  // So, instead, we send a signal to the worker directly and wait until it terminates
+  // (we can't simply `waitpid` as it is not our child)
+
+  while (GetBackgroundWorkerTypeByPid(*master_worker) != NULL) {
+    CHECK_FOR_INTERRUPTS();
+  };
+  *master_worker = 0;
+}
+
 static void do_unload() {
   pid_t *master_worker = dynpgext_lookup_shmem(OMNI_HTTPD_MASTER_WORKER);
   if (master_worker != NULL && *master_worker != 0) {
-    // We are not using Postgres bgworker API because we don't have the the handle of the master
-    // worker.
-    // TODO: it would have be better if we did.
-    // The closest available API is `GetBackgroundWorkerTypeByPid` but sadly it goes for the type
-    // and not the handle.
-    // So, instead, we send a signal to the worker directly and wait until it terminates
-    // (we can't simply `waitpid` as it is not our child)
-    kill(*master_worker, SIGTERM);
-    while (GetBackgroundWorkerTypeByPid(*master_worker) != NULL) {
-      CHECK_FOR_INTERRUPTS();
-    };
-    *master_worker = 0;
+    while (*master_worker == -1)
+      ;
+
+    if (kill(*master_worker, SIGTERM) != 0) {
+      int err = errno;
+      if (err != ESRCH) {
+        ereport(WARNING, errmsg("can't kill HTTPD: %s", strerror(err)));
+      }
+      // It can't be killed (does not exist or other error), so we don't need to do anything
+      return;
+    }
+
+    // Now, we need to wait for the master worker to terminate to ensure the ports it has been
+    // listening on are released.
+
+    // However, instead of waiting for termination here, when the changes are not visible to other
+    // backends, and risking to lock up the worker, let the rest of the sequence proceed when
+    // transaction's memory context is deleted.
+    MemoryContext oldcontext = MemoryContextSwitchTo(TopTransactionContext);
+    MemoryContextCallback *cb = (MemoryContextCallback *)palloc(sizeof(*cb));
+    cb->func = terminate_master_worker;
+    cb->arg = master_worker;
+    MemoryContextRegisterResetCallback(TopTransactionContext, cb);
+    MemoryContextSwitchTo(oldcontext);
   }
 }
+
 void _Dynpgext_fini(const dynpgext_handle *handle) { do_unload(); }
 
 void _PG_init() { IsOmniHttpdWorker = false; }
