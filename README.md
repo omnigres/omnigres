@@ -236,3 +236,5 @@ rm -rf .pg build
 # in the build directory
 CTEST_PARALLEL_LEVEL=$(nproc) make -j $(nproc) all test
 ```
+
+[Discord]: https://discord.omnigr.es
