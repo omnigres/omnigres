@@ -249,11 +249,13 @@ void register_bgworker_runtime(const dynpgext_handle *handle, BackgroundWorker *
     strncpy(NameStr(request->request.extname), handle->name, NAMEDATALEN);
     strncpy(NameStr(request->request.extver), handle->version, NAMEDATALEN);
     request->started = false;
+    // This makes it a template
+    request->databaseOid = InvalidOid;
 
     // Before releasing the lock, launch it ourselves in the current database
     BackgroundWorker local_bgw = *bgw;
     local_bgw.bgw_main_arg = MyDatabaseId;
-    RegisterDynamicBackgroundWorker(bgw, &worker_handle);
+    RegisterDynamicBackgroundWorker(&local_bgw, &worker_handle);
     LWLockRelease(lock);
   } else {
     // Otherwise, start it right here
