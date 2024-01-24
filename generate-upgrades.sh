@@ -7,9 +7,11 @@
 
 script_dir=$(dirname "$0")
 
+BUILD_TYPE=${BUILD_TYPE:=RelWithDebInfo}
 BUILD_DIR=${BUILD_DIR:=$script_dir/build}
-DEST_DIR=${BUILD_DIR}/_migrations
-VER=${VER:=HEAD^}
+DEST_DIR=${DEST_DIR:=${BUILD_DIR}/_migrations}
+DEST_DIR=$(realpath $DEST_DIR)
+VER=${VER:=$(git rev-parse --short HEAD^)}
 
 PG_CONFIG=${PG_CONFIG:=pg_config}
 PG_BINDIR=$($PG_CONFIG --bindir)
@@ -27,15 +29,15 @@ revision() {
       echo "done."
       # Try to speed builds up by sharing CPM modules
       export CPM_SOURCE_CACHE=$DEST_DIR/.cpm_cache
-      cmake -S "${DEST_DIR}/$rev" -B "${DEST_DIR}/$rev/build" -DPG_CONFIG=$PG_CONFIG
+      cmake -S "${DEST_DIR}/$rev" -B "${DEST_DIR}/$rev/build" -DPG_CONFIG=$PG_CONFIG -DCMAKE_BUILD_TYPE=$BUILD_TYPE
       cmake --build "${DEST_DIR}/$rev/build" --parallel || exit 1
       cmake --build "${DEST_DIR}/$rev/build" --parallel --target package || exit 1
       # We're done
       touch "${DEST_DIR}/$rev/.complete"
     fi
     # For every extension in the current revision
-    for subdir in "$script_dir"/extensions/*/; do
-        ext=$(basename $subdir)
+    while read -r ext extpath; do
+        echo "$ext $extpath"
         if [ "$ext" == "omni_ext" ]; then
           # Skip omni_ext, we don't handle it right now
           continue
@@ -43,13 +45,18 @@ revision() {
         # Get a version of this extension from this particular revision
         echo "Processing $ext for $rev"
         # If it is not present, continue with the next extension
-        if [ ! -d "$DEST_DIR/$rev/extensions/$ext" ]; then
+        if [ ! -d "$DEST_DIR/$rev/$extpath" ]; then
           echo "Extension $ext not present in $rev, skipping"
           continue
         fi
         # Prepare the migration specific for that version
         rm -f "$DEST_DIR/$ext--$rev.sql"
-        for f in $(ls "$DEST_DIR/$rev/extensions/$ext/migrate/"*.sql | sort -V) # use of `sort -V` is critical (mirrors what we do in the build system)
+        migrate_path="$DEST_DIR/$rev/$extpath/migrate"
+        if [ -d "$migrate_path/$ext" ]; then
+           # Extension that shares a folder with another extension
+           migrate_path="$migrate_path/$ext"
+        fi
+        for f in $(ls "$migrate_path/"*.sql | sort -V) # use of `sort -V` is critical (mirrors what we do in the build system)
           do
             $BUILD_DIR/misc/inja/inja "$f" >> "$DEST_DIR/$ext--$rev.sql"
             # Ensure there is a newline
@@ -59,7 +66,12 @@ revision() {
         if [ "$HEAD_REV" == "$rev" ]; then
           # List migrations in HEAD
           head_migrations=()
-          for file in "$DEST_DIR/$rev/extensions/$ext/migrate/"*.sql; do
+          migrate_path="$DEST_DIR/$HEAD_REV/$extpath/migrate"
+          if [ -d "$migrate_path/$ext" ]; then
+             # Extension that shares a folder with another extension
+             migrate_path="$migrate_path/$ext"
+          fi
+          for file in "$migrate_path/"*.sql; do
             head_migrations+=($(basename "$file"))
           done
           HEAD_MIGRATIONS[$ext]="$(IFS=,; echo "${head_migrations[*]}")"
@@ -68,9 +80,19 @@ revision() {
           # First, for every migration not present in this revision, add it to the upgrade
           IFS=, read -r -a head_migrations <<< "${HEAD_MIGRATIONS[$ext]}"
           rm -f "$DEST_DIR/$ext--$rev--$HEAD_REV.sql"
+          migrate_path="$DEST_DIR/$HEAD_REV/$extpath/migrate"
+          if [ -d "$migrate_path/$ext" ]; then
+             # Extension that shares a folder with another extension
+             migrate_path="$migrate_path/$ext"
+          fi
+          rev_migrate_path="$DEST_DIR/$rev/$extpath/migrate"
+          if [ -d "$rev_migrate_path/$ext" ]; then
+               # Extension that shares a folder with another extension
+               rev_migrate_path="$rev_migrate_path/$ext"
+          fi
           for mig in ${head_migrations[@]}; do
-            if [ ! -f "$DEST_DIR/$rev/extensions/$ext/migrate/$mig" ]; then
-               $BUILD_DIR/misc/inja/inja "$DEST_DIR/$HEAD_REV/extensions/$ext/migrate/$mig" >> "$DEST_DIR/$ext--$rev--$HEAD_REV.sql"
+            if [ ! -f "$rev_migrate_path/$mig" ]; then
+               $BUILD_DIR/misc/inja/inja "$migrate_path/$mig" >> "$DEST_DIR/$ext--$rev--$HEAD_REV.sql"
                # Ensure a new line
                echo >> "$DEST_DIR/$ext--$rev--$HEAD_REV.sql"
             fi
@@ -83,7 +105,7 @@ revision() {
           "$PG_BINDIR/initdb" -D "$db" --no-clean --no-sync --locale=C --encoding=UTF8 || exit 1
           sockdir=$(mktemp -d)
           export PGSHAREDIR="$DEST_DIR/$rev/build/pg-share"
-          "$PG_BINDIR/pg_ctl" start -D "$db" -o "-c listen_addresses=''" -o "-k $sockdir" || exit 1
+          "$PG_BINDIR/pg_ctl" start -D "$db" -o "-c max_worker_processes=64" -o "-c listen_addresses=''" -o "-k $sockdir" -o "-c shared_preload_libraries='$DEST_DIR/$rev/build/extensions/omni_ext/omni_ext.so'" || exit 1
           "$PG_BINDIR/createdb" -h "$sockdir" "$ext" || exit 1
           # * install the extension in this revision, snapshot pg_proc, drop the extension
           # We copy all scripts because there are dependencies
@@ -105,7 +127,7 @@ EOF
           export PGSHAREDIR="$DEST_DIR/$HEAD_REV/build/pg-share"
           # We copy all scripts because there are dependencies
           cp "$DEST_DIR"/$HEAD_REV/build/packaged/extension/*.sql "$PGSHAREDIR/extension"
-          "$PG_BINDIR/pg_ctl" start -D "$db" -o "-c listen_addresses=''" -o "-k $sockdir" || exit 1
+          "$PG_BINDIR/pg_ctl" start -D "$db" -o "-c max_worker_processes=64" -o "-c listen_addresses=''" -o "-k $sockdir"  -o "-c shared_preload_libraries='$DEST_DIR/$HEAD_REV/build/extensions/omni_ext/omni_ext.so'" || exit 1
           # * install the extension from the head revision
           echo "create extension $ext version '$HEAD_REV' cascade;" | "$PG_BINDIR/psql" -h "$sockdir" -v ON_ERROR_STOP=1 $ext
           if [ "${PIPESTATUS[0]}" -ne 0 ]; then
@@ -138,8 +160,17 @@ EOF
           "$PG_BINDIR/pg_ctl" stop -D  "$db" -m smart
           # * remove it
           rm -rf "$db"
+          # * copy extension files
+          mkdir -p "$DEST_DIR/packaged/lib"
+          cp -f "$DEST_DIR/$ext--$rev--$HEAD_REV.sql" "$DEST_DIR/$ext--$rev.sql"  "$DEST_DIR/$ext--$HEAD_REV.sql" \
+                "$DEST_DIR/$HEAD_REV/build/packaged/extension/$ext--$HEAD_REV.control" "$DEST_DIR/$rev/build/packaged/extension/$ext--$rev.control" \
+                "$DEST_DIR/$HEAD_REV/build/packaged/extension/$ext.control" "$DEST_DIR/packaged"
+          cp -f "$DEST_DIR/$HEAD_REV/build/packaged/$ext--$HEAD_REV.so" "$DEST_DIR/$rev/build/packaged/$ext--$rev.so" \
+                "$DEST_DIR/packaged/lib"
+
+
         fi
-    done
+    done < ${DEST_DIR}/$rev/build/paths.txt
 }
 
 # Check if we are using our special build of Postgres
@@ -155,3 +186,7 @@ declare -A HEAD_MIGRATIONS
 
 revision HEAD
 revision $VER
+
+mkdir -p "$DEST_DIR/packaged"
+cp -f "$DEST_DIR/$HEAD_REV/build/artifacts.txt" "$DEST_DIR/packaged/artifacts-$HEAD_REV.txt"
+cp -f "$DEST_DIR/$VER/build/artifacts.txt" "$DEST_DIR/packaged/artifacts-$VER.txt"

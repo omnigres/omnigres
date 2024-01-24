@@ -627,4 +627,17 @@ ${PG_CTL} stop -D  \"$PSQLDB\" -m smart
         file(APPEND "${omni_artifacts}" "\n")
     endif()
 
+    if(NOT _ext_PRIVATE)
+        get_property(omni_path_map GLOBAL PROPERTY omni_path_map)
+        if(NOT omni_artifacts)
+            # Make an empty file
+            set_property(GLOBAL PROPERTY omni_path_map "${CMAKE_BINARY_DIR}/paths.txt")
+            get_property(omni_path_map GLOBAL PROPERTY omni_path_map)
+            file(WRITE "${omni_path_map}" "")
+        endif()
+        set(relpath ${CMAKE_CURRENT_SOURCE_DIR})
+        cmake_path(RELATIVE_PATH relpath BASE_DIRECTORY ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/..)
+        file(APPEND "${omni_path_map}" "${NAME} ${relpath}\n")
+    endif()
+
 endfunction()

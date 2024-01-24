@@ -13,7 +13,7 @@ find_package(PostgreSQL REQUIRED)
 add_postgresql_extension(
         omni_ext_test
         SCHEMA omni_ext_test
-        PRIVATE true
+        PRIVATE TRUE
         RELOCATABLE false
         SOURCES omni_ext_test.c
         REQUIRES omni_ext
@@ -32,7 +32,7 @@ add_postgresql_extension(
 add_postgresql_extension(
         omni_ext_test_no_preload
         SCHEMA omni_ext_test_no_preload
-        PRIVATE true
+        PRIVATE TRUE
         RELOCATABLE false
         SOURCES omni_ext_test.c
         REQUIRES omni_ext
