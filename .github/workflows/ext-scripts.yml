@@ -1,0 +1,102 @@
+name: Extension scripts
+
+on:
+  push:
+    branches: [ "master" ]
+  pull_request:
+    branches: [ "master", "**" ]
+
+env:
+  CPM_SOURCE_CACHE: ${{ github.workspace }}/cpm_modules
+
+jobs:
+
+  extscripts:
+
+    name: Extension scripts
+
+    strategy:
+      matrix:
+        pgver: [ 16, 15, 14, 13 ]
+        os: [ warp-ubuntu-latest-x64-4x ]
+        build_type: [ Release ]
+      fail-fast: false
+
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.CI_AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_AWS_SECRET_ACCESS_KEY }}
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+
+    - uses: actions/checkout@v3
+      if: github.event_name == 'push'
+      with:
+        fetch-depth: all
+
+    - uses: actions/checkout@v3
+      if: github.event_name != 'push'
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
+        fetch-depth: all
+
+    # This is done to address the problem on macOS where .pg built in a directory of one
+    # GitHub Action runner won't work when restored in another one since dylds have install_name pointing
+    # to the original location. We include the hash of their path into the cache name.
+    - name: Get path hash
+      if: matrix.os == 'macos'
+      run: |
+        echo "PATH_SUFFIX=-$(pwd | sha256sum | awk '{print $1}')" >> $GITHUB_ENV
+
+    # On other systems, make it explicitly empty
+    - name: Get path hash
+      if: matrix.os != 'macos'
+      run: |
+        echo "PATH_SUFFIX=" >> $GITHUB_ENV
+
+    - uses: actions/cache@v3
+      with:
+        path: .pg
+        key: ${{ matrix.os }}-pg-${{ matrix.pgver }}-${{ matrix.build_type }}-${{ hashFiles('cmake/FindPostgreSQL.cmake') }}${{ env.PATH_SUFFIX }}
+
+    - uses: actions/cache@v3
+      with:
+        path: ${{github.workspace}}/build/_deps
+        key: ${{ github.workflow }}-cpm-modules-${{ hashFiles('extensions/**/CMakeLists.txt', '*/CMakeLists.txt', 'cmake/*.cmake') }}
+
+    - name: Configure
+      # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
+      # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
+      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DPGVER=${{ matrix.pgver }}
+
+    - name: Build inja
+      # (We need it)
+      run: cmake --build ${{github.workspace}}/build --parallel --config ${{matrix.build_type}} --target inja
+
+    - name: Download S3 cache for the Postgres ${{ matrix.pgver }}
+      # We don't sign S3 request here as the bucket is public and we want this to work in
+      # external pull requests
+      run: mkdir -p s3_extensions/packaged && aws --no-sign-request s3 sync s3://omnigres-extensions/${{ matrix.pgver }} s3_extensions/packaged
+
+    - name: For every commit between start of upgrades (${{ vars.EXT_UPGRADES_START }}) and now
+      run: |
+        export TMPDIR=$RUNNER_TEMP
+        export PG_CONFIG=$(find .pg -name pg_config -type f -executable | grep -v src | head -n 1)
+        export DEST_DIR=s3_extensions
+        echo "Using $PG_CONFIG"
+        for VER in "$(git rev-list ${{ vars.EXT_UPGRADES_START }}^1..HEAD^1 --reverse --abbrev-commit)"; do
+          echo "============> $VER"
+          if [ ! -f "s3_extensions/artifacts-$VER.txt" ]; then
+            ./generate-upgrades.sh || exit 1
+          fi
+        done
+
+    - name: Pretend to sync back to S3
+      if: github.event_name != 'push'
+      run: aws s3 sync --dryrun --exclude *.so s3_extensions/packaged s3://omnigres-extensions/${{ matrix.pgver }}
+
+    - name: Sync back to S3
+      if: github.event_name == 'push'
+      run: aws s3 sync --exclude *.so s3_extensions/packaged s3://omnigres-extensions/${{ matrix.pgver }}
+

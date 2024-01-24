@@ -11,7 +11,7 @@ BUILD_TYPE=${BUILD_TYPE:=RelWithDebInfo}
 BUILD_DIR=${BUILD_DIR:=$script_dir/build}
 DEST_DIR=${DEST_DIR:=${BUILD_DIR}/_migrations}
 DEST_DIR=$(realpath $DEST_DIR)
-VER=${VER:=HEAD^}
+VER=${VER:=$(git rev-parse --short HEAD^)}
 
 PG_CONFIG=${PG_CONFIG:=pg_config}
 PG_BINDIR=$($PG_CONFIG --bindir)
@@ -105,7 +105,7 @@ revision() {
           "$PG_BINDIR/initdb" -D "$db" --no-clean --no-sync --locale=C --encoding=UTF8 || exit 1
           sockdir=$(mktemp -d)
           export PGSHAREDIR="$DEST_DIR/$rev/build/pg-share"
-          "$PG_BINDIR/pg_ctl" start -D "$db" -o "-c listen_addresses=''" -o "-k $sockdir" || exit 1
+          "$PG_BINDIR/pg_ctl" start -D "$db" -o "-c max_worker_processes=64" -o "-c listen_addresses=''" -o "-k $sockdir" -o "-c shared_preload_libraries='$DEST_DIR/$rev/build/extensions/omni_ext/omni_ext.so'" || exit 1
           "$PG_BINDIR/createdb" -h "$sockdir" "$ext" || exit 1
           # * install the extension in this revision, snapshot pg_proc, drop the extension
           # We copy all scripts because there are dependencies
@@ -127,7 +127,7 @@ EOF
           export PGSHAREDIR="$DEST_DIR/$HEAD_REV/build/pg-share"
           # We copy all scripts because there are dependencies
           cp "$DEST_DIR"/$HEAD_REV/build/packaged/extension/*.sql "$PGSHAREDIR/extension"
-          "$PG_BINDIR/pg_ctl" start -D "$db" -o "-c listen_addresses=''" -o "-k $sockdir" || exit 1
+          "$PG_BINDIR/pg_ctl" start -D "$db" -o "-c max_worker_processes=64" -o "-c listen_addresses=''" -o "-k $sockdir"  -o "-c shared_preload_libraries='$DEST_DIR/$HEAD_REV/build/extensions/omni_ext/omni_ext.so'" || exit 1
           # * install the extension from the head revision
           echo "create extension $ext version '$HEAD_REV' cascade;" | "$PG_BINDIR/psql" -h "$sockdir" -v ON_ERROR_STOP=1 $ext
           if [ "${PIPESTATUS[0]}" -ne 0 ]; then
@@ -163,7 +163,7 @@ EOF
           # * copy extension files
           mkdir -p "$DEST_DIR/packaged/lib"
           cp -f "$DEST_DIR/$ext--$rev--$HEAD_REV.sql" "$DEST_DIR/$ext--$rev.sql"  "$DEST_DIR/$ext--$HEAD_REV.sql" \
-                "$DEST_DIR/$HEAD_REV/build/packaged/extension/$ext--$HEAD_REV.control" "$DEST_DIR/$rev/build/pg-packaged/extension/$ext--$rev.control" \
+                "$DEST_DIR/$HEAD_REV/build/packaged/extension/$ext--$HEAD_REV.control" "$DEST_DIR/$rev/build/packaged/extension/$ext--$rev.control" \
                 "$DEST_DIR/$HEAD_REV/build/packaged/extension/$ext.control" "$DEST_DIR/packaged"
           cp -f "$DEST_DIR/$HEAD_REV/build/packaged/$ext--$HEAD_REV.so" "$DEST_DIR/$rev/build/packaged/$ext--$rev.so" \
                 "$DEST_DIR/packaged/lib"
@@ -189,3 +189,4 @@ revision $VER
 
 mkdir -p "$DEST_DIR/packaged"
 cp -f "$DEST_DIR/$HEAD_REV/build/artifacts.txt" "$DEST_DIR/packaged/artifacts-$HEAD_REV.txt"
+cp -f "$DEST_DIR/$VER/build/artifacts.txt" "$DEST_DIR/packaged/artifacts-$VER.txt"
