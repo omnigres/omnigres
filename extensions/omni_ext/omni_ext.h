@@ -198,4 +198,6 @@ void omni_ext_transaction_callback(XactEvent event, void *arg);
 void populate_bgworker_requests_for_db(Oid dboid);
 void process_extensions_for_database(char *extname, char *extversion, Oid dboid);
 
+char *get_fitting_library_name(char *library_name);
+
 #endif // OMNI_EXT_H
