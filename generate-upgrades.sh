@@ -31,7 +31,7 @@ revision() {
       export CPM_SOURCE_CACHE=$DEST_DIR/.cpm_cache
       cmake -S "${DEST_DIR}/$rev" -B "${DEST_DIR}/$rev/build" -DPG_CONFIG=$PG_CONFIG -DCMAKE_BUILD_TYPE=$BUILD_TYPE
       cmake --build "${DEST_DIR}/$rev/build" --parallel || exit 1
-      cmake --build "${DEST_DIR}/$rev/build" --parallel --target package || exit 1
+      cmake --build "${DEST_DIR}/$rev/build" --parallel --target package_extensions || exit 1
       # We're done
       touch "${DEST_DIR}/$rev/.complete"
     fi
