@@ -395,14 +395,18 @@ $command $@
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
             COMMAND ${CMAKE_BINARY_DIR}/script_${_ext_TARGET} ${_pkg_dir}/extension)
 
-    if(NOT TARGET package)
-        add_custom_target(package)
+    if(NOT TARGET package_extensions)
+        add_custom_target(package_extensions)
+        if(NOT TARGET package)
+            add_custom_target(package)
+            add_dependencies(package package_extensions)
+        endif()
     endif()
     if(NOT ${_ext_PRIVATE})
         if(_ext_SOURCES)
-            add_dependencies(package package_${_ext_TARGET}_extension package_${_ext_TARGET}_migrations)
+            add_dependencies(package_extensions package_${_ext_TARGET}_extension package_${_ext_TARGET}_migrations)
         else()
-            add_dependencies(package package_${_ext_TARGET}_migrations)
+            add_dependencies(package_extensions package_${_ext_TARGET}_migrations)
         endif()
     endif()
 

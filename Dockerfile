@@ -61,7 +61,7 @@ COPY --link --from=postgres-build --chown=${UID} /omni/.pg /omni/.pg
 WORKDIR /build
 RUN cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DPGVER=${PG} /omni -DOMNIGRES_VERSION=${OMNIGRES_VERSION}
 RUN make -j ${BUILD_PARALLEL_LEVEL} all
-RUN make package
+RUN make package_extensions
 
 # plrust build
 FROM postgres:${PG}-${DEBIAN_VER_PG}  AS plrust
