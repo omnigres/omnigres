@@ -16,4 +16,5 @@ add_postgresql_extension(
         SCHEMA omni_aws
         RELOCATABLE false
         REQUIRES omni_httpc pgcrypto omni_xml omni_web
-        TESTS_REQUIRE omni_containers omni_os)
+        TESTS_REQUIRE omni_containers omni_os
+        SHARED_PRELOAD ON)

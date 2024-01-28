@@ -132,7 +132,7 @@ foreach(file \${files})
     add_test(\"${_ext_TARGET}/\${file}\" ${CMAKE_BINARY_DIR}/script_${_ext_TARGET} ${_ext_dir} \"$<TARGET_FILE:pg_yregress>\" \"${dir}/\${file}\")
     set_tests_properties(\"${_ext_TARGET}/\${file}\" PROPERTIES
     WORKING_DIRECTORY \"${CMAKE_CURRENT_BINARY_DIR}\"
-    ENVIRONMENT \"PGCONFIG=${PG_CONFIG};PGSHAREDIR=${_share_dir};OMNI_EXT_SO=$<$<TARGET_EXISTS:omni_ext>:$<TARGET_FILE:omni_ext>>;EXTENSION_FILE=$<$<STREQUAL:$<TARGET_PROPERTY:${NAME},TYPE>,MODULE_LIBRARY>:$<TARGET_FILE:${NAME}>>\")
+    ENVIRONMENT \"PGCONFIG=${PG_CONFIG};PGSHAREDIR=${_share_dir};OMNI_SO=$<$<TARGET_EXISTS:omni>:$<TARGET_FILE:omni>>;OMNI_EXT_SO=$<$<TARGET_EXISTS:omni_ext>:$<TARGET_FILE:omni_ext>>;EXTENSION_FILE=$<$<STREQUAL:$<TARGET_PROPERTY:${NAME},TYPE>,MODULE_LIBRARY>:$<TARGET_FILE:${NAME}>>\")
 endforeach()
 ")
         get_directory_property(current_includes TEST_INCLUDE_FILES)
@@ -174,7 +174,7 @@ function(add_postgresql_extension NAME)
 
     # omni_ext is required by all other extensions.
     # When we build individual extensions separately, this condition will pass
-   if(NOT TARGET omni_ext)
+    if(NOT TARGET omni_ext AND NOT NAME STREQUAL "omni")
        add_subdirectory_once("${CMAKE_CURRENT_SOURCE_DIR}/../../extensions/omni_ext" "${CMAKE_CURRENT_BINARY_DIR}/../../extensions/omni_ext")
    endif()
 
@@ -205,8 +205,8 @@ function(add_postgresql_extension NAME)
     endforeach()
 
     # Proactively support dynpgext so that its caching late bound calls most efficiently
-    # on macOS
-    if(APPLE)
+    # on macOS (unless it is `omni` extension, which will supersede dynpgext shortly)
+    if(APPLE AND NOT NAME STREQUAL "omni")
         file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/dynpgext.c" [=[
 #undef DYNPGEXT_SUPPLEMENTARY
 #define DYNPGEXT_MAIN

@@ -1,0 +1,248 @@
+// clang-format off
+#include <postgres.h>
+#include <fmgr.h>
+// clang-format on
+#include <access/heapam.h>
+#include <commands/user.h>
+#include <executor/executor.h>
+#include <miscadmin.h>
+#include <storage/ipc.h>
+#include <storage/lwlock.h>
+#include <storage/shmem.h>
+#include <utils/hsearch.h>
+#include <utils/memutils.h>
+#include <utils/snapmgr.h>
+
+#include <omni.h>
+
+#include "omni_common.h"
+
+#if PG_MAJORVERSION_NUM >= 15
+// Previous shmem_request hook
+static shmem_request_hook_type saved_shmem_request_hook;
+#endif
+
+// Previous shmem_startup hook
+static shmem_startup_hook_type saved_shmem_startup_hook;
+
+static void shmem_request();
+static void shmem_hook();
+
+/**
+ * Shared preload initialization.
+ */
+void _PG_init() {
+  // This signifies if this library has indeed been preloaded
+  static bool preloaded = false;
+  // We only initialize once, as a shared preloaded library.
+  if (!process_shared_preload_libraries_in_progress) {
+    if (!preloaded) {
+      // Issue a warning if it is not preloaded, as it won't be useful
+      ereport(WARNING, errmsg("omni extension has not been preloaded"),
+              errhint("`shared_preload_libraries` should list `omni`"));
+    }
+    // If it is not being preloaded, nothing to do here
+    return;
+  }
+
+  preloaded = true;
+
+  // Prepare shared memory
+#if PG_MAJORVERSION_NUM >= 15
+  saved_shmem_request_hook = shmem_request_hook;
+  shmem_request_hook = &shmem_request;
+#else
+  shmem_request();
+#endif
+
+  saved_shmem_startup_hook = shmem_startup_hook;
+  shmem_startup_hook = shmem_hook;
+
+  // Here we save all the conventional hooks we support
+
+#define save_hook(NAME, OLD)                                                                       \
+  saved_hooks[omni_hook_##NAME] = OLD;                                                             \
+  OLD = omni_##NAME##_hook
+
+  save_hook(needs_fmgr, needs_fmgr_hook);
+  save_hook(executor_start, ExecutorStart_hook);
+  save_hook(executor_run, ExecutorRun_hook);
+  save_hook(executor_finish, ExecutorFinish_hook);
+  save_hook(executor_end, ExecutorEnd_hook);
+  save_hook(process_utility, ProcessUtility_hook);
+  save_hook(emit_log, emit_log_hook);
+  save_hook(check_password, check_password_hook);
+#undef save_hook
+
+  RegisterXactCallback(omni_xact_callback_hook, NULL);
+
+  void *default_hooks[__OMNI_HOOK_TYPE_COUNT] = {
+      [omni_hook_needs_fmgr] = saved_hooks[omni_hook_needs_fmgr] ? default_needs_fmgr : NULL,
+      [omni_hook_executor_start] = default_executor_start,
+      [omni_hook_executor_run] = default_executor_run,
+      [omni_hook_executor_finish] = default_executor_finish,
+      [omni_hook_executor_end] = default_executor_end,
+      [omni_hook_process_utility] = default_process_utility,
+      [omni_hook_emit_log] = saved_hooks[omni_hook_emit_log] ? default_emit_log : NULL,
+      [omni_hook_check_password] =
+          saved_hooks[omni_hook_check_password] ? default_check_password_hook : NULL,
+      NULL};
+
+  {
+    // These entrypoints will be initialized and copies to forked processes (backends)
+    // Let's ensure we're in the TopMemoryContext when we allocate these
+    MemoryContext oldcontext = MemoryContextSwitchTo(TopMemoryContext);
+    for (int type = 0; type < __OMNI_HOOK_TYPE_COUNT; type++) {
+      // It is important to use palloc0 here to ensure the first recors in the hook array are
+      // calling the original hooks (if present)
+      if (default_hooks[type] != NULL) {
+        hook_entry_point *entry;
+        entry = hook_entry_points.entry_points[type] =
+            palloc0(sizeof(*hook_entry_points.entry_points[type]));
+        hook_entry_points.entry_points_count[type] = 1;
+        entry->fn = default_hooks[type];
+        entry->name = "default";
+      }
+    }
+    MemoryContextSwitchTo(oldcontext);
+  }
+
+  {
+    // Initialize the backend when PostmasterContext is deleted
+    MemoryContext oldcontext = MemoryContextSwitchTo(PostmasterContext);
+    MemoryContextCallback *callback = palloc(sizeof(*callback));
+    callback->func = init_backend;
+    MemoryContextRegisterResetCallback(PostmasterContext, callback);
+    MemoryContextSwitchTo(oldcontext);
+  }
+}
+
+#define MAX_MODULES 8192
+
+/**
+ * @brief Requests required shared memory
+ *
+ */
+static void shmem_request() {
+#if PG_MAJORVERSION_NUM >= 15
+  if (saved_shmem_request_hook) {
+    saved_shmem_request_hook();
+  }
+#endif
+
+  RequestAddinShmemSpace(hash_estimate_size(MAX_MODULES, sizeof(ModuleEntry)));
+  RequestAddinShmemSpace(MAX_MODULES * sizeof(omni_handle_private));
+  RequestAddinShmemSpace(sizeof(omni_shared_info));
+
+  RequestNamedLWLockTranche("omni", __omni_num_locks);
+}
+
+/**
+ * @brief Uses requested shared memory
+ *
+ */
+static void shmem_hook() {
+  if (saved_shmem_startup_hook) {
+    saved_shmem_startup_hook();
+  }
+
+  LWLockAcquire(AddinShmemInitLock, LW_EXCLUSIVE);
+  {
+    HASHCTL ctl = {.keysize = PATH_MAX, .entrysize = sizeof(ModuleEntry)};
+    omni_modules = ShmemInitHash("omni:modules", MAX_MODULES, MAX_MODULES, &ctl,
+                                 HASH_ELEM
+#if PG_MAJORVERSION_NUM > 13
+                                     | HASH_STRINGS
+#endif
+                                     | HASH_FIXED_SIZE);
+  }
+
+  {
+    bool found;
+    module_handles =
+        ShmemInitStruct("omni:module_handles", sizeof(omni_handle_private) * MAX_MODULES, &found);
+  }
+
+  {
+    bool found;
+    shared_info = ShmemInitStruct("omni:shared_info", sizeof(omni_shared_info), &found);
+    pg_atomic_write_u32(&shared_info->module_counter, 0);
+  }
+
+  LWLockRelease(AddinShmemInitLock);
+}
+
+/**
+ * This function is used to "wait" until background worker has a database chosen
+ *
+ * Based on the internal knowledge of `InitPostgres` calling `CommitTransactionCommand`
+ *
+ * @param event
+ * @param arg
+ */
+static void bgw_first_xact(XactEvent event, void *arg) {
+#if PG_MAJORVERSION_NUM < 16
+  // As you can see below, only Postgres 16 and onwards allow to deregister the callback
+  // so for earlier versions, we simply silence it
+  static bool done = false;
+  if (done) {
+    return;
+  }
+#endif
+
+  if (event == XACT_EVENT_PRE_COMMIT) {
+    // We capture at the pre-commit stage as this is where we're still in transaction state
+    Assert(IsTransactionState());
+    if (MyDatabaseId != InvalidOid) {
+      init_backend(NULL);
+#if PG_MAJORVERSION_NUM >= 16
+      // Only unregister in Postgres >= 16 as per
+      // https://github.com/postgres/postgres/commit/4d2a844242dcfb34e05dd0d880b1a283a514b16b In all
+      // other versions, this callback will stay with its minimal (however, non-zero) cost.
+      UnregisterXactCallback(bgw_first_xact, NULL);
+#else
+      done = true;
+#endif
+    }
+  }
+}
+
+static void init_backend(void *arg) {
+  if (MyBackendType == B_BACKEND || MyBackendType == B_BG_WORKER || MyBgworkerEntry != NULL) {
+    if (MyBgworkerEntry != NULL) {
+      if (strcmp(MyBgworkerEntry->bgw_library_name, "postgres") == 0) {
+        // Don't do anything for `postgres` own workers
+        return;
+      }
+      if (MyBackendType != B_BG_WORKER) {
+        // It is too early for bgworkers to initialize (locks not available, etc.)
+        //
+        // So we wait for the first transaction with a database set to occur, to get back here
+        RegisterXactCallback(bgw_first_xact, NULL);
+
+        // Stop this initialization from proceeding any further for the time being
+        // We will get back here through the trampoline described above
+        return;
+      }
+      // We are back now
+    } else {
+      // We only open a transaction if it is a backend. Background worker is already
+      // in a transaction (pre-commit).
+      SetCurrentStatementStartTimestamp();
+      StartTransactionCommand();
+    }
+
+    PushActiveSnapshot(GetTransactionSnapshot());
+
+    ensure_backend_initialized();
+    load_module_if_necessary(InvalidOid, true);
+
+    PopActiveSnapshot();
+
+    if (MyBackendType != B_BG_WORKER) {
+      // We only abort a transaction if it is a backend. Background worker is already
+      // in a transaction (pre-commit).
+      AbortCurrentTransaction();
+    }
+  }
+}

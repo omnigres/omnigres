@@ -237,6 +237,7 @@ void _PG_init() {
   RegisterBackgroundWorker(&master_worker);
   MemoryContextSwitchTo(old_context);
 
+  old_process_utility_hook = ProcessUtility_hook;
   ProcessUtility_hook = omni_ext_process_utility_hook;
 
   RegisterXactCallback(omni_ext_transaction_callback, NULL);
