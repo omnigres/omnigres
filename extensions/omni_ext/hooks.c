@@ -138,7 +138,7 @@ void omni_ext_process_utility_hook(PlannedStmt *pstmt, const char *queryString,
 
         char *extversion = pstrdup(altered_extversion);
         ExtensionReference *drop = palloc(sizeof(ExtensionReference));
-        drop->name = stmt->extname;
+        drop->name = pstrdup(stmt->extname);
         drop->version = extversion;
         extensions_to_drop = lappend(extensions_to_drop, drop);
 
