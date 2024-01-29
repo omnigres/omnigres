@@ -132,7 +132,6 @@ static List *consider_probin(HeapTuple tp) {
             loaded = list_append_unique_int(loaded, entry->id);
 
             {
-              MemoryContext oldcontext = MemoryContextSwitchTo(TopMemoryContext);
               // If the module was not initialized in this backend, do so
               if (!list_member_int(initialized_modules, entry->id)) {
                 void (*init_fn)(const omni_handle *) = dlsym(dlhandle, "_Omni_init");
@@ -140,9 +139,10 @@ static List *consider_probin(HeapTuple tp) {
                   omni_handle_private *handle = module_handles + entry->id;
                   init_fn(&handle->handle);
                 }
+                MemoryContext oldcontext = MemoryContextSwitchTo(TopMemoryContext);
                 initialized_modules = list_append_unique_int(initialized_modules, entry->id);
+                MemoryContextSwitchTo(oldcontext);
               }
-              MemoryContextSwitchTo(oldcontext);
             }
 
             LWLockRelease(locks + OMNI_LOCK_MODULE);
@@ -193,7 +193,9 @@ static inline void load_module_if_necessary(Oid fn_oid, bool force_reload) {
         if (init_fn != NULL) {
           init_fn(&phandle->handle);
         }
+        MemoryContext oldcontext = MemoryContextSwitchTo(TopMemoryContext);
         initialized_modules = list_append_unique_int(initialized_modules, phandle->id);
+        MemoryContextSwitchTo(oldcontext);
       }
     }
   }
@@ -274,6 +276,8 @@ void unload_module(int64 id, bool missing_ok) {
     dlclose(dlhandle);
   }
 
+  MemoryContext oldcontext = MemoryContextSwitchTo(TopMemoryContext);
   initialized_modules = list_delete_int(initialized_modules, id);
+  MemoryContextSwitchTo(oldcontext);
   LWLockRelease(locks + OMNI_LOCK_MODULE);
 }
