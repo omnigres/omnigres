@@ -28,7 +28,7 @@ Datum modules(PG_FUNCTION_ARGS) {
   Tuplestorestate *tupstore = tuplestore_begin_heap(false, false, work_mem);
   rsinfo->setResult = tupstore;
 
-  LWLockAcquire(locks, LW_SHARED);
+  LWLockAcquire(locks + OMNI_LOCK_MODULE, LW_SHARED);
 
   HASH_SEQ_STATUS status;
   hash_seq_init(&status, omni_modules);
@@ -41,7 +41,7 @@ Datum modules(PG_FUNCTION_ARGS) {
     tuplestore_putvalues(tupstore, rsinfo->expectedDesc, values, isnull);
   }
 
-  LWLockRelease(locks);
+  LWLockRelease(locks + OMNI_LOCK_MODULE);
 
   tuplestore_donestoring(tupstore);
 

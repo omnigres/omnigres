@@ -1,0 +1,46 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+  init:
+  # We create the extension here
+  - create extension omni_test cascade
+
+tests:
+
+- name: module is automatically registered
+  query: select
+             count(*)
+         from
+             omni.modules
+         where
+             path like '%/omni_test--1.so'
+  results:
+  - count: 1
+
+- name: create another database
+  transaction: false
+  query: create database db1
+
+- name: module is registered in another database, too
+  database: db1
+  steps:
+  - create extension omni
+  - query: select
+               count(*)
+           from
+               omni.modules
+           where
+               path like '%/omni_test--1.so'
+    results:
+    - count: 1
+
+- name: module is still registered in the main database
+  query: select
+             count(*)
+         from
+             omni.modules
+         where
+             path like '%/omni_test--1.so'
+  results:
+  - count: 1

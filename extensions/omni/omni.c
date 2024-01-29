@@ -156,6 +156,7 @@ static List *consider_probin(HeapTuple tp) {
   }
   return loaded;
 }
+
 static inline void load_module_if_necessary(Oid fn_oid, bool force_reload) {
   static bool first_time = true;
 
@@ -187,6 +188,41 @@ static inline void load_module_if_necessary(Oid fn_oid, bool force_reload) {
   if (counter > last_known_module) {
     for (last_known_module++; last_known_module <= counter; last_known_module++) {
       omni_handle_private *phandle = &module_handles[last_known_module];
+
+      bool proceed = false;
+      {
+        // Figure out if there is a pg_proc record referencing this path in this database
+        // If there isn't any, don't try to initialize it
+        Relation rel = table_open(ProcedureRelationId, RowShareLock);
+        TableScanDesc scan = table_beginscan_catalog(rel, 0, NULL);
+        for (;;) {
+          HeapTuple tup = heap_getnext(scan, ForwardScanDirection);
+          if (tup == NULL)
+            break;
+
+          Form_pg_proc proc = (Form_pg_proc)GETSTRUCT(tup);
+          if (proc->prolang == ClanguageId) {
+            bool isnull;
+            Datum probin = heap_getattr(tup, Anum_pg_proc_probin, pg_proc_tuple_desc, &isnull);
+            if (!isnull) {
+              if (strcmp(text_to_cstring(DatumGetTextPP(probin)), phandle->path) == 0) {
+                proceed = true;
+                break;
+              }
+            }
+          }
+        }
+        if (scan->rs_rd->rd_tableam->scan_end) {
+          scan->rs_rd->rd_tableam->scan_end(scan);
+        }
+        table_close(rel, RowShareLock);
+      }
+
+      if (!proceed) {
+        // Go on to the next module, if any
+        continue;
+      }
+
       void *dlhandle = dlopen(phandle->path, RTLD_LAZY);
       if (!list_member_int(initialized_modules, phandle->id)) {
         void (*init_fn)(const omni_handle *) = dlsym(dlhandle, "_Omni_init");
