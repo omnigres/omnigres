@@ -427,7 +427,8 @@ char *load_extension(char *name, char *version) {
     load_control_file(search.unversioned_match, (void *)&config);
     result = "";
   } else {
-    ereport(ERROR, errmsg("No matching control file found"));
+    ereport(ERROR,
+            errmsg("No matching control file found for name '%s' version '%s'", name, version));
   }
 
   return result;
@@ -473,7 +474,8 @@ bool unload_extension(char *name, char *version) {
     load_control_file(search.unversioned_match, (void *)&config);
     result = true;
   } else {
-    ereport(ERROR, errmsg("No matching control file found"));
+    ereport(ERROR,
+            errmsg("No matching control file found for name '%s' version '%s'", name, version));
   }
   // TODO: free allocated resources (shmem & workers)? or should this be a responsibility
   // of the extension to ensure this is done exactly how they need it?
