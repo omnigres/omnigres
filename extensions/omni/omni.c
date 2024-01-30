@@ -310,6 +310,9 @@ static void *find_or_allocate_shmem(const omni_handle *handle, const char *name,
   if (strlen(name) > NAMEDATALEN - 1) {
     ereport(ERROR, errmsg("name must be under 64 bytes long"));
   }
+  if (size == 0) {
+    ereport(ERROR, errmsg("size must be larger than 0"));
+  }
   omni_handle_private *phandle = struct_from_member(omni_handle_private, handle, handle);
   if (dsa == NULL) {
     LWLockRegisterTranche(OMNI_DSA_TRANCHE, "omni:dsa");
@@ -372,7 +375,7 @@ static void *allocate_shmem(const omni_handle *handle, const char *name, size_t 
 }
 
 static void *lookup_shmem(const omni_handle *handle, const char *name, bool *found) {
-  return find_or_allocate_shmem(handle, name, 0, true, found);
+  return find_or_allocate_shmem(handle, name, 1 /* size is ignored in this case */, true, found);
 }
 
 void unload_module(int64 id, bool missing_ok) {
