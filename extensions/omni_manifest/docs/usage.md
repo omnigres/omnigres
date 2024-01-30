@@ -244,11 +244,21 @@ installed, at which point it'll return `kept`.
     It is highly recommended to perform installations transactionally to be able to check
     reports for missing dependencies.
 
-## Update extensions
+## Updating extensions
 
-To update extensions using `omni_manifest.install` ensure the update scripts for the extensions is saved to the postgres
-extension scripts directory. Currently all the extensions are versioned using git commit sha of omnigres repo, extension
-update is only possible from older commit version to newer ones.
+To update extensions using `omni_manifest.install` please ensure the update scripts for the extensions are saved to the
+Postgres extension scripts directory.
+
+!!! tip "Where is this directory?"
+
+    To find it, run the following command:
+
+    ```shell
+    echo $(pg_config --sharedir)/extension
+    ```
+
+Currently, all Omnigres extensions are versioned using git commit SHA from within Omnigres' repo, and extension update
+is only possible from an older commit version to a newer one.
 
 ```postgresql
 -- check available version of omni_python
@@ -271,8 +281,8 @@ from
 (2 rows)
 ```
 
-A public s3 endpoint is available to download extension update scripts (old to new versions) for omnigres provided
-extensions
+A public AWS S3 endpoint is available to download extension update scripts (old to new versions) for Omnigres-provided
+extensions:
 
 ```bash
 # download all the extension update scripts to a local directory
