@@ -109,9 +109,12 @@ void _Omni_init(const omni_handle *handle) {
                                  .bgw_restart_time = BGW_NEVER_RESTART,
                                  .bgw_function_name = "test_worker",
                                  .bgw_main_arg = ObjectIdGetDatum(MyDatabaseId),
-                                 .bgw_notify_pid = 0};
+                                 .bgw_notify_pid = MyProcPid};
       strncpy(worker.bgw_library_name, handle->get_library_name(handle), BGW_MAXLEN);
-      RegisterDynamicBackgroundWorker(&worker, NULL);
+      BackgroundWorkerHandle *bgw_handle;
+      RegisterDynamicBackgroundWorker(&worker, &bgw_handle);
+      pid_t pid;
+      WaitForBackgroundWorkerStartup(bgw_handle, &pid);
     }
   }
 
