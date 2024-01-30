@@ -58,6 +58,8 @@ tests:
   query: select *
          from
              omni.shmem_allocations
+         where
+             name not like 'workers:%'
          order by
              name
   results:

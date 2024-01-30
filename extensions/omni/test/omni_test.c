@@ -7,7 +7,13 @@
 // clang-format on
 #include <commands/dbcommands.h>
 #include <miscadmin.h>
+#include <storage/latch.h>
 #include <utils/builtins.h>
+#if PG_MAJORVERSION_NUM >= 14
+#include <utils/wait_event.h>
+#else
+#include <pgstat.h>
+#endif
 
 #include <omni.h>
 
@@ -26,7 +32,35 @@ void run_hook_fn(omni_hook_handle *handle, QueryDesc *queryDesc, ScanDirection d
   ereport(NOTICE, errmsg("run_hook"));
 }
 
-void _Omni_load(const omni_handle *handle) {}
+void _Omni_load(const omni_handle *handle) {
+  {
+    // Register a global dynamic background worker
+    BackgroundWorker master_worker = {.bgw_name = "test_global_worker",
+                                      .bgw_type = "test_global_worker",
+                                      .bgw_flags = BGWORKER_SHMEM_ACCESS |
+                                                   BGWORKER_BACKEND_DATABASE_CONNECTION,
+                                      .bgw_start_time = BgWorkerStart_RecoveryFinished,
+                                      .bgw_restart_time = BGW_NEVER_RESTART,
+                                      .bgw_function_name = "test_worker",
+                                      .bgw_notify_pid = 0};
+    strncpy(master_worker.bgw_library_name, handle->get_library_name(handle), BGW_MAXLEN);
+    RegisterDynamicBackgroundWorker(&master_worker, NULL);
+  }
+}
+
+void test_worker(Datum id) {
+  pqsignal(SIGTERM, die);
+  BackgroundWorkerInitializeConnection(NULL, NULL, 0);
+  BackgroundWorkerUnblockSignals();
+  while (true) {
+    // And then waiting
+    (void)WaitLatch(MyLatch, WL_LATCH_SET | WL_TIMEOUT | WL_EXIT_ON_PM_DEATH, 1000L,
+                    PG_WAIT_EXTENSION);
+    ResetLatch(MyLatch);
+
+    CHECK_FOR_INTERRUPTS();
+  }
+}
 
 static char *shmem_test = NULL;
 static char *shmem_test1 = NULL;
@@ -54,6 +88,31 @@ void _Omni_init(const omni_handle *handle) {
 
   if (!found) {
     strlcpy(shmem_test1, "hello", sizeof("hello"));
+  }
+
+  {
+    // Register a per-database worker
+
+    // Let's use allocator's lock to prevent others from starting
+    bool found;
+    handle->allocate_shmem(handle, psprintf("workers:%s", get_database_name(MyDatabaseId)), 1,
+                           &found);
+
+    if (!found) {
+      // Nobody started one yet, let's do it
+
+      BackgroundWorker worker = {.bgw_name = "test_local_worker",
+                                 .bgw_type = "test_local_worker",
+                                 .bgw_flags =
+                                     BGWORKER_SHMEM_ACCESS | BGWORKER_BACKEND_DATABASE_CONNECTION,
+                                 .bgw_start_time = BgWorkerStart_RecoveryFinished,
+                                 .bgw_restart_time = BGW_NEVER_RESTART,
+                                 .bgw_function_name = "test_worker",
+                                 .bgw_main_arg = ObjectIdGetDatum(MyDatabaseId),
+                                 .bgw_notify_pid = 0};
+      strncpy(worker.bgw_library_name, handle->get_library_name(handle), BGW_MAXLEN);
+      RegisterDynamicBackgroundWorker(&worker, NULL);
+    }
   }
 
   saved_handle = handle; // not always the best idea, but...

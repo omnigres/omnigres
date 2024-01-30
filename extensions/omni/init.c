@@ -115,6 +115,19 @@ void _PG_init() {
     MemoryContextRegisterResetCallback(PostmasterContext, callback);
     MemoryContextSwitchTo(oldcontext);
   }
+
+  {
+    BackgroundWorker master_worker = {.bgw_name = "omni startup",
+                                      .bgw_type = "omni startup",
+                                      .bgw_flags = BGWORKER_SHMEM_ACCESS |
+                                                   BGWORKER_BACKEND_DATABASE_CONNECTION,
+                                      .bgw_start_time = BgWorkerStart_RecoveryFinished,
+                                      .bgw_restart_time = BGW_NEVER_RESTART,
+                                      .bgw_function_name = "startup_worker",
+                                      .bgw_notify_pid = 0};
+    strncpy(master_worker.bgw_library_name, get_omni_library_name(), BGW_MAXLEN);
+    RegisterBackgroundWorker(&master_worker);
+  }
 }
 
 #define MAX_MODULES 8192

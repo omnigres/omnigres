@@ -73,79 +73,6 @@ void _Omni_unload(const omni_handle *handle);
   omni_magic *_Omni_magic() { return &__Omni_magic; }
 
 /**
- * @brief Scoped globally for the entire Postgres instance
- * For shared memory allocations, #omni_lookup_shmem will return the same allocation regardless
- of
- * `MyDatabase` (current database)
- *
- * For background workers, this means that as long as there's at least one database that has the
- * extension created, one global instance of the background worker will be started.
- *
- */
-#define OMNI_SCOPE_GLOBAL 0b00000000
-/**
- * @brief Scoped for each individual database
- *
- * For shared memory allocations, #omni_lookup_shmem will return a different allocation based on
- * `MyDatabase` (current database)
- *
- * For background workers, this means that for each database where the extension is created, a
- * worker will be started.
- *
- */
-#define OMNI_SCOPE_DATABASE_LOCAL 0b00000001
-/**
- * @brief Default allocation flags
- *
- * At the moment, same as #OMNI_SCOPE_GLOBAL
- *
- */
-#define OMNI_ALLOCATE_SHMEM_DEFAULTS OMNI_SCOPE_GLOBAL
-
-/**
- * @brief Shared memory allocation flags
- *
- * Allowed values:
- *
- * #OMNI_SCOPE_GLOBAL
- * #OMNI_SCOPE_DATABASE_LOCAL
- * #OMNI_ALLOCATE_SHMEM_DEFAULTS
- *
- */
-typedef int omni_allocate_shmem_flags;
-
-/**
- * @brief Notify the extension about the status of the worker
- *
- * Setting this flag ensures the callback the extension receives will be able to
- * use `WaitForBackgroundWorkerStartup`.
- *
- * This can also be achieved by setting `bgw_notify_pid` to `MyProcPid`
- *
- */
-#define OMNI_REGISTER_BGWORKER_NOTIFY 0b00000010
-/**
- * @brief Default background worker flags
- *
- * At the moment, same as #OMNI_SCOPE_DATABASE_LOCAL
- *
- */
-#define OMNI_REGISTER_BGWORKER_DEFAULTS OMNI_SCOPE_DATABASE_LOCAL
-
-/**
- * @brief Background worker registration flags
- *
- * Allowed values:
- *
- * #OMNI_SCOPE_GLOBAL
- * #OMNI_SCOPE_DATABASE_LOCAL
- * #OMNI_REGISTER_BGWORKER_NOTIFY
- * #OMNI_REGISTER_BGWORKER_DEFAULTS
- *
- */
-typedef int omni_register_bgworker_flags;
-
-/**
  * @brief Shared memory allocation function
  *
  * @param handle Handle passed by the loader
@@ -157,13 +84,6 @@ typedef int omni_register_bgworker_flags;
  */
 typedef void *(*omni_allocate_shmem_function)(const omni_handle *handle, const char *name,
                                               size_t size, bool *found);
-
-/**
- * @brief Background worker registration function
- *
- */
-typedef void (*omni_register_bgworker_function)(const omni_handle *handle, BackgroundWorker *bgw,
-                                                omni_register_bgworker_flags flags);
 
 typedef struct omni_handle omni_handle;
 
@@ -282,11 +202,6 @@ typedef struct omni_handle {
    *
    */
   omni_allocate_shmem_function allocate_shmem;
-  /**
-   * @brief Background worker registration function
-   *
-   */
-  omni_register_bgworker_function register_bgworker;
 
   /**
    * @brief Register a hook in a backend
