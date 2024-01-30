@@ -152,20 +152,11 @@ typedef int omni_register_bgworker_flags;
  * @param name Name to register this allocation under. It is advised to include
  *             version information into the name to facilitate easier upgrades
  * @param size Amount of memory to allocate
- * @param callback Callback to initialize the allocated memory. Can be `NULL`.
- *                 If defined, it'll be called after the memory is allocated.
- *                 The loader may choose to call it immediately after the allocation,
- *                 or at any other time, but it is guaranteed to be called before
- *                 a call to #omni_lookup_shmem returns for this particular allocation.
- *                 This allows for lazy memory initialization.
- * @param data Opaque pointer to data to be passed to the callback.
- *             Must be valid until after the callback is called.
- * @param flags Allocation flags
+ * @param found Pointer to a flag indicating if the allocation was found
  *
  */
-typedef void (*omni_allocate_shmem_function)(const omni_handle *handle, const char *name,
-                                             size_t size, void (*callback)(void *ptr, void *data),
-                                             void *data, omni_allocate_shmem_flags flags);
+typedef void *(*omni_allocate_shmem_function)(const omni_handle *handle, const char *name,
+                                              size_t size, bool *found);
 
 /**
  * @brief Background worker registration function
@@ -318,10 +309,12 @@ typedef struct omni_handle {
    *
    * This function is defined by the loader.
    *
+   * @param handle handle
    * @param name name it was registered under
+   * @param found indicates if it was found
    * @return void* pointer to the allocation, NULL if none found
    */
-  void *(*lookup_shmem)(const omni_handle *handle, const char *name);
+  void *(*lookup_shmem)(const omni_handle *handle, const char *name, bool *found);
 
 } omni_handle;
 

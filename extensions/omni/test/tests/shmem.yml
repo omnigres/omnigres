@@ -1,0 +1,75 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+  init:
+  # We create the extension here
+  - create extension omni_test cascade
+
+tests:
+
+- name: initial value
+  query: select omni_test.get_shmem()
+  results:
+  - get_shmem: hello
+
+- name: set value
+  steps:
+  - select omni_test.set_shmem('test')
+  - query: select omni_test.get_shmem()
+    results:
+    - get_shmem: test
+
+- name: value is set after a reconnect (new backend)
+  reset: true
+  steps:
+  - query: select omni_test.get_shmem()
+    results:
+    - get_shmem: test
+  # This one below is testing a particular scenario of having to re-attach
+  # to a DSA that is already attached (or, the after-effects of _Omni_init, rather)
+  - query: select omni_test.get_shmem1()
+    results:
+    - get_shmem1: hello
+
+- name: create another database
+  transaction: false
+  query: create database db1
+
+- name: original value in a new database
+  database: db1
+  steps:
+  - create extension omni_test cascade
+  - query: select omni_test.get_shmem()
+    results:
+    - get_shmem: hello
+
+- name: lookup shmem that was not allocated
+  query: select omni_test.lookup_shmem('not-allocated')
+  results:
+  - lookup_shmem: null
+
+- name: lookup shmem that was allocated
+  query: select omni_test.lookup_shmem('test:db1')
+  results:
+  - lookup_shmem: hello
+
+- name: informational view
+  query: select *
+         from
+             omni.shmem_allocations
+         order by
+             name
+  results:
+  - name: test1:db1
+    module_id: 2
+    size: 128
+  - name: test1:yregress
+    module_id: 2
+    size: 128
+  - name: test:db1
+    module_id: 2
+    size: 128
+  - name: test:yregress
+    module_id: 2
+    size: 128

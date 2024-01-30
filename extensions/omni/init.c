@@ -131,6 +131,9 @@ static void shmem_request() {
 #endif
 
   RequestAddinShmemSpace(hash_estimate_size(MAX_MODULES, sizeof(ModuleEntry)));
+  RequestAddinShmemSpace(hash_estimate_size(
+      MAX_MODULES * 16,
+      sizeof(ModuleAllocation))); // the size is completely arbitrary at this point
   RequestAddinShmemSpace(MAX_MODULES * sizeof(omni_handle_private));
   RequestAddinShmemSpace(sizeof(omni_shared_info));
 
@@ -158,6 +161,12 @@ static void shmem_hook() {
   }
 
   {
+    HASHCTL ctl = {.keysize = sizeof(ModuleAllocationKey), .entrysize = sizeof(ModuleAllocation)};
+    omni_allocations = ShmemInitHash("omni:allocations", MAX_MODULES * 16, MAX_MODULES * 16, &ctl,
+                                     HASH_ELEM | HASH_BLOBS | HASH_FIXED_SIZE);
+  }
+
+  {
     bool found;
     module_handles =
         ShmemInitStruct("omni:module_handles", sizeof(omni_handle_private) * MAX_MODULES, &found);
@@ -170,6 +179,7 @@ static void shmem_hook() {
   }
 
   LWLockRelease(AddinShmemInitLock);
+  OMNI_DSA_TRANCHE = LWLockNewTrancheId();
 }
 
 /**

@@ -89,3 +89,36 @@ Datum hooks(PG_FUNCTION_ARGS) {
   MemoryContextSwitchTo(oldcontext);
   PG_RETURN_NULL();
 }
+
+PG_FUNCTION_INFO_V1(shmem_allocations);
+Datum shmem_allocations(PG_FUNCTION_ARGS) {
+  ReturnSetInfo *rsinfo = (ReturnSetInfo *)fcinfo->resultinfo;
+  rsinfo->returnMode = SFRM_Materialize;
+
+  MemoryContext per_query_ctx = rsinfo->econtext->ecxt_per_query_memory;
+  MemoryContext oldcontext = MemoryContextSwitchTo(per_query_ctx);
+
+  Tuplestorestate *tupstore = tuplestore_begin_heap(false, false, work_mem);
+  rsinfo->setResult = tupstore;
+
+  LWLockAcquire(locks + OMNI_LOCK_ALLOCATION, LW_SHARED);
+
+  HASH_SEQ_STATUS status;
+  hash_seq_init(&status, omni_allocations);
+
+  ModuleAllocation *entry;
+  while ((entry = hash_seq_search(&status)) != NULL) {
+
+    Datum values[3] = {CStringGetDatum(entry->key.name), Int64GetDatum(entry->key.module_id),
+                       Int64GetDatum(entry->size)};
+    bool isnull[3] = {false, false, false};
+    tuplestore_putvalues(tupstore, rsinfo->expectedDesc, values, isnull);
+  }
+
+  LWLockRelease(locks + OMNI_LOCK_ALLOCATION);
+
+  tuplestore_donestoring(tupstore);
+
+  MemoryContextSwitchTo(oldcontext);
+  PG_RETURN_NULL();
+}

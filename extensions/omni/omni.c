@@ -29,12 +29,17 @@ OMNI_MAGIC;
 omni_shared_info *shared_info;
 
 HTAB *omni_modules;
+HTAB *omni_allocations;
+HTAB *dsa_handles;
+
 omni_handle_private *module_handles;
 
 LWLock *locks;
 
 static TupleDesc pg_proc_tuple_desc;
 static List *initialized_modules = NIL;
+
+int OMNI_DSA_TRANCHE;
 
 static inline void ensure_backend_initialized(void) {
   // Indicates whether we have ever done anything on this backend
@@ -51,11 +56,18 @@ static inline void ensure_backend_initialized(void) {
 
   locks = &GetNamedLWLockTranche("omni")->lock;
 
+  {
+    HASHCTL ctl = {.keysize = sizeof(dsa_handle), .entrysize = sizeof(DSAHandleEntry)};
+    dsa_handles = hash_create("omni:dsa_handles", 128, &ctl, HASH_ELEM | HASH_BLOBS);
+  }
+
   backend_initialized = true;
 }
 
 static void register_hook(const omni_handle *handle, omni_hook *hook);
 static char *get_library_name(const omni_handle *handle);
+static void *allocate_shmem(const omni_handle *handle, const char *name, size_t size, bool *found);
+static void *lookup_shmem(const omni_handle *handle, const char *name, bool *found);
 
 static int32 last_known_module = 0;
 
@@ -119,9 +131,11 @@ static List *consider_probin(HeapTuple tp) {
               pg_atomic_init_u32(&handle->state, HANDLE_LOADED);
               strcpy(handle->path, key);
               handle->handle.register_hook = register_hook;
-              // FIXME: this may not mean anything on other backends:
+              handle->handle.allocate_shmem = allocate_shmem;
+              handle->handle.lookup_shmem = lookup_shmem;
               handle->handle.get_library_name = get_library_name;
               entry->id = id;
+              handle->dsa = 0;
               // Let's also load it if there's a callback
               void (*load_fn)(const omni_handle *) = dlsym(dlhandle, "_Omni_load");
               if (load_fn != NULL) {
@@ -287,6 +301,78 @@ static void register_hook(const omni_handle *handle, omni_hook *hook) {
 
 static char *get_library_name(const omni_handle *handle) {
   return struct_from_member(omni_handle_private, handle, handle)->path;
+}
+
+static dsa_area *dsa = NULL;
+
+static void *find_or_allocate_shmem(const omni_handle *handle, const char *name, size_t size,
+                                    bool find, bool *found) {
+  if (strlen(name) > NAMEDATALEN - 1) {
+    ereport(ERROR, errmsg("name must be under 64 bytes long"));
+  }
+  omni_handle_private *phandle = struct_from_member(omni_handle_private, handle, handle);
+  if (dsa == NULL) {
+    LWLockRegisterTranche(OMNI_DSA_TRANCHE, "omni:dsa");
+    // It is important to allocate DSA in the top memory context
+    // so it doesn't get deallocated when the context we're in is gone
+    MemoryContext oldcontext = MemoryContextSwitchTo(TopMemoryContext);
+    dsa = dsa_create(OMNI_DSA_TRANCHE);
+    MemoryContextSwitchTo(oldcontext);
+    dsa_pin(dsa);
+    dsa_pin_mapping(dsa);
+    phandle->dsa = dsa_get_handle(dsa);
+  }
+  LWLockAcquire(locks + OMNI_LOCK_ALLOCATION, find ? LW_SHARED : LW_EXCLUSIVE);
+  ModuleAllocationKey key = {
+      .module_id = phandle->id,
+  };
+  strncpy(key.name, name, sizeof(key.name));
+  ModuleAllocation *alloc =
+      (ModuleAllocation *)hash_search(omni_allocations, &key, find ? HASH_FIND : HASH_ENTER, found);
+  void *ptr = NULL;
+  if (!*found) {
+    if (!find) {
+      alloc->dsa_handle = dsa_get_handle(dsa);
+      alloc->dsa_pointer = dsa_allocate(dsa, size);
+      alloc->size = size;
+      ptr = dsa_get_address(dsa, alloc->dsa_pointer);
+    }
+  } else {
+    if (alloc->dsa_handle != dsa_get_handle(dsa)) {
+      if (!dsm_find_mapping(alloc->dsa_handle)) {
+        // It is important to allocate DSA in the top memory context
+        // so it doesn't get deallocated when the context we're in is gone
+        MemoryContext oldcontext = MemoryContextSwitchTo(TopMemoryContext);
+        dsa_area *other_dsa = dsa_attach(alloc->dsa_handle);
+        dsa_pin_mapping(other_dsa);
+        MemoryContextSwitchTo(oldcontext);
+        ptr = dsa_get_address(other_dsa, alloc->dsa_pointer);
+        bool found = false;
+        DSAHandleEntry *handle_entry =
+            (DSAHandleEntry *)hash_search(dsa_handles, &alloc->dsa_handle, HASH_ENTER, &found);
+        Assert(!found);
+        handle_entry->dsa = other_dsa;
+      } else {
+        bool found = false;
+        DSAHandleEntry *handle_entry =
+            (DSAHandleEntry *)hash_search(dsa_handles, &alloc->dsa_handle, HASH_ENTER, &found);
+        Assert(found);
+        ptr = dsa_get_address(handle_entry->dsa, alloc->dsa_pointer);
+      }
+    } else {
+      ptr = dsa_get_address(dsa, alloc->dsa_pointer);
+    }
+  }
+  LWLockRelease(locks + OMNI_LOCK_ALLOCATION);
+  return ptr;
+}
+
+static void *allocate_shmem(const omni_handle *handle, const char *name, size_t size, bool *found) {
+  return find_or_allocate_shmem(handle, name, size, false, found);
+}
+
+static void *lookup_shmem(const omni_handle *handle, const char *name, bool *found) {
+  return find_or_allocate_shmem(handle, name, 0, true, found);
 }
 
 void unload_module(int64 id, bool missing_ok) {

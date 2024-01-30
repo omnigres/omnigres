@@ -29,10 +29,13 @@ extern omni_shared_info *shared_info;
 
 typedef enum {
   OMNI_LOCK_MODULE,
+  OMNI_LOCK_ALLOCATION,
   __omni_num_locks,
 } omni_locks;
 
 extern HTAB *omni_modules;
+extern HTAB *omni_allocations;
+extern HTAB *dsa_handles;
 
 typedef enum { HANDLE_LOADED = 0, HANDLE_UNLOADED = 1 } omni_handle_state;
 
@@ -53,6 +56,10 @@ typedef struct {
    *
    */
   volatile pg_atomic_uint32 state;
+  /**
+   * DSA
+   */
+  dsa_handle dsa;
 } omni_handle_private;
 
 extern omni_handle_private *module_handles;
@@ -70,6 +77,27 @@ typedef struct {
   int id;
 } ModuleEntry;
 
+typedef struct {
+  int module_id;
+  char name[NAMEDATALEN];
+} ModuleAllocationKey;
+
+StaticAssertDecl(sizeof(ModuleAllocationKey) == sizeof(int) + sizeof(char[NAMEDATALEN]),
+                 "no padding for ease of hashing");
+
+typedef struct {
+  ModuleAllocationKey key;
+  int flags;
+  dsa_handle dsa_handle;
+  dsa_pointer dsa_pointer;
+  size_t size;
+} ModuleAllocation;
+
+typedef struct {
+  dsa_handle handle;
+  dsa_area *dsa;
+} DSAHandleEntry;
+
 extern LWLock *locks;
 
 typedef struct {
@@ -85,6 +113,8 @@ typedef struct {
 } hook_entry_points_t;
 
 extern hook_entry_points_t hook_entry_points;
+
+extern int OMNI_DSA_TRANCHE;
 
 static void init_backend(void *arg);
 
