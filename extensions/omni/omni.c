@@ -149,8 +149,9 @@ static List *consider_probin(HeapTuple tp) {
           } else {
             ereport(WARNING, errmsg("Incompatible magic version %d (expected 0)", magic->version));
           }
+        } else {
+          dlclose(dlhandle);
         }
-        dlclose(dlhandle);
       }
     }
   }
