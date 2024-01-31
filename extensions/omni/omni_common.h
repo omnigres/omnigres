@@ -150,11 +150,11 @@ MODULE_FUNCTION void omni_executor_end_hook(QueryDesc *queryDesc);
 
 MODULE_FUNCTION void omni_process_utility_hook(PlannedStmt *pstmt, const char *queryString,
 #if PG_MAJORVERSION_NUM > 13
-                                      bool readOnlyTree,
+                                               bool readOnlyTree,
 #endif
-                                      ProcessUtilityContext context, ParamListInfo params,
-                                      QueryEnvironment *queryEnv, DestReceiver *dest,
-                                      QueryCompletion *qc);
+                                               ProcessUtilityContext context, ParamListInfo params,
+                                               QueryEnvironment *queryEnv, DestReceiver *dest,
+                                               QueryCompletion *qc);
 
 MODULE_FUNCTION void omni_xact_callback_hook(XactEvent event, void *arg);
 MODULE_FUNCTION void omni_emit_log_hook(ErrorData *edata);

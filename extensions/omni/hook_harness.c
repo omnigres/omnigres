@@ -68,7 +68,7 @@ MODULE_FUNCTION void default_process_utility(omni_hook_handle *handle, PlannedSt
                                              const char *queryString, bool readOnlyTree,
                                              ProcessUtilityContext context, ParamListInfo params,
                                              QueryEnvironment *queryEnv, DestReceiver *dest,
-                                    QueryCompletion *qc) {
+                                             QueryCompletion *qc) {
   return saved_hooks[omni_hook_process_utility] == NULL
              ? standard_ProcessUtility(pstmt, queryString,
 #if PG_MAJORVERSION_NUM > 13
@@ -185,11 +185,11 @@ MODULE_FUNCTION void omni_executor_end_hook(QueryDesc *queryDesc) {
 
 MODULE_FUNCTION void omni_process_utility_hook(PlannedStmt *pstmt, const char *queryString,
 #if PG_MAJORVERSION_NUM > 13
-                                      bool readOnlyTree,
+                                               bool readOnlyTree,
 #endif
-                                      ProcessUtilityContext context, ParamListInfo params,
-                                      QueryEnvironment *queryEnv, DestReceiver *dest,
-                                      QueryCompletion *qc) {
+                                               ProcessUtilityContext context, ParamListInfo params,
+                                               QueryEnvironment *queryEnv, DestReceiver *dest,
+                                               QueryCompletion *qc) {
 
 #if PG_MAJORVERSION_NUM <= 13
   bool readOnlyTree = false;
