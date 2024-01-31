@@ -237,8 +237,8 @@ struct request {
 // Called when response body chunk is being received
 static int on_body(h2o_httpclient_t *client, const char *errstr, h2o_header_t *trailers,
                    size_t num_trailers) {
-
   struct request *req = (struct request *)client->data;
+
 
   // If there's an error, report it
   if (errstr != NULL) {
@@ -508,9 +508,6 @@ Datum http_execute(PG_FUNCTION_ARGS) {
   int num_requests = ArrayGetNItems(ARR_NDIM(requests_array), ARR_DIMS(requests_array));
   struct request *requests = palloc_array(struct request, num_requests);
 
-  // Indicates if any target requires SSL
-  bool ssl_targets = false;
-
   bool any_requests = false;
   // For every request:
   for (int req_i = 0; req_i < num_requests; req_i++) {
@@ -609,11 +606,6 @@ Datum http_execute(PG_FUNCTION_ARGS) {
     if (request->request_body.len > 0) {
       int clbuf_len = pg_ultoa_n(request->request_body.len, clbuf);
       h2o_add_header(pool, headers_vec, H2O_TOKEN_CONTENT_LENGTH, NULL, clbuf, clbuf_len);
-    }
-
-    // If request requires SSL, take a note of that
-    if (request->url.scheme->is_ssl) {
-      ssl_targets = true;
     }
 
     request->done = &done;
