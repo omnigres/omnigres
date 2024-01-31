@@ -82,6 +82,7 @@ void startup_worker(Datum main_arg) {
 void database_worker(Datum db_oid) {
   // Starting up is good enough, the rest of the machinery in Omni
   // will take a look at initializing the modules.
+  BackgroundWorkerUnblockSignals();
   BackgroundWorkerInitializeConnectionByOid(db_oid, InvalidOid, 0);
   // And we're done.
 }

@@ -111,7 +111,7 @@ typedef struct {
   dsa_area *dsa;
 } DSAHandleEntry;
 
-DECLARE_MODULE_VARIABLE(LWLock *locks);
+DECLARE_MODULE_VARIABLE(LWLockPadded *locks);
 
 typedef struct {
   const omni_handle *handle;

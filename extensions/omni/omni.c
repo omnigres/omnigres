@@ -34,7 +34,7 @@ MODULE_VARIABLE(HTAB *dsa_handles);
 
 MODULE_VARIABLE(omni_handle_private *module_handles);
 
-MODULE_VARIABLE(LWLock *locks);
+MODULE_VARIABLE(LWLockPadded *locks);
 
 static TupleDesc pg_proc_tuple_desc;
 static List *initialized_modules = NIL;
@@ -56,7 +56,7 @@ MODULE_FUNCTION void ensure_backend_initialized(void) {
     table_close(rel, AccessShareLock);
   }
 
-  locks = &GetNamedLWLockTranche("omni")->lock;
+  locks = GetNamedLWLockTranche("omni");
 
   {
     HASHCTL ctl = {.keysize = sizeof(dsa_handle), .entrysize = sizeof(DSAHandleEntry)};
@@ -120,7 +120,7 @@ MODULE_FUNCTION List *consider_probin(HeapTuple tp) {
           omni_magic *magic = magic_fn();
           if (magic->size == sizeof(omni_magic) && magic->version == 0) {
             // We are going to record it if it wasn't yet
-            LWLockAcquire(locks + OMNI_LOCK_MODULE, LW_EXCLUSIVE);
+            LWLockAcquire(&(locks + OMNI_LOCK_MODULE)->lock, LW_EXCLUSIVE);
             bool found = false;
             ModuleEntry *entry = hash_search(omni_modules, key, HASH_ENTER, &found);
 
@@ -139,13 +139,21 @@ MODULE_FUNCTION List *consider_probin(HeapTuple tp) {
               entry->id = id;
               handle->dsa = 0;
               // Let's also load it if there's a callback
+
+              // Let's ensure that we don't hold on to the exclusive lock during
+              // load as it may lock up whatever is done by `_Omni_load`
+              LWLockRelease(&(locks + OMNI_LOCK_MODULE)->lock);
               void (*load_fn)(const omni_handle *) = dlsym(dlhandle, "_Omni_load");
               if (load_fn != NULL) {
                 load_fn(&handle->handle);
               }
+              LWLockAcquire(&(locks + OMNI_LOCK_MODULE)->lock, LW_EXCLUSIVE);
             }
 
             loaded = list_append_unique_int(loaded, entry->id);
+
+            // We no longer need an exclusive lock for modules
+            LWLockRelease(&(locks + OMNI_LOCK_MODULE)->lock);
 
             {
               // If the module was not initialized in this backend, do so
@@ -161,7 +169,6 @@ MODULE_FUNCTION List *consider_probin(HeapTuple tp) {
               }
             }
 
-            LWLockRelease(locks + OMNI_LOCK_MODULE);
           } else {
             ereport(WARNING, errmsg("Incompatible magic version %d (expected 0)", magic->version));
           }
@@ -327,7 +334,7 @@ MODULE_FUNCTION void *find_or_allocate_shmem(const omni_handle *handle, const ch
     dsa_pin_mapping(dsa);
     phandle->dsa = dsa_get_handle(dsa);
   }
-  LWLockAcquire(locks + OMNI_LOCK_ALLOCATION, find ? LW_SHARED : LW_EXCLUSIVE);
+  LWLockAcquire(&(locks + OMNI_LOCK_ALLOCATION)->lock, find ? LW_SHARED : LW_EXCLUSIVE);
   ModuleAllocationKey key = {
       .module_id = phandle->id,
   };
@@ -368,7 +375,7 @@ MODULE_FUNCTION void *find_or_allocate_shmem(const omni_handle *handle, const ch
       ptr = dsa_get_address(dsa, alloc->dsa_pointer);
     }
   }
-  LWLockRelease(locks + OMNI_LOCK_ALLOCATION);
+  LWLockRelease(&(locks + OMNI_LOCK_ALLOCATION)->lock);
   return ptr;
 }
 
@@ -383,11 +390,11 @@ MODULE_FUNCTION void *lookup_shmem(const omni_handle *handle, const char *name, 
 
 MODULE_FUNCTION void unload_module(int64 id, bool missing_ok) {
   omni_handle_private *phandle = module_handles + id;
-  LWLockAcquire(locks + OMNI_LOCK_MODULE, LW_EXCLUSIVE);
+  LWLockAcquire(&(locks + OMNI_LOCK_MODULE)->lock, LW_EXCLUSIVE);
   bool found = false;
   hash_search(omni_modules, phandle->path, HASH_REMOVE, &found);
   if (!found) {
-    LWLockRelease(locks + OMNI_LOCK_MODULE);
+    LWLockRelease(&(locks + OMNI_LOCK_MODULE)->lock);
     if (!missing_ok) {
       ereport(ERROR, errmsg("module id %lu not found", id));
     } else {
@@ -395,6 +402,8 @@ MODULE_FUNCTION void unload_module(int64 id, bool missing_ok) {
     }
   }
   pg_atomic_write_u32(&phandle->state, HANDLE_UNLOADED);
+  // We no longer need the lock
+  LWLockRelease(&(locks + OMNI_LOCK_MODULE)->lock);
   {
     // Perform unloading
     void *dlhandle = dlopen(phandle->path, RTLD_LAZY);
@@ -408,5 +417,4 @@ MODULE_FUNCTION void unload_module(int64 id, bool missing_ok) {
   MemoryContext oldcontext = MemoryContextSwitchTo(TopMemoryContext);
   initialized_modules = list_delete_int(initialized_modules, id);
   MemoryContextSwitchTo(oldcontext);
-  LWLockRelease(locks + OMNI_LOCK_MODULE);
 }

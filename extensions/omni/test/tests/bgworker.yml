@@ -56,3 +56,11 @@ tests:
                pg_stat_activity.backend_type = 'test_local_worker'
     results:
     - count: 2
+
+- name: waiting for the bgworker doesn't hang startup
+  restart: true
+  # What we query is not important
+  query: select 1
+  # NB: this test likely succeeds most of the time even when we do hang
+  # because we might be able to get to _Omni_init in a backend first (before the worker
+  # gets to it). But let's keep it here for now.

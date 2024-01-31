@@ -28,7 +28,7 @@ Datum modules(PG_FUNCTION_ARGS) {
   Tuplestorestate *tupstore = tuplestore_begin_heap(false, false, work_mem);
   rsinfo->setResult = tupstore;
 
-  LWLockAcquire(locks + OMNI_LOCK_MODULE, LW_SHARED);
+  LWLockAcquire(&(locks + OMNI_LOCK_MODULE)->lock, LW_SHARED);
 
   HASH_SEQ_STATUS status;
   hash_seq_init(&status, omni_modules);
@@ -41,7 +41,7 @@ Datum modules(PG_FUNCTION_ARGS) {
     tuplestore_putvalues(tupstore, rsinfo->expectedDesc, values, isnull);
   }
 
-  LWLockRelease(locks + OMNI_LOCK_MODULE);
+  LWLockRelease(&(locks + OMNI_LOCK_MODULE)->lock);
 
   tuplestore_donestoring(tupstore);
 
@@ -101,7 +101,7 @@ Datum shmem_allocations(PG_FUNCTION_ARGS) {
   Tuplestorestate *tupstore = tuplestore_begin_heap(false, false, work_mem);
   rsinfo->setResult = tupstore;
 
-  LWLockAcquire(locks + OMNI_LOCK_ALLOCATION, LW_SHARED);
+  LWLockAcquire(&(locks + OMNI_LOCK_ALLOCATION)->lock, LW_SHARED);
 
   HASH_SEQ_STATUS status;
   hash_seq_init(&status, omni_allocations);
@@ -115,7 +115,7 @@ Datum shmem_allocations(PG_FUNCTION_ARGS) {
     tuplestore_putvalues(tupstore, rsinfo->expectedDesc, values, isnull);
   }
 
-  LWLockRelease(locks + OMNI_LOCK_ALLOCATION);
+  LWLockRelease(&(locks + OMNI_LOCK_ALLOCATION)->lock);
 
   tuplestore_donestoring(tupstore);
 

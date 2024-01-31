@@ -101,11 +101,11 @@ void master_worker(Datum main_arg) {
 
 void database_worker(Datum db_oid) {
   ensure_dsa_attached();
-  BackgroundWorkerInitializeConnectionByOid(db_oid, InvalidOid, 0);
 
   pqsignal(SIGTERM, sigterm);
-
   BackgroundWorkerUnblockSignals();
+
+  BackgroundWorkerInitializeConnectionByOid(db_oid, InvalidOid, 0);
 
   StartTransactionCommand();
 
