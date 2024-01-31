@@ -4,7 +4,7 @@ project(omni_web)
 include(CTest)
 include(FindPkgConfig)
 
-list(PREPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/../../cmake)
+list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/../../cmake)
 
 enable_testing()
 

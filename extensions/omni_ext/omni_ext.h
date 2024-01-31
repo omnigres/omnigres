@@ -1,6 +1,10 @@
 #ifndef OMNI_EXT_H
 #define OMNI_EXT_H
 
+#include <access/xact.h>
+#include <executor/executor.h>
+#include <tcop/utility.h>
+
 #include <dynpgext.h>
 
 #include <libgluepg_stc.h>
@@ -85,11 +89,10 @@ int allocation_request_cmp(const allocation_request *left, const allocation_requ
 extern cdeq_allocation_request allocation_requests;
 
 typedef struct {
-  const dynpgext_handle *handle;
   BackgroundWorker bgw;
-  void (*callback)(BackgroundWorkerHandle *handle, void *data);
-  void *data;
   dynpgext_register_bgworker_flags flags;
+  NameData extname;
+  NameData extver; // this is strictly speaking incorrect, version is a varlen
 } background_worker_request;
 
 int background_worker_request_cmp(const background_worker_request *left,
@@ -99,6 +102,23 @@ int background_worker_request_cmp(const background_worker_request *left,
 #define i_tag background_worker_request
 #define i_cmp background_worker_request_cmp
 #include <stc/cdeq.h>
+
+typedef struct {
+  uint64 id;
+  background_worker_request request;
+  bool started;
+  Oid databaseOid;
+} BackgroundWorkerRequest;
+
+extern HTAB *BackgroundWorkerRequests;
+
+typedef struct {
+  pg_atomic_uint64 bgworker_next_id;
+  // This is currently used by tests and nothing else:
+  char reserved[64];
+} SharedInfo;
+
+extern SharedInfo *shared_info;
 
 /**
  * @brief Dynpgext background worker requests collected during the startup phase
@@ -126,8 +146,7 @@ void allocate_shmem_startup(const struct dynpgext_handle *handle, const char *na
  * @param bgw background worker
  */
 void register_bgworker_startup(const struct dynpgext_handle *handle, BackgroundWorker *bgw,
-                               void (*callback)(BackgroundWorkerHandle *handle, void *data),
-                               void *data, dynpgext_register_bgworker_flags flags);
+                               dynpgext_register_bgworker_flags flags);
 
 /**
  * @brief Allocates shmem during the runtime phase
@@ -149,8 +168,7 @@ void allocate_shmem_runtime(const struct dynpgext_handle *handle, const char *na
  * @param bgw background worker
  */
 void register_bgworker_runtime(const struct dynpgext_handle *handle, BackgroundWorker *bgw,
-                               void (*callback)(BackgroundWorkerHandle *handle, void *data),
-                               void *data, dynpgext_register_bgworker_flags flags);
+                               dynpgext_register_bgworker_flags flags);
 
 /**
  * @brief Get this extension's shared library name
@@ -161,5 +179,25 @@ const char *get_library_name();
 
 extern bool dsa_attached;
 void ensure_dsa_attached();
+
+bool unload_extension(char *name, char *version);
+char *load_extension(char *name, char *version);
+
+extern ExecutorFinish_hook_type old_executor_finish_hook;
+extern ProcessUtility_hook_type old_process_utility_hook;
+void omni_ext_executor_finish_hook(QueryDesc *queryDesc);
+void omni_ext_process_utility_hook(PlannedStmt *pstmt, const char *queryString,
+#if PG_MAJORVERSION_NUM > 13
+                                   bool readOnlyTree,
+#endif
+                                   ProcessUtilityContext context, ParamListInfo params,
+                                   QueryEnvironment *queryEnv, DestReceiver *dest,
+                                   QueryCompletion *qc);
+void omni_ext_transaction_callback(XactEvent event, void *arg);
+
+void populate_bgworker_requests_for_db(Oid dboid);
+void process_extensions_for_database(char *extname, char *extversion, Oid dboid);
+
+char *get_fitting_library_name(char *library_name);
 
 #endif // OMNI_EXT_H

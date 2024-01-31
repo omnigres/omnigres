@@ -29,6 +29,7 @@ jobs:
       matrix:
         platform: [ amd64, arm64 ]
 
+    if: github.repository == 'omnigres/omnigres'
     runs-on: ${{ fromJSON('["warp-ubuntu-latest-x64-4x", "warp-ubuntu-latest-arm64-16x"]')[matrix.platform == 'arm64'] }}
 
     permissions:
@@ -161,7 +162,7 @@ jobs:
       matrix:
         flavor: [ "", "-slim", "-dev" ]
 
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && github.repository == 'omnigres/omnigres'
     needs: build
     runs-on: ubuntu-latest
     steps:

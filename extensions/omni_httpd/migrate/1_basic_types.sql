@@ -9,16 +9,7 @@ create type http_request as
     headers      http_headers
 );
 
-create function http_request(path text, method omni_http.http_method default 'GET', query_string text default null,
-                             body bytea default null,
-                             headers http_headers default array []::http_headers)
-    returns http_request
-    language sql
-    immutable
-as
-$$
-select row (method, path, query_string, body, headers)
-$$;
+/*{% include "../src/http_request.sql" %}*/
 
 create type http_response as
 (
@@ -37,15 +28,8 @@ create domain abort as omni_types.unit;
 
 select omni_types.sum_type('http_outcome', 'http_response', 'abort', 'http_proxy');
 
-create function abort() returns http_outcome as
-$$
-select omni_httpd.http_outcome_from_abort(omni_types.unit())
-$$ language sql immutable;
-
-create function http_proxy(url text, preserve_host boolean default true) returns http_outcome as
-$$
-select omni_httpd.http_outcome_from_http_proxy(row (url, preserve_host))
-$$ language sql immutable;
+/*{% include "../src/abort.sql" %}*/
+/*{% include "../src/http_proxy.sql" %}*/
 
 create function http_response(
     body anycompatible default null,

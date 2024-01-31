@@ -6,6 +6,8 @@
 #include <fmgr.h>
 // clang-format on
 
+#include <access/xact.h>
+#include <executor/executor.h>
 #include <miscadmin.h>
 #include <port.h>
 #include <storage/fd.h>
@@ -59,12 +61,17 @@ void shmem_request() {
     RequestAddinShmemSpace(hash_estimate_size(max_databases, sizeof(database_oid_mapping_entry)));
   }
 
+  RequestAddinShmemSpace(
+      hash_estimate_size(max_worker_processes * 2, sizeof(BackgroundWorkerRequest)));
+  RequestNamedLWLockTranche("omni_ext_bgworker_request", 1);
+
   // Allocate bulk of memory to be used for new allocations
   RequestAddinShmemSpace(shmem_size * 1024 * 1024);
 
   RequestNamedLWLockTranche("omni_ext_allocation_dictionary", 1);
   RequestNamedLWLockTranche("omni_ext_database_oid_mapping", 1);
-  RequestNamedLWLockTranche("omni_ext_worker_rendezvous", 1);
+
+  RequestAddinShmemSpace(sizeof(SharedInfo));
 }
 
 /**
@@ -74,50 +81,6 @@ void shmem_request() {
 void shmem_hook() {
   if (saved_shmem_startup_hook) {
     saved_shmem_startup_hook();
-  }
-
-  // Calculate if we have enough `max_worker_processes`
-  bool found_bgworker_data = false;
-
-#if PG_MAJORVERSION_NUM <= 16
-  // This relies on internal knowledge of `BackgroundWorkerArray` struct.
-  // Not perfect, but I haven't found a better way to get a number of used workers
-  // at this stage
-  struct _BackgroundWorkerSlot {
-    bool in_use;
-    bool terminate;
-    pid_t pid;
-    uint64 generation;
-    BackgroundWorker worker;
-  };
-  struct _BackgroundWorkerArray {
-    int total_slots;
-    uint32 parallel_register_count;
-    uint32 parallel_terminate_count;
-    struct _BackgroundWorkerSlot slot[FLEXIBLE_ARRAY_MEMBER];
-  };
-  Size background_worker_shmem_size = offsetof(struct _BackgroundWorkerArray, slot);
-  background_worker_shmem_size =
-      add_size(background_worker_shmem_size,
-               mul_size(max_worker_processes, sizeof(struct _BackgroundWorkerSlot)));
-  struct _BackgroundWorkerArray
-#else
-#error                                                                                             \
-    "Check if BackgroundWorkerArray/BackgroundWorkerSlot have changed in this version of Postgres"
-#endif
-      *worker_array = ShmemInitStruct("Background Worker Data", background_worker_shmem_size,
-                                      &found_bgworker_data);
-
-  int total_used = cdeq_background_worker_request_size(&background_worker_requests);
-  for (int i = 0; i < worker_array->total_slots; i++) {
-    if (worker_array->slot[i].in_use)
-      total_used++;
-  }
-
-  if (max_worker_processes < total_used) {
-    ereport(ERROR, errmsg("Not enough workers allowed. Consider changing max_workers_processes "
-                          "from %d to at least %d",
-                          max_parallel_workers, total_used));
   }
 
   LWLockAcquire(AddinShmemInitLock, LW_EXCLUSIVE);
@@ -176,8 +139,34 @@ void shmem_hook() {
   }
 
   {
-    HTAB *dict = ShmemInitHash("omni_ext_worker_rendezvous", 0, max_databases,
-                               &worker_rendezvous_ctl, HASH_ELEM | HASH_BLOBS);
+    bool found;
+    shared_info =
+        (SharedInfo *)ShmemInitStruct("omni_ext: shared_info", sizeof(SharedInfo), &found);
+    Assert(!found);
+    // ensure it's all zeroes for the sake of tests using reserved space
+    memset((void *)shared_info, 0, sizeof(SharedInfo));
+    // Initialize background worker request counter
+    pg_atomic_write_u64(&shared_info->bgworker_next_id, 0);
+  }
+
+  {
+    HASHCTL bgworker_requests = {.keysize = sizeof(uint64),
+                                 .entrysize = sizeof(BackgroundWorkerRequest)};
+    BackgroundWorkerRequests =
+        ShmemInitHash("omni_ext_bgworker_requests", max_worker_processes, max_worker_processes * 2,
+                      &bgworker_requests, HASH_ELEM | HASH_BLOBS);
+    // Populate requests
+    c_FOREACH(bgw, cdeq_background_worker_request, background_worker_requests) {
+      uint64 id = pg_atomic_add_fetch_u64(&shared_info->bgworker_next_id, 1);
+      bool found;
+      BackgroundWorkerRequest *req = hash_search(BackgroundWorkerRequests, &id, HASH_ENTER, &found);
+      Assert(!found);
+      req->request = *bgw.ref;
+      req->started = false;
+      req->databaseOid = InvalidOid;
+    }
+    // Ensure we're not holding onto these anymore
+    cdeq_background_worker_request_clear(&background_worker_requests);
   }
 
   LWLockRelease(AddinShmemInitLock);
@@ -186,6 +175,10 @@ void shmem_hook() {
 static bool _dynpgext_loader_present = true;
 
 void _PG_init() {
+  if (!process_shared_preload_libraries_in_progress) {
+    return;
+  }
+
   DefineCustomBoolVariable("dynpgext.loader_present",
                            "Flag indicating presence of a Dynpgext loader", NULL,
                            &_dynpgext_loader_present, true, PGC_BACKEND, 0, NULL, NULL, NULL);
@@ -210,11 +203,6 @@ void _PG_init() {
                           &max_allocation_dictionary_entries, 1000, 0, INT_MAX, PGC_POSTMASTER, 0,
                           NULL, NULL, NULL);
   MemoryContext old_context = MemoryContextSwitchTo(TopMemoryContext);
-
-  // Initialize storage for requests
-  allocation_requests = cdeq_allocation_request_init();
-  background_worker_requests = cdeq_background_worker_request_init();
-  handles = cdeq_handle_init();
 
   // Scan the directory unless disabled
   if (getenv("OMNI_EXT_NOPRELOAD") == NULL) {
@@ -248,4 +236,8 @@ void _PG_init() {
   strncpy(master_worker.bgw_library_name, get_library_name(), BGW_MAXLEN);
   RegisterBackgroundWorker(&master_worker);
   MemoryContextSwitchTo(old_context);
+
+  ProcessUtility_hook = omni_ext_process_utility_hook;
+
+  RegisterXactCallback(omni_ext_transaction_callback, NULL);
 }

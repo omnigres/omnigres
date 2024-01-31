@@ -12,9 +12,8 @@ find_package(PostgreSQL REQUIRED)
 add_postgresql_extension(
         libpgaug_test
         VERSION 0.1
-        PRIVATE true
+        PRIVATE TRUE
         SOURCES libpgaug_test.c
-        DEPENDS_ON libpgaug
-        REGRESS memcxt)
+        DEPENDS_ON libpgaug)
 
 target_link_libraries(libpgaug_test libpgaug)

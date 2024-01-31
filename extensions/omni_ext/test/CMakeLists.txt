@@ -4,7 +4,7 @@ project(omni_ext_test)
 include(CPM)
 include(CTest)
 
-list(PREPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/../../../cmake)
+list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/../../../cmake)
 
 enable_testing()
 
@@ -13,22 +13,30 @@ find_package(PostgreSQL REQUIRED)
 add_postgresql_extension(
         omni_ext_test
         SCHEMA omni_ext_test
-        PRIVATE true
+        PRIVATE TRUE
         RELOCATABLE false
         SOURCES omni_ext_test.c
         REQUIRES omni_ext
-        VERSION 0.1
-        REGRESS load re_load load_version shmem global_bgworker database_local_bgworker)
+        VERSION 0.1)
+
+
+add_postgresql_extension(
+        omni_ext_test
+        TARGET omni_ext_test_2
+        UPGRADE_SCRIPTS tests/omni_ext_test--0.1--0.2.sql
+        NO_DEFAULT_CONTROL ON
+        VERSION 0.2
+        PRIVATE ON
+        TESTS OFF)
 
 add_postgresql_extension(
         omni_ext_test_no_preload
         SCHEMA omni_ext_test_no_preload
-        PRIVATE true
+        PRIVATE TRUE
         RELOCATABLE false
         SOURCES omni_ext_test.c
         REQUIRES omni_ext
-        VERSION 0.1
-        REGRESS shmem_no_preload)
+        VERSION 0.1)
 
 target_link_libraries(omni_ext_test dynpgext)
 

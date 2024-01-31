@@ -192,47 +192,6 @@ void find_control_files(void (*callback)(const char *control_path, void *data), 
   closedir(dir);
 }
 
-/**
- * Returns a name that fits into BGWLEN-1
- *
- * Many pathnames don't. So we try to do this by symlinking into $TMPDIR
- * hoping it'll be shorter.
- *
- * (bgw_library_name should be MAXPGPATH-sized, really)
- *
- * @param library_name
- * @return
- */
-static char *get_fitting_library_name(char *library_name) {
-  if (sizeof(((BackgroundWorker){}).bgw_library_name) == BGW_MAXLEN &&
-      strlen(library_name) >= BGW_MAXLEN - 1) {
-    char *tmpdir = getenv("TMPDIR");
-    if (tmpdir == NULL) {
-      ereport(WARNING, errmsg("library path %s is too long to fit into BGW_MAXLEN-1 (%d chars) and "
-                              "there's no $TMPDIR",
-                              library_name, BGW_MAXLEN - 1));
-    } else {
-      char *tempfile = psprintf("%s/omni_ext_XXXXXX", tmpdir);
-      if (strlen(tempfile) >= BGW_MAXLEN - 1) {
-        ereport(WARNING,
-                errmsg("temp file name %s is still to large to fit into BGW_MAXLEN-1 (%d chars)",
-                       tempfile, BGW_MAXLEN));
-        return library_name;
-      }
-      int fd = mkstemp(tempfile);
-      unlink(tempfile);
-      close(fd);
-      if (symlink(library_name, tempfile) != 0) {
-        int e = errno;
-        ereport(WARNING, errmsg("can't symlink %s to %s: %s", library_name, tempfile, strerror(e)));
-        return library_name;
-      }
-      return tempfile;
-    }
-  }
-  return library_name;
-}
-
 void load_control_file(const char *control_path, void *data) {
   char *control_basename = basename((char *)control_path);
   struct load_control_file_config *config = (struct load_control_file_config *)data;
@@ -284,11 +243,17 @@ void load_control_file(const char *control_path, void *data) {
         // Only proceed if there's a module pathname and a matching version
         bool proceed = (control_file.module_pathname != NULL) && matching_version;
         // Check if this extension was already loaded at the statup time
-        if (!config->preload) {
+        if (proceed && !config->preload) {
           c_FOREACH(it, cdeq_handle, handles) {
             // and if it was, don't proceed with it
             proceed = !(strcmp((*it.ref)->name, control_file.ext_name) == 0 &&
                         strcmp((*it.ref)->version, control_file.ext_version) == 0);
+
+            if (config->action == UNLOAD && !proceed) {
+              // However, if we're unloading, then it is the opposite: we should
+              // proceed with it
+              proceed = true;
+            }
 
             if (!proceed)
               break;
@@ -339,7 +304,8 @@ void load_control_file(const char *control_path, void *data) {
 
                   ereport(
                       LOG,
-                      errmsg("Loaded Dynpgext extension %s (version %s)", control_file.ext_name,
+                      errmsg("%s Dynpgext extension %s (version %s)",
+                             config->action == LOAD ? "Loaded" : "Unloaded", control_file.ext_name,
                              control_file.ext_version ? control_file.ext_version : "unspecified"));
                 }
               }

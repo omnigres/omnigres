@@ -7,49 +7,7 @@ create table listeners
     protocol       http_protocol not null default 'http'
 );
 
-create function check_if_role_accessible_to_current_user(role name) returns boolean
-as
-$$
-declare
-    result boolean;
-begin
-    with
-        recursive
-        role_members as (select
-                             roleid,
-                             member
-                         from
-                             pg_auth_members
-                         where
-                             roleid = (select oid from pg_roles where rolname = role)
-
-                         union all
-
-                         select
-                             am.roleid,
-                             am.member
-                         from
-                             pg_auth_members  am
-                             join
-                                 role_members rm on am.roleid = rm.member)
-    select
-        true
-    into result
-    from
-        pg_roles r
-    where
-        (r.rolname = current_user and r.rolsuper) or
-        (r.oid in (select member from role_members)) or
-        (r.rolname = role and role = current_user)
-    limit 1;
-    if not found then
-        return false;
-    else
-        return true;
-    end if;
-end;
-
-$$ language plpgsql;
+/*{% include "../src/check_if_role_accessible_to_current_user.sql" %}*/
 
 create table handlers
 (
@@ -83,38 +41,7 @@ create table configuration_reloads
     happened_at timestamp not null default now()
 );
 
--- Wait for the number of configuration reloads to be `n` or greater
--- Useful for testing
-create procedure wait_for_configuration_reloads(n int) as
-$$
-declare
-    c  int = 0;
-    n_ int = n;
-begin
-    loop
-        with
-            reloads as (select
-                            id
-                        from
-                            omni_httpd.configuration_reloads
-                        order by happened_at asc
-                        limit n_)
-        delete
-        from
-            omni_httpd.configuration_reloads
-        where
-            id in (select id from reloads);
-        declare
-            rowc int;
-        begin
-            get diagnostics rowc = row_count;
-            n_ = n_ - rowc;
-            c = c + rowc;
-        end;
-        exit when c >= n;
-    end loop;
-end;
-$$ language plpgsql;
+/*{% include "../src/wait_for_configuration_reloads.sql" %}*/
 
 create function reload_configuration_trigger() returns trigger
 as

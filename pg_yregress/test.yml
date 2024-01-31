@@ -26,6 +26,9 @@ instances:
     hba: |
       local all all trust
       host all all all trust
+  encoding_locale:
+    encoding: SQL_ASCII
+    locale: en_US.UTF-8
 
 tests:
 
@@ -474,3 +477,26 @@ tests:
   error:
     severity: ERROR
     message: CREATE DATABASE cannot run inside a transaction block
+
+- name: default encoding and collation of instance
+  query: |
+    select
+       pg_catalog.pg_encoding_to_char(encoding) as encoding,
+       datcollate as collate
+    from pg_catalog.pg_database
+    where datname = current_database()
+  results:
+  - encoding: UTF8
+    collate: C
+
+- name: custom encoding and collation of instance
+  instance: encoding_locale
+  query: |
+    select
+       pg_catalog.pg_encoding_to_char(encoding) as encoding,
+       datcollate as collate
+    from pg_catalog.pg_database
+    where datname = current_database()
+  results:
+  - encoding: SQL_ASCII
+    collate: en_US.UTF-8

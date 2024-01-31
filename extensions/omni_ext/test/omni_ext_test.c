@@ -11,6 +11,8 @@
 #include <catalog/pg_type.h>
 #endif
 #include <executor/spi.h>
+#include <miscadmin.h>
+#include <storage/shmem.h>
 #include <utils/snapmgr.h>
 #include <utils/timestamp.h>
 
@@ -33,19 +35,37 @@ int db_counter = 0;
 void cb(void *ptr, void *data) { strcpy((char *)ptr, "test"); }
 void cb_dblocal(void *ptr, void *data) { sprintf((char *)ptr, "testdb %d", db_counter++); }
 
-void global_worker(Datum arg) {
-  BackgroundWorkerInitializeConnection("omni_ext_test", NULL, 0);
+typedef struct {
+  pg_atomic_uint64 bgworker_next_id;
+  union {
+    char reserved[64];
+    struct {
+      bool global_worker_started;
+    } info;
+  } scratchpad;
+} SharedInfo;
 
-  SetCurrentStatementStartTimestamp();
-  StartTransactionCommand();
-  PushActiveSnapshot(GetTransactionSnapshot());
+void global_worker(Datum dboid) {
+  bool found;
+  SharedInfo *info =
+      (SharedInfo *)ShmemInitStruct("omni_ext: shared_info", sizeof(SharedInfo), &found);
+  info->scratchpad.info.global_worker_started = true;
+}
 
-  SPI_connect();
-  SPI_execute("CREATE TABLE IF NOT EXISTS global_worker_started ();", false, 0);
-  SPI_finish();
+PG_FUNCTION_INFO_V1(wait_for_global_bgworker);
 
-  PopActiveSnapshot();
-  CommitTransactionCommand();
+Datum wait_for_global_bgworker(PG_FUNCTION_ARGS) {
+  bool found;
+  SharedInfo *info =
+      (SharedInfo *)ShmemInitStruct("omni_ext: shared_info", sizeof(SharedInfo), &found);
+  TimestampTz start = GetCurrentTimestamp();
+  while (!info->scratchpad.info.global_worker_started) {
+    TimestampTz now = GetCurrentTimestamp();
+    // timeout
+    if (now - start >= 3000000)
+      break;
+  }
+  PG_RETURN_BOOL(info->scratchpad.info.global_worker_started);
 }
 
 PG_FUNCTION_INFO_V1(wait_for_table);
@@ -90,7 +110,6 @@ void database_local_worker(Datum dboid) {
 }
 
 void _Dynpgext_init(const dynpgext_handle *handle) {
-  ereport(NOTICE, errmsg("_Dynpgext_init"));
   handle->allocate_shmem(handle, GLOBAL_ID, 1024, cb, NULL, DYNPGEXT_SCOPE_GLOBAL);
   handle->allocate_shmem(handle, DATABASE_LOCAL_ID, 1024, cb_dblocal, NULL,
                          DYNPGEXT_SCOPE_DATABASE_LOCAL);
@@ -102,7 +121,7 @@ void _Dynpgext_init(const dynpgext_handle *handle) {
                           .bgw_start_time = BgWorkerStart_RecoveryFinished,
                           .bgw_restart_time = BGW_NEVER_RESTART};
   strncpy(bgw.bgw_library_name, handle->library_name, BGW_MAXLEN);
-  handle->register_bgworker(handle, &bgw, NULL, NULL,
+  handle->register_bgworker(handle, &bgw,
                             DYNPGEXT_REGISTER_BGWORKER_NOTIFY | DYNPGEXT_SCOPE_GLOBAL);
 
   // Database-local background worker
@@ -114,8 +133,19 @@ void _Dynpgext_init(const dynpgext_handle *handle) {
                            .bgw_start_time = BgWorkerStart_RecoveryFinished,
                            .bgw_restart_time = BGW_NEVER_RESTART};
   strncpy(bgwl.bgw_library_name, handle->library_name, BGW_MAXLEN);
-  handle->register_bgworker(handle, &bgwl, NULL, NULL,
+  handle->register_bgworker(handle, &bgwl,
                             DYNPGEXT_REGISTER_BGWORKER_NOTIFY | DYNPGEXT_SCOPE_DATABASE_LOCAL);
+}
+
+void _Dynpgext_fini(const dynpgext_handle *handle) {
+  A_Const *val = makeNode(A_Const);
+#if PG_MAJORVERSION_NUM >= 15
+  val->val.sval = *makeString("yes");
+#else
+  val->val.type = T_String;
+  strVal(&val->val) = "yes";
+#endif
+  SetPGVariable("omni_ext_test.done", list_make1(val), false);
 }
 
 PG_FUNCTION_INFO_V1(alloc_shmem_global);

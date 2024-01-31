@@ -1,0 +1,147 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_manifest
+
+tests:
+
+- name: requirement creation
+  query: select *
+         from
+             omni_manifest.requirement(name => 'omni', version => '0.1')
+  results:
+  - name: omni
+    version: 0.1
+
+- name: text conversion
+  tests:
+  - name: text to requirement
+    query: select ('omni_test=1.2'::text::omni_manifest.requirement).*
+    results:
+    - name: omni_test
+      version: 1.2
+
+  - name: text to requirements (single)
+    query: select *
+           from
+               unnest('omni_test=1.2'::text::omni_manifest.requirement[])
+    results:
+    - name: omni_test
+      version: 1.2
+
+  - name: text to requirements
+    query: select *
+           from
+               unnest('omni_test=1.2,omni_experiment=0.1'::text::omni_manifest.requirement[])
+    results:
+    - name: omni_test
+      version: 1.2
+    - name: omni_experiment
+      version: 0.1
+
+  - name: text to requirements (with spaces)
+    query: select *
+           from
+               unnest('omni_test=1.2 , omni_experiment=0.1'::text::omni_manifest.requirement[])
+    results:
+    - name: omni_test
+      version: 1.2
+    - name: omni_experiment
+      version: 0.1
+
+  - name: requirement to text
+    query: select omni_manifest.requirement('omni', '0.1')::text
+    results:
+    - requirement: omni=0.1
+
+  - name: requirements to text
+    query: select
+               array [omni_manifest.requirement('omni', '0.1'), omni_manifest.requirement('external', '0.2')]::text as requirements
+    results:
+    - requirements: omni=0.1,external=0.2
+
+- name: json conversion
+  tests:
+  - name: json to requirement
+    query: |
+      select ('{"omni_test": "1.2"}'::json::omni_manifest.requirement).*
+    results:
+    - name: omni_test
+      version: 1.2
+
+  - name: json to requirements (single)
+    query: |
+      select *
+      from
+          unnest('{"omni_test": "1.2"}'::json::omni_manifest.requirement[])
+    results:
+    - name: omni_test
+      version: 1.2
+
+  - name: json to requirements
+    query: |
+      select *
+      from
+          unnest('{"omni_test": "1.2", "omni_experimental": "0.1"}'::json::omni_manifest.requirement[])
+    results:
+    - name: omni_test
+      version: 1.2
+    - name: omni_experimental
+      version: 0.1
+
+  - name: requirement to json
+    query: select omni_manifest.requirement('omni', '0.1')::json
+    results:
+    - requirement:
+        omni: 0.1
+
+  - name: requirements to json
+    query: select
+               array [omni_manifest.requirement('omni', '0.1'), omni_manifest.requirement('external', '0.2')]::json as requirements
+    results:
+    - requirements:
+        omni: 0.1
+        external: 0.2
+
+- name: jsonb conversion
+  tests:
+  - name: jsonb to requirement
+    query: |
+      select ('{"omni_test": "1.2"}'::jsonb::omni_manifest.requirement).*
+    results:
+    - name: omni_test
+      version: 1.2
+
+  - name: jsonb to requirements (single)
+    query: |
+      select *
+      from
+          unnest('{"omni_test": "1.2"}'::jsonb::omni_manifest.requirement[])
+    results:
+    - name: omni_test
+      version: 1.2
+
+  - name: jsonb to requirements
+    query: |
+      select *
+      from
+          unnest('{"omni_test": "1.2", "omni_experimental": "0.1"}'::jsonb::omni_manifest.requirement[])
+    results:
+    - name: omni_test
+      version: 1.2
+    - name: omni_experimental
+      version: 0.1
+
+  - name: requirement to jsonb
+    query: select omni_manifest.requirement('omni', '0.1')::jsonb
+    results:
+    - requirement:
+        omni: 0.1
+
+  - name: requirements to jsonb
+    query: select
+               array [omni_manifest.requirement('omni', '0.1'), omni_manifest.requirement('external', '0.2')]::jsonb as requirements
+    results:
+    - requirements:
+        omni: 0.1
+        external: 0.2

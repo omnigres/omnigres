@@ -77,6 +77,6 @@ Datum docker_host_ip(PG_FUNCTION_ARGS) {
   if (host_ip) {
     PG_RETURN_TEXT_P(cstring_to_text(host_ip));
   } else {
-    PG_RETURN_TEXT_P(cstring_to_text(""));
+    PG_RETURN_NULL();
   }
 }

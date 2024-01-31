@@ -1,7 +1,7 @@
 /**
  * This file is extracted from Postgres 15 to provide an implementation of make_absolute_path
  * for older versions. Context:
- * https://git.postgresql.org/gitweb/?p=postgresql.git;a=commitdiff;h=c10f830c511f0ba3e6f4c9d99f444d39e30440c8^
+ * https://git.postgresql.org/gitweb/?p=postgresql.git;a=commitdiff;h=c10f830c511f0ba3e6f4c9d99f444d39e30440c8
  *
  * Licensed under the terms of PostgreSQL license
  */
@@ -87,7 +87,7 @@ typedef enum
 *		o  remove '.' (unless path reduces to only '.')
 *		o  process '..' ourselves, removing it if possible
 */
-static void
+void
 canonicalize_path_15(char *path)
 {
  char	   *p,

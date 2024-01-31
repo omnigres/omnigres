@@ -1,0 +1,28 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_EXT_SO
+  init:
+  - create extension omni_ext_test_no_preload cascade
+
+tests:
+
+- name: prepare another database
+  transaction: false
+  tests:
+  - create database another_db
+  - query: create extension omni_ext_test_no_preload cascade
+    database: another_db
+
+# The extension was not pre-loaded but was loaded by `create extension`, so should work:
+
+- name: database-local worker started
+  query: select omni_ext_test_no_preload.wait_for_table('local_worker_started')
+  database: another_db
+  results:
+  - wait_for_table: true
+
+- name: global worker started
+  query: select omni_ext_test_no_preload.wait_for_global_bgworker()
+  results:
+  - wait_for_global_bgworker: true

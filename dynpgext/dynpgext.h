@@ -160,10 +160,9 @@ typedef void (*dynpgext_allocate_shmem_function)(const dynpgext_handle *handle, 
  * @brief Background worker registration function
  *
  */
-typedef void (*dynpgext_register_bgworker_function)(
-    const dynpgext_handle *handle, BackgroundWorker *bgw,
-    void (*callback)(BackgroundWorkerHandle *handle, void *data), void *data,
-    dynpgext_register_bgworker_flags flags);
+typedef void (*dynpgext_register_bgworker_function)(const dynpgext_handle *handle,
+                                                    BackgroundWorker *bgw,
+                                                    dynpgext_register_bgworker_flags flags);
 
 /**
  * @brief Handle provided by the loader

@@ -210,13 +210,14 @@ proceed:
             } else {
               // Use the supplied string as the source for binary
               // if it is not a hex
-              param_length[i] = strlen(values[i]);
+              param_length[i] = len;
               // This way we can free it, too
-              values[i] = strdup(values[i]);
+              values[i] = strndup(values[i], len);
             }
           } else {
             // This way we can free it, too
-            values[i] = strdup(values[i]);
+            values[i] = strndup(values[i], len);
+            param_length[i] = len;
           }
           break;
         }

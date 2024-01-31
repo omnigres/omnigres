@@ -433,6 +433,16 @@ instances:
 
 This is useful when tests impose special authentication requirements.
 
+You can configure default encoding and locale for databases in an instance by
+using `encoding` and `locale` key:
+
+```yaml
+instances:
+  configured:
+    encoding: SQL_ASCII
+    locale: en_US.UTF-8
+```
+
 ### Single instance configuration
 
 In case when only one instance is necessary but it needs to be configured,

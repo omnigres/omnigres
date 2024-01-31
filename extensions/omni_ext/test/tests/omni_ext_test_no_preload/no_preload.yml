@@ -1,30 +1,30 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
 instance:
   config:
     shared_preload_libraries: */env/OMNI_EXT_SO
   init:
-    - create extension omni_ext_test_no_preload cascade
+  - create extension omni_ext_test_no_preload cascade
 
 tests:
-  - name: shmem no preload
-    steps:
-      - name: fail since it's not preloaded
-        query: select omni_ext_test_no_preload.alloc_shmem_global()
-        error:
-          severity: ERROR
-          message: no allocation found
-      - query: select omni_ext_test_no_preload.alloc_shmem_database_local()
-        error:
-          severity: ERROR
-          message: no allocation found
-      - name: Load
-        query: select omni_ext.load('omni_ext_test_no_preload')
-        results:
-        - load: 0.1
-      - name: alloc_shmem_global() should work after loading
-        query: select omni_ext_test_no_preload.alloc_shmem_global()
-        results:
-        - alloc_shmem_global: test
-      - name: alloc_shmem_database_local() should work after loading
-        query: select omni_ext_test_no_preload.alloc_shmem_database_local()
-        results:
-        - alloc_shmem_database_local: testdb 0
+- name: shmem no preload
+  steps:
+  # The extension was not preloaded but it was loaded by `create extension` and therefore was loaded
+  - name: alloc_shmem_global() should work
+    query: select omni_ext_test_no_preload.alloc_shmem_global()
+    results:
+    - alloc_shmem_global: test
+  - name: alloc_shmem_database_local() should work
+    query: select omni_ext_test_no_preload.alloc_shmem_database_local()
+    results:
+    - alloc_shmem_database_local: testdb 0
+
+- name: install in separate database
+  transaction: false
+  tests:
+  - query: create database another_db
+  - query: create extension omni_ext_test_no_preload cascade
+    database: another_db
+  - query: select omni_ext_test_no_preload.alloc_shmem_database_local()
+    database: another_db
+    results:
+    - alloc_shmem_database_local: testdb 1

@@ -178,11 +178,13 @@ Below is the current list of components being worked on, experimented with and d
 | [omni_vfs](extensions/omni_vfs/README.md)                                                   | :ballot_box_with_check: Initial prototype                               | Virtual File System interface                         |
 | [omni_containers](extensions/omni_containers/README.md)                                     | :ballot_box_with_check: Initial prototype                               | Managing containers                                   |
 | [omni_ext](extensions/omni_ext/README.md) and  [Dynpgext interface](dynpgext/README.md)     | :ballot_box_with_check: Getting ready to become first release candidate | Advanced Postgres extension loader                    |
+| [omni_manifest](extensions/omni_manifest/README.md)                                         | :ballot_box_with_check: Initial prototype                               | Improved extension installation                       |
 | [omni_types](extensions/omni_types/README.md)                                               | :white_check_mark: First release candidate                              | Advanced Postgres typing techniques (sum types, etc.) |
 | [omni_seq](extensions/omni_seq/README.md)                                                   | :white_check_mark: First release candidate                              | Extended Postgres sequence tooling                    |
 | [omni_var](extensions/omni_var/README.md)                                                   | :white_check_mark: First release candidate                              | Variable management                                   |
 | [omni_txn](extensions/omni_txn/README.md)                                                   | :white_check_mark: First release candidate                              | Transaction management                                |
 | [omni_python](extensions/omni_python/README.md)                                             | :ballot_box_with_check: Initial prototype                               | First-class Python Development Experience             |
+| [omni_os](extensions/omni_os/README.md)                                                     | :ballot_box_with_check: Initial prototype                               | Access to the operating system                        |
 | omni_git                                                                                    | :lab_coat: Early experiments (unpublished)                              | Postgres Git client                                   |
 | omni_reactive                                                                               | :spiral_calendar: Haven't started yet                                   | Reactive queries                                      |
 
@@ -193,7 +195,7 @@ Below is the current list of components being worked on, experimented with and d
 To build and run Omnigres, you would need:
 
 * a recent C compiler
-* OpenSSL 3.1+
+* OpenSSL 3.2 (**optional**, will be built if not available)
 * cmake >= 3.25.1
 * (optionally, to use omni_containers or run a full set of tests) a recent
   version of Docker
@@ -234,29 +236,5 @@ rm -rf .pg build
 # in the build directory
 CTEST_PARALLEL_LEVEL=$(nproc) make -j $(nproc) all test
 ```
-
-## Devenv.sh-based local development environment
-
-### Initial setup
-
-Follow these guides:
-
-1. https://devenv.sh/getting-started/
-2. https://devenv.sh/automatic-shell-activation/
-3. Run `direnv allow` in omnigres repo
-
-### Day-to-day development
-
-1. `cd` into the repo. This brings in all dependencies.
-2. To bring up development stack (Postgres with all extensions, etc.), run:
-   `devenv up`
-
-Once the development environment is running, you can connect to it by issuing:
-
-- `pg` -> this connects to Postgres through a UNIX socket, for maximum
-  performance. CLI args forwarded.
-- `pgclear` -> removes the PGDATA folder contents. You want to
-  restart `devenv up` after this so Postgres can reinitialize as
-  per `devenv.nix`.
 
 [Discord]: https://discord.omnigr.es

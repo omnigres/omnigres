@@ -1,3 +1,4 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
 instance:
   config:
     shared_preload_libraries: */env/OMNI_EXT_SO
@@ -8,13 +9,13 @@ tests:
   - name: load
     query: select omni_ext.load('omni_ext_test')
     results:
-      - load: 0.1
+    - load: 0.2
 
   - name: load version
     steps:
       - query: select omni_ext.load('omni_ext_test', 'unknown')
         results:
-          - load:
+        - load:
       - query: select omni_ext.load('omni_ext_test', '0.1')
         results:
           - load: 0.1

@@ -4,7 +4,7 @@ project(omni_ext)
 if(NOT DEFINED ENV{OMNI_EXT_ALREADY_INCLUDED})
         set(ENV{OMNI_EXT_ALREADY_INCLUDED} TRUE)
 
-        list(PREPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/../../cmake)
+        list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/../../cmake)
 
         include(CPM)
         include(CTest)
@@ -28,7 +28,7 @@ endfunction()
                 omni_ext
                 SCHEMA omni_ext
                 RELOCATABLE false
-                SOURCES omni_ext.c control_file.c init.c workers.c strverscmp.c
+                SOURCES omni_ext.c control_file.c init.c hooks.c workers.c strverscmp.c
                 DEPENDS_ON libgluepg_stc dynpgext
                 UNVERSIONED_SO ON
                 SHARED_PRELOAD ON)

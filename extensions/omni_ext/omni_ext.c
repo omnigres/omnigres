@@ -33,6 +33,8 @@
 #include "omni_ext.h"
 #include "strverscmp.h"
 
+SharedInfo *shared_info;
+
 static const char *find_absolute_library_path(const char *filename) {
   const char *result = filename;
 #ifdef __linux__
@@ -68,6 +70,46 @@ done:
 }
 
 /**
+ * Returns a name that fits into BGWLEN-1
+ *
+ * Many pathnames don't. So we try to do this by symlinking into $TMPDIR
+ * hoping it'll be shorter.
+ *
+ * (bgw_library_name should be MAXPGPATH-sized, really)
+ *
+ * @param library_name
+ * @return
+ */
+char *get_fitting_library_name(char *library_name) {
+  if (sizeof(((BackgroundWorker){}).bgw_library_name) == BGW_MAXLEN &&
+      strlen(library_name) >= BGW_MAXLEN - 1) {
+    char *tmpdir = getenv("TMPDIR");
+    if (tmpdir == NULL) {
+      ereport(WARNING, errmsg("library path %s is too long to fit into BGW_MAXLEN-1 (%d chars) and "
+                              "there's no $TMPDIR",
+                              library_name, BGW_MAXLEN - 1));
+    } else {
+      char *tempfile = psprintf("%s/omni_ext_XXXXXX", tmpdir);
+      if (strlen(tempfile) >= BGW_MAXLEN - 1) {
+        ereport(WARNING,
+                errmsg("temp file name %s is still to large to fit into BGW_MAXLEN-1 (%d chars)",
+                       tempfile, BGW_MAXLEN));
+        return library_name;
+      }
+      int fd = mkstemp(tempfile);
+      unlink(tempfile);
+      close(fd);
+      if (symlink(library_name, tempfile) != 0) {
+        int e = errno;
+        ereport(WARNING, errmsg("can't symlink %s to %s: %s", library_name, tempfile, strerror(e)));
+        return library_name;
+      }
+      return tempfile;
+    }
+  }
+  return library_name;
+}
+/**
  * @brief Get path to omni_ext's library shared object
  *
  * This is to be primarily used by omni_ext's workers.
@@ -92,6 +134,7 @@ const char *get_library_name() {
 #else
   library_name = EXT_LIBRARY_NAME;
 #endif
+  library_name = get_fitting_library_name(library_name);
   return library_name;
 }
 
@@ -115,15 +158,17 @@ int max_allocation_dictionary_entries;
 dsa_area *My_dsa_area;
 void *My_dsa_mem;
 pid_t My_dsa_pid;
-cdeq_allocation_request allocation_requests;
-cdeq_background_worker_request background_worker_requests;
-cdeq_handle handles;
+cdeq_allocation_request allocation_requests = {0};
+cdeq_background_worker_request background_worker_requests = {0};
+cdeq_handle handles = {0};
 
 HASHCTL allocation_dictionary_ctl = {.keysize = ALLOCATION_DICTIONARY_KEY_SIZE,
                                      .entrysize = sizeof(allocation_dictionary_entry)};
 
 HASHCTL database_oid_mapping_ctl = {.keysize = sizeof(Oid),
                                     .entrysize = sizeof(database_oid_mapping_entry)};
+
+HTAB *BackgroundWorkerRequests;
 
 int allocation_request_cmp(const allocation_request *left, const allocation_request *right) {
   if (left->callback == right->callback && left->data == right->data) {
@@ -167,17 +212,17 @@ void allocate_shmem_startup(const dynpgext_handle *handle, const char *name, siz
 }
 
 void register_bgworker_startup(const dynpgext_handle *handle, BackgroundWorker *bgw,
-                               void (*callback)(BackgroundWorkerHandle *handle, void *data),
-                               void *data, dynpgext_register_bgworker_flags flags) {
+                               dynpgext_register_bgworker_flags flags) {
 
   if (bgw->bgw_notify_pid == MyProcPid) {
     // Regardless of the PID of the process that will actually be registering the worker,
     // we'll know the extension wanted to be notified
     flags |= DYNPGEXT_REGISTER_BGWORKER_NOTIFY;
   }
-  background_worker_request request = {
-      .handle = handle, .callback = callback, .data = data, .flags = flags};
+  background_worker_request request = {.flags = flags};
   memcpy(&request.bgw, bgw, sizeof(BackgroundWorker));
+  strncpy(NameStr(request.extname), handle->name, NAMEDATALEN);
+  strncpy(NameStr(request.extver), handle->version, NAMEDATALEN);
   cdeq_background_worker_request_push_back(&background_worker_requests, request);
 }
 
@@ -221,19 +266,41 @@ void allocate_shmem_runtime(const dynpgext_handle *handle, const char *name, siz
 }
 
 void register_bgworker_runtime(const dynpgext_handle *handle, BackgroundWorker *bgw,
-                               void (*callback)(BackgroundWorkerHandle *handle, void *data),
-                               void *data, dynpgext_register_bgworker_flags flags) {
+                               dynpgext_register_bgworker_flags flags) {
   if ((flags & DYNPGEXT_REGISTER_BGWORKER_NOTIFY) == DYNPGEXT_REGISTER_BGWORKER_NOTIFY) {
     bgw->bgw_notify_pid = MyProcPid;
   }
   BackgroundWorkerHandle *worker_handle;
+
   if ((flags & DYNPGEXT_SCOPE_DATABASE_LOCAL) == DYNPGEXT_SCOPE_DATABASE_LOCAL) {
-    // TODO: communicate with workers to start database-local workers
+    // If the worker is database-local, provide it to the future launches of the database workers
+    // In cases where a new database is created, say from a template with this extension installed,
+    // we want it to be loaded proactively.
+    LWLock *lock = &GetNamedLWLockTranche("omni_ext_bgworker_request")->lock;
+    LWLockAcquire(lock, LW_EXCLUSIVE);
+    uint64 id = pg_atomic_add_fetch_u64(&shared_info->bgworker_next_id, 1);
+    bool found;
+    BackgroundWorkerRequest *request =
+        (BackgroundWorkerRequest *)hash_search(BackgroundWorkerRequests, &id, HASH_ENTER, &found);
+    Assert(!found);
+    request->request = (background_worker_request){
+        .flags = flags,
+        .bgw = *bgw,
+    };
+    strncpy(NameStr(request->request.extname), handle->name, NAMEDATALEN);
+    strncpy(NameStr(request->request.extver), handle->version, NAMEDATALEN);
+    request->started = false;
+    // This makes it a template
+    request->databaseOid = InvalidOid;
+
+    // Before releasing the lock, launch it ourselves in the current database
+    BackgroundWorker local_bgw = *bgw;
+    local_bgw.bgw_main_arg = MyDatabaseId;
+    RegisterDynamicBackgroundWorker(&local_bgw, &worker_handle);
+    LWLockRelease(lock);
   } else {
+    // Otherwise, start it right here
     RegisterDynamicBackgroundWorker(bgw, &worker_handle);
-    if (callback) {
-      callback(worker_handle, data);
-    }
   }
 }
 
@@ -329,17 +396,7 @@ void pick_matching_control_file(const char *control_file, void *data) {
   }
 }
 
-Datum load(PG_FUNCTION_ARGS) {
-  char *name = NULL;
-  if (!PG_ARGISNULL(0)) {
-    name = PG_GETARG_CSTRING(0);
-  } else {
-    ereport(ERROR, errmsg("extension name is required"));
-  }
-  char *version = NULL;
-  if (!PG_ARGISNULL(1)) {
-    version = PG_GETARG_CSTRING(1);
-  }
+char *load_extension(char *name, char *version) {
 
   struct matching_control_file_search search = {
       .name = name, .version = version, .exact_match = NULL, .unversioned_match = NULL};
@@ -354,28 +411,75 @@ Datum load(PG_FUNCTION_ARGS) {
                                             .register_bgworker_function =
                                                 register_bgworker_runtime};
 
-  WITH_TEMP_MEMCXT {
-    find_control_files(pick_matching_control_file, &search);
+  find_control_files(pick_matching_control_file, &search);
 
-    if (version && search.exact_match) {
-      load_control_file(search.exact_match, (void *)&config);
-      result = version;
-    } else if (version && search.unversioned_match) {
-      // FIXME: should we only load this if `default_version` is matching?
-      load_control_file(search.unversioned_match, (void *)&config);
-      result = "";
-    } else if (!version && search.versioned_match) {
-      load_control_file(search.versioned_match, (void *)&config);
-      result = search.versioned_match_version;
-    } else if (!version && search.unversioned_match) {
-      load_control_file(search.unversioned_match, (void *)&config);
-      result = "";
-    } else {
-      ereport(ERROR, errmsg("No matching control file found"));
-    }
+  if (version && search.exact_match) {
+    load_control_file(search.exact_match, (void *)&config);
+    result = version;
+  } else if (version && search.unversioned_match) {
+    // FIXME: should we only load this if `default_version` is matching?
+    load_control_file(search.unversioned_match, (void *)&config);
+    result = "";
+  } else if (!version && search.versioned_match) {
+    load_control_file(search.versioned_match, (void *)&config);
+    result = search.versioned_match_version;
+  } else if (!version && search.unversioned_match) {
+    load_control_file(search.unversioned_match, (void *)&config);
+    result = "";
+  } else {
+    ereport(ERROR,
+            errmsg("No matching control file found for name '%s' version '%s'", name, version));
   }
-  MEMCXT_FINALIZE { value = CStringGetDatum(pstrdup(result)); };
-  return value;
+
+  return result;
+}
+
+Datum load(PG_FUNCTION_ARGS) {
+  char *name = NULL;
+  if (!PG_ARGISNULL(0)) {
+    name = PG_GETARG_CSTRING(0);
+  } else {
+    ereport(ERROR, errmsg("extension name is required"));
+  }
+  char *version = NULL;
+  if (!PG_ARGISNULL(1)) {
+    version = PG_GETARG_CSTRING(1);
+  }
+
+  char const *result = load_extension(name, version);
+  return CStringGetDatum(pstrdup(result));
+}
+
+bool unload_extension(char *name, char *version) {
+  struct matching_control_file_search search = {
+      .name = name, .version = version, .exact_match = NULL, .unversioned_match = NULL};
+
+  Datum value;
+
+  struct load_control_file_config config = {.preload = false,
+                                            .action = UNLOAD,
+                                            .allocate_shmem = allocate_shmem_runtime,
+                                            .expected_version = version,
+                                            .register_bgworker_function =
+                                                register_bgworker_runtime};
+
+  bool result = false;
+  find_control_files(pick_matching_control_file, &search);
+
+  if (version && search.exact_match) {
+    load_control_file(search.exact_match, (void *)&config);
+    result = true;
+  } else if (version && search.unversioned_match) {
+    // FIXME: should we only load this if `default_version` is matching?
+    load_control_file(search.unversioned_match, (void *)&config);
+    result = true;
+  } else {
+    ereport(ERROR,
+            errmsg("No matching control file found for name '%s' version '%s'", name, version));
+  }
+  // TODO: free allocated resources (shmem & workers)? or should this be a responsibility
+  // of the extension to ensure this is done exactly how they need it?
+  return result;
 }
 
 PG_FUNCTION_INFO_V1(unload);
@@ -393,34 +497,72 @@ Datum unload(PG_FUNCTION_ARGS) {
     ereport(ERROR, errmsg("extension version is required"));
   }
 
-  struct matching_control_file_search search = {
-      .name = name, .version = version, .exact_match = NULL, .unversioned_match = NULL};
+  PG_RETURN_BOOL(unload_extension(name, version));
+}
 
-  Datum value;
-
-  struct load_control_file_config config = {.preload = false,
-                                            .action = UNLOAD,
-                                            .allocate_shmem = allocate_shmem_runtime,
-                                            .expected_version = version,
-                                            .register_bgworker_function =
-                                                register_bgworker_runtime};
-
-  bool result = false;
-  WITH_TEMP_MEMCXT {
-    find_control_files(pick_matching_control_file, &search);
-
-    if (version && search.exact_match) {
-      load_control_file(search.exact_match, (void *)&config);
-      result = true;
-    } else if (version && search.unversioned_match) {
-      // FIXME: should we only load this if `default_version` is matching?
-      load_control_file(search.unversioned_match, (void *)&config);
-      result = true;
-    } else {
-      ereport(ERROR, errmsg("No matching control file found"));
+void populate_bgworker_requests_for_db(Oid dboid) {
+  // Prepare all background worker requests for this database
+  LWLock *lock = &GetNamedLWLockTranche("omni_ext_bgworker_request")->lock;
+  // TODO: make this a shared lock but re-acquire an exclusive lock for globally started
+  // workers so that we can make this a notch faster?
+  LWLockAcquire(lock, LW_EXCLUSIVE);
+  // Iterate over background worker requests
+  HASH_SEQ_STATUS status;
+  hash_seq_init(&status, BackgroundWorkerRequests);
+  BackgroundWorkerRequest *req;
+  while ((req = hash_seq_search(&status)) != NULL) {
+    bool global_background_worker = (req->request.flags & DYNPGEXT_SCOPE_DATABASE_LOCAL) == 0;
+    if (!global_background_worker && req->databaseOid == InvalidOid) {
+      bool found;
+      uint64 id = pg_atomic_add_fetch_u64(&shared_info->bgworker_next_id, 1);
+      BackgroundWorkerRequest *db_req =
+          hash_search(BackgroundWorkerRequests, &id, HASH_ENTER, &found);
+      db_req->request = req->request;
+      db_req->started = false;
+      db_req->databaseOid = dboid;
     }
   }
-  // TODO: free allocated resources (shmem & workers)? or should this be a responsibility
-  // of the extension to ensure this is done exactly how they need it?
-  PG_RETURN_BOOL(result);
+
+  LWLockRelease(lock);
+}
+
+void process_extensions_for_database(char *extname, char *extversion, Oid dboid) {
+  LWLock *lock = &GetNamedLWLockTranche("omni_ext_bgworker_request")->lock;
+  // TODO: make this a shared lock but re-acquire an exclusive lock for globally started
+  // workers so that we can make this a notch faster?
+  LWLockAcquire(lock, LW_EXCLUSIVE);
+  // Iterate over background worker requests
+  HASH_SEQ_STATUS status;
+  hash_seq_init(&status, BackgroundWorkerRequests);
+  BackgroundWorkerRequest *req;
+  while ((req = hash_seq_search(&status)) != NULL) {
+    bool global_background_worker = (req->request.flags & DYNPGEXT_SCOPE_DATABASE_LOCAL) == 0;
+
+    // Only look at global or local records
+    if (!global_background_worker && req->databaseOid != dboid)
+      continue;
+
+    // Check if this request matches the extension we're currently looking at
+    bool matching = strncmp(NameStr(req->request.extname), extname, NAMEDATALEN) == 0 &&
+                    strncmp(NameStr(req->request.extver), extversion, NAMEDATALEN) == 0;
+
+    // Ignore it if it's not matching
+    if (!matching)
+      continue;
+
+    // Since we're locking access to the entire table, we're sure that we're the only worker
+    // attempting to start this one at the moment.
+    if (!req->started) {
+      BackgroundWorker bgw = req->request.bgw;
+      if (!global_background_worker) {
+        bgw.bgw_main_arg = dboid;
+      }
+      bgw.bgw_restart_time = BGW_NEVER_RESTART;
+      BackgroundWorkerHandle *handle;
+      RegisterDynamicBackgroundWorker(&bgw, &handle);
+      req->started = true;
+    }
+  }
+
+  LWLockRelease(lock);
 }

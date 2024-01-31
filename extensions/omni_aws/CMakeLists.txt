@@ -5,7 +5,7 @@ include(CTest)
 include(FindPkgConfig)
 include(FindThreads)
 
-list(PREPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/../../cmake)
+list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/../../cmake)
 
 enable_testing()
 
@@ -16,4 +16,4 @@ add_postgresql_extension(
         SCHEMA omni_aws
         RELOCATABLE false
         REQUIRES omni_httpc pgcrypto omni_xml omni_web
-        TESTS_REQUIRE omni_containers)
+        TESTS_REQUIRE omni_containers omni_os)
