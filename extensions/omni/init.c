@@ -32,6 +32,7 @@ static void shmem_hook();
  * Shared preload initialization.
  */
 void _PG_init() {
+  memset(saved_hooks, 0, sizeof(saved_hooks));
   // This signifies if this library has indeed been preloaded
   static bool preloaded = false;
   // We only initialize once, as a shared preloaded library.
@@ -230,7 +231,7 @@ static void bgw_first_xact(XactEvent event, void *arg) {
   }
 }
 
-static void init_backend(void *arg) {
+MODULE_FUNCTION void init_backend(void *arg) {
   if (MyBackendType == B_BACKEND || MyBackendType == B_BG_WORKER || MyBgworkerEntry != NULL) {
     if (MyBgworkerEntry != NULL) {
       if (strcmp(MyBgworkerEntry->bgw_library_name, "postgres") == 0) {

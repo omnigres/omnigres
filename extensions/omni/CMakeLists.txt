@@ -38,9 +38,18 @@ endif()
 
 target_compile_definitions(omni PUBLIC EXT_LIBRARY_NAME=\"$<TARGET_FILE_NAME:omni>\")
 
-# Make it a unity build so it can benefit from static and inline
-# specifiers and other optimizations, while separating code between
-# different files.
-set_property(TARGET omni PROPERTY UNITY_BUILD ON)
+if(NOT DEFINED OMNI_UNITY_BUILD)
+    # By default, let's do a unity build to ensure we get all optimizations from it
+    # that we can, considering that it may be in a hot path
+    set(OMNI_UNITY_BUILD ON)
+endif()
+
+if(OMNI_UNITY_BUILD)
+    # Make it a unity build so it can benefit from static and inline
+    # specifiers and other optimizations, while separating code between
+    # different files.
+    set_property(TARGET omni PROPERTY UNITY_BUILD ON)
+    target_compile_definitions(omni PUBLIC UNITY_BUILD)
+endif()
 
 add_subdirectory(test)

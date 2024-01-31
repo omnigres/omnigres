@@ -29,7 +29,9 @@
 #include <pgstat.h>
 #endif
 
-#include "omni.h"
+#include <omni.h>
+
+#include "omni_common.h"
 
 void startup_worker(Datum main_arg) {
   BackgroundWorkerInitializeConnection(NULL, NULL, 0);

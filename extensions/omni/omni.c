@@ -28,20 +28,22 @@ OMNI_MAGIC;
 
 omni_shared_info *shared_info;
 
-HTAB *omni_modules;
-HTAB *omni_allocations;
-HTAB *dsa_handles;
+MODULE_VARIABLE(HTAB *omni_modules);
+MODULE_VARIABLE(HTAB *omni_allocations);
+MODULE_VARIABLE(HTAB *dsa_handles);
 
-omni_handle_private *module_handles;
+MODULE_VARIABLE(omni_handle_private *module_handles);
 
-LWLock *locks;
+MODULE_VARIABLE(LWLock *locks);
 
 static TupleDesc pg_proc_tuple_desc;
 static List *initialized_modules = NIL;
 
-int OMNI_DSA_TRANCHE;
+MODULE_VARIABLE(int OMNI_DSA_TRANCHE);
 
-static inline void ensure_backend_initialized(void) {
+MODULE_VARIABLE(bool backend_force_reload);
+
+MODULE_FUNCTION void ensure_backend_initialized(void) {
   // Indicates whether we have ever done anything on this backend
   static bool backend_initialized = false;
   if (backend_initialized)
@@ -64,18 +66,18 @@ static inline void ensure_backend_initialized(void) {
   backend_initialized = true;
 }
 
-static void register_hook(const omni_handle *handle, omni_hook *hook);
-static char *get_library_name(const omni_handle *handle);
-static void *allocate_shmem(const omni_handle *handle, const char *name, size_t size, bool *found);
-static void *lookup_shmem(const omni_handle *handle, const char *name, bool *found);
+MODULE_FUNCTION void register_hook(const omni_handle *handle, omni_hook *hook);
+MODULE_FUNCTION void *allocate_shmem(const omni_handle *handle, const char *name, size_t size,
+                                     bool *found);
+MODULE_FUNCTION void *lookup_shmem(const omni_handle *handle, const char *name, bool *found);
 
-static int32 last_known_module = 0;
+MODULE_FUNCTION int32 last_known_module = 0;
 
 /*
  * Substitute for any macros appearing in the given string.
  * Result is always freshly palloc'd.
  */
-static char *substitute_libpath_macro(const char *name) {
+MODULE_FUNCTION char *substitute_libpath_macro(const char *name) {
   const char *sep_ptr;
 
   Assert(name != NULL);
@@ -94,7 +96,7 @@ static char *substitute_libpath_macro(const char *name) {
   return psprintf("%s%s", pkglib_path, sep_ptr);
 }
 
-static List *consider_probin(HeapTuple tp) {
+MODULE_FUNCTION List *consider_probin(HeapTuple tp) {
   Form_pg_proc proc = (Form_pg_proc)GETSTRUCT(tp);
   List *loaded = NIL;
   if (proc->prolang == ClanguageId) {
@@ -172,7 +174,7 @@ static List *consider_probin(HeapTuple tp) {
   return loaded;
 }
 
-static inline void load_module_if_necessary(Oid fn_oid, bool force_reload) {
+MODULE_FUNCTION void load_module_if_necessary(Oid fn_oid, bool force_reload) {
   static bool first_time = true;
 
   if (first_time || force_reload || backend_force_reload) {
@@ -252,7 +254,7 @@ static inline void load_module_if_necessary(Oid fn_oid, bool force_reload) {
   }
 }
 
-static void register_hook(const omni_handle *handle, omni_hook *hook) {
+MODULE_FUNCTION void register_hook(const omni_handle *handle, omni_hook *hook) {
   Assert(hook->type >= 0 && hook->type <= __OMNI_HOOK_TYPE_COUNT);
 
   hook_entry_point *entry_point;
@@ -299,14 +301,14 @@ static void register_hook(const omni_handle *handle, omni_hook *hook) {
   entry_point->state_index = hook_entry_points.entry_points_count[hook->type] - 1;
 }
 
-static char *get_library_name(const omni_handle *handle) {
+MODULE_FUNCTION char *get_library_name(const omni_handle *handle) {
   return struct_from_member(omni_handle_private, handle, handle)->path;
 }
 
-static dsa_area *dsa = NULL;
+MODULE_FUNCTION dsa_area *dsa = NULL;
 
-static void *find_or_allocate_shmem(const omni_handle *handle, const char *name, size_t size,
-                                    bool find, bool *found) {
+MODULE_FUNCTION void *find_or_allocate_shmem(const omni_handle *handle, const char *name,
+                                             size_t size, bool find, bool *found) {
   if (strlen(name) > NAMEDATALEN - 1) {
     ereport(ERROR, errmsg("name must be under 64 bytes long"));
   }
@@ -370,15 +372,16 @@ static void *find_or_allocate_shmem(const omni_handle *handle, const char *name,
   return ptr;
 }
 
-static void *allocate_shmem(const omni_handle *handle, const char *name, size_t size, bool *found) {
+MODULE_FUNCTION void *allocate_shmem(const omni_handle *handle, const char *name, size_t size,
+                                     bool *found) {
   return find_or_allocate_shmem(handle, name, size, false, found);
 }
 
-static void *lookup_shmem(const omni_handle *handle, const char *name, bool *found) {
+MODULE_FUNCTION void *lookup_shmem(const omni_handle *handle, const char *name, bool *found) {
   return find_or_allocate_shmem(handle, name, 1 /* size is ignored in this case */, true, found);
 }
 
-void unload_module(int64 id, bool missing_ok) {
+MODULE_FUNCTION void unload_module(int64 id, bool missing_ok) {
   omni_handle_private *phandle = module_handles + id;
   LWLockAcquire(locks + OMNI_LOCK_MODULE, LW_EXCLUSIVE);
   bool found = false;
