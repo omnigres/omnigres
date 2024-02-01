@@ -149,4 +149,11 @@ from
 | **query_string** | text                   | Query string               | `NULL`      | 
 |      **headers** | omni_http.http_headers | An array of HTTP headers   | empty array |
 |         **body** | bytea                  | Request body               | `NULL`      |
- 
+
+## Configuration
+
+`omni_httpd` can be configured with the following PostgreSQL configuration variables:
+
+* `omni_httpd.http_workers` to configure the number of http workers, defaults to number of cpus
+* `omni_httpd.temp_dir` to set the temporary directory for `omni_httpd` files like unix domain sockets, defaults
+  to `/tmp`

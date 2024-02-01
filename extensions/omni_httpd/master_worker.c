@@ -196,9 +196,14 @@ static void sigusr1_handler(int signo) {
  */
 void master_worker(Datum db_oid) {
   IsOmniHttpdWorker = true;
-  char socket_path_template[] = "omni_httpdXXXXXX";
-  char *tmpname = mkdtemp(socket_path_template);
-  socket_path = psprintf("%s/socket.%d", tmpname, getpid());
+  char *tmp_path = mkdtemp(
+      psprintf("%s/%s", GetConfigOption("omni_httpd.temp_dir", false, false), "omni_httpdXXXXXX"));
+  if (tmp_path == NULL) {
+    ereport(ERROR, errmsg("'%s' isn't a directory, please set omni_httpd.temp_dir to an existing "
+                          "temporary directory",
+                          GetConfigOption("omni_httpd.temp_dir", false, false)));
+  }
+  socket_path = psprintf("%s/socket.%d", tmp_path, getpid());
 
 #if PG_MAJORVERSION_NUM >= 13
   pqsignal(SIGHUP, SignalHandlerForConfigReload);
