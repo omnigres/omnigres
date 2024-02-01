@@ -57,6 +57,11 @@ tests:
     results:
     - count: 2
 
+- name: omni's own background worker handle
+  query: select omni_test.local_worker_pid() != 0 as result
+  results:
+  - result: true
+
 - name: waiting for the bgworker doesn't hang startup
   restart: true
   # What we query is not important

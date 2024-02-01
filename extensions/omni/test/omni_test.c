@@ -67,6 +67,8 @@ static char *shmem_test1 = NULL;
 
 static const omni_handle *saved_handle = NULL;
 
+static OmniBackgroundWorkerHandle *local_bgw_handle = NULL;
+
 void _Omni_init(const omni_handle *handle) {
   initialized = true;
 
@@ -95,8 +97,9 @@ void _Omni_init(const omni_handle *handle) {
 
     // Let's use allocator's lock to prevent others from starting
     bool found;
-    handle->allocate_shmem(handle, psprintf("workers:%s", get_database_name(MyDatabaseId)), 1,
-                           &found);
+    local_bgw_handle = (OmniBackgroundWorkerHandle *)handle->allocate_shmem(
+        handle, psprintf("workers:%s", get_database_name(MyDatabaseId)),
+        sizeof(OmniBackgroundWorkerHandle), &found);
 
     if (!found) {
       // Nobody started one yet, let's do it
@@ -111,10 +114,9 @@ void _Omni_init(const omni_handle *handle) {
                                  .bgw_main_arg = ObjectIdGetDatum(MyDatabaseId),
                                  .bgw_notify_pid = MyProcPid};
       strncpy(worker.bgw_library_name, handle->get_library_name(handle), BGW_MAXLEN);
-      BackgroundWorkerHandle *bgw_handle;
-      RegisterDynamicBackgroundWorker(&worker, &bgw_handle);
+      OmniRegisterDynamicBackgroundWorker(&worker, local_bgw_handle);
       pid_t pid;
-      WaitForBackgroundWorkerStartup(bgw_handle, &pid);
+      WaitForBackgroundWorkerStartup(GetBackgroundWorkerHandle(local_bgw_handle), &pid);
     }
   }
 
@@ -152,4 +154,11 @@ Datum lookup_shmem(PG_FUNCTION_ARGS) {
   } else {
     PG_RETURN_CSTRING(allocation); // unsafe in general, but this is a controlled test
   }
+}
+
+PG_FUNCTION_INFO_V1(local_worker_pid);
+Datum local_worker_pid(PG_FUNCTION_ARGS) {
+  pid_t pid = 0;
+  GetBackgroundWorkerPid(GetBackgroundWorkerHandle(local_bgw_handle), &pid);
+  PG_RETURN_INT32(pid);
 }

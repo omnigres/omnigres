@@ -27,3 +27,8 @@ create function lookup_shmem(text) returns cstring
     language c
     volatile as
 'MODULE_PATHNAME';
+
+create function local_worker_pid() returns int4
+    language c
+    volatile as
+'MODULE_PATHNAME';
