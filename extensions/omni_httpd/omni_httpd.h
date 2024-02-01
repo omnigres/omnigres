@@ -27,6 +27,8 @@ int create_listening_socket(sa_family_t family, in_port_t port, char *address, i
 
 extern int num_http_workers;
 
+extern char *temp_dir;
+
 static const char *OMNI_HTTPD_CONFIGURATION_NOTIFY_CHANNEL = "omni_httpd_configuration";
 
 static const char *OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE =

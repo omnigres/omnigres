@@ -10,5 +10,42 @@ tests:
   tests:
   - query: create extension omni_httpd cascade
     commit: true
+
+    # https://github.com/omnigres/omnigres/issues/479
+  - query: select count(*)
+           from pg_ls_dir((select setting from pg_settings where name = 'data_directory'))
+           where pg_ls_dir like 'omni_httpd%'
+    results:
+      - count: 0
   - query: drop extension omni_httpd
     commit: true
+
+- name: temp_dir doesn't exist
+  transaction: false
+  query: alter system set omni_httpd.temp_dir = '/does-not-exist'
+  error:
+    severity: ERROR
+    message: "'/does-not-exist' temp directory does not exist."
+
+- name: temp_dir inside data dir
+  transaction: false
+  #  unable to execute alter system with dynamic value in SQL but this has been tested manually
+  todo: true
+  query: |
+    do
+    $$
+        declare
+            data_dir text;
+        begin
+            select setting
+            into data_dir
+            from pg_settings
+            where name = 'data_directory';
+            
+            execute format('alter system set omni_httpd.temp_dir = ''%s''', data_dir);
+        end;
+    
+    $$ language plpgsql;
+  error:
+    severity: ERROR
+    message: temp directory location should not be inside the data directory
