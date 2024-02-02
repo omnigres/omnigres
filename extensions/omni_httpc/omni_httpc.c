@@ -232,6 +232,8 @@ struct request {
   bool connected;
   // Signals that the request has finished processing
   bool complete;
+  // follow HTTP redirects
+  bool follow_redirects;
 };
 
 // Called when response body chunk is being received
@@ -298,15 +300,15 @@ static h2o_httpclient_body_cb on_head(h2o_httpclient_t *client, const char *errs
     return NULL;
   }
 
-  // Handle Redirect
-  if (args->status == 302 || args->status == 301 || args->status == 307 || args->status == 308) {
+  // Handle Redirect if necessary
+  if (req->follow_redirects && args->status == 302 || args->status == 301 || args->status == 307 || args->status == 308) {
     h2o_headers_t *headers_vec = (h2o_headers_t *)palloc0(sizeof(*headers_vec));
     headers_vec->entries = args->headers;
     headers_vec->size = args->num_headers;
     headers_vec->capacity = args->num_headers;
     ssize_t location_index;
     if ((location_index = h2o_find_header(headers_vec, H2O_TOKEN_LOCATION, -1)) > -1) {
-        // okay, now let's create a new req
+        // create a new request based on the original request
         struct request *new_req = palloc0(sizeof(struct request));
         new_req->done = req->done;
         new_req->complete = false;
@@ -440,6 +442,8 @@ Datum http_execute(PG_FUNCTION_ARGS) {
   h2o_mem_pool_t *pool = (h2o_mem_pool_t *)palloc(sizeof(*pool));
   h2o_mem_init_pool(pool);
 
+  bool follow_redirects = true;
+
   // Options
   {
     HeapTupleHeader options = PG_GETARG_HEAPTUPLEHEADER(0);
@@ -450,6 +454,11 @@ Datum http_execute(PG_FUNCTION_ARGS) {
     int http2_ratio = 0;
     if (!isnull) {
       http2_ratio = DatumGetInt32(option_http2_ratio);
+    }
+
+    Datum option_follow_redirects = GetAttributeByName(options, "follow_redirects", &isnull);
+    if (!isnull) {
+      follow_redirects = DatumGetBool(option_follow_redirects);
     }
 
     Datum option_http3_ratio = GetAttributeByName(options, "http3_ratio", &isnull);
@@ -528,6 +537,9 @@ Datum http_execute(PG_FUNCTION_ARGS) {
 
     struct request *request = &requests[req_i];
     HeapTupleHeader arg_request = DatumGetHeapTupleHeader(request_datum);
+
+    // Follow redirects?
+    request->follow_redirects = follow_redirects;
 
     // URL
     Datum url = GetAttributeByName(arg_request, "url", &isnull);
