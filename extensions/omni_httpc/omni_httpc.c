@@ -39,6 +39,7 @@ CACHED_OID(omni_http, http_header);
 CACHED_OID(http_response);
 
 #define IO_TIMEOUT 5000
+#define MAX_REDIRECTS 5
 
 //
 // Global variables below are used to share information across requests
@@ -234,6 +235,8 @@ struct request {
   bool complete;
   // follow HTTP redirects
   bool follow_redirects;
+  // limit on the number of redirects to follow
+  int redirects_left;
 };
 
 // Called when response body chunk is being received
@@ -300,8 +303,13 @@ static h2o_httpclient_body_cb on_head(h2o_httpclient_t *client, const char *errs
     return NULL;
   }
 
+  bool handle_redirect = req->follow_redirects &&
+        req->redirects_left > 0 &&
+        (args->status == 302 || args->status == 301 || args->status == 307 || args->status == 308);
+
+
   // Handle Redirect if necessary
-  if (req->follow_redirects && args->status == 302 || args->status == 301 || args->status == 307 || args->status == 308) {
+  if (handle_redirect) {
     h2o_headers_t *headers_vec = (h2o_headers_t *)palloc0(sizeof(*headers_vec));
     headers_vec->entries = args->headers;
     headers_vec->size = args->num_headers;
@@ -335,7 +343,11 @@ static h2o_httpclient_body_cb on_head(h2o_httpclient_t *client, const char *errs
             ereport(ERROR, errmsg("location header value not a valid URL`"));
             return NULL;
         }
+        // mark redirect as followed
+        req->redirects_left--;
         new_req->url = url;
+
+        // follow the URL in the location header and wait for the request to finish
         h2o_httpclient_connect(NULL, client->pool, new_req, client->ctx, client->connpool, &new_req->url, NULL, on_connect);
         while (!new_req->complete) {
             CHECK_FOR_INTERRUPTS();
