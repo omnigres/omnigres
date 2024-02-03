@@ -392,7 +392,9 @@ MODULE_FUNCTION void unload_module(int64 id, bool missing_ok) {
   omni_handle_private *phandle = module_handles + id;
   LWLockAcquire(&(locks + OMNI_LOCK_MODULE)->lock, LW_EXCLUSIVE);
   bool found = false;
-  hash_search(omni_modules, phandle->path, HASH_REMOVE, &found);
+  ModuleEntry *module =
+      (ModuleEntry *)hash_search(omni_modules, phandle->path, HASH_REMOVE, &found);
+  found = found && module->id == id;
   if (!found) {
     LWLockRelease(&(locks + OMNI_LOCK_MODULE)->lock);
     if (!missing_ok) {
@@ -402,9 +404,7 @@ MODULE_FUNCTION void unload_module(int64 id, bool missing_ok) {
     }
   }
   pg_atomic_write_u32(&phandle->state, HANDLE_UNLOADED);
-  // We no longer need the lock
-  LWLockRelease(&(locks + OMNI_LOCK_MODULE)->lock);
-  {
+  if (found) {
     // Perform unloading
     void *dlhandle = dlopen(phandle->path, RTLD_LAZY);
     void (*unload)(const omni_handle *) = dlsym(dlhandle, "_Omni_unload");
@@ -413,6 +413,8 @@ MODULE_FUNCTION void unload_module(int64 id, bool missing_ok) {
     }
     dlclose(dlhandle);
   }
+  // We no longer need the lock
+  LWLockRelease(&(locks + OMNI_LOCK_MODULE)->lock);
 
   MemoryContext oldcontext = MemoryContextSwitchTo(TopMemoryContext);
   initialized_modules = list_delete_int(initialized_modules, id);
