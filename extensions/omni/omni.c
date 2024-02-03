@@ -184,7 +184,7 @@ MODULE_FUNCTION List *consider_probin(HeapTuple tp) {
 MODULE_FUNCTION void load_module_if_necessary(Oid fn_oid, bool force_reload) {
   static bool first_time = true;
 
-  if (first_time || force_reload || backend_force_reload) {
+  if (IsTransactionState() && (first_time || force_reload || backend_force_reload)) {
     backend_force_reload = false;
     Relation rel = table_open(ProcedureRelationId, RowExclusiveLock);
     TableScanDesc scan = table_beginscan_catalog(rel, 0, NULL);

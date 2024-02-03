@@ -22,3 +22,10 @@ tests:
              path like '%/omni_test--1.so'
   results:
   - count: 1
+
+- name: handling errors
+  tests:
+  # An error
+  - query: select current_setting('doesnotexist')
+    error: unrecognized configuration parameter "doesnotexist"
+  - select 1
