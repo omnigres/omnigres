@@ -10,6 +10,7 @@
 #include <storage/lwlock.h>
 #include <storage/shmem.h>
 #include <utils/hsearch.h>
+#include <utils/inval.h>
 #include <utils/memutils.h>
 #include <utils/snapmgr.h>
 
@@ -28,6 +29,9 @@ static shmem_startup_hook_type saved_shmem_startup_hook;
 static void shmem_request();
 static void shmem_hook();
 
+void procoid_syscache_callback(Datum arg, int cacheid, uint32 hashvalue) {
+  backend_force_reload = true;
+}
 /**
  * Shared preload initialization.
  */
@@ -129,6 +133,12 @@ void _PG_init() {
     strncpy(master_worker.bgw_library_name, get_omni_library_name(), BGW_MAXLEN);
     RegisterBackgroundWorker(&master_worker);
   }
+
+  // This function may result in a FATAL error if we hit the limit of
+  // syscache callbacks (`MAX_SYSCACHE_CALLBACKS`, 64). However, since we're in
+  // postmaster: 1) it is okay to crash here 2) it is much less likely to happen at this time.
+  CacheRegisterSyscacheCallback(PROCOID, procoid_syscache_callback, Int8GetDatum(0));
+  backend_force_reload = true;
 }
 
 #define MAX_MODULES 8192
@@ -259,7 +269,7 @@ MODULE_FUNCTION void init_backend(void *arg) {
     PushActiveSnapshot(GetTransactionSnapshot());
 
     ensure_backend_initialized();
-    load_module_if_necessary(InvalidOid, true);
+    load_pending_modules();
 
     PopActiveSnapshot();
 

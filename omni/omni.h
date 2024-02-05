@@ -58,6 +58,9 @@ void _Omni_deinit(const omni_handle *handle);
 /**
  * @brief Extension deinitialization callback, on unload
  *
+ * It cannot be guaranteed to be called in any specific order in relation to to `_Omni_deinit`
+ * but is guaranteed to be called once (before another load may take place)
+ *
  * Defined by the extension. Optional.
  *
  * @param handle Loader handle
@@ -84,6 +87,15 @@ void _Omni_unload(const omni_handle *handle);
  */
 typedef void *(*omni_allocate_shmem_function)(const omni_handle *handle, const char *name,
                                               size_t size, bool *found);
+
+/**
+ * @brief Shared memory deallocation functon
+ * @param handle Handle passed by the loader
+ * @param name Name this allocation was registered under
+ * @param found Pointer to a flag indicating if the allocation was found
+ */
+typedef void (*omni_deallocate_shmem_function)(const omni_handle *handle, const char *name,
+                                               bool *found);
 
 typedef struct omni_handle omni_handle;
 
@@ -202,6 +214,11 @@ typedef struct omni_handle {
    *
    */
   omni_allocate_shmem_function allocate_shmem;
+
+  /**
+   * @brief Shared memory deallocation function
+   */
+  omni_deallocate_shmem_function deallocate_shmem;
 
   /**
    * @brief Register a hook in a backend

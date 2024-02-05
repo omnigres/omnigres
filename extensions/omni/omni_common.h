@@ -66,9 +66,13 @@ typedef struct {
    */
   char path[PATH_MAX];
   /**
-   *
+   * Reference counter
    */
-  volatile pg_atomic_uint32 state;
+  volatile pg_atomic_uint32 refcount;
+  /**
+   * Loaded flag
+   */
+  volatile pg_atomic_uint32 loaded;
   /**
    * DSA
    */
@@ -132,7 +136,7 @@ DECLARE_MODULE_VARIABLE(int OMNI_DSA_TRANCHE);
 MODULE_FUNCTION void init_backend(void *arg);
 
 MODULE_FUNCTION void ensure_backend_initialized(void);
-MODULE_FUNCTION void load_module_if_necessary(Oid fn_oid, bool force_reload);
+MODULE_FUNCTION void load_pending_modules();
 
 MODULE_FUNCTION bool omni_needs_fmgr_hook(Oid fn_oid);
 
@@ -162,6 +166,7 @@ MODULE_FUNCTION void omni_emit_log_hook(ErrorData *edata);
 DECLARE_MODULE_VARIABLE(void *saved_hooks[__OMNI_HOOK_TYPE_COUNT]);
 
 DECLARE_MODULE_VARIABLE(hook_entry_points_t hook_entry_points);
+DECLARE_MODULE_VARIABLE(List *initialized_modules);
 
 #define struct_from_member(s, m, p) ((s *)((char *)(p)-offsetof(s, m)))
 
@@ -197,5 +202,7 @@ MODULE_FUNCTION void unload_module(int64 id, bool missing_ok);
 MODULE_FUNCTION const char *get_omni_library_name();
 
 MODULE_FUNCTION char *get_library_name(const omni_handle *handle);
+
+MODULE_FUNCTION void reorganize_hooks();
 
 #endif // OMNI_COMMON_H

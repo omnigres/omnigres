@@ -89,9 +89,8 @@ MODULE_FUNCTION void reorganize_hooks() {
     for (int i = 0; i < hook_entry_points.entry_points_count[type]; i++) {
       hook_entry_point *hook = hook_entry_points.entry_points[type] + i;
       if (hook->handle != NULL &&
-          pg_atomic_read_u32(
-              &struct_from_member(omni_handle_private, handle, hook->handle)->state) ==
-              HANDLE_UNLOADED) {
+          !list_member_int(initialized_modules,
+                           struct_from_member(omni_handle_private, handle, hook->handle)->id)) {
         // This hook is to be removed; we do this by  copying and reindexing successive hooks.
         // We don't reallocate memory as eventual  reallocation would just reuse them to grow if
         // necessary.
@@ -114,40 +113,29 @@ MODULE_FUNCTION void reorganize_hooks() {
 
 #define iterate_hooks(HOOK, ...)                                                                   \
   ({                                                                                               \
-    bool reorg = false;                                                                            \
     void *ctxs[hook_entry_points.entry_points_count[HOOK]];                                        \
     omni_hook_return_value retval = {.ptr_value = NULL};                                           \
     if (hook_entry_points.entry_points_count[HOOK] > 0)                                            \
       for (int i = hook_entry_points.entry_points_count[HOOK] - 1; i >= 0; i--) {                  \
         bool done = false;                                                                         \
         hook_entry_point *hook = hook_entry_points.entry_points[HOOK] + i;                         \
-        if (hook->handle == NULL ||                                                                \
-            pg_atomic_read_u32(                                                                    \
-                &struct_from_member(omni_handle_private, handle, hook->handle)->state) ==          \
-                HANDLE_LOADED) {                                                                   \
-          ctxs[i] = NULL;                                                                          \
-          omni_hook_handle handle = {.handle = hook->handle,                                       \
-                                     .ctx = ctxs[hook->state_index],                               \
-                                     .next_action = next,                                          \
-                                     .returns = retval};                                           \
-          ((HOOK##_t)(hook->fn))(&handle, __VA_ARGS__);                                            \
-          retval = handle.returns;                                                                 \
-          ctxs[i] = handle.ctx;                                                                    \
-          switch (handle.next_action) {                                                            \
-          case next:                                                                               \
-            continue;                                                                              \
-          case finish:                                                                             \
-            done = true;                                                                           \
-          }                                                                                        \
-          if (done)                                                                                \
-            break;                                                                                 \
-        } else {                                                                                   \
-          reorg = true;                                                                            \
+        ctxs[i] = NULL;                                                                            \
+        omni_hook_handle handle = {.handle = hook->handle,                                         \
+                                   .ctx = ctxs[hook->state_index],                                 \
+                                   .next_action = next,                                            \
+                                   .returns = retval};                                             \
+        ((HOOK##_t)(hook->fn))(&handle, __VA_ARGS__);                                              \
+        retval = handle.returns;                                                                   \
+        ctxs[i] = handle.ctx;                                                                      \
+        switch (handle.next_action) {                                                              \
+        case next:                                                                                 \
+          continue;                                                                                \
+        case finish:                                                                               \
+          done = true;                                                                             \
         }                                                                                          \
+        if (done)                                                                                  \
+          break;                                                                                   \
       }                                                                                            \
-    if (reorg) {                                                                                   \
-      reorganize_hooks();                                                                          \
-    }                                                                                              \
     retval;                                                                                        \
   })
 
@@ -164,7 +152,7 @@ MODULE_FUNCTION void omni_check_password_hook(const char *username, const char *
 
 MODULE_FUNCTION void omni_executor_start_hook(QueryDesc *queryDesc, int eflags) {
   ensure_backend_initialized();
-  load_module_if_necessary(InvalidOid, false);
+  load_pending_modules();
 
   iterate_hooks(omni_hook_executor_start, queryDesc, eflags);
 }
@@ -181,6 +169,7 @@ MODULE_FUNCTION void omni_executor_finish_hook(QueryDesc *queryDesc) {
 
 MODULE_FUNCTION void omni_executor_end_hook(QueryDesc *queryDesc) {
   iterate_hooks(omni_hook_executor_end, queryDesc);
+  load_pending_modules();
 }
 
 MODULE_FUNCTION void omni_process_utility_hook(PlannedStmt *pstmt, const char *queryString,
@@ -199,14 +188,18 @@ MODULE_FUNCTION void omni_process_utility_hook(PlannedStmt *pstmt, const char *q
                 queryEnv, dest, qc);
 
   ensure_backend_initialized();
-  load_module_if_necessary(InvalidOid, true);
+  load_pending_modules();
 }
 
 MODULE_FUNCTION void omni_xact_callback_hook(XactEvent event, void *arg) {
   iterate_hooks(omni_hook_xact_callback, event);
-  if (event == XACT_EVENT_ABORT) {
-    backend_force_reload = true;
+  if (MyDatabaseId == InvalidOid) {
+    // There is a case of the first transaction's callbacks when MyDatabaseId is not yet set,
+    // so let's bail here as doing otherwise will trip over accessing the database.
+    return;
   }
+  ensure_backend_initialized();
+  load_pending_modules();
 }
 
 MODULE_FUNCTION void omni_emit_log_hook(ErrorData *edata) {
