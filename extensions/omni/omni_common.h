@@ -207,4 +207,6 @@ MODULE_FUNCTION char *get_fitting_library_name(char *library_name);
 
 MODULE_FUNCTION void reorganize_hooks();
 
+DECLARE_MODULE_VARIABLE(MemoryContext OmniGUCContext);
+
 #endif // OMNI_COMMON_H

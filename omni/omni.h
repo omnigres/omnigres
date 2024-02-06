@@ -16,6 +16,7 @@
 #include <nodes/plannodes.h>
 #include <tcop/utility.h>
 #include <utils/guc.h>
+#include <utils/guc_tables.h>
 
 /**
  * @private
@@ -197,6 +198,92 @@ typedef struct {
   bool wrap : 1;
 } omni_hook;
 
+typedef struct {
+  int *value;
+
+  GucIntCheckHook check_hook;
+  GucIntAssignHook assign_hook;
+
+  int boot_value;
+  int min_value;
+  int max_value;
+} omni_guc_int_variable;
+
+StaticAssertDecl(offsetof(omni_guc_int_variable, value) == 0,
+                 "to ensure casting to (int *) will get us straight to the pointer");
+
+typedef struct {
+  bool *value;
+
+  GucBoolCheckHook check_hook;
+  GucBoolAssignHook assign_hook;
+
+  bool boot_value;
+} omni_guc_bool_variable;
+
+StaticAssertDecl(offsetof(omni_guc_bool_variable, value) == 0,
+                 "to ensure casting to (bool *) will get us straight to the pointer");
+
+typedef struct {
+  double *value;
+
+  GucRealCheckHook check_hook;
+  GucRealAssignHook assign_hook;
+
+  double boot_value;
+  double min_value;
+  double max_value;
+} omni_guc_real_variable;
+
+StaticAssertDecl(offsetof(omni_guc_real_variable, value) == 0,
+                 "to ensure casting to (double *) will get us straight to the pointer");
+
+typedef struct {
+  char **value;
+
+  GucStringCheckHook check_hook;
+  GucStringAssignHook assign_hook;
+
+  char *boot_value;
+} omni_guc_string_variable;
+
+StaticAssertDecl(offsetof(omni_guc_string_variable, value) == 0,
+                 "to ensure casting to (char *) will get us straight to the pointer");
+
+typedef struct {
+  int *value;
+
+  GucIntCheckHook check_hook;
+  GucIntAssignHook assign_hook;
+
+  int boot_value;
+
+  const struct config_enum_entry *options;
+} omni_guc_enum_variable;
+
+StaticAssertDecl(offsetof(omni_guc_enum_variable, value) == 0,
+                 "to ensure casting to (int *) will get us straight to the pointer");
+
+typedef struct {
+  const char *name;
+  const char *short_desc;
+  const char *long_desc;
+  enum config_type type;
+  union {
+    omni_guc_bool_variable bool_val;
+    omni_guc_int_variable int_val;
+    omni_guc_real_variable real_val;
+    omni_guc_string_variable string_val;
+    omni_guc_enum_variable enum_val;
+  } typed;
+  GucContext context;
+  int flags;
+  GucShowHook show_hook;
+} omni_guc_variable;
+
+typedef void (*declare_guc_variable_function)(const omni_handle *handle,
+                                              omni_guc_variable *variable);
+
 /**
  * @brief Handle provided by the loader
  *
@@ -247,6 +334,8 @@ typedef struct omni_handle {
    * @return void* pointer to the allocation, NULL if none found
    */
   void *(*lookup_shmem)(const omni_handle *handle, const char *name, bool *found);
+
+  declare_guc_variable_function declare_guc_variable;
 
 } omni_handle;
 

@@ -69,6 +69,15 @@ static const omni_handle *saved_handle = NULL;
 
 static OmniBackgroundWorkerHandle *local_bgw_handle = NULL;
 
+bool *GUC_bool;
+int *GUC_int;
+char **GUC_string;
+double *GUC_real;
+int *GUC_enum;
+
+const struct config_enum_entry GUC_enum_options[3] = {
+    {.name = "test", .val = 1}, {.name = "test1", .val = 2}, {.name = NULL}};
+
 void _Omni_init(const omni_handle *handle) {
   initialized = true;
 
@@ -120,6 +129,44 @@ void _Omni_init(const omni_handle *handle) {
     }
   }
 
+  omni_guc_variable guc_bool = {.name = "omni_test.bool",
+                                .type = PGC_BOOL,
+                                .typed = {.bool_val = {.boot_value = false}},
+                                .context = PGC_USERSET};
+  handle->declare_guc_variable(handle, &guc_bool);
+  GUC_bool = guc_bool.typed.bool_val.value;
+
+  omni_guc_variable guc_int = {
+      .name = "omni_test.int",
+      .type = PGC_INT,
+      .typed = {.int_val = {.boot_value = 1, .min_value = 1, .max_value = INT_MAX}},
+      .context = PGC_USERSET};
+  handle->declare_guc_variable(handle, &guc_int);
+  GUC_int = guc_int.typed.int_val.value;
+
+  omni_guc_variable guc_real = {
+      .name = "omni_test.real",
+      .type = PGC_REAL,
+      .typed = {.real_val = {.boot_value = 1.23, .min_value = 1, .max_value = 100}},
+      .context = PGC_USERSET};
+  handle->declare_guc_variable(handle, &guc_real);
+  GUC_real = guc_real.typed.real_val.value;
+
+  omni_guc_variable guc_string = {.name = "omni_test.string",
+                                  .type = PGC_STRING,
+                                  .typed = {.string_val = {.boot_value = ""}},
+                                  .context = PGC_USERSET};
+  handle->declare_guc_variable(handle, &guc_string);
+  GUC_string = guc_string.typed.string_val.value;
+
+  omni_guc_variable guc_enum = {
+      .name = "omni_test.enum",
+      .type = PGC_ENUM,
+      .typed = {.enum_val = {.boot_value = 1, .options = GUC_enum_options}},
+      .context = PGC_USERSET};
+  handle->declare_guc_variable(handle, &guc_enum);
+  GUC_enum = guc_enum.typed.enum_val.value;
+
   saved_handle = handle; // not always the best idea, but...
 }
 
@@ -162,3 +209,18 @@ Datum local_worker_pid(PG_FUNCTION_ARGS) {
   GetBackgroundWorkerPid(GetBackgroundWorkerHandle(local_bgw_handle), &pid);
   PG_RETURN_INT32(pid);
 }
+
+PG_FUNCTION_INFO_V1(guc_int);
+Datum guc_int(PG_FUNCTION_ARGS) { PG_RETURN_INT32(*GUC_int); }
+
+PG_FUNCTION_INFO_V1(guc_bool);
+Datum guc_bool(PG_FUNCTION_ARGS) { PG_RETURN_BOOL(*GUC_bool); }
+
+PG_FUNCTION_INFO_V1(guc_real);
+Datum guc_real(PG_FUNCTION_ARGS) { PG_RETURN_FLOAT8(*GUC_real); }
+
+PG_FUNCTION_INFO_V1(guc_string);
+Datum guc_string(PG_FUNCTION_ARGS) { PG_RETURN_CSTRING(*GUC_string); }
+
+PG_FUNCTION_INFO_V1(guc_enum);
+Datum guc_enum(PG_FUNCTION_ARGS) { PG_RETURN_INT32(*GUC_enum); }

@@ -43,6 +43,8 @@ MODULE_VARIABLE(int OMNI_DSA_TRANCHE);
 
 MODULE_VARIABLE(bool backend_force_reload);
 
+MODULE_VARIABLE(MemoryContext OmniGUCContext);
+
 MODULE_FUNCTION void ensure_backend_initialized(void) {
   // Indicates whether we have ever done anything on this backend
   static bool backend_initialized = false;
@@ -72,6 +74,7 @@ MODULE_FUNCTION void *allocate_shmem(const omni_handle *handle, const char *name
                                      bool *found);
 MODULE_FUNCTION void deallocate_shmem(const omni_handle *handle, const char *name, bool *found);
 MODULE_FUNCTION void *lookup_shmem(const omni_handle *handle, const char *name, bool *found);
+static void declare_guc_variable(const omni_handle *handle, omni_guc_variable *variable);
 
 /*
  * Substitute for any macros appearing in the given string.
@@ -137,6 +140,7 @@ MODULE_FUNCTION List *consider_probin(HeapTuple tp) {
               handle->handle.deallocate_shmem = deallocate_shmem;
               handle->handle.lookup_shmem = lookup_shmem;
               handle->handle.get_library_name = get_library_name;
+              handle->handle.declare_guc_variable = declare_guc_variable;
               entry->id = id;
               handle->dsa = 0;
             } else {
@@ -365,6 +369,139 @@ MODULE_FUNCTION void deallocate_shmem(const omni_handle *handle, const char *nam
       handle, name, 1 /* size is ignored in this case */, HASH_REMOVE, found);
   if (*found) {
     dsa_free(dsa_handle_to_area(ref.handle), ref.pointer);
+  }
+}
+
+#if PG_MAJORVERSION_NUM < 16
+// Extracted from Postgres 15
+
+/*
+ * the bare comparison function for GUC names
+ */
+static int guc_name_compare(const char *namea, const char *nameb) {
+  /*
+   * The temptation to use strcasecmp() here must be resisted, because the
+   * array ordering has to remain stable across setlocale() calls. So, build
+   * our own with a simple ASCII-only downcasing.
+   */
+  while (*namea && *nameb) {
+    char cha = *namea++;
+    char chb = *nameb++;
+
+    if (cha >= 'A' && cha <= 'Z')
+      cha += 'a' - 'A';
+    if (chb >= 'A' && chb <= 'Z')
+      chb += 'a' - 'A';
+    if (cha != chb)
+      return cha - chb;
+  }
+  if (*namea)
+    return 1; /* a is longer */
+  if (*nameb)
+    return -1; /* b is longer */
+  return 0;
+}
+/*
+ * comparator for qsorting and bsearching guc_variables array
+ */
+static int guc_var_compare(const void *a, const void *b) {
+  const struct config_generic *confa = *(struct config_generic *const *)a;
+  const struct config_generic *confb = *(struct config_generic *const *)b;
+
+  return guc_name_compare(confa->name, confb->name);
+}
+
+#endif
+
+static void declare_guc_variable(const omni_handle *handle, omni_guc_variable *variable) {
+  Assert(variable);
+#if PG_MAJORVERSION_NUM >= 16
+  struct config_generic *config = find_option(variable->name, false, true, WARNING);
+#else
+  const char **key = &(variable->name);
+  struct config_generic **configp = (struct config_generic **)bsearch(
+      (void *)&key, (void *)get_guc_variables(), GetNumConfigOptions(),
+      sizeof(struct config_generic *), guc_var_compare);
+  struct config_generic *config = configp ? *configp : NULL;
+#endif
+  if (config == NULL || (config->flags & GUC_CUSTOM_PLACEHOLDER) != 0) {
+    switch (variable->type) {
+    case PGC_BOOL:
+      // Zero-allocating to ensure the value is valid for GUC
+      variable->typed.bool_val.value =
+          MemoryContextAllocExtended(OmniGUCContext, sizeof(bool), MCXT_ALLOC_ZERO);
+      DefineCustomBoolVariable(variable->name, variable->short_desc, variable->long_desc,
+                               variable->typed.bool_val.value, variable->typed.bool_val.boot_value,
+                               variable->context, variable->flags,
+                               variable->typed.bool_val.check_hook,
+                               variable->typed.bool_val.assign_hook, variable->show_hook);
+      break;
+    case PGC_INT:
+      // Zero-allocating to ensure the value is valid for GUC
+      variable->typed.int_val.value =
+          MemoryContextAllocExtended(OmniGUCContext, sizeof(int), MCXT_ALLOC_ZERO);
+      DefineCustomIntVariable(variable->name, variable->short_desc, variable->long_desc,
+                              variable->typed.int_val.value, variable->typed.int_val.boot_value,
+                              variable->typed.int_val.min_value, variable->typed.int_val.max_value,
+                              variable->context, variable->flags,
+                              variable->typed.int_val.check_hook,
+                              variable->typed.int_val.assign_hook, variable->show_hook);
+      break;
+    case PGC_REAL:
+      // Zero-allocating to ensure the value is valid for GUC
+      variable->typed.real_val.value =
+          MemoryContextAllocExtended(OmniGUCContext, sizeof(double), MCXT_ALLOC_ZERO);
+      DefineCustomRealVariable(variable->name, variable->short_desc, variable->long_desc,
+                               variable->typed.real_val.value, variable->typed.real_val.boot_value,
+                               variable->typed.real_val.min_value,
+                               variable->typed.real_val.max_value, variable->context,
+                               variable->flags, variable->typed.real_val.check_hook,
+                               variable->typed.real_val.assign_hook, variable->show_hook);
+      break;
+    case PGC_STRING:
+      // Zero-allocating to ensure the value is valid for GUC
+      variable->typed.string_val.value =
+          MemoryContextAllocExtended(OmniGUCContext, sizeof(char *), MCXT_ALLOC_ZERO);
+      DefineCustomStringVariable(variable->name, variable->short_desc, variable->long_desc,
+                                 variable->typed.string_val.value,
+                                 variable->typed.string_val.boot_value, variable->context,
+                                 variable->flags, variable->typed.string_val.check_hook,
+                                 variable->typed.string_val.assign_hook, variable->show_hook);
+      break;
+    case PGC_ENUM:
+      variable->typed.enum_val.value = MemoryContextAlloc(OmniGUCContext, sizeof(int));
+      *variable->typed.enum_val.value = variable->typed.enum_val.boot_value;
+      DefineCustomEnumVariable(variable->name, variable->short_desc, variable->long_desc,
+                               variable->typed.enum_val.value, variable->typed.enum_val.boot_value,
+                               variable->typed.enum_val.options, variable->context, variable->flags,
+                               variable->typed.enum_val.check_hook,
+                               variable->typed.enum_val.assign_hook, variable->show_hook);
+      break;
+    default:
+      ereport(ERROR, errmsg("not supported"));
+    }
+  } else {
+    if (config->vartype != variable->type) {
+      ereport(ERROR, errmsg("mismatched variable type for %s", variable->name));
+    }
+    switch (variable->type) {
+    case PGC_BOOL:
+      variable->typed.bool_val.value = ((struct config_bool *)config)->variable;
+    case PGC_INT:
+      variable->typed.int_val.value = ((struct config_int *)config)->variable;
+      break;
+    case PGC_REAL:
+      variable->typed.real_val.value = ((struct config_real *)config)->variable;
+      break;
+    case PGC_STRING:
+      variable->typed.string_val.value = ((struct config_string *)config)->variable;
+      break;
+    case PGC_ENUM:
+      variable->typed.enum_val.value = ((struct config_enum *)config)->variable;
+      break;
+    default:
+      ereport(ERROR, errmsg("not supported"));
+    }
   }
 }
 

@@ -139,6 +139,8 @@ void _PG_init() {
   // postmaster: 1) it is okay to crash here 2) it is much less likely to happen at this time.
   CacheRegisterSyscacheCallback(PROCOID, procoid_syscache_callback, Int8GetDatum(0));
   backend_force_reload = true;
+
+  OmniGUCContext = AllocSetContextCreate(TopMemoryContext, "omni:guc", ALLOCSET_DEFAULT_SIZES);
 }
 
 #define MAX_MODULES 8192

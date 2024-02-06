@@ -32,3 +32,28 @@ create function local_worker_pid() returns int4
     language c
     volatile as
 'MODULE_PATHNAME';
+
+create function guc_int() returns int4
+    language c
+    volatile as
+'MODULE_PATHNAME';
+
+create function guc_bool() returns bool
+    language c
+    volatile as
+'MODULE_PATHNAME';
+
+create function guc_real() returns float8
+    language c
+    volatile as
+'MODULE_PATHNAME';
+
+create function guc_string() returns cstring
+    language c
+    volatile as
+'MODULE_PATHNAME';
+
+create function guc_enum() returns int
+    language c
+    volatile as
+'MODULE_PATHNAME';
