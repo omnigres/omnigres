@@ -203,6 +203,8 @@ MODULE_FUNCTION const char *get_omni_library_name();
 
 MODULE_FUNCTION char *get_library_name(const omni_handle *handle);
 
+MODULE_FUNCTION char *get_fitting_library_name(char *library_name);
+
 MODULE_FUNCTION void reorganize_hooks();
 
 #endif // OMNI_COMMON_H

@@ -260,7 +260,7 @@ MODULE_FUNCTION void register_hook(const omni_handle *handle, omni_hook *hook) {
 }
 
 MODULE_FUNCTION char *get_library_name(const omni_handle *handle) {
-  return struct_from_member(omni_handle_private, handle, handle)->path;
+  return get_fitting_library_name(struct_from_member(omni_handle_private, handle, handle)->path);
 }
 
 static dsa_area *dsa = NULL;
