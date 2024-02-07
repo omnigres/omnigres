@@ -45,6 +45,7 @@ add_postgresql_extension(
 
 add_postgresql_extension(
         omni_manifest
+        VERSION 1.0.0
         SCHEMA omni_manifest
-        TESTS_REQUIRE omni_manifest_test_1 omni_manifest_test_2 omni_manifest_test_1_2 omni_manifest_test_2_2
+        TESTS_REQUIRE omni_manifest_test_1=1 omni_manifest_test_2=1 omni_manifest_test_1_2=2 omni_manifest_test_2_2=2
         RELOCATABLE false)

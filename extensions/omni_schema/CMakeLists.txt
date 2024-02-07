@@ -13,7 +13,8 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_schema
+        VERSION 1.0.0
         SCHEMA omni_schema
         RELOCATABLE false
-        REQUIRES omni_vfs
-        TESTS_REQUIRE omni_python)
+        REQUIRES omni_vfs=1.0.0
+        TESTS_REQUIRE omni_python=1.0.0)

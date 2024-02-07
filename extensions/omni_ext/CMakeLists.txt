@@ -26,6 +26,7 @@ endfunction()
 
         add_postgresql_extension(
                 omni_ext
+                VERSION 1.0.0
                 SCHEMA omni_ext
                 RELOCATABLE false
                 SOURCES omni_ext.c control_file.c init.c hooks.c workers.c strverscmp.c

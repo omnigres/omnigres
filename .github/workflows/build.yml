@@ -102,6 +102,31 @@ jobs:
       working-directory: ${{github.workspace}}/build
       run: TMPDIR=$RUNNER_TEMP DOCKER_HOST_IP=$(tailscale ip -4) ctest -timeout 1000 --force-new-ctest-process  --repeat until-pass:10 --output-on-failure -j $(nproc) -C ${{matrix.build_type}}
 
+    - name: Package extensions
+      run: cmake --build ${{github.workspace}}/build --parallel --target package_extensions
+
+    - name: Prepare extension files for s3 upload
+      working-directory: ${{ github.workspace }}/build
+      run: |
+        while read -r line; do
+          # eg extension format name=1.2.2#dep1=1.0.1,dep2=2.3.1
+          ext_name_with_version=$(echo $line | cut -d "#" -f 1)
+          ext_name=$(echo $ext_name_with_version | cut -d "=" -f 1)
+          ext_version=$(echo $ext_name_with_version | cut -d "=" -f 2)
+
+          mkdir -p packaged/s3/$ext_name/$ext_version
+
+          cp packaged/extension/{$ext_name--$ext_version.sql,$ext_name--$ext_version.control,$ext_name.control} packaged/s3/$ext_name/$ext_version/
+
+          if [ -f packaged/$ext_name--$ext_version.so ]; then
+              mkdir packaged/s3/$ext_name/$ext_version/$HOSTTYPE
+              cp packaged/$ext_name--$ext_version.so packaged/s3/$ext_name/$ext_version/$HOSTTYPE/
+          fi
+        done < artifacts.txt
+
+    - name: Pretend to sync back to S3
+      run: aws s3 sync --dryrun ${{ github.workspace }}/build/packaged/s3 s3://omnigres-extensions/${{ matrix.pgver }} --delete
+
     - uses: actions/upload-artifact@v3
       if: failure()
       with:

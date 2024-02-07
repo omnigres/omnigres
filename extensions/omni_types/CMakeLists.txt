@@ -12,6 +12,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_types
+        VERSION 1.0.0
         SCHEMA omni_types
         RELOCATABLE false
         SOURCES omni_types.c unit.c sum_type.c

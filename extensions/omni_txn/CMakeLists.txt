@@ -12,7 +12,8 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_txn
+        VERSION 1.0.0
         SCHEMA omni_txn
         RELOCATABLE false
-        REQUIRES omni_var
+        REQUIRES omni_var=1.0.0
 )

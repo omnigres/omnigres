@@ -23,12 +23,13 @@ pkg_check_modules(BROTLI_ENC libbrotlienc)
 
 add_postgresql_extension(
         omni_httpd
+        VERSION 1.0.0
         SCHEMA omni_httpd
         RELOCATABLE false
         SOURCES omni_httpd.c master_worker.c http_worker.c event_loop.c fd.c cascading_query.c
         DEPENDS_ON omni_sql omni_ext dynpgext libpgaug libgluepg_stc
-        REQUIRES omni_types omni_http
-        TESTS_REQUIRE omni_httpc omni_vfs omni_mimetypes)
+        REQUIRES omni_types=1.0.0 omni_http=1.0.0
+        TESTS_REQUIRE omni_httpc=1.0.0 omni_vfs=1.0.0 omni_mimetypes=1.0.0)
 
 set_property(TARGET omni_httpd PROPERTY C_STANDARD 11)
 

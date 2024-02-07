@@ -17,12 +17,13 @@ pkg_check_modules(BROTLI_ENC libbrotlienc)
 
 add_postgresql_extension(
         omni_httpc
+        VERSION 1.0.0
         SCHEMA omni_httpc
         RELOCATABLE false
         SOURCES omni_httpc.c ca-bundle.cc ssl.c
         DEPENDS_ON libpgaug omni_sql omni_types
-        REQUIRES omni_http omni_types
-        TESTS_REQUIRE omni_httpd)
+        REQUIRES omni_http=1.0.0 omni_types=1.0.0
+        TESTS_REQUIRE omni_httpd=1.0.0)
 
 # Raw string literal in ca-bundle.cc
 set_property(TARGET omni_httpc PROPERTY CXX_STANDARD 11)

@@ -12,6 +12,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_os
+        VERSION 1.0.0
         SCHEMA omni_os
         RELOCATABLE false
         SUPERUSER true

@@ -13,5 +13,6 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_mimetypes
+        VERSION 1.0.0
         SCHEMA omni_mimetypes
         RELOCATABLE false)
