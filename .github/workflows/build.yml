@@ -122,8 +122,8 @@ jobs:
           cp packaged/extension/{$ext_name--$ext_version.sql,$ext_name--$ext_version.control,$ext_name.control} packaged/s3/$ext_name/$ext_version/
 
           if [ -f packaged/$ext_name--$ext_version.so ]; then
-              mkdir packaged/s3/$ext_name/$ext_version/$HOSTTYPE
-              cp packaged/$ext_name--$ext_version.so packaged/s3/$ext_name/$ext_version/$HOSTTYPE/
+              mkdir packaged/s3/$ext_name/$ext_version/$OSTYPE-$HOSTTYPE
+              cp packaged/$ext_name--$ext_version.so packaged/s3/$ext_name/$ext_version/$OSTYPE-$HOSTTYPE/
           fi
         done < artifacts.txt
 
