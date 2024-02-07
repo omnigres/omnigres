@@ -128,7 +128,7 @@ jobs:
         done < artifacts.txt
 
     - name: Pretend to sync back to S3
-      run: aws s3 sync --dryrun ${{ github.workspace }}/build/packaged/s3 s3://omnigres-extensions/${{ matrix.pgver }} --delete
+      run: aws s3 sync --dryrun ${{ github.workspace }}/build/packaged/s3 s3://omnigres-extensions/${{ matrix.pgver }}
 
     - uses: actions/upload-artifact@v3
       if: failure()
