@@ -10,6 +10,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_http
+        VERSION 1.0.0
         SCHEMA omni_http
         RELOCATABLE false)
 

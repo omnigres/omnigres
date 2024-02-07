@@ -12,6 +12,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_seq
+        VERSION 1.0.0
         SCHEMA omni_seq
         RELOCATABLE false
         SOURCES omni_seq.c

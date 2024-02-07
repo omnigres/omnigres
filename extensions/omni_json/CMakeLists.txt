@@ -11,5 +11,6 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_json
+        VERSION 1.0.0
         SCHEMA omni_json
         RELOCATABLE false)

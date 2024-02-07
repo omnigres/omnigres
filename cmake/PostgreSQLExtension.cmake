@@ -178,7 +178,10 @@ function(add_postgresql_extension NAME)
        add_subdirectory_once("${CMAKE_CURRENT_SOURCE_DIR}/../../extensions/omni_ext" "${CMAKE_CURRENT_BINARY_DIR}/../../extensions/omni_ext")
    endif()
 
-    foreach(requirement ${_ext_REQUIRES})
+    list(TRANSFORM _ext_REQUIRES REPLACE "=.*" "" OUTPUT_VARIABLE _ext_REQUIRES_WITHOUT_VERSION)
+    list(TRANSFORM _ext_TESTS_REQUIRE REPLACE "=.*" "" OUTPUT_VARIABLE _ext_TESTS_REQUIRE_WITHOUT_VERSION)
+
+    foreach (requirement ${_ext_REQUIRES_WITHOUT_VERSION})
         if(NOT TARGET ${requirement})
             if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../${requirement}")
                 add_subdirectory_once("${CMAKE_CURRENT_SOURCE_DIR}/../${requirement}" "${CMAKE_CURRENT_BINARY_DIR}/../${requirement}")
@@ -288,7 +291,7 @@ function(add_postgresql_extension NAME)
             "$<$<NOT:$<BOOL:${_ext_SOURCES}>>:#>module_pathname = '${_target_file}'
 $<$<NOT:$<BOOL:${_ext_COMMENT}>>:#>comment = '${_ext_COMMENT}'
 $<$<NOT:$<BOOL:${_ext_ENCODING}>>:#>encoding = '${_ext_ENCODING}'
-$<$<NOT:$<BOOL:${_ext_REQUIRES}>>:#>requires = '$<JOIN:${_ext_REQUIRES},$<COMMA>>'
+$<$<NOT:$<BOOL:${_ext_REQUIRES_WITHOUT_VERSION}>>:#>requires = '$<JOIN:${_ext_REQUIRES_WITHOUT_VERSION},$<COMMA>>'
 $<$<NOT:$<BOOL:${_ext_SCHEMA}>>:#>schema = ${_ext_SCHEMA}
 $<$<NOT:$<BOOL:${_ext_RELOCATABLE}>>:#>relocatable = ${_ext_RELOCATABLE}
 $<$<NOT:$<BOOL:${_ext_SUPERUSER}>>:#>superuser = ${_ext_SUPERUSER}
@@ -303,7 +306,7 @@ $<$<NOT:$<BOOL:${_ext_SUPERUSER}>>:#>superuser = ${_ext_SUPERUSER}
               "$<$<NOT:$<BOOL:${_ext_SOURCES}>>:#>module_pathname = '$libdir/${_target_file_name}'
 $<$<NOT:$<BOOL:${_ext_COMMENT}>>:#>comment = '${_ext_COMMENT}'
 $<$<NOT:$<BOOL:${_ext_ENCODING}>>:#>encoding = '${_ext_ENCODING}'
-$<$<NOT:$<BOOL:${_ext_REQUIRES}>>:#>requires = '$<JOIN:${_ext_REQUIRES},$<COMMA>>'
+$<$<NOT:$<BOOL:${_ext_REQUIRES_WITHOUT_VERSION}>>:#>requires = '$<JOIN:${_ext_REQUIRES_WITHOUT_VERSION},$<COMMA>>'
 $<$<NOT:$<BOOL:${_ext_SCHEMA}>>:#>schema = ${_ext_SCHEMA}
 $<$<NOT:$<BOOL:${_ext_RELOCATABLE}>>:#>relocatable = ${_ext_RELOCATABLE}
 $<$<NOT:$<BOOL:${_ext_SUPERUSER}>>:#>superuser = ${_ext_SUPERUSER}
@@ -337,7 +340,7 @@ $<$<NOT:$<BOOL:${_ext_SUPERUSER}>>:#>superuser = ${_ext_SUPERUSER}
 # Indicate that we've started provisioning ${NAME}
 export SCRIPT_STARTED_${NAME}=1
 # Dependencies
-for r in $<JOIN:${_ext_REQUIRES}, > $<JOIN:${_ext_TESTS_REQUIRE}, >
+for r in $<JOIN:${_ext_REQUIRES_WITHOUT_VERSION}, > $<JOIN:${_ext_TESTS_REQUIRE_WITHOUT_VERSION}, >
 do
     # If the dependency is already [being] provisioned, skip it
     DEP=\"SCRIPT_STARTED_$r\"
@@ -440,13 +443,13 @@ $command $@
             set(_loadextensions)
             set(_extra_config)
 
-            foreach(requirement ${_ext_REQUIRES})
-                list(APPEND _ext_TESTS_REQUIRE ${requirement})
+            foreach (requirement ${_ext_REQUIRES_WITHOUT_VERSION})
+                list(APPEND _ext_TESTS_REQUIRE_WITHOUT_VERSION ${requirement})
             endforeach()
 
-            list(REMOVE_DUPLICATES _ext_TESTS_REQUIRE)
+            list(REMOVE_DUPLICATES _ext_TESTS_REQUIRE_WITHOUT_VERSION)
 
-            foreach(req ${_ext_TESTS_REQUIRE})
+            foreach (req ${_ext_TESTS_REQUIRE_WITHOUT_VERSION})
                 string(APPEND _loadextensions "--load-extension=${req} ")
 
                 if(req STREQUAL "omni_ext")
@@ -616,12 +619,7 @@ ${PG_CTL} stop -D  \"$PSQLDB\" -m smart
             set(_ctr 0)
             foreach(requirement ${_ext_REQUIRES})
                 math(EXPR _ctr "${_ctr} + 1")
-                if(TARGET ${requirement})
-                    get_version(requirement _ver)
-                else()
-                    set(_ver "*")
-                endif()
-                file(APPEND "${omni_artifacts}" "${requirement}=${_ver}")
+                file(APPEND "${omni_artifacts}" "${requirement}")
                 if(_ctr LESS len)
                     file(APPEND "${omni_artifacts}" ",")
                 endif()

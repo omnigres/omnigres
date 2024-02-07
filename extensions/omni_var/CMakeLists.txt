@@ -12,6 +12,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_var
+        VERSION 1.0.0
         SCHEMA omni_var
         RELOCATABLE false
         SOURCES omni_var.c

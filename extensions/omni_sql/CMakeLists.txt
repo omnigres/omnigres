@@ -23,6 +23,7 @@ if(NOT DEFINED ENV{OMNI_SQL_ALREADY_INCLUDED})
 
     add_postgresql_extension(
             omni_sql
+            VERSION 1.0.0
             SCHEMA omni_sql
             RELOCATABLE false
             SOURCES omni_sql.c
