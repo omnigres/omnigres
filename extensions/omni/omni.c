@@ -135,6 +135,7 @@ MODULE_FUNCTION List *consider_probin(HeapTuple tp) {
               handle = module_handles + id;
               // If not found, prepare the handle
               handle->id = id;
+              handle->magic = *magic;
               pg_atomic_init_u32(&handle->refcount, 0);
               strcpy(handle->path, key);
               handle->handle.register_hook = register_hook;

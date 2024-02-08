@@ -2,7 +2,9 @@ create function modules()
     returns table
             (
                 id   int8,
-                path cstring
+                path          cstring,
+                omni_version  int2,
+                omni_revision int2
             )
     volatile
     language c
@@ -13,7 +15,8 @@ create view modules as
     (
     select
         id,
-        path::text
+        path::text,
+        omni_version || chr(65 + omni_revision) as omni_interface
     from
         modules());
 

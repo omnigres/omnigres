@@ -33,9 +33,10 @@ Datum modules(PG_FUNCTION_ARGS) {
 
   ModuleEntry *entry;
   while ((entry = hash_seq_search(&status)) != NULL) {
-
-    Datum values[2] = {Int64GetDatum(entry->id), CStringGetDatum(entry->path)};
-    bool isnull[2] = {false, false};
+    omni_handle_private *handle = module_handles + entry->id;
+    Datum values[4] = {Int64GetDatum(entry->id), CStringGetDatum(entry->path),
+                       Int16GetDatum(handle->magic.version), Int16GetDatum(handle->magic.revision)};
+    bool isnull[4] = {false, false, false, false};
     tuplestore_putvalues(tupstore, rsinfo->expectedDesc, values, isnull);
   }
 

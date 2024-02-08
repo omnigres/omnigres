@@ -58,6 +58,10 @@ typedef struct {
    */
   omni_handle handle;
   /**
+   * Magic
+   */
+  omni_magic magic;
+  /**
    * Unique handle ID
    */
   uint32 id;
