@@ -30,25 +30,21 @@ jobs:
     strategy:
       matrix:
         pgver: [ 16, 15, 14, 13 ]
-        os: [ warp-ubuntu-latest-x64-4x, flyci-macos-large-latest-m1 ]
+        os: [ { name: ubuntu, image: warp-ubuntu-latest-x64-4x, arch: x86-64 }, { name: macos, image: flyci-macos-large-latest-m1, arch: arm } ]
         build_type: [Debug, Release]
         exclude:
-        - os: flyci-macos-large-latest-m1
+        - os.name: macos
           pgver: 15
-        - os: flyci-macos-large-latest-m1
+        - os.name: macos
           pgver: 14
-        - os: flyci-macos-large-latest-m1
+        - os.name: macos
           pgver: 13
-        - os: flyci-macos-large-latest-m1
-          pgver: 12
-        - os: flyci-macos-large-latest-m1
-          pgver: 11
       fail-fast: false
 
     needs: [ approve ] # Require the first step to finish
     environment: ${{ (github.event_name == 'push' || github.event_name == 'schedule' || contains(fromJSON(vars.AUTO_APPROVED_CONTRIBUTORS), github.event.pull_request.user.login) || contains(fromJSON('["OWNER", "MEMBER"]'), github.event.pull_request.author_association)) && 'master' || 'Integrate Pull Request' }}
 
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.os.image }}
 
     steps:
     - run: |
@@ -66,20 +62,20 @@ jobs:
     # GitHub Action runner won't work when restored in another one since dylds have install_name pointing
     # to the original location. We include the hash of their path into the cache name.
     - name: Get path hash
-      if: matrix.os == 'macos'
+      if: matrix.os.name == 'macos'
       run: |
         echo "PATH_SUFFIX=-$(pwd | sha256sum | awk '{print $1}')" >> $GITHUB_ENV
 
     # On other systems, make it explicitly empty
     - name: Get path hash
-      if: matrix.os != 'macos'
+      if: matrix.os.name != 'macos'
       run: |
         echo "PATH_SUFFIX=" >> $GITHUB_ENV
 
     - uses: actions/cache@v3
       with:
         path: .pg
-        key: ${{ matrix.os }}-pg-${{ matrix.pgver }}-${{ matrix.build_type }}-${{ hashFiles('cmake/FindPostgreSQL.cmake') }}${{ env.PATH_SUFFIX }}
+        key: ${{ matrix.os.image }}-pg-${{ matrix.pgver }}-${{ matrix.build_type }}-${{ hashFiles('cmake/FindPostgreSQL.cmake') }}${{ env.PATH_SUFFIX }}
 
     - uses: actions/cache@v3
       with:
@@ -117,23 +113,30 @@ jobs:
           ext_name=$(echo $ext_name_with_version | cut -d "=" -f 1)
           ext_version=$(echo $ext_name_with_version | cut -d "=" -f 2)
 
-          mkdir -p packaged/s3/$ext_name/$ext_version
+          mkdir -p packaged/s3/${{ matrix.build_type }}/$ext_name/$ext_version
 
-          cp packaged/extension/{$ext_name--$ext_version.sql,$ext_name--$ext_version.control,$ext_name.control} packaged/s3/$ext_name/$ext_version/
+          cp packaged/extension/{$ext_name--$ext_version.sql,$ext_name--$ext_version.control,$ext_name.control} packaged/s3/${{ matrix.build_type }}/$ext_name/$ext_version/
 
           if [ -f packaged/$ext_name--$ext_version.so ]; then
-              mkdir packaged/s3/$ext_name/$ext_version/$OSTYPE-$HOSTTYPE
-              cp packaged/$ext_name--$ext_version.so packaged/s3/$ext_name/$ext_version/$OSTYPE-$HOSTTYPE/
+              mkdir packaged/s3/${{ matrix.build_type }}/$ext_name/$ext_version/${{ matrix.os.name }}-${{ matrix.os.arch}}
+              cp packaged/$ext_name--$ext_version.so packaged/s3/${{ matrix.build_type }}/$ext_name/$ext_version/${{ matrix.os.name }}-${{ matrix.os.arch}}/
           fi
+        
+          echo $line > packaged/s3/${{ matrix.build_type }}/$ext_name/$ext_version/artifacts.txt
         done < artifacts.txt
 
     - name: Pretend to sync back to S3
+      if: github.event_name != 'push'
+      run: aws s3 sync ${{ github.workspace }}/build/packaged/s3 s3://omnigres-ext-semver/${{ matrix.pgver }}
+
+    - name: Sync back to S3
+      if: github.event_name == 'push'
       run: aws s3 sync ${{ github.workspace }}/build/packaged/s3 s3://omnigres-ext-semver/${{ matrix.pgver }}
 
     - uses: actions/upload-artifact@v3
       if: failure()
       with:
-        name: ${{ matrix.os }}-${{ matrix.pgver }}-regression.diffs
+        name: ${{ matrix.os.image }}-${{ matrix.pgver }}-regression.diffs
         path: ${{ github.workspace }}/build/extensions/**/regression.diffs
 
     - name: Print error-related artifacts
@@ -175,6 +178,6 @@ jobs:
     - uses: actions/cache@v3
       with:
         path: .pg
-        key: ${{ matrix.os }}-pg-${{ matrix.pgver }}-${{ hashFiles('cmake/FindPostgreSQL.cmake') }}
+        key: ${{ matrix.os.image }}-pg-${{ matrix.pgver }}-${{ hashFiles('cmake/FindPostgreSQL.cmake') }}
 
     - run: ci/build-extensions-separately
