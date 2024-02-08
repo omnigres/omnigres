@@ -25,13 +25,14 @@
 typedef struct {
   uint16_t size;    // size of this structure
   uint16_t version; // interface version
-  char revision;    // Typically, 'A', 'B', 'C', ...
+  uint8_t revision; // version's backward compatible revision (number, but shown as letter 'A','B'
+                    // to distinguish for Major.Minor. Version 0 allows for breaking revisions.
 } omni_magic;
 
 StaticAssertDecl(sizeof(omni_magic) <= UINT16_MAX, "omni_magic should fit into 16 bits");
 
 #define OMNI_INTERFACE_VERSION 0
-#define OMNI_INTERFACE_REVISION 0
+#define OMNI_INTERFACE_REVISION 1
 
 typedef struct omni_handle omni_handle;
 
@@ -91,11 +92,14 @@ void _Omni_unload(const omni_handle *handle);
  * @param name Name to register this allocation under. It is advised to include
  *             version information into the name to facilitate easier upgrades
  * @param size Amount of memory to allocate
+ * @param init Callback to initialize allocate memory. Can be `NULL`
+ * @param data Extra parameter to pass to `init`
  * @param found Pointer to a flag indicating if the allocation was found
  *
  */
 typedef void *(*omni_allocate_shmem_function)(const omni_handle *handle, const char *name,
-                                              size_t size, bool *found);
+                                              size_t size, void (*init)(void *ptr, void *data),
+                                              void *data, bool *found);
 
 /**
  * @brief Shared memory deallocation functon

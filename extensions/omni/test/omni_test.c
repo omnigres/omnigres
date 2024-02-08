@@ -79,6 +79,24 @@ int *GUC_enum;
 const struct config_enum_entry GUC_enum_options[3] = {
     {.name = "test", .val = 1}, {.name = "test1", .val = 2}, {.name = NULL}};
 
+static void register_bgworker(void *ptr, void *arg) {
+  const omni_handle *handle = (const omni_handle *)arg;
+  OmniBackgroundWorkerHandle *bgw_handle = (OmniBackgroundWorkerHandle *)ptr;
+  BackgroundWorker worker = {.bgw_name = "test_local_worker",
+                             .bgw_type = "test_local_worker",
+                             .bgw_flags =
+                                 BGWORKER_SHMEM_ACCESS | BGWORKER_BACKEND_DATABASE_CONNECTION,
+                             .bgw_start_time = BgWorkerStart_RecoveryFinished,
+                             .bgw_restart_time = BGW_NEVER_RESTART,
+                             .bgw_function_name = "test_worker",
+                             .bgw_main_arg = ObjectIdGetDatum(MyDatabaseId),
+                             .bgw_notify_pid = MyProcPid};
+  strncpy(worker.bgw_library_name, handle->get_library_name(handle), BGW_MAXLEN);
+  OmniRegisterDynamicBackgroundWorker(&worker, bgw_handle);
+  pid_t pid;
+  WaitForBackgroundWorkerStartup(GetBackgroundWorkerHandle(bgw_handle), &pid);
+}
+
 void _Omni_init(const omni_handle *handle) {
   initialized = true;
 
@@ -88,19 +106,13 @@ void _Omni_init(const omni_handle *handle) {
 
   bool found;
 
-  shmem_test = (char *)handle->allocate_shmem(
-      handle, psprintf("test:%s", get_database_name(MyDatabaseId)), 128, &found);
+  shmem_test =
+      (char *)handle->allocate_shmem(handle, psprintf("test:%s", get_database_name(MyDatabaseId)),
+                                     128, (void (*)(void *, void *))strcpy, "hello", &found);
 
-  if (!found) {
-    strlcpy(shmem_test, "hello", sizeof("hello"));
-  }
-
-  shmem_test1 = (char *)handle->allocate_shmem(
-      handle, psprintf("test1:%s", get_database_name(MyDatabaseId)), 128, &found);
-
-  if (!found) {
-    strlcpy(shmem_test1, "hello", sizeof("hello"));
-  }
+  shmem_test1 =
+      (char *)handle->allocate_shmem(handle, psprintf("test1:%s", get_database_name(MyDatabaseId)),
+                                     128, (void (*)(void *, void *))strcpy, "hello", &found);
 
   {
     // Register a per-database worker
@@ -109,25 +121,7 @@ void _Omni_init(const omni_handle *handle) {
     bool found;
     local_bgw_handle = (OmniBackgroundWorkerHandle *)handle->allocate_shmem(
         handle, psprintf("workers:%s", get_database_name(MyDatabaseId)),
-        sizeof(OmniBackgroundWorkerHandle), &found);
-
-    if (!found) {
-      // Nobody started one yet, let's do it
-
-      BackgroundWorker worker = {.bgw_name = "test_local_worker",
-                                 .bgw_type = "test_local_worker",
-                                 .bgw_flags =
-                                     BGWORKER_SHMEM_ACCESS | BGWORKER_BACKEND_DATABASE_CONNECTION,
-                                 .bgw_start_time = BgWorkerStart_RecoveryFinished,
-                                 .bgw_restart_time = BGW_NEVER_RESTART,
-                                 .bgw_function_name = "test_worker",
-                                 .bgw_main_arg = ObjectIdGetDatum(MyDatabaseId),
-                                 .bgw_notify_pid = MyProcPid};
-      strncpy(worker.bgw_library_name, handle->get_library_name(handle), BGW_MAXLEN);
-      OmniRegisterDynamicBackgroundWorker(&worker, local_bgw_handle);
-      pid_t pid;
-      WaitForBackgroundWorkerStartup(GetBackgroundWorkerHandle(local_bgw_handle), &pid);
-    }
+        sizeof(OmniBackgroundWorkerHandle), register_bgworker, (void *)handle, &found);
   }
 
   omni_guc_variable guc_bool = {.name = "omni_test.bool",

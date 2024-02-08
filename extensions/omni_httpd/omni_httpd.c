@@ -103,8 +103,6 @@ static bool check_temp_dir(char **newval, void **extra, GucSource source) {
   return true;
 }
 
-static void init_semaphore(void *ptr, void *data) { pg_atomic_init_u32(ptr, 0); }
-
 StaticAssertDecl(sizeof(pid_t) == sizeof(pg_atomic_uint32),
                  "pid has to fit in perfectly into uint32");
 
@@ -164,6 +162,12 @@ static void start_master_worker(XactEvent event, void *arg) {
 
 static int num_http_workers_holder;
 
+static void init_semaphore(void *ptr, void *arg) { pg_atomic_init_u32((pg_atomic_uint32 *)ptr, 0); }
+
+static void register_start_master_worker(void *ptr, void *arg) {
+  RegisterXactCallback(start_master_worker, arg);
+}
+
 void _Omni_init(const omni_handle *handle) {
 
   IsOmniHttpdWorker = false;
@@ -195,20 +199,14 @@ void _Omni_init(const omni_handle *handle) {
   num_http_workers = guc_num_http_workers.typed.int_val.value;
 
   bool semaphore_found;
-  semaphore = handle->allocate_shmem(handle, OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE,
-                                     sizeof(pg_atomic_uint32), &semaphore_found);
-
-  if (!semaphore_found) {
-    pg_atomic_init_u32(semaphore, 0);
-  }
+  semaphore =
+      handle->allocate_shmem(handle, OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE,
+                             sizeof(pg_atomic_uint32), init_semaphore, NULL, &semaphore_found);
 
   bool worker_bgw_found;
-  master_worker_bgw = handle->allocate_shmem(handle, OMNI_HTTPD_MASTER_WORKER,
-                                             sizeof(OmniBackgroundWorkerHandle), &worker_bgw_found);
-
-  if (!worker_bgw_found) {
-    RegisterXactCallback(start_master_worker, (void *)handle);
-  }
+  master_worker_bgw =
+      handle->allocate_shmem(handle, OMNI_HTTPD_MASTER_WORKER, sizeof(OmniBackgroundWorkerHandle),
+                             register_start_master_worker, (void *)handle, &worker_bgw_found);
 }
 
 #if PG_MAJORVERSION_NUM < 16
