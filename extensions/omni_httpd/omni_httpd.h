@@ -12,7 +12,7 @@
 #include <fmgr.h>
 // clang-format on
 
-#include <omni.h>
+#include <omni/omni_v0.h>
 
 Oid http_method_oid();
 Oid http_response_oid();

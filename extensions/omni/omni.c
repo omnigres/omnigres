@@ -19,8 +19,6 @@
 #include <utils/snapmgr.h>
 #include <utils/syscache.h>
 
-#include <omni.h>
-
 #include "omni_common.h"
 
 PG_MODULE_MAGIC;
@@ -121,7 +119,8 @@ MODULE_FUNCTION List *consider_probin(HeapTuple tp) {
         if (magic_fn != NULL) {
           // Check if magic is correct
           omni_magic *magic = magic_fn();
-          if (magic->size == sizeof(omni_magic) && magic->version == 0) {
+          if (magic->size == sizeof(omni_magic) && magic->version == OMNI_INTERFACE_VERSION &&
+              magic->revision == OMNI_INTERFACE_REVISION) {
             // We are going to record it if it wasn't yet
             LWLockAcquire(&(locks + OMNI_LOCK_MODULE)->lock, LW_EXCLUSIVE);
             bool found = false;

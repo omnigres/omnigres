@@ -9,8 +9,6 @@
 
 #include "omni_common.h"
 
-#include <omni.h>
-
 void _Omni_load(const omni_handle *handle) {}
 
 void _Omni_init(const omni_handle *handle) {}

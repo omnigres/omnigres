@@ -6,8 +6,6 @@
 #include <executor/executor.h>
 #include <storage/lwlock.h>
 
-#include <omni.h>
-
 #include "omni_common.h"
 
 MODULE_VARIABLE(void *saved_hooks[__OMNI_HOOK_TYPE_COUNT]);

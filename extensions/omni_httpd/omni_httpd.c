@@ -51,7 +51,7 @@
 #include <h2o.h>
 
 #include <libpgaug.h>
-#include <omni.h>
+#include <omni/omni_v0.h>
 
 #include <libgluepg_stc.h>
 

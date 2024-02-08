@@ -19,7 +19,7 @@
 #include <utils/rel.h>
 #include <utils/syscache.h>
 
-#include <omni.h>
+#include <omni/omni_v0.h>
 
 // If we are doing a unity build, module variables and functions
 // are static. Otherwise, variable declarations are extern and variables

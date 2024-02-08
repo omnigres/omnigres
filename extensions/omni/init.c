@@ -14,8 +14,6 @@
 #include <utils/memutils.h>
 #include <utils/snapmgr.h>
 
-#include <omni.h>
-
 #include "omni_common.h"
 
 #if PG_MAJORVERSION_NUM >= 15

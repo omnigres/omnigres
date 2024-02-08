@@ -23,9 +23,15 @@
  * @brief Magic structure for compatibility checks
  */
 typedef struct {
-  size_t size;
-  uint8_t version;
+  uint16_t size;    // size of this structure
+  uint16_t version; // interface version
+  char revision;    // Typically, 'A', 'B', 'C', ...
 } omni_magic;
+
+StaticAssertDecl(sizeof(omni_magic) <= UINT16_MAX, "omni_magic should fit into 16 bits");
+
+#define OMNI_INTERFACE_VERSION 0
+#define OMNI_INTERFACE_REVISION 0
 
 typedef struct omni_handle omni_handle;
 
@@ -73,7 +79,9 @@ void _Omni_unload(const omni_handle *handle);
  *
  */
 #define OMNI_MAGIC                                                                                 \
-  static omni_magic __Omni_magic = {.size = sizeof(omni_magic), .version = 0};                     \
+  static omni_magic __Omni_magic = {.size = sizeof(omni_magic),                                    \
+                                    .version = OMNI_INTERFACE_VERSION,                             \
+                                    .revision = OMNI_INTERFACE_REVISION};                          \
   omni_magic *_Omni_magic() { return &__Omni_magic; }
 
 /**

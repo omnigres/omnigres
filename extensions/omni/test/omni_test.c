@@ -15,7 +15,7 @@
 #include <pgstat.h>
 #endif
 
-#include <omni.h>
+#include <omni/omni_v0.h>
 
 PG_MODULE_MAGIC;
 OMNI_MAGIC;
