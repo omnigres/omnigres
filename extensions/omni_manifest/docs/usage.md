@@ -243,3 +243,87 @@ installed, at which point it'll return `kept`.
 
     It is highly recommended to perform installations transactionally to be able to check
     reports for missing dependencies.
+
+## Updating extensions
+
+To update extensions using `omni_manifest.install` please ensure the update scripts for the extensions are saved to the
+Postgres extension scripts directory.
+
+!!! tip "Where is this directory?"
+
+    To find it, run the following command:
+
+    ```shell
+    echo $(pg_config --sharedir)/extension
+    ```
+
+Currently, all Omnigres extensions are versioned using git commit SHA from within Omnigres' repo, and extension update
+is only possible from an older commit version to a newer one.
+
+```postgresql
+-- check available version of omni_python
+select * from pg_available_extension_versions where name = 'omni_python';
+    name     | version | installed | superuser | trusted | relocatable |   schema    |   requires   | comment 
+-------------+---------+-----------+-----------+---------+-------------+-------------+--------------+---------
+ omni_python | 2c7e737 | f         | t         | f       | f           | omni_python | {plpython3u} | 
+(1 row) 
+
+-- create omni_python extension with version '2c7e737'
+select *                                
+from
+    omni_manifest.install(
+            'omni_python=2c7e737#plpython3u=*'::text::omni_manifest.artifact[]
+    );
+      requirement      |  status   
+-----------------------+-----------
+ (plpython3u,*)        | installed
+ (omni_python,2c7e737) | installed
+(2 rows)
+```
+
+A public AWS S3 endpoint is available to download extension update scripts (old to new versions) for Omnigres-provided
+extensions:
+
+```bash
+# download all the extension update scripts to a local directory
+mkdir ext_updates && aws --no-sign-request s3 sync s3://omnigres-extensions/<postgres-major-version> ext_updates
+```
+
+To update `omni_python` to a later version for eg. `e135aa7` copy the following `omni_python` sql and control files
+from `ext_updates` created above to postgres extension script directory
+```bash
+cp omni_python--2c7e737--e135aa7.sql omni_python--e135aa7.control <postgres-extension-script-directory>
+```
+
+```postgresql
+-- recheck the available omni_python versions
+select * from pg_available_extension_versions where name = 'omni_python';
+    name     | version | installed | superuser | trusted | relocatable |   schema    |   requires   | comment 
+-------------+---------+-----------+-----------+---------+-------------+-------------+--------------+---------
+ omni_python | 2c7e737 | t         | t         | f       | f           | omni_python | {plpython3u} | 
+ omni_python | e135aa7 | f         | t         | f       | f           | omni_python | {plpython3u} | 
+(2 rows)
+
+-- update omni_python to version 'e135aa7' and plpythonu3u version unchanged using '*'
+select *                                
+from
+    omni_manifest.install(
+            'omni_python=e135aa7#plpython3u=*'::text::omni_manifest.artifact[]
+    );
+      requirement      | status  
+-----------------------+---------
+ (plpython3u,*)        | kept
+ (omni_python,e135aa7) | updated
+(2 rows)
+
+-- verify omni_python is updated
+select * from pg_extension where extname = 'omni_python';
+  oid  |   extname   | extowner | extnamespace | extrelocatable | extversion | extconfig | extcondition 
+-------+-------------+----------+--------------+----------------+------------+-----------+--------------
+ 16484 | omni_python |       10 |        16483 | f              | e135aa7    |           | 
+(1 row)
+```
+
+!!! tip "Artifact format of extensions"
+
+    The artifact format of extensions can be copied from files named `artifacts-<version>`.txt in `ext_updates` created above

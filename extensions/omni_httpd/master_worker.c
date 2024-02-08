@@ -198,9 +198,6 @@ pg_atomic_uint32 *semaphore;
  */
 void master_worker(Datum db_oid) {
   IsOmniHttpdWorker = true;
-  char socket_path_template[] = "omni_httpdXXXXXX";
-  char *tmpname = mkdtemp(socket_path_template);
-  socket_path = psprintf("%s/socket.%d", tmpname, getpid());
 
 #if PG_MAJORVERSION_NUM >= 13
   pqsignal(SIGHUP, SignalHandlerForConfigReload);
@@ -211,6 +208,14 @@ void master_worker(Datum db_oid) {
 
   BackgroundWorkerUnblockSignals();
   BackgroundWorkerInitializeConnectionByOid(db_oid, InvalidOid, 0);
+
+  char *tmp_path = mkdtemp(psprintf("%s/%s", *temp_dir, "omni_httpdXXXXXX"));
+  if (tmp_path == NULL) {
+    ereport(ERROR, errmsg("'%s' isn't a directory, please set omni_httpd.temp_dir to an existing "
+                          "temporary directory",
+                          *temp_dir));
+  }
+  socket_path = psprintf("%s/socket.%d", tmp_path, getpid());
 
   sigusr1_original_handler = pqsignal(SIGUSR1, sigusr1_handler);
 

@@ -76,6 +76,32 @@ bool IsOmniHttpdWorker;
 
 int *num_http_workers;
 
+char **temp_dir;
+
+static bool check_temp_dir(char **newval, void **extra, GucSource source) {
+  struct stat st;
+
+  // Make sure temp dir path isn't too long leaving some space for filenames under it
+  if (strlen(*newval) + 64 >= MAXPGPATH) {
+    GUC_check_errmsg("'%s' temp directory name is too long.", *newval);
+    return false;
+  }
+
+  // Do a basic sanity check that the specified temp dir exists.
+  if (stat(*newval, &st) != 0 || !S_ISDIR(st.st_mode)) {
+    GUC_check_errmsg("'%s' temp directory does not exist.", *newval);
+    return false;
+  }
+
+  // Make sure temp dir doesn't exist under data dir
+  if (path_is_prefix_of_path(DataDir, *newval)) {
+    GUC_check_errmsg("temp directory location should not be inside the data directory");
+    return false;
+  }
+
+  return true;
+}
+
 static void init_semaphore(void *ptr, void *data) { pg_atomic_init_u32(ptr, 0); }
 
 StaticAssertDecl(sizeof(pid_t) == sizeof(pg_atomic_uint32),
@@ -140,6 +166,16 @@ static int num_http_workers_holder;
 void _Omni_init(const omni_handle *handle) {
 
   IsOmniHttpdWorker = false;
+
+  // Try to see if this GUC is already defined
+  omni_guc_variable guc_temp_dir = {
+      .name = "omni_httpd.temp_dir",
+      .long_desc = "Temporary directory for omni_httpd",
+      .type = PGC_STRING,
+      .typed = {.string_val = {.boot_value = "/tmp", .check_hook = check_temp_dir}},
+      .context = PGC_SIGHUP};
+  handle->declare_guc_variable(handle, &guc_temp_dir);
+  temp_dir = guc_temp_dir.typed.string_val.value;
 
   int default_num_http_workers = 10;
 #ifdef _SC_NPROCESSORS_ONLN
