@@ -38,8 +38,8 @@ revision() {
     # For every extension in the current revision
     while read -r ext extpath; do
         echo "$ext $extpath"
-        if [ "$ext" == "omni_ext" ]; then
-          # Skip omni_ext, we don't handle it right now
+        if [ "$ext" == "omni" ]; then
+          # Skip omni, we don't handle it right now
           continue
         fi
         # Get a version of this extension from this particular revision
@@ -105,7 +105,7 @@ revision() {
           "$PG_BINDIR/initdb" -D "$db" --no-clean --no-sync --locale=C --encoding=UTF8 || exit 1
           sockdir=$(mktemp -d)
           export PGSHAREDIR="$DEST_DIR/$rev/build/pg-share"
-          "$PG_BINDIR/pg_ctl" start -D "$db" -o "-c max_worker_processes=64" -o "-c listen_addresses=''" -o "-k $sockdir" -o "-c shared_preload_libraries='$DEST_DIR/$rev/build/extensions/omni_ext/omni_ext.so'" || exit 1
+          "$PG_BINDIR/pg_ctl" start -D "$db" -o "-c max_worker_processes=64" -o "-c listen_addresses=''" -o "-k $sockdir" -o "-c shared_preload_libraries='$DEST_DIR/$rev/build/extensions/omni/omni.so'" || exit 1
           "$PG_BINDIR/createdb" -h "$sockdir" "$ext" || exit 1
           # * install the extension in this revision, snapshot pg_proc, drop the extension
           # We copy all scripts because there are dependencies
@@ -127,7 +127,7 @@ EOF
           export PGSHAREDIR="$DEST_DIR/$HEAD_REV/build/pg-share"
           # We copy all scripts because there are dependencies
           cp "$DEST_DIR"/$HEAD_REV/build/packaged/extension/*.sql "$PGSHAREDIR/extension"
-          "$PG_BINDIR/pg_ctl" start -D "$db" -o "-c max_worker_processes=64" -o "-c listen_addresses=''" -o "-k $sockdir"  -o "-c shared_preload_libraries='$DEST_DIR/$HEAD_REV/build/extensions/omni_ext/omni_ext.so'" || exit 1
+          "$PG_BINDIR/pg_ctl" start -D "$db" -o "-c max_worker_processes=64" -o "-c listen_addresses=''" -o "-k $sockdir"  -o "-c shared_preload_libraries='$DEST_DIR/$HEAD_REV/build/extensions/omni/omni.so'" || exit 1
           # * install the extension from the head revision
           echo "create extension $ext version '$HEAD_REV' cascade;" | "$PG_BINDIR/psql" -h "$sockdir" -v ON_ERROR_STOP=1 $ext
           if [ "${PIPESTATUS[0]}" -ne 0 ]; then
