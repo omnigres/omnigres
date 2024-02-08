@@ -31,6 +31,7 @@
 #include <storage/latch.h>
 #include <tcop/utility.h>
 #include <utils/builtins.h>
+#include <utils/guc_tables.h>
 #include <utils/inet.h>
 #include <utils/json.h>
 #include <utils/jsonb.h>
@@ -49,8 +50,8 @@
 
 #include <h2o.h>
 
-#include <dynpgext.h>
 #include <libpgaug.h>
+#include <omni.h>
 
 #include <libgluepg_stc.h>
 
@@ -60,7 +61,7 @@
 #include "omni_httpd.h"
 
 PG_MODULE_MAGIC;
-DYNPGEXT_MAGIC;
+OMNI_MAGIC;
 
 #ifndef EXT_VERSION
 #error "Extension version (VERSION) is not defined!"
@@ -73,7 +74,7 @@ CACHED_OID(http_outcome);
 
 bool IsOmniHttpdWorker;
 
-int num_http_workers;
+int *num_http_workers;
 
 static void init_semaphore(void *ptr, void *data) { pg_atomic_init_u32(ptr, 0); }
 
@@ -84,100 +85,141 @@ static void init_httpd_master_worker_pid(void *ptr, void *data) {
   pg_atomic_write_u32((pg_atomic_uint32 *)ptr, 0);
 }
 
-void _Dynpgext_init(const dynpgext_handle *handle) {
-  int default_num_http_workers = 10;
-#ifdef _SC_NPROCESSORS_ONLN
-  default_num_http_workers = sysconf(_SC_NPROCESSORS_ONLN);
-#endif
-  {
-    // Try to see if this GUC is already defined
-    const char *http_workers_val = GetConfigOption("omni_httpd.http_workers", true, false);
-    if (http_workers_val == NULL) {
-      // If not, define it
-      DefineCustomIntVariable("omni_httpd.http_workers", "Number of HTTP workers", NULL,
-                              &num_http_workers, default_num_http_workers, 1, INT_MAX, PGC_SIGHUP,
-                              0, NULL, NULL, NULL);
-    } else {
-      // FIXME: this is a temporary solution
-      // For now, we're just taking the string value and converting it back to an integer
-      // This also means that when the original GUC is updated and the worker is reloading,
-      // it won't be able to pick the new value up, unless it does it manually using
-      // `GetConfigOption` + `pg_strtoint32`.
-      // This would be useful for the purpose of dynamic scaling of workers, which we don't do
-      // right now (Jan 2024)
-      // See https://github.com/omnigres/omnigres/issues/447 for more context
-      num_http_workers = pg_strtoint32(http_workers_val);
-    }
-  }
+void _Omni_load(const omni_handle *handle) {}
 
-  handle->allocate_shmem(handle, OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE,
-                         sizeof(pg_atomic_uint32), init_semaphore, NULL,
-                         DYNPGEXT_SCOPE_DATABASE_LOCAL);
+OmniBackgroundWorkerHandle *master_worker_bgw;
 
-  handle->allocate_shmem(handle, OMNI_HTTPD_MASTER_WORKER, sizeof(pg_atomic_uint32),
-                         init_httpd_master_worker_pid, NULL, DYNPGEXT_SCOPE_DATABASE_LOCAL);
-
+static void do_start_master_worker(void *arg) {
+  omni_handle *handle = (omni_handle *)arg;
   // Prepares and registers the main background worker
   BackgroundWorker bgw = {.bgw_name = "omni_httpd",
                           .bgw_type = "omni_httpd",
                           .bgw_function_name = "master_worker",
+                          .bgw_restart_time = 0,
                           .bgw_flags = BGWORKER_SHMEM_ACCESS | BGWORKER_BACKEND_DATABASE_CONNECTION,
+                          .bgw_main_arg = MyDatabaseId,
+                          .bgw_notify_pid = MyProcPid,
                           .bgw_start_time = BgWorkerStart_RecoveryFinished};
-  strncpy(bgw.bgw_library_name, handle->library_name, BGW_MAXLEN);
-  handle->register_bgworker(handle, &bgw,
-                            DYNPGEXT_REGISTER_BGWORKER_NOTIFY | DYNPGEXT_SCOPE_DATABASE_LOCAL);
+  strncpy(bgw.bgw_library_name, handle->get_library_name(handle), BGW_MAXLEN);
+  OmniRegisterDynamicBackgroundWorker(&bgw, master_worker_bgw);
 }
 
-static void terminate_master_worker(void *arg) {
-  pid_t pid = pg_atomic_read_u32((pg_atomic_uint32 *)arg);
-
-  // We are not using Postgres bgworker API because we don't have the the handle of the master
-  // worker.
-  // TODO: it would have be better if we did.
-  // The closest available API is `GetBackgroundWorkerTypeByPid` but sadly it goes for the type
-  // and not the handle.
-  // So, instead, we send a signal to the worker directly and wait until it terminates
-  // (we can't simply `waitpid` as it is not our child)
-
-  while (GetBackgroundWorkerTypeByPid(pid) != NULL) {
-    CHECK_FOR_INTERRUPTS();
-  };
+#if PG_MAJORVERSION_NUM < 16
+static void start_master_worker(XactEvent event, void *arg);
+static void unregister_start_master_worker(void *arg) {
+  UnregisterXactCallback(start_master_worker, arg);
 }
+#endif
 
-static void do_unload() {
-  pid_t *master_worker = dynpgext_lookup_shmem(OMNI_HTTPD_MASTER_WORKER);
-  if (master_worker != NULL) {
-    pid_t pid;
-    while ((pid = pg_atomic_read_u32((pg_atomic_uint32 *)master_worker)) == 0)
-      ;
-
-    if (kill(pid, SIGTERM) != 0) {
-      int err = errno;
-      if (err != ESRCH) {
-        ereport(WARNING, errmsg("can't kill HTTPD: %s", strerror(err)));
-      }
-      // It can't be killed (does not exist or other error), so we don't need to do anything
-      return;
-    }
-
-    // Now, we need to wait for the master worker to terminate to ensure the ports it has been
-    // listening on are released.
-
-    // However, instead of waiting for termination here, when the changes are not visible to other
-    // backends, and risking to lock up the worker, let the rest of the sequence proceed when
-    // transaction's memory context is deleted.
-    MemoryContext oldcontext = MemoryContextSwitchTo(TopTransactionContext);
-    MemoryContextCallback *cb = (MemoryContextCallback *)palloc(sizeof(*cb));
-    cb->func = terminate_master_worker;
-    cb->arg = master_worker;
+static void start_master_worker(XactEvent event, void *arg) {
+  switch (event) {
+  case XACT_EVENT_COMMIT: {
+    MemoryContextCallback *cb = MemoryContextAlloc(TopTransactionContext, sizeof(*cb));
+    cb->func = do_start_master_worker;
+    cb->arg = arg;
     MemoryContextRegisterResetCallback(TopTransactionContext, cb);
-    MemoryContextSwitchTo(oldcontext);
+#if PG_MAJORVERSION_NUM >= 16
+    UnregisterXactCallback(start_master_worker, arg);
+#else
+    {
+      MemoryContextCallback *cb = MemoryContextAlloc(TopTransactionContext, sizeof(*cb));
+      cb->func = unregister_start_master_worker;
+      cb->arg = arg;
+      MemoryContextRegisterResetCallback(TopTransactionContext, cb);
+    }
+#endif
+    break;
+  }
+  default:
+    break;
   }
 }
 
-void _Dynpgext_fini(const dynpgext_handle *handle) { do_unload(); }
+static int num_http_workers_holder;
 
-void _PG_init() { IsOmniHttpdWorker = false; }
+void _Omni_init(const omni_handle *handle) {
+
+  IsOmniHttpdWorker = false;
+
+  int default_num_http_workers = 10;
+#ifdef _SC_NPROCESSORS_ONLN
+  default_num_http_workers = sysconf(_SC_NPROCESSORS_ONLN);
+#endif
+
+  omni_guc_variable guc_num_http_workers = {
+      .name = "omni_httpd.http_workers",
+      .long_desc = "Number of HTTP workers",
+      .type = PGC_INT,
+      .typed = {.int_val = {.boot_value = default_num_http_workers,
+                            .min_value = 1,
+                            .max_value = INT_MAX}},
+      .context = PGC_SIGHUP};
+  handle->declare_guc_variable(handle, &guc_num_http_workers);
+  num_http_workers = guc_num_http_workers.typed.int_val.value;
+
+  bool semaphore_found;
+  semaphore = handle->allocate_shmem(handle, OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE,
+                                     sizeof(pg_atomic_uint32), &semaphore_found);
+
+  if (!semaphore_found) {
+    pg_atomic_init_u32(semaphore, 0);
+  }
+
+  bool worker_bgw_found;
+  master_worker_bgw = handle->allocate_shmem(handle, OMNI_HTTPD_MASTER_WORKER,
+                                             sizeof(OmniBackgroundWorkerHandle), &worker_bgw_found);
+
+  if (!worker_bgw_found) {
+    RegisterXactCallback(start_master_worker, (void *)handle);
+  }
+}
+
+#if PG_MAJORVERSION_NUM < 16
+static void terminate_master_worker(XactEvent event, void *arg);
+static void unregister_terminate_master_worker(void *arg) {
+  UnregisterXactCallback(terminate_master_worker, arg);
+}
+#endif
+
+static void terminate_master_worker(XactEvent event, void *arg) {
+  if (event == XACT_EVENT_COMMIT) {
+    BackgroundWorkerHandle *bgw = (BackgroundWorkerHandle *)arg;
+    pid_t pid;
+    TerminateBackgroundWorker(bgw);
+    BgwHandleStatus status = GetBackgroundWorkerPid(bgw, &pid);
+    WaitForBackgroundWorkerShutdown(bgw);
+#if PG_MAJORVERSION_NUM >= 16
+    UnregisterXactCallback(terminate_master_worker, arg);
+#else
+    {
+      MemoryContextCallback *cb = MemoryContextAlloc(TopTransactionContext, sizeof(*cb));
+      cb->func = unregister_terminate_master_worker;
+      cb->arg = arg;
+      MemoryContextRegisterResetCallback(TopTransactionContext, cb);
+    }
+#endif
+  }
+}
+
+static void do_unload(OmniBackgroundWorkerHandle bgw) {
+  // Unload at the end of the transaction
+  BackgroundWorkerHandle *handle =
+      (BackgroundWorkerHandle *)MemoryContextAlloc(TopTransactionContext, sizeof(bgw));
+  memcpy(handle, &bgw, sizeof(bgw));
+  RegisterXactCallback(terminate_master_worker, (void *)handle);
+}
+
+void _Omni_deinit(const omni_handle *handle) {
+  if (master_worker_bgw != NULL) {
+    bool found;
+    OmniBackgroundWorkerHandle bgw_handle = *master_worker_bgw;
+    handle->deallocate_shmem(handle, OMNI_HTTPD_MASTER_WORKER, &found);
+    if (found) {
+      handle->deallocate_shmem(handle, OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE, &found);
+      do_unload(bgw_handle);
+    }
+  }
+}
 
 PG_FUNCTION_INFO_V1(reload_configuration);
 
@@ -390,6 +432,8 @@ Datum handlers_query_validity_trigger(PG_FUNCTION_ARGS) {
 PG_FUNCTION_INFO_V1(unload);
 
 Datum unload(PG_FUNCTION_ARGS) {
-  do_unload();
+  if (master_worker_bgw != NULL) {
+    do_unload(*master_worker_bgw);
+  }
   PG_RETURN_VOID();
 }

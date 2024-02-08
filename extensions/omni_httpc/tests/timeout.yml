@@ -1,13 +1,14 @@
 $schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
 instance:
   config:
-    shared_preload_libraries: */env/OMNI_EXT_SO
+    shared_preload_libraries: */env/OMNI_SO
     max_worker_processes: 64
   init:
   - set session omni_httpd.init_port = 0
   - create extension omni_httpd cascade
   - create extension omni_httpc cascade
-  - call omni_httpd.wait_for_configuration_reloads(1)
+  # FIXME: waiting for two reloads is working around a startup bug in omni_httpd
+  - call omni_httpd.wait_for_configuration_reloads(2)
   - |
     update omni_httpd.handlers
     set

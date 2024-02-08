@@ -8,5 +8,4 @@ nav:
 - Examples:
   - 'MOTD service': 'examples/motd.md'
 - Development: '*include ./pg_yregress/mkdocs.yml'
-- Dynpgext: '!include ./dynpgext/mkdocs.yml'
 - Extensions: '*include ./extensions/*/mkdocs.yml'

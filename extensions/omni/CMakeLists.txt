@@ -6,6 +6,7 @@ list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/../../cmake)
 
 include(CPM)
 include(CTest)
+include(CheckSymbolExists)
 
 enable_testing()
 

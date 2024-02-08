@@ -28,15 +28,18 @@
 // clang-format on
 
 #include <access/xact.h>
+#include <catalog/namespace.h>
 #include <catalog/pg_authid.h>
 #include <executor/spi.h>
 #include <funcapi.h>
 #include <miscadmin.h>
 #include <postmaster/bgworker.h>
 #include <storage/latch.h>
+#include <storage/lmgr.h>
 #include <tcop/utility.h>
 #include <utils/builtins.h>
 #include <utils/inet.h>
+#include <utils/lsyscache.h>
 #include <utils/snapmgr.h>
 #include <utils/syscache.h>
 #include <utils/timestamp.h>
@@ -49,8 +52,6 @@
 #include <libpgaug.h>
 #include <omni_sql.h>
 #include <sum_type.h>
-
-#include <dynpgext.h>
 
 #include "event_loop.h"
 #include "fd.h"
@@ -135,9 +136,10 @@ void http_worker(Datum db_oid) {
   BackgroundWorkerInitializeConnectionByOid(db_oid, InvalidOid, 0);
   TopUser = GetAuthenticatedUserId();
 
-  volatile pg_atomic_uint32 *semaphore =
-      dynpgext_lookup_shmem(OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE);
-  Assert(semaphore != NULL);
+  if (semaphore == NULL) {
+    // omni_httpd is being shut down
+    return;
+  }
 
   while (atomic_load(&worker_running)) {
     bool worker_reload_test = true;
@@ -149,11 +151,20 @@ void http_worker(Datum db_oid) {
 
       SPI_connect();
 
+      Oid nspoid = get_namespace_oid("omni_httpd", false);
+      Oid listenersoid = get_relname_relid("listeners", nspoid);
+
       // The idea here is that we get handlers sorted by listener id the same way they were
       // sorted in the master worker (`by id asc`) and since they will arrive in the same order
       // in the list of fds, we can simply get them by the index.
       //
       // This table is locked by the master worker and thus the order of listeners will not change
+      if (!ConditionalLockRelationOid(listenersoid, AccessShareLock)) {
+        // If we can't lock it, something is blocking us (like `drop extension` waiting on
+        // master worker to complete for its AccessExclusiveLock while master worker is holding
+        // an ExclusiveLock waiting for http workers to signal their readiness)
+        continue;
+      }
 
       int handlers_query_rc = SPI_execute(
           "select listeners.id, handlers.query, handlers.role_name "
@@ -163,6 +174,8 @@ void http_worker(Datum db_oid) {
           "left join omni_httpd.handlers handlers on handlers.id = listeners_handlers.handler_id "
           "order by listeners.id asc",
           false, 0);
+
+      UnlockRelationOid(listenersoid, AccessShareLock);
 
       // Allocate handler information in this context instead of current SPI's context
       // It will get deleted later.

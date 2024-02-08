@@ -132,7 +132,7 @@ foreach(file \${files})
     add_test(\"${_ext_TARGET}/\${file}\" ${CMAKE_BINARY_DIR}/script_${_ext_TARGET} ${_ext_dir} \"$<TARGET_FILE:pg_yregress>\" \"${dir}/\${file}\")
     set_tests_properties(\"${_ext_TARGET}/\${file}\" PROPERTIES
     WORKING_DIRECTORY \"${CMAKE_CURRENT_BINARY_DIR}\"
-    ENVIRONMENT \"PGCONFIG=${PG_CONFIG};PGSHAREDIR=${_share_dir};OMNI_SO=$<$<TARGET_EXISTS:omni>:$<TARGET_FILE:omni>>;OMNI_EXT_SO=$<$<TARGET_EXISTS:omni_ext>:$<TARGET_FILE:omni_ext>>;EXTENSION_FILE=$<$<STREQUAL:$<TARGET_PROPERTY:${NAME},TYPE>,MODULE_LIBRARY>:$<TARGET_FILE:${NAME}>>\")
+    ENVIRONMENT \"PGCONFIG=${PG_CONFIG};PGSHAREDIR=${_share_dir};OMNI_SO=$<$<TARGET_EXISTS:omni>:$<TARGET_FILE:omni>>;EXTENSION_FILE=$<$<STREQUAL:$<TARGET_PROPERTY:${NAME},TYPE>,MODULE_LIBRARY>:$<TARGET_FILE:${NAME}>>\")
 endforeach()
 ")
         get_directory_property(current_includes TEST_INCLUDE_FILES)
@@ -172,10 +172,11 @@ function(add_postgresql_extension NAME)
         add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../../misc/inja" "${CMAKE_CURRENT_BINARY_DIR}/inja")
     endif()
 
-    # omni_ext is required by all other extensions.
+    # omni is required by all other extensions.
     # When we build individual extensions separately, this condition will pass
-    if(NOT TARGET omni_ext AND NOT NAME STREQUAL "omni")
-       add_subdirectory_once("${CMAKE_CURRENT_SOURCE_DIR}/../../extensions/omni_ext" "${CMAKE_CURRENT_BINARY_DIR}/../../extensions/omni_ext")
+    if(NOT TARGET omni AND NOT NAME STREQUAL "omni")
+       add_subdirectory_once("${CMAKE_CURRENT_SOURCE_DIR}/../../omni" "${CMAKE_CURRENT_BINARY_DIR}/../../omni")
+       add_subdirectory_once("${CMAKE_CURRENT_SOURCE_DIR}/../../extensions/omni" "${CMAKE_CURRENT_BINARY_DIR}/../../extensions/omni")
    endif()
 
     foreach(requirement ${_ext_REQUIRES})
@@ -203,21 +204,6 @@ function(add_postgresql_extension NAME)
             endif()
         endif()
     endforeach()
-
-    # Proactively support dynpgext so that its caching late bound calls most efficiently
-    # on macOS (unless it is `omni` extension, which will supersede dynpgext shortly)
-    if(APPLE AND NOT NAME STREQUAL "omni")
-        file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/dynpgext.c" [=[
-#undef DYNPGEXT_SUPPLEMENTARY
-#define DYNPGEXT_MAIN
-#include <dynpgext.h>
-    ]=])
-        if(_ext_SOURCES AND TARGET dynpgext)
-            target_sources(${_ext_TARGET} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/dynpgext.c")
-            target_link_libraries(${_ext_TARGET} dynpgext)
-            target_compile_definitions(${_ext_TARGET} PUBLIC DYNPGEXT_SUPPLEMENTARY)
-        endif()
-    endif()
 
     add_dependencies(${_ext_TARGET} inja)
 
@@ -449,8 +435,8 @@ $command $@
             foreach(req ${_ext_TESTS_REQUIRE})
                 string(APPEND _loadextensions "--load-extension=${req} ")
 
-                if(req STREQUAL "omni_ext")
-                    set(_extra_config "shared_preload_libraries=\\\'$<$<TARGET_EXISTS:omni_ext>:$<TARGET_FILE:omni_ext>>\\\'")
+                if(req STREQUAL "omni")
+                    set(_extra_config "shared_preload_libraries=\\\'$<$<TARGET_EXISTS:omni>:$<TARGET_FILE:omni>>\\\'")
                 endif()
             endforeach()
 
@@ -571,7 +557,7 @@ else
 fi
 PGSHAREDIR=${_share_dir} \
 ${PG_CTL} start -D \"$PSQLDB\" \
--o \"-c max_worker_processes=64 -c listen_addresses=* -c port=$PGPORT $<IF:$<BOOL:${_ext_SHARED_PRELOAD}>,-c shared_preload_libraries='${_target_file}$<COMMA>$<$<TARGET_EXISTS:omni_ext>:$<TARGET_FILE:omni_ext>>',-c shared_preload_libraries='$<$<TARGET_EXISTS:omni_ext>:$<TARGET_FILE:omni_ext>>'>\" \
+-o \"-c max_worker_processes=64 -c listen_addresses=* -c port=$PGPORT $<IF:$<BOOL:${_ext_SHARED_PRELOAD}>,-c shared_preload_libraries='${_target_file}$<COMMA>$<$<TARGET_EXISTS:omni>:$<TARGET_FILE:omni>>',-c shared_preload_libraries='$<$<TARGET_EXISTS:omni>:$<TARGET_FILE:omni>>'>\" \
 -o -F -o -k -o \"$SOCKDIR\"
 ${CREATEDB} -h \"$SOCKDIR\" ${NAME}
 if [ -z \"$PSQLRC\" ]; then
@@ -590,7 +576,7 @@ ${PG_CTL} stop -D  \"$PSQLDB\" -m smart
         add_custom_target(psql_${_ext_TARGET}
                 WORKING_DIRECTORY "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/.."
                 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/psql_${_ext_TARGET})
-        add_dependencies(psql_${_ext_TARGET} ${_ext_TARGET} omni_ext)
+        add_dependencies(psql_${_ext_TARGET} ${_ext_TARGET} omni)
     endif()
 
     if(PG_REGRESS)
@@ -600,7 +586,7 @@ ${PG_CTL} stop -D  \"$PSQLDB\" -m smart
                 --verbose --output-on-failure)
     endif()
 
-    if(NOT _ext_PRIVATE AND NOT NAME STREQUAL "omni_ext")
+    if(NOT _ext_PRIVATE AND NOT NAME STREQUAL "omni")
         get_property(omni_artifacts GLOBAL PROPERTY omni_artifacts)
         if(NOT omni_artifacts)
             # Make an empty file

@@ -9,7 +9,6 @@ include(Common)
 
 add_subdirectory_once(misc/inja)
 add_subdirectory_once(pg_yregress)
-add_subdirectory_once(dynpgext)
 add_subdirectory_once(omni)
 add_subdirectory_once(libpgaug)
 add_subdirectory_once(libgluepg_stc)
