@@ -112,7 +112,7 @@ typedef void (*omni_deallocate_shmem_function)(const omni_handle *handle, const 
 
 typedef struct omni_handle omni_handle;
 
-typedef enum { finish, next } hook_next_action;
+typedef enum { hook_next_action_finish = 0, hook_next_action_next = 1 } hook_next_action;
 typedef union {
   bool bool_value;
   char *char_value;
@@ -167,39 +167,39 @@ typedef union {
 // Assigned values MUST be consequtive, linear and start from 0 for __OMNI_HOOK_TYPE_COUNT to be
 // correct
 typedef enum {
-  omni_hook_emit_log,
-  omni_hook_check_password,
-  omni_hook_client_authentication,
-  omni_hook_executor_check_perms,
-  omni_hook_object_access,
-  omni_hook_row_security_policy_permissive,
-  omni_hook_row_security_policy_restrictive,
-  omni_hook_needs_fmgr,
-  omni_hook_fmgr,
-  omni_hook_explain_get_index_name,
-  omni_hook_explain_one_query,
-  omni_hook_get_attavg_width,
-  omni_hook_get_index_stats,
-  omni_hook_get_relation_info,
-  omni_hook_get_relation_stats,
-  omni_hook_planner,
-  omni_hook_join_search,
-  omni_hook_set_rel_pathlist,
-  omni_hook_set_join_pathlist,
-  omni_hook_create_upper_paths,
-  omni_hook_post_parse_analyze,
-  omni_hook_executor_start,
-  omni_hook_executor_run,
-  omni_hook_executor_finish,
-  omni_hook_executor_end,
-  omni_hook_process_utility,
-  omni_hook_xact_callback,
-  omni_hook_subxact_callback,
-  omni_hook_plpgsql_func_setup,
-  omni_hook_plpgsql_func_beg,
-  omni_hook_plpgsql_func_end,
-  omni_hook_plpgsql_stmt_beg,
-  omni_hook_plpgsql_stmt_end,
+  omni_hook_emit_log = 0,
+  omni_hook_check_password = 1,
+  omni_hook_client_authentication = 2,
+  omni_hook_executor_check_perms = 3,
+  omni_hook_object_access = 3,
+  omni_hook_row_security_policy_permissive = 4,
+  omni_hook_row_security_policy_restrictive = 5,
+  omni_hook_needs_fmgr = 6,
+  omni_hook_fmgr = 7,
+  omni_hook_explain_get_index_name = 8,
+  omni_hook_explain_one_query = 9,
+  omni_hook_get_attavg_width = 10,
+  omni_hook_get_index_stats = 11,
+  omni_hook_get_relation_info = 12,
+  omni_hook_get_relation_stats = 13,
+  omni_hook_planner = 14,
+  omni_hook_join_search = 15,
+  omni_hook_set_rel_pathlist = 16,
+  omni_hook_set_join_pathlist = 17,
+  omni_hook_create_upper_paths = 18,
+  omni_hook_post_parse_analyze = 19,
+  omni_hook_executor_start = 20,
+  omni_hook_executor_run = 21,
+  omni_hook_executor_finish = 22,
+  omni_hook_executor_end = 23,
+  omni_hook_process_utility = 24,
+  omni_hook_xact_callback = 25,
+  omni_hook_subxact_callback = 26,
+  omni_hook_plpgsql_func_setup = 27,
+  omni_hook_plpgsql_func_beg = 28,
+  omni_hook_plpgsql_func_end = 29,
+  omni_hook_plpgsql_stmt_beg = 30,
+  omni_hook_plpgsql_stmt_end = 31,
   __OMNI_HOOK_TYPE_COUNT // Counter
 } omni_hook_type;
 

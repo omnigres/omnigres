@@ -120,15 +120,15 @@ MODULE_FUNCTION void reorganize_hooks() {
         ctxs[i] = NULL;                                                                            \
         omni_hook_handle handle = {.handle = hook->handle,                                         \
                                    .ctx = ctxs[hook->state_index],                                 \
-                                   .next_action = next,                                            \
+                                   .next_action = hook_next_action_next,                           \
                                    .returns = retval};                                             \
         ((HOOK##_t)(hook->fn))(&handle, __VA_ARGS__);                                              \
         retval = handle.returns;                                                                   \
         ctxs[i] = handle.ctx;                                                                      \
         switch (handle.next_action) {                                                              \
-        case next:                                                                                 \
+        case hook_next_action_next:                                                                \
           continue;                                                                                \
-        case finish:                                                                               \
+        case hook_next_action_finish:                                                              \
           done = true;                                                                             \
         }                                                                                          \
         if (done)                                                                                  \
