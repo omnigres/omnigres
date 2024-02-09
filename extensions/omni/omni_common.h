@@ -9,6 +9,7 @@
 #include <catalog/pg_proc.h>
 #include <common/hashfn.h>
 #include <executor/executor.h>
+#include <lib/dshash.h>
 #include <miscadmin.h>
 #include <storage/ipc.h>
 #include <storage/lwlock.h>
@@ -18,6 +19,9 @@
 #include <utils/memutils.h>
 #include <utils/rel.h>
 #include <utils/syscache.h>
+#if PG_MAJORVERSION_NUM < 15
+#include "dshash.h"
+#endif
 
 #include <omni/omni_v0.h>
 
@@ -225,8 +229,6 @@ MODULE_FUNCTION void reorganize_hooks();
 
 DECLARE_MODULE_VARIABLE(MemoryContext OmniGUCContext);
 
-#if PG_MAJORVERSION_NUM < 15
-#include "dshash.h"
-#endif
+MODULE_FUNCTION dsa_area *dsa_handle_to_area(dsa_handle handle);
 
 #endif // OMNI_COMMON_H

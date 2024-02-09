@@ -26,7 +26,7 @@ OMNI_MAGIC;
 
 omni_shared_info *shared_info;
 
-MODULE_VARIABLE(dshash_table *modules_tab);
+MODULE_VARIABLE(dshash_table *omni_modules);
 MODULE_VARIABLE(dshash_table *omni_allocations);
 MODULE_VARIABLE(HTAB *dsa_handles);
 
@@ -45,7 +45,7 @@ MODULE_VARIABLE(MemoryContext OmniGUCContext);
 
 static dsa_area *dsa = NULL;
 
-static dsa_area *dsa_handle_to_area(dsa_handle handle) {
+MODULE_FUNCTION dsa_area *dsa_handle_to_area(dsa_handle handle) {
   if (handle != dsa_get_handle(dsa)) {
     if (!dsm_find_mapping(handle)) {
       // It is important to allocate DSA in the top memory context
@@ -140,22 +140,22 @@ MODULE_FUNCTION void ensure_backend_initialized(void) {
   initialized_modules = NIL;
 }
 
-MODULE_FUNCTION void register_hook(const omni_handle *handle, omni_hook *hook);
-MODULE_FUNCTION void *allocate_shmem(const omni_handle *handle, const char *name, size_t size,
-                                     void (*init)(void *ptr, void *data), void *data, bool *found);
+static void register_hook(const omni_handle *handle, omni_hook *hook);
+static void *allocate_shmem(const omni_handle *handle, const char *name, size_t size,
+                            void (*init)(void *ptr, void *data), void *data, bool *found);
 static void *allocate_shmem_0_0(const omni_handle *handle, const char *name, size_t size,
                                 bool *found) {
   return allocate_shmem(handle, name, size, NULL, NULL, found);
 }
-MODULE_FUNCTION void deallocate_shmem(const omni_handle *handle, const char *name, bool *found);
-MODULE_FUNCTION void *lookup_shmem(const omni_handle *handle, const char *name, bool *found);
+static void deallocate_shmem(const omni_handle *handle, const char *name, bool *found);
+static void *lookup_shmem(const omni_handle *handle, const char *name, bool *found);
 static void declare_guc_variable(const omni_handle *handle, omni_guc_variable *variable);
 
 /*
  * Substitute for any macros appearing in the given string.
  * Result is always freshly palloc'd.
  */
-MODULE_FUNCTION char *substitute_libpath_macro(const char *name) {
+static char *substitute_libpath_macro(const char *name) {
   const char *sep_ptr;
 
   Assert(name != NULL);
@@ -174,7 +174,7 @@ MODULE_FUNCTION char *substitute_libpath_macro(const char *name) {
   return psprintf("%s%s", pkglib_path, sep_ptr);
 }
 
-MODULE_FUNCTION List *consider_probin(HeapTuple tp) {
+static List *consider_probin(HeapTuple tp) {
   Form_pg_proc proc = (Form_pg_proc)GETSTRUCT(tp);
   List *loaded = NIL;
   if (proc->prolang == ClanguageId) {
@@ -298,7 +298,7 @@ MODULE_FUNCTION void load_pending_modules() {
   }
 }
 
-MODULE_FUNCTION void register_hook(const omni_handle *handle, omni_hook *hook) {
+static void register_hook(const omni_handle *handle, omni_hook *hook) {
   Assert(hook->type >= 0 && hook->type <= __OMNI_HOOK_TYPE_COUNT);
 
   hook_entry_point *entry_point;
@@ -407,9 +407,9 @@ static struct dsa_ref {
   return result;
 }
 
-MODULE_FUNCTION void *find_or_allocate_shmem(const omni_handle *handle, const char *name,
-                                             size_t size, void (*init)(void *ptr, void *data),
-                                             void *data, bool find, bool *found) {
+static void *find_or_allocate_shmem(const omni_handle *handle, const char *name, size_t size,
+                                    void (*init)(void *ptr, void *data), void *data, bool find,
+                                    bool *found) {
   void *ptr;
   struct dsa_ref ref = find_or_allocate_shmem_dsa(handle, name, size, init, data,
                                                   find ? HASH_FIND : HASH_ENTER, found);
@@ -423,17 +423,17 @@ MODULE_FUNCTION void *find_or_allocate_shmem(const omni_handle *handle, const ch
   return ptr;
 }
 
-MODULE_FUNCTION void *allocate_shmem(const omni_handle *handle, const char *name, size_t size,
-                                     void (*init)(void *ptr, void *data), void *data, bool *found) {
+static void *allocate_shmem(const omni_handle *handle, const char *name, size_t size,
+                            void (*init)(void *ptr, void *data), void *data, bool *found) {
   return find_or_allocate_shmem(handle, name, size, init, data, false, found);
 }
 
-MODULE_FUNCTION void *lookup_shmem(const omni_handle *handle, const char *name, bool *found) {
+static void *lookup_shmem(const omni_handle *handle, const char *name, bool *found) {
   return find_or_allocate_shmem(handle, name, 1 /* size is ignored in this case */, NULL, NULL,
                                 true, found);
 }
 
-MODULE_FUNCTION void deallocate_shmem(const omni_handle *handle, const char *name, bool *found) {
+static void deallocate_shmem(const omni_handle *handle, const char *name, bool *found) {
   struct dsa_ref ref = find_or_allocate_shmem_dsa(
       handle, name, 1 /* size is ignored in this case */, NULL, NULL, HASH_REMOVE, found);
   if (*found) {
