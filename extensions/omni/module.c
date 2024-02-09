@@ -3,6 +3,7 @@
 #include <fmgr.h>
 // clang-format on
 #include <executor/executor.h>
+#include <lib/dshash.h>
 #include <miscadmin.h>
 #include <storage/lwlock.h>
 #include <utils/rel.h>
@@ -28,18 +29,20 @@ Datum modules(PG_FUNCTION_ARGS) {
 
   LWLockAcquire(&(locks + OMNI_LOCK_MODULE)->lock, LW_SHARED);
 
-  HASH_SEQ_STATUS status;
-  hash_seq_init(&status, omni_modules);
+  dshash_seq_status status;
+  dshash_seq_init(&status, omni_modules, false);
 
   ModuleEntry *entry;
-  while ((entry = hash_seq_search(&status)) != NULL) {
-    omni_handle_private *handle = module_handles + entry->id;
+  while ((entry = dshash_seq_next(&status)) != NULL) {
+    dsa_area *entry_dsa = dsa_handle_to_area(entry->dsa);
+    omni_handle_private *handle = dsa_get_address(entry_dsa, entry->pointer);
     Datum values[4] = {Int64GetDatum(entry->id), CStringGetDatum(entry->path),
                        Int16GetDatum(handle->magic.version), Int16GetDatum(handle->magic.revision)};
     bool isnull[4] = {false, false, false, false};
     tuplestore_putvalues(tupstore, rsinfo->expectedDesc, values, isnull);
   }
 
+  dshash_seq_term(&status);
   LWLockRelease(&(locks + OMNI_LOCK_MODULE)->lock);
 
   tuplestore_donestoring(tupstore);
@@ -102,11 +105,11 @@ Datum shmem_allocations(PG_FUNCTION_ARGS) {
 
   LWLockAcquire(&(locks + OMNI_LOCK_ALLOCATION)->lock, LW_SHARED);
 
-  HASH_SEQ_STATUS status;
-  hash_seq_init(&status, omni_allocations);
+  dshash_seq_status status;
+  dshash_seq_init(&status, omni_allocations, false);
 
   ModuleAllocation *entry;
-  while ((entry = hash_seq_search(&status)) != NULL) {
+  while ((entry = dshash_seq_next(&status)) != NULL) {
 
     Datum values[3] = {CStringGetDatum(entry->key.name), Int64GetDatum(entry->key.module_id),
                        Int64GetDatum(entry->size)};
@@ -114,6 +117,7 @@ Datum shmem_allocations(PG_FUNCTION_ARGS) {
     tuplestore_putvalues(tupstore, rsinfo->expectedDesc, values, isnull);
   }
 
+  dshash_seq_term(&status);
   LWLockRelease(&(locks + OMNI_LOCK_ALLOCATION)->lock);
 
   tuplestore_donestoring(tupstore);

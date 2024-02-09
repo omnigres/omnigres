@@ -87,8 +87,8 @@ MODULE_FUNCTION void reorganize_hooks() {
     for (int i = 0; i < hook_entry_points.entry_points_count[type]; i++) {
       hook_entry_point *hook = hook_entry_points.entry_points[type] + i;
       if (hook->handle != NULL &&
-          !list_member_int(initialized_modules,
-                           struct_from_member(omni_handle_private, handle, hook->handle)->id)) {
+          !list_member_ptr(initialized_modules,
+                           struct_from_member(omni_handle_private, handle, hook->handle))) {
         // This hook is to be removed; we do this by  copying and reindexing successive hooks.
         // We don't reallocate memory as eventual  reallocation would just reuse them to grow if
         // necessary.

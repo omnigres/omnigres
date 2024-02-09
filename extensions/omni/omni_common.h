@@ -36,6 +36,10 @@
 
 typedef struct {
   volatile pg_atomic_uint32 module_counter;
+  pg_atomic_flag tables_initialized;
+  dsa_handle dsa;
+  dshash_table_handle modules_tab;
+  dshash_table_handle allocations_tab;
 } omni_shared_info;
 
 extern omni_shared_info *shared_info;
@@ -46,8 +50,8 @@ typedef enum {
   __omni_num_locks,
 } omni_locks;
 
-DECLARE_MODULE_VARIABLE(HTAB *omni_modules);
-DECLARE_MODULE_VARIABLE(HTAB *omni_allocations);
+DECLARE_MODULE_VARIABLE(dshash_table *omni_modules);
+DECLARE_MODULE_VARIABLE(dshash_table *omni_allocations);
 DECLARE_MODULE_VARIABLE(HTAB *dsa_handles);
 
 typedef enum { HANDLE_LOADED = 0, HANDLE_UNLOADED = 1 } omni_handle_state;
@@ -96,6 +100,14 @@ typedef struct {
    * ID of the handle (omni_handle_private.id reference)
    */
   int id;
+  /**
+   * Location of the handle (dsa)
+   */
+  dsa_handle dsa;
+  /**
+   * Location of the handle (pointer)
+   */
+  dsa_pointer pointer;
 } ModuleEntry;
 
 typedef struct {
@@ -201,7 +213,7 @@ MODULE_FUNCTION void default_process_utility(omni_hook_handle *handle, PlannedSt
 
 DECLARE_MODULE_VARIABLE(bool backend_force_reload);
 
-MODULE_FUNCTION void unload_module(int64 id, bool missing_ok);
+MODULE_FUNCTION void unload_module(omni_handle_private *phandle, bool missing_ok);
 
 MODULE_FUNCTION const char *get_omni_library_name();
 
@@ -212,5 +224,9 @@ MODULE_FUNCTION char *get_fitting_library_name(char *library_name);
 MODULE_FUNCTION void reorganize_hooks();
 
 DECLARE_MODULE_VARIABLE(MemoryContext OmniGUCContext);
+
+#if PG_MAJORVERSION_NUM < 15
+#include "dshash.h"
+#endif
 
 #endif // OMNI_COMMON_H

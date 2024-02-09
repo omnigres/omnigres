@@ -5,6 +5,7 @@
 #include <access/heapam.h>
 #include <commands/user.h>
 #include <executor/executor.h>
+#include <lib/dshash.h>
 #include <miscadmin.h>
 #include <storage/ipc.h>
 #include <storage/lwlock.h>
@@ -139,9 +140,9 @@ void _PG_init() {
   backend_force_reload = true;
 
   OmniGUCContext = AllocSetContextCreate(TopMemoryContext, "omni:guc", ALLOCSET_DEFAULT_SIZES);
-}
 
-#define MAX_MODULES 8192
+  omni_modules = NULL;
+}
 
 /**
  * @brief Requests required shared memory
@@ -154,11 +155,6 @@ static void shmem_request() {
   }
 #endif
 
-  RequestAddinShmemSpace(hash_estimate_size(MAX_MODULES, sizeof(ModuleEntry)));
-  RequestAddinShmemSpace(hash_estimate_size(
-      MAX_MODULES * 16,
-      sizeof(ModuleAllocation))); // the size is completely arbitrary at this point
-  RequestAddinShmemSpace(MAX_MODULES * sizeof(omni_handle_private));
   RequestAddinShmemSpace(sizeof(omni_shared_info));
 
   RequestNamedLWLockTranche("omni", __omni_num_locks);
@@ -174,32 +170,15 @@ static void shmem_hook() {
   }
 
   LWLockAcquire(AddinShmemInitLock, LW_EXCLUSIVE);
-  {
-    HASHCTL ctl = {.keysize = PATH_MAX, .entrysize = sizeof(ModuleEntry)};
-    omni_modules = ShmemInitHash("omni:modules", MAX_MODULES, MAX_MODULES, &ctl,
-                                 HASH_ELEM
-#if PG_MAJORVERSION_NUM > 13
-                                     | HASH_STRINGS
-#endif
-                                     | HASH_FIXED_SIZE);
-  }
-
-  {
-    HASHCTL ctl = {.keysize = sizeof(ModuleAllocationKey), .entrysize = sizeof(ModuleAllocation)};
-    omni_allocations = ShmemInitHash("omni:allocations", MAX_MODULES * 16, MAX_MODULES * 16, &ctl,
-                                     HASH_ELEM | HASH_BLOBS | HASH_FIXED_SIZE);
-  }
-
-  {
-    bool found;
-    module_handles =
-        ShmemInitStruct("omni:module_handles", sizeof(omni_handle_private) * MAX_MODULES, &found);
-  }
 
   {
     bool found;
     shared_info = ShmemInitStruct("omni:shared_info", sizeof(omni_shared_info), &found);
     pg_atomic_write_u32(&shared_info->module_counter, 0);
+    shared_info->dsa = 0;
+    shared_info->modules_tab = InvalidDsaPointer;
+    shared_info->allocations_tab = InvalidDsaPointer;
+    pg_atomic_init_flag(&shared_info->tables_initialized);
   }
 
   LWLockRelease(AddinShmemInitLock);
