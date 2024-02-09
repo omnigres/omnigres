@@ -209,6 +209,11 @@ void master_worker(Datum db_oid) {
   BackgroundWorkerUnblockSignals();
   BackgroundWorkerInitializeConnectionByOid(db_oid, InvalidOid, 0);
 
+  if (!BackendInitialized) {
+    // Chances are, the extension was already dropped since this was not called.
+    return;
+  }
+
   char *tmp_path = mkdtemp(psprintf("%s/%s", *temp_dir, "omni_httpdXXXXXX"));
   if (tmp_path == NULL) {
     ereport(ERROR, errmsg("'%s' isn't a directory, please set omni_httpd.temp_dir to an existing "

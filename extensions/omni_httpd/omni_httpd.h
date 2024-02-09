@@ -57,4 +57,6 @@ extern bool IsOmniHttpdWorker;
 extern pg_atomic_uint32 *semaphore;
 extern OmniBackgroundWorkerHandle *master_worker_bgw;
 
+extern bool BackendInitialized;
+
 #endif //  OMNI_HTTPD_H

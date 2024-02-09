@@ -168,7 +168,10 @@ static void register_start_master_worker(void *ptr, void *arg) {
   RegisterXactCallback(start_master_worker, arg);
 }
 
+bool BackendInitialized = false;
+
 void _Omni_init(const omni_handle *handle) {
+  BackendInitialized = true;
 
   IsOmniHttpdWorker = false;
 
