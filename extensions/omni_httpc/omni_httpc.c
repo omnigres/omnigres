@@ -242,7 +242,6 @@ static int on_body(h2o_httpclient_t *client, const char *errstr, h2o_header_t *t
                    size_t num_trailers) {
   struct request *req = (struct request *)client->data;
 
-
   // If there's an error, report it
   if (errstr != NULL) {
     if (errstr != h2o_httpclient_error_is_eos) {
@@ -273,16 +272,16 @@ static int on_body(h2o_httpclient_t *client, const char *errstr, h2o_header_t *t
 }
 
 void copy_request_fields(struct request *src, struct request *dest) {
-    dest->method = src->method;
-    dest->request_body = src->request_body;
-    dest->url = src->url;
-    dest->headers = src->headers;
-    dest->num_headers = src->num_headers;
-    dest->status = src->status;
-    dest->response_headers = src->response_headers;
-    dest->num_response_headers = src->num_response_headers;
-    dest->body = src->body;
-    dest->version = src->version;
+  dest->method = src->method;
+  dest->request_body = src->request_body;
+  dest->url = src->url;
+  dest->headers = src->headers;
+  dest->num_headers = src->num_headers;
+  dest->status = src->status;
+  dest->response_headers = src->response_headers;
+  dest->num_response_headers = src->num_response_headers;
+  dest->body = src->body;
+  dest->version = src->version;
 }
 
 // Called when response head has been received
@@ -298,10 +297,9 @@ static h2o_httpclient_body_cb on_head(h2o_httpclient_t *client, const char *errs
     return NULL;
   }
 
-  bool handle_redirect = req->follow_redirects &&
-        req->redirects_left > 0 &&
-        (args->status == 301 || args->status == 302 || args->status == 307 || args->status == 308);
-
+  bool handle_redirect =
+      req->follow_redirects && req->redirects_left > 0 &&
+      (args->status == 301 || args->status == 302 || args->status == 307 || args->status == 308);
 
   // Handle Redirect if necessary
   if (handle_redirect) {
@@ -311,62 +309,66 @@ static h2o_httpclient_body_cb on_head(h2o_httpclient_t *client, const char *errs
     headers_vec->capacity = args->num_headers;
     ssize_t location_index;
     if ((location_index = h2o_find_header(headers_vec, H2O_TOKEN_LOCATION, -1)) > -1) {
-        // create a new request based on the original request
-        struct request *new_req = palloc0(sizeof(struct request));
-        new_req->done = req->done;
-        new_req->complete = false;
-        new_req->connected = false;
-        new_req->headers = headers_vec->entries;
+      // create a new request based on the original request
+      struct request *new_req = palloc0(sizeof(struct request));
+      new_req->done = req->done;
+      new_req->complete = false;
+      new_req->connected = false;
+      new_req->headers = headers_vec->entries;
 
-        initStringInfo(&new_req->body);
-        appendStringInfoSpaces(&new_req->body, sizeof(struct varlena));
-        SET_VARSIZE(new_req->body.data, VARHDRSZ);
+      initStringInfo(&new_req->body);
+      appendStringInfoSpaces(&new_req->body, sizeof(struct varlena));
+      SET_VARSIZE(new_req->body.data, VARHDRSZ);
 
-        new_req->num_headers = req->num_headers;
-        new_req->errstr = NULL;
-        new_req->version = req->version;
-        new_req->follow_redirects = req->follow_redirects;
-        // for 307 and 308, we must preserve the method, even if non-idempotent
-        if (args->status == 307 || args->status == 308) {
-            new_req->method = req->method;
-            new_req->request_body = req->request_body;
+      new_req->num_headers = req->num_headers;
+      new_req->errstr = NULL;
+      new_req->version = req->version;
+      new_req->follow_redirects = req->follow_redirects;
+      // for 307 and 308, we must preserve the method, even if non-idempotent
+      if (args->status == 307 || args->status == 308) {
+        new_req->method = req->method;
+        new_req->request_body = req->request_body;
+      } else {
+        // omit the request body
+        // new_req->request_body = h2o_iovec_init(NULL, 0);
+        // if the method is POST, override the method as GET
+        if (h2o_memis(req->method.base, req->method.len, H2O_STRLIT("POST"))) {
+          new_req->method = h2o_iovec_init(H2O_STRLIT("GET"));
         } else {
-          // omit the request body
-          // new_req->request_body = h2o_iovec_init(NULL, 0);
-          // if the method is POST, override the method as GET
-          if (h2o_memis(req->method.base, req->method.len, H2O_STRLIT("POST"))) {
-            new_req->method = h2o_iovec_init(H2O_STRLIT("GET"));
-          } else {
-            new_req->method = req->method;
-          }
+          new_req->method = req->method;
         }
+      }
 
-        h2o_url_t url;
-        // TODO: assume absolute paths only for now
-        if (h2o_url_parse(client->pool, headers_vec->entries[location_index].value.base, headers_vec->entries[location_index].value.len, &url) == -1) {
-            // TODO how to handle this?
-            ereport(ERROR, errmsg("location header value not a valid URL`"));
-            return NULL;
-        }
-        // mark redirect as followed
-        new_req->redirects_left = req->redirects_left - 1;
-        new_req->url = url;
-
-        // follow the URL in the location header and wait for the request to finish
-        h2o_httpclient_connect(NULL, client->pool, new_req, client->ctx, client->connpool, &new_req->url, NULL, on_connect);
-        while (!new_req->complete) {
-            CHECK_FOR_INTERRUPTS();
-            h2o_evloop_run(ctx.loop, INT32_MAX);
-        }
-        // copy the response from the new request to the original request
-        copy_request_fields(new_req, req);
-        req->complete = true;
-        (*req->done)++;
+      h2o_url_t url;
+      // TODO: assume absolute paths only for now
+      if (h2o_url_parse(client->pool, headers_vec->entries[location_index].value.base,
+                        headers_vec->entries[location_index].value.len, &url) == -1) {
+        // TODO how to handle this?
+        ereport(ERROR, errmsg("location header value not a valid URL`"));
         return NULL;
+      }
+      // mark redirect as followed
+      new_req->redirects_left = req->redirects_left - 1;
+      new_req->url = url;
+
+      // follow the URL in the location header and wait for the request to finish
+      h2o_httpclient_connect(NULL, client->pool, new_req, client->ctx, client->connpool,
+                             &new_req->url, NULL, on_connect);
+      while (!new_req->complete) {
+        CHECK_FOR_INTERRUPTS();
+        h2o_evloop_run(ctx.loop, INT32_MAX);
+      }
+      // copy the response from the new request to the original request
+      copy_request_fields(new_req, req);
+      req->complete = true;
+      (*req->done)++;
+      return NULL;
     } else {
-        ereport(WARNING,
-                errmsg("received a redirect-specific HTTP status %d without a corresponding location header",
-                       args->status));
+      ereport(
+          WARNING,
+          errmsg(
+              "received a redirect-specific HTTP status %d without a corresponding location header",
+              args->status));
     }
   }
 
