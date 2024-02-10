@@ -209,8 +209,6 @@ struct request {
   h2o_iovec_t request_body;
   // Response body
   StringInfoData body;
-  // temporary hack
-  h2o_iovec_t body_iovec;
   // Pointer to a counter of completed requests
   int *done;
   // Request URL
@@ -259,8 +257,6 @@ static int on_body(h2o_httpclient_t *client, const char *errstr, h2o_header_t *t
   h2o_buffer_t *buf = *client->buf;
   if (buf != NULL && buf->size > 0) {
     appendBinaryStringInfo(&req->body, buf->bytes, buf->size);
-    // TODO: hack to copy the the request body
-    req->body_iovec = h2o_iovec_init(buf->bytes, buf->size);
     // NB: here we use client->buf to ensure it is properly updated, if we pass
     // `&buf` then the actual buffer is not updated when it is fully consumed
     h2o_buffer_consume(client->buf, buf->size);
@@ -285,8 +281,7 @@ void copy_request_fields(struct request *src, struct request *dest) {
     dest->status = src->status;
     dest->response_headers = src->response_headers;
     dest->num_response_headers = src->num_response_headers;
-    appendBinaryStringInfo(&dest->body, src->body.data, src->body.len);
-    dest->body_iovec = h2o_iovec_init(src->body_iovec.base, src->body_iovec.len);
+    dest->body = src->body;
     dest->version = src->version;
 }
 
@@ -305,7 +300,7 @@ static h2o_httpclient_body_cb on_head(h2o_httpclient_t *client, const char *errs
 
   bool handle_redirect = req->follow_redirects &&
         req->redirects_left > 0 &&
-        (args->status == 302 || args->status == 301 || args->status == 307 || args->status == 308);
+        (args->status == 301 || args->status == 302 || args->status == 307 || args->status == 308);
 
 
   // Handle Redirect if necessary
@@ -321,19 +316,29 @@ static h2o_httpclient_body_cb on_head(h2o_httpclient_t *client, const char *errs
         new_req->done = req->done;
         new_req->complete = false;
         new_req->connected = false;
-        new_req->headers = req->headers;
+        new_req->headers = headers_vec->entries;
+
+        initStringInfo(&new_req->body);
+        appendStringInfoSpaces(&new_req->body, sizeof(struct varlena));
+        SET_VARSIZE(new_req->body.data, VARHDRSZ);
+
         new_req->num_headers = req->num_headers;
         new_req->errstr = NULL;
         new_req->version = req->version;
-        new_req->request_body = h2o_iovec_init(NULL, 0);
-        initStringInfo(&new_req->body);
+        new_req->follow_redirects = req->follow_redirects;
         // for 307 and 308, we must preserve the method, even if non-idempotent
         if (args->status == 307 || args->status == 308) {
             new_req->method = req->method;
+            new_req->request_body = req->request_body;
         } else {
-            // otherwise override the method to GET, and reset the request body
-            new_req->request_body = h2o_iovec_init(NULL, 0);
+          // omit the request body
+          // new_req->request_body = h2o_iovec_init(NULL, 0);
+          // if the method is POST, override the method as GET
+          if (h2o_memis(req->method.base, req->method.len, H2O_STRLIT("POST"))) {
             new_req->method = h2o_iovec_init(H2O_STRLIT("GET"));
+          } else {
+            new_req->method = req->method;
+          }
         }
 
         h2o_url_t url;
@@ -344,15 +349,16 @@ static h2o_httpclient_body_cb on_head(h2o_httpclient_t *client, const char *errs
             return NULL;
         }
         // mark redirect as followed
-        req->redirects_left--;
+        new_req->redirects_left = req->redirects_left - 1;
         new_req->url = url;
 
         // follow the URL in the location header and wait for the request to finish
         h2o_httpclient_connect(NULL, client->pool, new_req, client->ctx, client->connpool, &new_req->url, NULL, on_connect);
         while (!new_req->complete) {
             CHECK_FOR_INTERRUPTS();
-            h2o_evloop_run(ctx.loop, 1);
+            h2o_evloop_run(ctx.loop, INT32_MAX);
         }
+        // copy the response from the new request to the original request
         copy_request_fields(new_req, req);
         req->complete = true;
         (*req->done)++;
@@ -633,6 +639,7 @@ Datum http_execute(PG_FUNCTION_ARGS) {
     }
 
     request->done = &done;
+    request->redirects_left = MAX_REDIRECTS;
     request->errstr = NULL;
     request->num_headers = headers_vec->size;
     request->headers = headers_vec->entries;
@@ -709,15 +716,8 @@ Datum http_execute(PG_FUNCTION_ARGS) {
           request->response_headers, NULL, 1, (int[1]){request->num_response_headers}, (int[1]){1},
           http_header_oid(), -1, false, TYPALIGN_DOUBLE);
 
-      char *request_body = palloc(request->body_iovec.len + 1);
-      h2o_memcpy(request_body, request->body_iovec.base, request->body_iovec.len);
-      request_body[request->body_iovec.len] = '\0';
-      initStringInfo(&request->body);
-      appendStringInfoString(&request->body, request_body);
-      Datum request_body_datum = (Datum)cstring_to_text_with_len(request_body, strlen(request_body));
-
       Datum values[5] = {Int16GetDatum(request->version), Int16GetDatum(request->status),
-                         PointerGetDatum(response_headers), request_body_datum,
+                         PointerGetDatum(response_headers), PointerGetDatum(request->body.data),
                          PointerGetDatum(NULL)};
       bool isnull[5] = {[0 ... 3] = false, [4] = true};
       tuplestore_putvalues(tupstore, response_tupledesc, values, isnull);
