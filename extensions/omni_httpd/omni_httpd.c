@@ -51,7 +51,6 @@
 #include <h2o.h>
 
 #include <libpgaug.h>
-#include <omni/omni_utils.h>
 #include <omni/omni_v0.h>
 
 #include <libgluepg_stc.h>
@@ -112,9 +111,13 @@ static void init_httpd_master_worker_pid(void *ptr, void *data) {
 
 void _Omni_load(const omni_handle *handle) {}
 
-OmniBackgroundWorkerHandle *master_worker_bgw;
+omni_bgworker_handle *master_worker_bgw;
 
-static void do_start_master_worker(void *arg) {
+static int num_http_workers_holder;
+
+static void init_semaphore(void *ptr, void *arg) { pg_atomic_init_u32((pg_atomic_uint32 *)ptr, 0); }
+
+static void register_start_master_worker(void *ptr, void *arg) {
   omni_handle *handle = (omni_handle *)arg;
   // Prepares and registers the main background worker
   BackgroundWorker bgw = {.bgw_name = "omni_httpd",
@@ -126,46 +129,8 @@ static void do_start_master_worker(void *arg) {
                           .bgw_notify_pid = MyProcPid,
                           .bgw_start_time = BgWorkerStart_RecoveryFinished};
   strncpy(bgw.bgw_library_name, handle->get_library_name(handle), BGW_MAXLEN);
-  OmniRegisterDynamicBackgroundWorker(&bgw, master_worker_bgw);
-}
-
-#if PG_MAJORVERSION_NUM < 16
-static void start_master_worker(XactEvent event, void *arg);
-static void unregister_start_master_worker(void *arg) {
-  UnregisterXactCallback(start_master_worker, arg);
-}
-#endif
-
-static void start_master_worker(XactEvent event, void *arg) {
-  switch (event) {
-  case XACT_EVENT_COMMIT: {
-    MemoryContextCallback *cb = MemoryContextAlloc(TopTransactionContext, sizeof(*cb));
-    cb->func = do_start_master_worker;
-    cb->arg = arg;
-    MemoryContextRegisterResetCallback(TopTransactionContext, cb);
-#if PG_MAJORVERSION_NUM >= 16
-    UnregisterXactCallback(start_master_worker, arg);
-#else
-    {
-      MemoryContextCallback *cb = MemoryContextAlloc(TopTransactionContext, sizeof(*cb));
-      cb->func = unregister_start_master_worker;
-      cb->arg = arg;
-      MemoryContextRegisterResetCallback(TopTransactionContext, cb);
-    }
-#endif
-    break;
-  }
-  default:
-    break;
-  }
-}
-
-static int num_http_workers_holder;
-
-static void init_semaphore(void *ptr, void *arg) { pg_atomic_init_u32((pg_atomic_uint32 *)ptr, 0); }
-
-static void register_start_master_worker(void *ptr, void *arg) {
-  RegisterXactCallback(start_master_worker, arg);
+  handle->request_bgworker_start(handle, &bgw, (omni_bgworker_handle *)ptr,
+                                 (omni_bgworker_options){.timing = omni_timing_after_commit});
 }
 
 bool BackendInitialized = false;
@@ -208,53 +173,21 @@ void _Omni_init(const omni_handle *handle) {
 
   bool worker_bgw_found;
   master_worker_bgw =
-      handle->allocate_shmem(handle, OMNI_HTTPD_MASTER_WORKER, sizeof(OmniBackgroundWorkerHandle),
+      handle->allocate_shmem(handle, OMNI_HTTPD_MASTER_WORKER, sizeof(*master_worker_bgw),
                              register_start_master_worker, (void *)handle, &worker_bgw_found);
-}
-
-#if PG_MAJORVERSION_NUM < 16
-static void terminate_master_worker(XactEvent event, void *arg);
-static void unregister_terminate_master_worker(void *arg) {
-  UnregisterXactCallback(terminate_master_worker, arg);
-}
-#endif
-
-static void terminate_master_worker(XactEvent event, void *arg) {
-  if (event == XACT_EVENT_COMMIT) {
-    BackgroundWorkerHandle *bgw = (BackgroundWorkerHandle *)arg;
-    pid_t pid;
-    TerminateBackgroundWorker(bgw);
-    BgwHandleStatus status = GetBackgroundWorkerPid(bgw, &pid);
-    WaitForBackgroundWorkerShutdown(bgw);
-#if PG_MAJORVERSION_NUM >= 16
-    UnregisterXactCallback(terminate_master_worker, arg);
-#else
-    {
-      MemoryContextCallback *cb = MemoryContextAlloc(TopTransactionContext, sizeof(*cb));
-      cb->func = unregister_terminate_master_worker;
-      cb->arg = arg;
-      MemoryContextRegisterResetCallback(TopTransactionContext, cb);
-    }
-#endif
-  }
-}
-
-static void do_unload(OmniBackgroundWorkerHandle bgw) {
-  // Unload at the end of the transaction
-  BackgroundWorkerHandle *handle =
-      (BackgroundWorkerHandle *)MemoryContextAlloc(TopTransactionContext, sizeof(bgw));
-  memcpy(handle, &bgw, sizeof(bgw));
-  RegisterXactCallback(terminate_master_worker, (void *)handle);
 }
 
 void _Omni_deinit(const omni_handle *handle) {
   if (master_worker_bgw != NULL) {
     bool found;
-    OmniBackgroundWorkerHandle bgw_handle = *master_worker_bgw;
+    omni_bgworker_handle *bgw_handle = (omni_bgworker_handle *)MemoryContextAlloc(
+        TopTransactionContext, sizeof(*master_worker_bgw));
+    memcpy(bgw_handle, master_worker_bgw, sizeof(*master_worker_bgw));
     handle->deallocate_shmem(handle, OMNI_HTTPD_MASTER_WORKER, &found);
     if (found) {
       handle->deallocate_shmem(handle, OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE, &found);
-      do_unload(bgw_handle);
+      handle->request_bgworker_termination(
+          handle, bgw_handle, (omni_bgworker_options){.timing = omni_timing_at_commit});
     }
   }
 }
@@ -470,8 +403,6 @@ Datum handlers_query_validity_trigger(PG_FUNCTION_ARGS) {
 PG_FUNCTION_INFO_V1(unload);
 
 Datum unload(PG_FUNCTION_ARGS) {
-  if (master_worker_bgw != NULL) {
-    do_unload(*master_worker_bgw);
-  }
+  ereport(WARNING, errmsg("unload has been deprecated and is a no-op now"));
   PG_RETURN_VOID();
 }

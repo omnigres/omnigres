@@ -18,6 +18,20 @@
 #include <utils/guc.h>
 #include <utils/guc_tables.h>
 
+#if PG_MAJORVERSION_NUM >= 13 && PG_MAJORVERSION_NUM <= 16
+/**
+ * Omni's copy of an otherwise private datatype of `BackgroundWorkerHnalde`
+ * so that it can be copied between backends.
+ */
+typedef struct BackgroundWorkerHandle {
+  int slot;
+  uint64 generation;
+} BackgroundWorkerHandle;
+
+#else
+#error "Ensure this version of Postgres is compatible with the above definition or use a new one"
+#endif
+
 /**
  * @private
  * @brief Magic structure for compatibility checks
@@ -32,7 +46,7 @@ typedef struct {
 StaticAssertDecl(sizeof(omni_magic) <= UINT16_MAX, "omni_magic should fit into 16 bits");
 
 #define OMNI_INTERFACE_VERSION 0
-#define OMNI_INTERFACE_REVISION 1
+#define OMNI_INTERFACE_REVISION 2
 
 typedef struct omni_handle omni_handle;
 
@@ -296,6 +310,31 @@ typedef struct {
 typedef void (*declare_guc_variable_function)(const omni_handle *handle,
                                               omni_guc_variable *variable);
 
+typedef enum {
+  omni_timing_after_commit = 0,
+  omni_timing_at_commit = 1,
+  omni_timing_immediately = 2
+} omni_timing;
+
+typedef struct {
+  omni_timing timing;
+  bool dont_wait;
+} omni_bgworker_options;
+
+typedef struct omni_bgworker_handle {
+  BackgroundWorkerHandle bgw_handle;
+  bool registered;
+} omni_bgworker_handle;
+
+typedef void (*request_bgworker_start_function)(const omni_handle *handle,
+                                                BackgroundWorker *bgworker,
+                                                omni_bgworker_handle *bgworker_handle,
+                                                const omni_bgworker_options options);
+
+typedef void (*request_bgworker_termination_function)(const omni_handle *handle,
+                                                      omni_bgworker_handle *bgworker_handle,
+                                                      const omni_bgworker_options options);
+
 /**
  * @brief Handle provided by the loader
  *
@@ -348,6 +387,9 @@ typedef struct omni_handle {
   void *(*lookup_shmem)(const omni_handle *handle, const char *name, bool *found);
 
   declare_guc_variable_function declare_guc_variable;
+
+  request_bgworker_start_function request_bgworker_start;
+  request_bgworker_termination_function request_bgworker_termination;
 
 } omni_handle;
 

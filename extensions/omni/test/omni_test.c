@@ -15,7 +15,6 @@
 #include <pgstat.h>
 #endif
 
-#include <omni/omni_utils.h>
 #include <omni/omni_v0.h>
 
 PG_MODULE_MAGIC;
@@ -68,7 +67,7 @@ static char *shmem_test1 = NULL;
 
 static const omni_handle *saved_handle = NULL;
 
-static OmniBackgroundWorkerHandle *local_bgw_handle = NULL;
+static omni_bgworker_handle *local_bgw_handle = NULL;
 
 bool *GUC_bool;
 int *GUC_int;
@@ -81,7 +80,6 @@ const struct config_enum_entry GUC_enum_options[3] = {
 
 static void register_bgworker(void *ptr, void *arg) {
   const omni_handle *handle = (const omni_handle *)arg;
-  OmniBackgroundWorkerHandle *bgw_handle = (OmniBackgroundWorkerHandle *)ptr;
   BackgroundWorker worker = {.bgw_name = "test_local_worker",
                              .bgw_type = "test_local_worker",
                              .bgw_flags =
@@ -92,9 +90,9 @@ static void register_bgworker(void *ptr, void *arg) {
                              .bgw_main_arg = ObjectIdGetDatum(MyDatabaseId),
                              .bgw_notify_pid = MyProcPid};
   strncpy(worker.bgw_library_name, handle->get_library_name(handle), BGW_MAXLEN);
-  OmniRegisterDynamicBackgroundWorker(&worker, bgw_handle);
-  pid_t pid;
-  WaitForBackgroundWorkerStartup(GetBackgroundWorkerHandle(bgw_handle), &pid);
+  omni_bgworker_handle *ptr_handle = (omni_bgworker_handle *)ptr;
+  handle->request_bgworker_start(handle, &worker, ptr_handle,
+                                 (omni_bgworker_options){.timing = omni_timing_immediately});
 }
 
 void _Omni_init(const omni_handle *handle) {
@@ -119,9 +117,9 @@ void _Omni_init(const omni_handle *handle) {
 
     // Let's use allocator's lock to prevent others from starting
     bool found;
-    local_bgw_handle = (OmniBackgroundWorkerHandle *)handle->allocate_shmem(
-        handle, psprintf("workers:%s", get_database_name(MyDatabaseId)),
-        sizeof(OmniBackgroundWorkerHandle), register_bgworker, (void *)handle, &found);
+    local_bgw_handle = (omni_bgworker_handle *)handle->allocate_shmem(
+        handle, psprintf("workers:%s", get_database_name(MyDatabaseId)), sizeof(*local_bgw_handle),
+        register_bgworker, (void *)handle, &found);
   }
 
   omni_guc_variable guc_bool = {.name = "omni_test.bool",
@@ -201,8 +199,12 @@ Datum lookup_shmem(PG_FUNCTION_ARGS) {
 PG_FUNCTION_INFO_V1(local_worker_pid);
 Datum local_worker_pid(PG_FUNCTION_ARGS) {
   pid_t pid = 0;
-  GetBackgroundWorkerPid(GetBackgroundWorkerHandle(local_bgw_handle), &pid);
-  PG_RETURN_INT32(pid);
+  if (local_bgw_handle->registered) {
+    GetBackgroundWorkerPid(&local_bgw_handle->bgw_handle, &pid);
+    PG_RETURN_INT32(pid);
+  } else {
+    PG_RETURN_NULL();
+  }
 }
 
 PG_FUNCTION_INFO_V1(guc_int);

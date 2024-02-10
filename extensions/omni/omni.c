@@ -10,6 +10,7 @@
 #include <executor/executor.h>
 #include <miscadmin.h>
 #include <storage/ipc.h>
+#include <storage/latch.h>
 #include <storage/lwlock.h>
 #include <storage/shmem.h>
 #include <utils/builtins.h>
@@ -18,6 +19,11 @@
 #include <utils/rel.h>
 #include <utils/snapmgr.h>
 #include <utils/syscache.h>
+#if PG_MAJORVERSION_NUM >= 14
+#include <utils/wait_event.h>
+#else
+#include <pgstat.h>
+#endif
 
 #include "omni_common.h"
 
@@ -151,6 +157,14 @@ static void deallocate_shmem(const omni_handle *handle, const char *name, bool *
 static void *lookup_shmem(const omni_handle *handle, const char *name, bool *found);
 static void declare_guc_variable(const omni_handle *handle, omni_guc_variable *variable);
 
+static void request_bgworker_start(const omni_handle *handle, BackgroundWorker *bgworker,
+                                   omni_bgworker_handle *bgworker_handle,
+                                   const omni_bgworker_options options);
+
+static void request_bgworker_termination(const omni_handle *handle,
+                                         omni_bgworker_handle *bgworker_handle,
+                                         const omni_bgworker_options options);
+
 /*
  * Substitute for any macros appearing in the given string.
  * Result is always freshly palloc'd.
@@ -220,6 +234,8 @@ static List *consider_probin(HeapTuple tp) {
               handle->handle.lookup_shmem = lookup_shmem;
               handle->handle.get_library_name = get_library_name;
               handle->handle.declare_guc_variable = declare_guc_variable;
+              handle->handle.request_bgworker_start = request_bgworker_start;
+              handle->handle.request_bgworker_termination = request_bgworker_termination;
               entry->dsa = handle->dsa = dsa_get_handle(dsa);
               entry->pointer = ptr;
               handle->id = entry->id = id;
@@ -571,6 +587,155 @@ static void declare_guc_variable(const omni_handle *handle, omni_guc_variable *v
     default:
       ereport(ERROR, errmsg("not supported"));
     }
+  }
+}
+
+struct omni_bgworker_handle_private {
+  omni_bgworker_handle handle;
+  pid_t pid;
+};
+
+#if PG_MAJORVERSION_NUM < 16
+static void xact_request_bgworker_start(XactEvent event, void *arg);
+static void unregister_xact_request_bgworker_start(void *arg) {
+  UnregisterXactCallback(xact_request_bgworker_start, arg);
+}
+#endif
+
+struct bgworker_request_payload {
+  BackgroundWorker bgworker;
+  omni_bgworker_options options;
+  struct omni_bgworker_handle *handle;
+};
+
+static void do_start_bgworker(void *arg) {
+  struct bgworker_request_payload *payload = (struct bgworker_request_payload *)arg;
+  BackgroundWorkerHandle *bgw_handle;
+  RegisterDynamicBackgroundWorker(&payload->bgworker, &bgw_handle);
+  payload->handle->registered = true;
+  if (!payload->options.dont_wait) {
+    pid_t pid;
+    WaitForBackgroundWorkerStartup(bgw_handle, &pid);
+  }
+  payload->handle->bgw_handle = *bgw_handle;
+}
+
+static void xact_request_bgworker_start(XactEvent event, void *arg) {
+  struct bgworker_request_payload *payload = (struct bgworker_request_payload *)arg;
+  if (event == XACT_EVENT_COMMIT) {
+    if (payload->options.timing == omni_timing_at_commit) {
+      do_start_bgworker(arg);
+    } else if (payload->options.timing == omni_timing_after_commit) {
+      MemoryContextCallback *cb = MemoryContextAlloc(TopTransactionContext, sizeof(*cb));
+      cb->func = do_start_bgworker;
+      cb->arg = arg;
+      MemoryContextRegisterResetCallback(TopTransactionContext, cb);
+    }
+
+    // Unregister this callback
+#if PG_MAJORVERSION_NUM >= 16
+    UnregisterXactCallback(xact_request_bgworker_start, arg);
+#else
+    {
+      MemoryContextCallback *cb = MemoryContextAlloc(TopTransactionContext, sizeof(*cb));
+      cb->func = unregister_xact_request_bgworker_start;
+      cb->arg = arg;
+      MemoryContextRegisterResetCallback(TopTransactionContext, cb);
+    }
+#endif
+  }
+}
+
+static void request_bgworker_start(const omni_handle *handle, BackgroundWorker *bgworker,
+                                   omni_bgworker_handle *bgw_handle,
+                                   const omni_bgworker_options options) {
+  struct bgworker_request_payload *payload =
+      MemoryContextAlloc(TopTransactionContext, sizeof(*payload));
+  memcpy(&payload->bgworker, bgworker, sizeof(*bgworker));
+  payload->options = options;
+  payload->handle = bgw_handle;
+  if (options.timing == omni_timing_immediately) {
+    do_start_bgworker(payload);
+  } else {
+    RegisterXactCallback(xact_request_bgworker_start, payload);
+  }
+}
+
+static void do_stop_bgworker(void *arg) {
+  struct bgworker_request_payload *payload = (struct bgworker_request_payload *)arg;
+  TerminateBackgroundWorker(&payload->handle->bgw_handle);
+  if (!payload->options.dont_wait) {
+    // This is similar to `WaitForBackgroundWorkerShutdown` but we can't fully rely on
+    // being the PID set for notification in bgw_notify_pid
+    BgwHandleStatus status;
+    int rc;
+
+    for (;;) {
+      pid_t pid;
+
+      CHECK_FOR_INTERRUPTS();
+
+      status = GetBackgroundWorkerPid(&payload->handle->bgw_handle, &pid);
+      if (status == BGWH_STOPPED)
+        break;
+
+      // Particularly, we have to use timeout here
+      rc = WaitLatch(MyLatch, WL_LATCH_SET | WL_POSTMASTER_DEATH | WL_TIMEOUT,
+                     50 /* arbitrary timeout of 50ms*/, WAIT_EVENT_BGWORKER_SHUTDOWN);
+
+      if (rc & WL_POSTMASTER_DEATH) {
+        break;
+      }
+
+      ResetLatch(MyLatch);
+    }
+  }
+}
+
+#if PG_MAJORVERSION_NUM < 16
+static void xact_request_bgworker_stop(XactEvent event, void *arg);
+static void unregister_xact_request_bgworker_stop(void *arg) {
+  UnregisterXactCallback(xact_request_bgworker_stop, arg);
+}
+#endif
+
+static void xact_request_bgworker_stop(XactEvent event, void *arg) {
+  struct bgworker_request_payload *payload = (struct bgworker_request_payload *)arg;
+  if (event == XACT_EVENT_COMMIT) {
+    if (payload->options.timing == omni_timing_at_commit) {
+      do_stop_bgworker(arg);
+    } else if (payload->options.timing == omni_timing_after_commit) {
+      MemoryContextCallback *cb = MemoryContextAlloc(TopTransactionContext, sizeof(*cb));
+      cb->func = do_stop_bgworker;
+      cb->arg = arg;
+      MemoryContextRegisterResetCallback(TopTransactionContext, cb);
+    }
+
+    // Unregister this callback
+#if PG_MAJORVERSION_NUM >= 16
+    UnregisterXactCallback(xact_request_bgworker_stop, arg);
+#else
+    {
+      MemoryContextCallback *cb = MemoryContextAlloc(TopTransactionContext, sizeof(*cb));
+      cb->func = unregister_xact_request_bgworker_stop;
+      cb->arg = arg;
+      MemoryContextRegisterResetCallback(TopTransactionContext, cb);
+    }
+#endif
+  }
+}
+
+void request_bgworker_termination(const omni_handle *handle, omni_bgworker_handle *bgworker_handle,
+                                  const omni_bgworker_options options) {
+  struct bgworker_request_payload *payload = MemoryContextAllocExtended(
+      options.timing == omni_timing_immediately ? CurrentMemoryContext : TopTransactionContext,
+      sizeof(*payload), MCXT_ALLOC_ZERO);
+  payload->handle = bgworker_handle;
+  payload->options = options;
+  if (options.timing == omni_timing_immediately) {
+    do_stop_bgworker(payload);
+  } else {
+    RegisterXactCallback(xact_request_bgworker_stop, payload);
   }
 }
 

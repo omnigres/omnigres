@@ -12,7 +12,6 @@
 #include <fmgr.h>
 // clang-format on
 
-#include <omni/omni_utils.h>
 #include <omni/omni_v0.h>
 
 Oid http_method_oid();
@@ -55,7 +54,7 @@ static const char *OMNI_HTTPD_GUC_NUM_HTTP_WORKERS =
 extern bool IsOmniHttpdWorker;
 
 extern pg_atomic_uint32 *semaphore;
-extern OmniBackgroundWorkerHandle *master_worker_bgw;
+extern omni_bgworker_handle *master_worker_bgw;
 
 extern bool BackendInitialized;
 
