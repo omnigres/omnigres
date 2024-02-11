@@ -104,6 +104,19 @@ jobs:
     - name: Package extensions
       run: cmake --build ${{github.workspace}}/build --parallel --target package_extensions
 
+    - name: Get changed files using a different base SHA
+      if: github.event_name != 'push'
+      id: changed-files
+      uses: tj-actions/changed-files@v42
+      with:
+        base_sha: ${{ github.event.pull_request.base.sha }}
+        dir_names: true
+
+    - name: print changed directories
+      if: github.event_name != 'push'
+      run: |
+        echo "changed files: ${{ steps.changed-files..outputs.all_changed_files }}"
+
     - name: Prepare extension files for s3 upload
       working-directory: ${{ github.workspace }}/build
       run: |
