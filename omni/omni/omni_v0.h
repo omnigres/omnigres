@@ -108,8 +108,8 @@ void _Omni_unload(const omni_handle *handle);
  * @param data Extra parameter passed through `allocate_shmem`
  * @param allocated True when the area was allocated in this call, false if it was found
  */
-typedef void (*allocate_shmem_callback_function)(const omni_handle *handle, void *ptr, void *data,
-                                                 bool allocated);
+typedef void (*omni_allocate_shmem_callback_function)(const omni_handle *handle, void *ptr,
+                                                      void *data, bool allocated);
 /**
  * @brief Shared memory allocation function
  *
@@ -123,7 +123,8 @@ typedef void (*allocate_shmem_callback_function)(const omni_handle *handle, void
  *
  */
 typedef void *(*omni_allocate_shmem_function)(const omni_handle *handle, const char *name,
-                                              size_t size, allocate_shmem_callback_function init,
+                                              size_t size,
+                                              omni_allocate_shmem_callback_function init,
                                               void *data, bool *found);
 
 /**
@@ -144,8 +145,8 @@ typedef void (*omni_deallocate_shmem_function)(const omni_handle *handle, const 
  * @param handle Handle passed by the loader
  * @param name Name of the lock. Must be static or allocated under a top memory context
  */
-typedef void (*register_lwlock_function)(const omni_handle *handle, LWLock *lock, const char *name,
-                                         bool initialize);
+typedef void (*omni_register_lwlock_function)(const omni_handle *handle, LWLock *lock,
+                                              const char *name, bool initialize);
 
 /**
  * @brief Unregister a lock
@@ -155,7 +156,7 @@ typedef void (*register_lwlock_function)(const omni_handle *handle, LWLock *lock
  * Would be typically called from `_Omni_unload` to ensure it is called once, when all backends
  * have deinitialized.
  */
-typedef void (*unregister_lwlock_function)(const omni_handle *handle, LWLock *lock);
+typedef void (*omni_unregister_lwlock_function)(const omni_handle *handle, LWLock *lock);
 
 typedef struct omni_handle omni_handle;
 
@@ -359,14 +360,14 @@ typedef struct omni_bgworker_handle {
   bool registered;
 } omni_bgworker_handle;
 
-typedef void (*request_bgworker_start_function)(const omni_handle *handle,
-                                                BackgroundWorker *bgworker,
-                                                omni_bgworker_handle *bgworker_handle,
-                                                const omni_bgworker_options options);
+typedef void (*omni_request_bgworker_start_function)(const omni_handle *handle,
+                                                     BackgroundWorker *bgworker,
+                                                     omni_bgworker_handle *bgworker_handle,
+                                                     const omni_bgworker_options options);
 
-typedef void (*request_bgworker_termination_function)(const omni_handle *handle,
-                                                      omni_bgworker_handle *bgworker_handle,
-                                                      const omni_bgworker_options options);
+typedef void (*omni_request_bgworker_termination_function)(const omni_handle *handle,
+                                                           omni_bgworker_handle *bgworker_handle,
+                                                           const omni_bgworker_options options);
 
 /**
  * @brief Handle provided by the loader
@@ -421,11 +422,11 @@ typedef struct omni_handle {
 
   declare_guc_variable_function declare_guc_variable;
 
-  request_bgworker_start_function request_bgworker_start;
-  request_bgworker_termination_function request_bgworker_termination;
+  omni_request_bgworker_start_function request_bgworker_start;
+  omni_request_bgworker_termination_function request_bgworker_termination;
 
-  register_lwlock_function register_lwlock;
-  unregister_lwlock_function unregister_lwlock;
+  omni_register_lwlock_function register_lwlock;
+  omni_unregister_lwlock_function unregister_lwlock;
 
 } omni_handle;
 

@@ -123,7 +123,7 @@ void _Omni_init(const omni_handle *handle) {
                                      128, init_strcpy, "hello", &found);
 
   mylock = handle->allocate_shmem(handle, "mylock", sizeof(LWLock),
-                                  (allocate_shmem_callback_function)handle->register_lwlock,
+                                  (omni_allocate_shmem_callback_function)handle->register_lwlock,
                                   "mylock", &found);
 
   {

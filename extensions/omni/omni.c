@@ -148,7 +148,7 @@ MODULE_FUNCTION void ensure_backend_initialized(void) {
 
 static void register_hook(const omni_handle *handle, omni_hook *hook);
 static void *allocate_shmem(const omni_handle *handle, const char *name, size_t size,
-                            allocate_shmem_callback_function init, void *data, bool *found);
+                            omni_allocate_shmem_callback_function init, void *data, bool *found);
 static void *allocate_shmem_0_0(const omni_handle *handle, const char *name, size_t size,
                                 bool *found) {
   return allocate_shmem(handle, name, size, NULL, NULL, found);
@@ -402,8 +402,8 @@ static struct dsa_ref {
   dsa_handle handle;
   dsa_pointer pointer;
 } find_or_allocate_shmem_dsa(const omni_handle *handle, const char *name, size_t size,
-                             allocate_shmem_callback_function init, void *data, HASHACTION action,
-                             bool *found) {
+                             omni_allocate_shmem_callback_function init, void *data,
+                             HASHACTION action, bool *found) {
   if (strlen(name) > NAMEDATALEN - 1) {
     ereport(ERROR, errmsg("name must be under 64 bytes long"));
   }
@@ -467,8 +467,8 @@ static struct dsa_ref {
 }
 
 static void *find_or_allocate_shmem(const omni_handle *handle, const char *name, size_t size,
-                                    allocate_shmem_callback_function init, void *data, bool find,
-                                    bool *found) {
+                                    omni_allocate_shmem_callback_function init, void *data,
+                                    bool find, bool *found) {
   void *ptr;
   struct dsa_ref ref = find_or_allocate_shmem_dsa(handle, name, size, init, data,
                                                   find ? HASH_FIND : HASH_ENTER, found);
@@ -483,7 +483,7 @@ static void *find_or_allocate_shmem(const omni_handle *handle, const char *name,
 }
 
 static void *allocate_shmem(const omni_handle *handle, const char *name, size_t size,
-                            allocate_shmem_callback_function init, void *data, bool *found) {
+                            omni_allocate_shmem_callback_function init, void *data, bool *found) {
   return find_or_allocate_shmem(handle, name, size, init, data, false, found);
 }
 
