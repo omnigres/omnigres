@@ -5,6 +5,8 @@
 
 #include "event_loop.h"
 
+// hello
+
 #ifdef POSTGRES_H
 #error "event_loop.c can't use any Postgres API"
 #endif
