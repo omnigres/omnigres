@@ -59,7 +59,8 @@ tests:
          from
              omni.shmem_allocations
          where
-             name not like 'workers:%'
+             name not like 'workers:%' and
+             name not like 'mylock'
          order by
              name
   results:

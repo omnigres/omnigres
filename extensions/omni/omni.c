@@ -148,7 +148,7 @@ MODULE_FUNCTION void ensure_backend_initialized(void) {
 
 static void register_hook(const omni_handle *handle, omni_hook *hook);
 static void *allocate_shmem(const omni_handle *handle, const char *name, size_t size,
-                            void (*init)(void *ptr, void *data), void *data, bool *found);
+                            allocate_shmem_callback_function init, void *data, bool *found);
 static void *allocate_shmem_0_0(const omni_handle *handle, const char *name, size_t size,
                                 bool *found) {
   return allocate_shmem(handle, name, size, NULL, NULL, found);
@@ -164,6 +164,37 @@ static void request_bgworker_start(const omni_handle *handle, BackgroundWorker *
 static void request_bgworker_termination(const omni_handle *handle,
                                          omni_bgworker_handle *bgworker_handle,
                                          const omni_bgworker_options options);
+
+static void register_lwlock(const omni_handle *handle, LWLock *lock, const char *name,
+                            bool initialize) {
+  // TODO: unused tranche id reuse
+  int tranche_id = initialize ? LWLockNewTrancheId() : lock->tranche;
+  LWLockRegisterTranche(tranche_id, name);
+  system(psprintf("syslog -s -k Facility com.apple.console -k Level notice -k Message 'omnigres "
+                  "register %d %p %d %s'",
+                  initialize, lock, tranche_id, name));
+
+  if (initialize) {
+    LWLockInitialize(lock, tranche_id);
+  }
+}
+
+#if PG_MAJORVERSION_NUM >= 13 && PG_MAJORVERSION_NUM <= 16
+#define LW_FLAG_HAS_WAITERS ((uint32)1 << 30)
+#define LW_FLAG_RELEASE_OK ((uint32)1 << 29)
+#define LW_FLAG_LOCKED ((uint32)1 << 28)
+#else
+#error "Check these constants for this version of Postgres"
+#endif
+
+static void unregister_lwlock(const omni_handle *handle, LWLock *lock) {
+  uint32 state = pg_atomic_read_u32(&lock->state);
+  if ((state & LW_FLAG_RELEASE_OK) == 0) {
+    ereport(ERROR, errmsg("lock can't be unregistered"),
+            errdetail("it is not marked as ok to release"));
+  }
+  // TODO: schedule tranche id for reuse
+}
 
 /*
  * Substitute for any macros appearing in the given string.
@@ -236,6 +267,8 @@ static List *consider_probin(HeapTuple tp) {
               handle->handle.declare_guc_variable = declare_guc_variable;
               handle->handle.request_bgworker_start = request_bgworker_start;
               handle->handle.request_bgworker_termination = request_bgworker_termination;
+              handle->handle.register_lwlock = register_lwlock;
+              handle->handle.unregister_lwlock = unregister_lwlock;
               entry->dsa = handle->dsa = dsa_get_handle(dsa);
               entry->pointer = ptr;
               handle->id = entry->id = id;
@@ -369,7 +402,7 @@ static struct dsa_ref {
   dsa_handle handle;
   dsa_pointer pointer;
 } find_or_allocate_shmem_dsa(const omni_handle *handle, const char *name, size_t size,
-                             void (*init)(void *ptr, void *data), void *data, HASHACTION action,
+                             allocate_shmem_callback_function init, void *data, HASHACTION action,
                              bool *found) {
   if (strlen(name) > NAMEDATALEN - 1) {
     ereport(ERROR, errmsg("name must be under 64 bytes long"));
@@ -406,8 +439,18 @@ static struct dsa_ref {
       alloc->size = size;
 
       if (init != NULL) {
-        init(dsa_get_address(dsa, alloc->dsa_pointer), data);
+        if (phandle->magic.revision < 3) {
+          void (*init_rev2)(void *ptr, void *data) = (void (*)(void *ptr, void *data))init;
+          init_rev2(dsa_get_address(dsa, alloc->dsa_pointer), data);
+        } else {
+          init(handle, dsa_get_address(dsa, alloc->dsa_pointer), data, true);
+        }
       }
+    }
+  } else if (init != NULL) {
+    if (phandle->magic.revision >= 3) {
+      init(handle, dsa_get_address(dsa_handle_to_area(alloc->dsa_handle), alloc->dsa_pointer), data,
+           false);
     }
   }
   struct dsa_ref result =
@@ -424,7 +467,7 @@ static struct dsa_ref {
 }
 
 static void *find_or_allocate_shmem(const omni_handle *handle, const char *name, size_t size,
-                                    void (*init)(void *ptr, void *data), void *data, bool find,
+                                    allocate_shmem_callback_function init, void *data, bool find,
                                     bool *found) {
   void *ptr;
   struct dsa_ref ref = find_or_allocate_shmem_dsa(handle, name, size, init, data,
@@ -440,7 +483,7 @@ static void *find_or_allocate_shmem(const omni_handle *handle, const char *name,
 }
 
 static void *allocate_shmem(const omni_handle *handle, const char *name, size_t size,
-                            void (*init)(void *ptr, void *data), void *data, bool *found) {
+                            allocate_shmem_callback_function init, void *data, bool *found) {
   return find_or_allocate_shmem(handle, name, size, init, data, false, found);
 }
 

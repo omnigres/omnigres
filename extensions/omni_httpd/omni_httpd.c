@@ -115,22 +115,29 @@ omni_bgworker_handle *master_worker_bgw;
 
 static int num_http_workers_holder;
 
-static void init_semaphore(void *ptr, void *arg) { pg_atomic_init_u32((pg_atomic_uint32 *)ptr, 0); }
+static void init_semaphore(const omni_handle *handle, void *ptr, void *arg, bool allocated) {
+  if (allocated) {
+    pg_atomic_init_u32((pg_atomic_uint32 *)ptr, 0);
+  }
+}
 
-static void register_start_master_worker(void *ptr, void *arg) {
-  omni_handle *handle = (omni_handle *)arg;
-  // Prepares and registers the main background worker
-  BackgroundWorker bgw = {.bgw_name = "omni_httpd",
-                          .bgw_type = "omni_httpd",
-                          .bgw_function_name = "master_worker",
-                          .bgw_restart_time = 0,
-                          .bgw_flags = BGWORKER_SHMEM_ACCESS | BGWORKER_BACKEND_DATABASE_CONNECTION,
-                          .bgw_main_arg = MyDatabaseId,
-                          .bgw_notify_pid = MyProcPid,
-                          .bgw_start_time = BgWorkerStart_RecoveryFinished};
-  strncpy(bgw.bgw_library_name, handle->get_library_name(handle), BGW_MAXLEN);
-  handle->request_bgworker_start(handle, &bgw, (omni_bgworker_handle *)ptr,
-                                 (omni_bgworker_options){.timing = omni_timing_after_commit});
+static void register_start_master_worker(const omni_handle *handle, void *ptr, void *arg,
+                                         bool allocated) {
+  if (allocated) {
+    // Prepares and registers the main background worker
+    BackgroundWorker bgw = {.bgw_name = "omni_httpd",
+                            .bgw_type = "omni_httpd",
+                            .bgw_function_name = "master_worker",
+                            .bgw_restart_time = 0,
+                            .bgw_flags =
+                                BGWORKER_SHMEM_ACCESS | BGWORKER_BACKEND_DATABASE_CONNECTION,
+                            .bgw_main_arg = MyDatabaseId,
+                            .bgw_notify_pid = MyProcPid,
+                            .bgw_start_time = BgWorkerStart_RecoveryFinished};
+    strncpy(bgw.bgw_library_name, handle->get_library_name(handle), BGW_MAXLEN);
+    handle->request_bgworker_start(handle, &bgw, (omni_bgworker_handle *)ptr,
+                                   (omni_bgworker_options){.timing = omni_timing_after_commit});
+  }
 }
 
 bool BackendInitialized = false;
@@ -174,7 +181,7 @@ void _Omni_init(const omni_handle *handle) {
   bool worker_bgw_found;
   master_worker_bgw =
       handle->allocate_shmem(handle, OMNI_HTTPD_MASTER_WORKER, sizeof(*master_worker_bgw),
-                             register_start_master_worker, (void *)handle, &worker_bgw_found);
+                             register_start_master_worker, NULL, &worker_bgw_found);
 }
 
 void _Omni_deinit(const omni_handle *handle) {

@@ -8,6 +8,7 @@
 #include <commands/dbcommands.h>
 #include <miscadmin.h>
 #include <storage/latch.h>
+#include <storage/lwlock.h>
 #include <utils/builtins.h>
 #if PG_MAJORVERSION_NUM >= 14
 #include <utils/wait_event.h>
@@ -78,21 +79,30 @@ int *GUC_enum;
 const struct config_enum_entry GUC_enum_options[3] = {
     {.name = "test", .val = 1}, {.name = "test1", .val = 2}, {.name = NULL}};
 
-static void register_bgworker(void *ptr, void *arg) {
-  const omni_handle *handle = (const omni_handle *)arg;
-  BackgroundWorker worker = {.bgw_name = "test_local_worker",
-                             .bgw_type = "test_local_worker",
-                             .bgw_flags =
-                                 BGWORKER_SHMEM_ACCESS | BGWORKER_BACKEND_DATABASE_CONNECTION,
-                             .bgw_start_time = BgWorkerStart_RecoveryFinished,
-                             .bgw_restart_time = BGW_NEVER_RESTART,
-                             .bgw_function_name = "test_worker",
-                             .bgw_main_arg = ObjectIdGetDatum(MyDatabaseId),
-                             .bgw_notify_pid = MyProcPid};
-  strncpy(worker.bgw_library_name, handle->get_library_name(handle), BGW_MAXLEN);
-  omni_bgworker_handle *ptr_handle = (omni_bgworker_handle *)ptr;
-  handle->request_bgworker_start(handle, &worker, ptr_handle,
-                                 (omni_bgworker_options){.timing = omni_timing_immediately});
+static void register_bgworker(const omni_handle *handle, void *ptr, void *arg, bool allocated) {
+  if (allocated) {
+    BackgroundWorker worker = {.bgw_name = "test_local_worker",
+                               .bgw_type = "test_local_worker",
+                               .bgw_flags =
+                                   BGWORKER_SHMEM_ACCESS | BGWORKER_BACKEND_DATABASE_CONNECTION,
+                               .bgw_start_time = BgWorkerStart_RecoveryFinished,
+                               .bgw_restart_time = BGW_NEVER_RESTART,
+                               .bgw_function_name = "test_worker",
+                               .bgw_main_arg = ObjectIdGetDatum(MyDatabaseId),
+                               .bgw_notify_pid = MyProcPid};
+    strncpy(worker.bgw_library_name, handle->get_library_name(handle), BGW_MAXLEN);
+    omni_bgworker_handle *ptr_handle = (omni_bgworker_handle *)ptr;
+    handle->request_bgworker_start(handle, &worker, ptr_handle,
+                                   (omni_bgworker_options){.timing = omni_timing_immediately});
+  }
+}
+
+static LWLock *mylock;
+
+static void init_strcpy(const omni_handle *handle, void *ptr, void *data, bool allocated) {
+  if (allocated) {
+    strcpy((char *)ptr, (char *)data);
+  }
 }
 
 void _Omni_init(const omni_handle *handle) {
@@ -106,11 +116,15 @@ void _Omni_init(const omni_handle *handle) {
 
   shmem_test =
       (char *)handle->allocate_shmem(handle, psprintf("test:%s", get_database_name(MyDatabaseId)),
-                                     128, (void (*)(void *, void *))strcpy, "hello", &found);
+                                     128, init_strcpy, "hello", &found);
 
   shmem_test1 =
       (char *)handle->allocate_shmem(handle, psprintf("test1:%s", get_database_name(MyDatabaseId)),
-                                     128, (void (*)(void *, void *))strcpy, "hello", &found);
+                                     128, init_strcpy, "hello", &found);
+
+  mylock = handle->allocate_shmem(handle, "mylock", sizeof(LWLock),
+                                  (allocate_shmem_callback_function)handle->register_lwlock,
+                                  "mylock", &found);
 
   {
     // Register a per-database worker
@@ -119,7 +133,7 @@ void _Omni_init(const omni_handle *handle) {
     bool found;
     local_bgw_handle = (omni_bgworker_handle *)handle->allocate_shmem(
         handle, psprintf("workers:%s", get_database_name(MyDatabaseId)), sizeof(*local_bgw_handle),
-        register_bgworker, (void *)handle, &found);
+        register_bgworker, NULL, &found);
   }
 
   omni_guc_variable guc_bool = {.name = "omni_test.bool",
@@ -162,6 +176,8 @@ void _Omni_init(const omni_handle *handle) {
 
   saved_handle = handle; // not always the best idea, but...
 }
+
+void _Omni_unload(const omni_handle *handle) { handle->unregister_lwlock(handle, mylock); }
 
 PG_FUNCTION_INFO_V1(hello);
 Datum hello(PG_FUNCTION_ARGS) { PG_RETURN_CSTRING(hello_message); }
@@ -221,3 +237,23 @@ Datum guc_string(PG_FUNCTION_ARGS) { PG_RETURN_CSTRING(*GUC_string); }
 
 PG_FUNCTION_INFO_V1(guc_enum);
 Datum guc_enum(PG_FUNCTION_ARGS) { PG_RETURN_INT32(*GUC_enum); }
+
+PG_FUNCTION_INFO_V1(lock_mylock);
+Datum lock_mylock(PG_FUNCTION_ARGS) {
+  LWLockAcquire(mylock, LW_EXCLUSIVE);
+  PG_RETURN_VOID();
+}
+
+PG_FUNCTION_INFO_V1(unlock_mylock);
+Datum unlock_mylock(PG_FUNCTION_ARGS) {
+  LWLockRelease(mylock);
+  PG_RETURN_VOID();
+}
+
+PG_FUNCTION_INFO_V1(mylock_tranche_id);
+Datum mylock_tranche_id(PG_FUNCTION_ARGS) { PG_RETURN_INT16(mylock->tranche); }
+
+PG_FUNCTION_INFO_V1(lwlock_identifier);
+Datum lwlock_identifier(PG_FUNCTION_ARGS) {
+  PG_RETURN_CSTRING(GetLWLockIdentifier(PG_WAIT_LWLOCK, PG_GETARG_INT16(0)));
+}

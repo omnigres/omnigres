@@ -14,6 +14,7 @@
 #include <libpq/crypt.h>
 #include <nodes/pathnodes.h>
 #include <nodes/plannodes.h>
+#include <storage/lwlock.h>
 #include <tcop/utility.h>
 #include <utils/guc.h>
 #include <utils/guc_tables.h>
@@ -46,7 +47,7 @@ typedef struct {
 StaticAssertDecl(sizeof(omni_magic) <= UINT16_MAX, "omni_magic should fit into 16 bits");
 
 #define OMNI_INTERFACE_VERSION 0
-#define OMNI_INTERFACE_REVISION 2
+#define OMNI_INTERFACE_REVISION 3
 
 typedef struct omni_handle omni_handle;
 
@@ -100,6 +101,16 @@ void _Omni_unload(const omni_handle *handle);
   omni_magic *_Omni_magic() { return &__Omni_magic; }
 
 /**
+ * @brief Shared memory allocation callback
+ *
+ * @param handle Handle passed by the loader
+ * @param ptr Allocation
+ * @param data Extra parameter passed through `allocate_shmem`
+ * @param allocated True when the area was allocated in this call, false if it was found
+ */
+typedef void (*allocate_shmem_callback_function)(const omni_handle *handle, void *ptr, void *data,
+                                                 bool allocated);
+/**
  * @brief Shared memory allocation function
  *
  * @param handle Handle passed by the loader
@@ -112,17 +123,39 @@ void _Omni_unload(const omni_handle *handle);
  *
  */
 typedef void *(*omni_allocate_shmem_function)(const omni_handle *handle, const char *name,
-                                              size_t size, void (*init)(void *ptr, void *data),
+                                              size_t size, allocate_shmem_callback_function init,
                                               void *data, bool *found);
 
 /**
  * @brief Shared memory deallocation functon
+ *
  * @param handle Handle passed by the loader
  * @param name Name this allocation was registered under
  * @param found Pointer to a flag indicating if the allocation was found
  */
 typedef void (*omni_deallocate_shmem_function)(const omni_handle *handle, const char *name,
                                                bool *found);
+
+/**
+ * @brief Register a lock under a given name
+ *
+ * It is guaranteed to have the same under every backend.
+ *
+ * @param handle Handle passed by the loader
+ * @param name Name of the lock. Must be static or allocated under a top memory context
+ */
+typedef void (*register_lwlock_function)(const omni_handle *handle, LWLock *lock, const char *name,
+                                         bool initialize);
+
+/**
+ * @brief Unregister a lock
+ *
+ * This will allow to reclaim tranche ID for future use (subject to loader's support and algorithm)
+ *
+ * Would be typically called from `_Omni_unload` to ensure it is called once, when all backends
+ * have deinitialized.
+ */
+typedef void (*unregister_lwlock_function)(const omni_handle *handle, LWLock *lock);
 
 typedef struct omni_handle omni_handle;
 
@@ -390,6 +423,9 @@ typedef struct omni_handle {
 
   request_bgworker_start_function request_bgworker_start;
   request_bgworker_termination_function request_bgworker_termination;
+
+  register_lwlock_function register_lwlock;
+  unregister_lwlock_function unregister_lwlock;
 
 } omni_handle;
 

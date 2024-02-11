@@ -57,3 +57,23 @@ create function guc_enum() returns int
     language c
     volatile as
 'MODULE_PATHNAME';
+
+create function lock_mylock() returns void
+    language c
+    volatile as
+'MODULE_PATHNAME';
+
+create function unlock_mylock() returns void
+    language c
+    volatile as
+'MODULE_PATHNAME';
+
+create function mylock_tranche_id() returns int2
+    language c
+    volatile as
+'MODULE_PATHNAME';
+
+create function lwlock_identifier(int2) returns cstring
+    language c
+    volatile as
+'MODULE_PATHNAME';
