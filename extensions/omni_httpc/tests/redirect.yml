@@ -1,0 +1,169 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_EXT_SO
+    max_worker_processes: 64
+  init:
+    - set session omni_httpd.init_port = 13337
+    - create extension omni_httpd cascade
+    - create extension omni_httpc cascade
+    - call omni_httpd.wait_for_configuration_reloads(1)
+    - |
+      update omni_httpd.handlers set query = $$
+        select omni_httpd.http_response(json_build_object(
+        'method', request.method,
+        'path', request.path,
+        'qs', request.query_string,
+        'headers', (select
+                            json_agg(json_build_object(h.name, h.value))
+                            from
+                                unnest(request.headers) h
+                            where h.name not in ('user-agent')
+                            ),
+        'body', convert_from(request.body, 'utf-8')
+        ), 
+        headers =>
+          case
+                  when
+                      request.query_string = 'q=absolute_url'
+                  then
+                      ARRAY[omni_http.http_header(
+                          'Location',
+                          'http://127.0.0.1:' || (select effective_port from omni_httpd.listeners) || '/test?q=destination')]
+                  when
+                      request.query_string = 'q=relative_url_absolute_path'
+                  then
+                      ARRAY[omni_http.http_header(
+                          'Location',
+                          '/test?q=destination')]
+      
+                  when
+                      request.query_string = 'q=relative_url_relative_path'
+                  then
+                      ARRAY[omni_http.http_header(
+                          'Location',
+                          'path1/path2?q=destination')]
+                  else NULL
+          end,
+        status => case
+          when 
+              request.query_string = 'q=absolute_url' or 
+              request.query_string = 'q=relative_url_absolute_path' or 
+              request.query_string = 'q=relative_url_relative_path' then 302 else 200
+          end
+        ) from request
+      $$
+    - call omni_httpd.wait_for_configuration_reloads(1)
+
+tests:
+  - name: redirect should not be followed if follow_redirects is false
+    query: |
+      with response as (select * from omni_httpc.http_execute_with_options(
+             omni_httpc.http_execute_options(follow_redirects => false),
+             omni_httpc.http_request('http://127.0.0.1:' || (select effective_port from omni_httpd.listeners) || '/test?q=absolute_url'))
+            )
+      select
+        response.status,
+        (select
+             json_agg(json_build_object(h.name, h.value))
+         from
+             unnest(response.headers) h
+         where
+             h.name not in ('server', 'content-length', 'connection')) as headers,
+        convert_from(response.body, 'utf-8')::json as body
+        from response
+    results:
+    - status: 302
+      headers:
+      - location: 'http://127.0.0.1:13337/test?q=destination'
+      - content-type: application/json
+      body:
+        method: GET
+        qs: q=absolute_url
+        path: /test
+        headers: null
+        body: ""
+
+  - name: redirect should be followed if follow_redirects is true
+    query: |
+      with response as (select * from omni_httpc.http_execute_with_options(
+          omni_httpc.http_execute_options(follow_redirects => true),
+          omni_httpc.http_request('http://127.0.0.1:' || (select effective_port from omni_httpd.listeners) || '/test?q=absolute_url'))
+      )
+      select
+          response.status,
+          (select
+               json_agg(json_build_object(h.name, h.value))
+           from
+               unnest(response.headers) h
+           where
+               h.name not in ('server', 'content-length', 'connection')) as headers,
+          convert_from(response.body, 'utf-8')::json as body
+      from response
+    results:
+      - status: 200
+        headers:
+          - content-type: application/json
+        body:
+          method: GET
+          qs: q=destination
+          path: /test
+          headers:
+            - connection: keep-alive
+          body: ""
+
+  - name: redirect should be followed if follow_redirects is true
+    query: |
+      with response as (select * from omni_httpc.http_execute_with_options(
+              omni_httpc.http_execute_options(follow_redirects => true),
+              omni_httpc.http_request('http://127.0.0.1:' || (select effective_port from omni_httpd.listeners) || '/test?q=relative_url_absolute_path'))
+      )
+      select
+          response.status,
+          (select
+               json_agg(json_build_object(h.name, h.value))
+           from
+               unnest(response.headers) h
+           where
+               h.name not in ('server', 'content-length', 'connection')) as headers,
+          convert_from(response.body, 'utf-8')::json as body
+      from response
+    results:
+      - status: 200
+        headers:
+          - content-type: application/json
+        body:
+          method: GET
+          qs: q=destination
+          path: /test
+          headers:
+            - connection: keep-alive
+          body: ""
+
+  - name:
+    query: |
+      with response as (select * from omni_httpc.http_execute_with_options(
+              omni_httpc.http_execute_options(follow_redirects => true),
+              omni_httpc.http_request('http://127.0.0.1:' || (select effective_port from omni_httpd.listeners) || '/test?q=relative_url_relative_path'))
+      )
+      select
+          response.status,
+          (select
+               json_agg(json_build_object(h.name, h.value))
+           from
+               unnest(response.headers) h
+           where
+               h.name not in ('server', 'content-length', 'connection')) as headers,
+          convert_from(response.body, 'utf-8')::json as body
+      from response
+    results:
+      - status: 200
+        headers:
+          - content-type: application/json
+        body:
+          method: GET
+          qs: q=destination
+          path: /path1/path2
+          headers:
+            - connection: keep-alive
+          body: ""

@@ -330,7 +330,7 @@ static h2o_httpclient_body_cb on_head(h2o_httpclient_t *client, const char *errs
         new_req->request_body = req->request_body;
       } else {
         // omit the request body
-        // new_req->request_body = h2o_iovec_init(NULL, 0);
+//        new_req->request_body = h2o_iovec_init(NULL, 0);
         // if the method is POST, override the method as GET
         if (h2o_memis(req->method.base, req->method.len, H2O_STRLIT("POST"))) {
           new_req->method = h2o_iovec_init(H2O_STRLIT("GET"));
@@ -340,12 +340,19 @@ static h2o_httpclient_body_cb on_head(h2o_httpclient_t *client, const char *errs
       }
 
       h2o_url_t url;
-      // TODO: assume absolute paths only for now
-      if (h2o_url_parse(client->pool, headers_vec->entries[location_index].value.base,
-                        headers_vec->entries[location_index].value.len, &url) == -1) {
-        // TODO how to handle this?
-        ereport(ERROR, errmsg("location header value not a valid URL`"));
-        return NULL;
+      h2o_iovec_t location_header = headers_vec->entries[location_index].value;
+      // try to parse the URL as an absolute URL
+      int result = h2o_url_parse(client->pool, location_header.base, location_header.len, &url);
+      if (result == -1) {
+        // if the URL is not an absolute URL, treat it as a relative URL
+        h2o_url_t relative_url;
+        result = h2o_url_parse_relative(client->pool, location_header.base, location_header.len, &relative_url);
+        if (result == -1) {
+          ereport(ERROR, errmsg("location header value not a valid URL`"));
+          return NULL;
+        }
+        // resolve the relative URL against the original URL
+        h2o_url_resolve(client->pool, &req->url, &relative_url, &url);
       }
       // mark redirect as followed
       new_req->redirects_left = req->redirects_left - 1;
