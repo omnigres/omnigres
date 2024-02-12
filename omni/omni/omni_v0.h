@@ -128,7 +128,7 @@ typedef void *(*omni_allocate_shmem_function)(const omni_handle *handle, const c
                                               void *data, bool *found);
 
 /**
- * @brief Shared memory deallocation functon
+ * @brief Shared memory deallocation function
  *
  * @param handle Handle passed by the loader
  * @param name Name this allocation was registered under
@@ -136,6 +136,19 @@ typedef void *(*omni_allocate_shmem_function)(const omni_handle *handle, const c
  */
 typedef void (*omni_deallocate_shmem_function)(const omni_handle *handle, const char *name,
                                                bool *found);
+
+/**
+ * @brief Function to lookup previously allocated shared memory
+ *
+ * This function is defined by the loader.
+ *
+ * @param handle handle
+ * @param name name it was registered under
+ * @param found indicates if it was found
+ * @return void* pointer to the allocation, NULL if none found
+ */
+typedef void *(*omni_lookup_shmem_function)(const omni_handle *handle, const char *name,
+                                            bool *found);
 
 /**
  * @brief Register a lock under a given name
@@ -257,6 +270,22 @@ typedef struct {
   char *name;
   bool wrap : 1;
 } omni_hook;
+
+/**
+ * @brief Function to register a hook in a backend
+ *
+ * Best place to register the hook is `_Omni_init`, they hook will be registered in every backend.
+ *
+ * If done in `_Omni_load`, it will be only registered in the backend that caused the module to be
+ * loaded.
+ *
+ * If done during a regular function call, the backend will be only registered in the backend
+ * where it was called.
+ *
+ * @param handle
+ * @param hook
+ */
+typedef void (*omni_register_hook_function)(const omni_handle *handle, omni_hook *hook);
 
 typedef struct {
   int *value;
@@ -381,44 +410,13 @@ typedef struct omni_handle {
    *
    */
   char *(*get_library_name)(const omni_handle *handle);
-  /**
-   * @brief Shared memory allocation function
-   *
-   */
-  omni_allocate_shmem_function allocate_shmem;
 
-  /**
-   * @brief Shared memory deallocation function
-   */
+  omni_allocate_shmem_function allocate_shmem;
   omni_deallocate_shmem_function deallocate_shmem;
 
-  /**
-   * @brief Register a hook in a backend
-   *
-   * Best place to register the hook is `_Omni_init`, they hook will be registered in every backend.
-   *
-   * If done in `_Omni_load`, it will be only registered in the backend that caused the module to be
-   * loaded.
-   *
-   * If done during a regular function call, the backend will be only registered in the backend
-   * where it was called.
-   *
-   * @param handle
-   * @param hook
-   */
-  void (*register_hook)(const omni_handle *handle, omni_hook *hook);
+  omni_register_hook_function register_hook;
 
-  /**
-   * @brief Lookup previously allocated shared memory
-   *
-   * This function is defined by the loader.
-   *
-   * @param handle handle
-   * @param name name it was registered under
-   * @param found indicates if it was found
-   * @return void* pointer to the allocation, NULL if none found
-   */
-  void *(*lookup_shmem)(const omni_handle *handle, const char *name, bool *found);
+  omni_lookup_shmem_function lookup_shmem;
 
   declare_guc_variable_function declare_guc_variable;
 
