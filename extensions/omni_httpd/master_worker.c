@@ -112,7 +112,9 @@ static void on_accept(h2o_socket_t *listener, const char *err) {
   int fd = h2o_socket_get_fd(sock);
   if (send_fds(fd, &sockets) != 0) {
     int e = errno;
-    ereport(WARNING, errmsg("error sending listening socket descriptor: %s", strerror(e)));
+    if (e != EPIPE) {
+      ereport(WARNING, errmsg("error sending listening socket descriptor: %s", strerror(e)));
+    }
   }
   h2o_socket_close(sock);
 }
