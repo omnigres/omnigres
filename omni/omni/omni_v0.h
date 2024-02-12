@@ -47,7 +47,7 @@ typedef struct {
 StaticAssertDecl(sizeof(omni_magic) <= UINT16_MAX, "omni_magic should fit into 16 bits");
 
 #define OMNI_INTERFACE_VERSION 0
-#define OMNI_INTERFACE_REVISION 3
+#define OMNI_INTERFACE_REVISION 4
 
 typedef struct omni_handle omni_handle;
 
@@ -413,10 +413,9 @@ typedef struct omni_handle {
 
   omni_allocate_shmem_function allocate_shmem;
   omni_deallocate_shmem_function deallocate_shmem;
+  omni_lookup_shmem_function lookup_shmem;
 
   omni_register_hook_function register_hook;
-
-  omni_lookup_shmem_function lookup_shmem;
 
   omni_declare_guc_variable_function declare_guc_variable;
 

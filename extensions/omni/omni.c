@@ -257,18 +257,43 @@ static List *consider_probin(HeapTuple tp) {
               handle->magic = *magic;
               pg_atomic_init_u32(&handle->refcount, 0);
               strcpy(handle->path, key);
-              handle->handle.register_hook = register_hook;
-              handle->handle.allocate_shmem = magic->revision == 0
-                                                  ? (omni_allocate_shmem_function)allocate_shmem_0_0
-                                                  : allocate_shmem; // 0A -> 0B
-              handle->handle.deallocate_shmem = deallocate_shmem;
-              handle->handle.lookup_shmem = lookup_shmem;
-              handle->handle.get_library_name = get_library_name;
-              handle->handle.declare_guc_variable = declare_guc_variable;
-              handle->handle.request_bgworker_start = request_bgworker_start;
-              handle->handle.request_bgworker_termination = request_bgworker_termination;
-              handle->handle.register_lwlock = register_lwlock;
-              handle->handle.unregister_lwlock = unregister_lwlock;
+#define set_function_implementations(handle)                                                       \
+  handle->register_hook = register_hook;                                                           \
+  handle->allocate_shmem =                                                                         \
+      magic->revision == 0 ? (omni_allocate_shmem_function)allocate_shmem_0_0 : allocate_shmem;    \
+  handle->deallocate_shmem = deallocate_shmem;                                                     \
+  handle->lookup_shmem = lookup_shmem;                                                             \
+  handle->get_library_name = get_library_name;                                                     \
+  handle->declare_guc_variable = declare_guc_variable;                                             \
+  handle->request_bgworker_start = request_bgworker_start;                                         \
+  handle->request_bgworker_termination = request_bgworker_termination;                             \
+  handle->register_lwlock = register_lwlock;                                                       \
+  handle->unregister_lwlock = unregister_lwlock
+              if (magic->revision < 4) {
+                // In 0.4 (0D), we moved `register_hook` below `lookup_shmem`
+                struct _omni_handle_0r3 {
+                  char *(*get_library_name)(const omni_handle *handle);
+
+                  omni_allocate_shmem_function allocate_shmem;
+                  omni_deallocate_shmem_function deallocate_shmem;
+
+                  omni_register_hook_function register_hook;
+
+                  omni_lookup_shmem_function lookup_shmem;
+
+                  omni_declare_guc_variable_function declare_guc_variable;
+
+                  omni_request_bgworker_start_function request_bgworker_start;
+                  omni_request_bgworker_termination_function request_bgworker_termination;
+
+                  omni_register_lwlock_function register_lwlock;
+                  omni_unregister_lwlock_function unregister_lwlock;
+                };
+
+                set_function_implementations(((struct _omni_handle_0r3 *)&handle->handle));
+              } else {
+                set_function_implementations((&handle->handle));
+              }
               entry->dsa = handle->dsa = dsa_get_handle(dsa);
               entry->pointer = ptr;
               handle->id = entry->id = id;
