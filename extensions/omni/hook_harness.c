@@ -149,7 +149,6 @@ MODULE_FUNCTION void omni_check_password_hook(const char *username, const char *
 }
 
 MODULE_FUNCTION void omni_executor_start_hook(QueryDesc *queryDesc, int eflags) {
-  ensure_backend_initialized();
   load_pending_modules();
 
   iterate_hooks(omni_hook_executor_start, queryDesc, eflags);
@@ -185,7 +184,6 @@ MODULE_FUNCTION void omni_process_utility_hook(PlannedStmt *pstmt, const char *q
   iterate_hooks(omni_hook_process_utility, pstmt, queryString, readOnlyTree, context, params,
                 queryEnv, dest, qc);
 
-  ensure_backend_initialized();
   load_pending_modules();
 }
 
@@ -196,7 +194,6 @@ MODULE_FUNCTION void omni_xact_callback_hook(XactEvent event, void *arg) {
     // so let's bail here as doing otherwise will trip over accessing the database.
     return;
   }
-  ensure_backend_initialized();
   load_pending_modules();
 }
 

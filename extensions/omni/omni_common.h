@@ -155,7 +155,6 @@ DECLARE_MODULE_VARIABLE(int OMNI_DSA_TRANCHE);
 
 MODULE_FUNCTION void init_backend(void *arg);
 
-MODULE_FUNCTION void ensure_backend_initialized(void);
 MODULE_FUNCTION void load_pending_modules();
 
 MODULE_FUNCTION bool omni_needs_fmgr_hook(Oid fn_oid);

@@ -108,7 +108,7 @@ static inline void initialize_omni_modules() {
   MemoryContextSwitchTo(oldcontext);
 }
 
-MODULE_FUNCTION void ensure_backend_initialized(void) {
+static void ensure_backend_initialized(void) {
   // Indicates whether we have ever done anything on this backend
   static bool backend_initialized = false;
   if (backend_initialized)
@@ -350,7 +350,7 @@ static List *consider_probin(HeapTuple tp) {
 }
 
 MODULE_FUNCTION void load_pending_modules() {
-  static bool first_time = true;
+  ensure_backend_initialized();
 
   if (IsTransactionState() && backend_force_reload) {
     backend_force_reload = false;
@@ -367,7 +367,6 @@ MODULE_FUNCTION void load_pending_modules() {
       scan->rs_rd->rd_tableam->scan_end(scan);
     }
     table_close(rel, RowExclusiveLock);
-    first_time = false;
 
     List *removed_modules = list_difference_ptr(initialized_modules, loaded_modules);
     ListCell *lc;

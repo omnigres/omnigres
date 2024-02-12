@@ -247,7 +247,6 @@ MODULE_FUNCTION void init_backend(void *arg) {
 
     PushActiveSnapshot(GetTransactionSnapshot());
 
-    ensure_backend_initialized();
     load_pending_modules();
 
     PopActiveSnapshot();
