@@ -370,8 +370,8 @@ typedef struct {
   GucShowHook show_hook;
 } omni_guc_variable;
 
-typedef void (*declare_guc_variable_function)(const omni_handle *handle,
-                                              omni_guc_variable *variable);
+typedef void (*omni_declare_guc_variable_function)(const omni_handle *handle,
+                                                   omni_guc_variable *variable);
 
 typedef enum {
   omni_timing_after_commit = 0,
@@ -418,7 +418,7 @@ typedef struct omni_handle {
 
   omni_lookup_shmem_function lookup_shmem;
 
-  declare_guc_variable_function declare_guc_variable;
+  omni_declare_guc_variable_function declare_guc_variable;
 
   omni_request_bgworker_start_function request_bgworker_start;
   omni_request_bgworker_termination_function request_bgworker_termination;
