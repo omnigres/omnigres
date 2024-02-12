@@ -114,6 +114,11 @@ MODULE_FUNCTION void ensure_backend_initialized(void) {
   if (backend_initialized)
     return;
 
+  // If we're out of any transaction (for example, `ShutdownPostgres` would do that), bail
+  if (!IsTransactionState()) {
+    return;
+  }
+
   LWLockRegisterTranche(OMNI_DSA_TRANCHE, "omni:dsa");
 
   {
