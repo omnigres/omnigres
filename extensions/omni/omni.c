@@ -317,19 +317,34 @@ static List *consider_probin(HeapTuple tp) {
               // If the module was not initialized in this backend, do so
               if (!list_member_ptr(initialized_modules, handle)) {
 
-                // This backend is the first one to load this module
-                if (pg_atomic_add_fetch_u32(&handle->refcount, 1) == 1) {
-                  // Let's also load it if there's a callback
-                  pg_atomic_init_u32(&handle->loaded, 1);
-                  void (*load_fn)(const omni_handle *) = dlsym(dlhandle, "_Omni_load");
-                  if (load_fn != NULL) {
-                    load_fn(&handle->handle);
-                  }
-                }
+                // Create a memory context
+                MemoryContext module_memory_context = AllocSetContextCreate(
+                    TopMemoryContext, "TopMemoryContext/omni", ALLOCSET_DEFAULT_SIZES);
+                // We copy the identifier in the top memory context so that what we reset it
+                // upon deinitialization, the identifier is still valid.
+                MemoryContextSetIdentifier(module_memory_context,
+                                           MemoryContextStrdup(TopMemoryContext, key));
 
-                void (*init_fn)(const omni_handle *) = dlsym(dlhandle, "_Omni_init");
-                if (init_fn != NULL) {
-                  init_fn(&handle->handle);
+                {
+                  // Ensure `_Omni_load` and `_Omni_init` are called in module's memory context
+                  MemoryContext oldcontext = MemoryContextSwitchTo(module_memory_context);
+
+                  // This backend is the first one to load this module
+                  if (pg_atomic_add_fetch_u32(&handle->refcount, 1) == 1) {
+                    // Let's also load it if there's a callback
+                    pg_atomic_init_u32(&handle->loaded, 1);
+                    void (*load_fn)(const omni_handle *) = dlsym(dlhandle, "_Omni_load");
+                    if (load_fn != NULL) {
+                      load_fn(&handle->handle);
+                    }
+                  }
+
+                  void (*init_fn)(const omni_handle *) = dlsym(dlhandle, "_Omni_init");
+                  if (init_fn != NULL) {
+                    init_fn(&handle->handle);
+                  }
+
+                  MemoryContextSwitchTo(oldcontext);
                 }
                 MemoryContext oldcontext = MemoryContextSwitchTo(TopMemoryContext);
                 initialized_modules = list_append_unique_ptr(initialized_modules, handle);
@@ -378,6 +393,7 @@ MODULE_FUNCTION void load_pending_modules() {
 
 static void register_hook(const omni_handle *handle, omni_hook *hook) {
   Assert(hook->type >= 0 && hook->type <= __OMNI_HOOK_TYPE_COUNT);
+  omni_handle_private *phandle = struct_from_member(omni_handle_private, handle, handle);
 
   hook_entry_point *entry_point;
 
@@ -400,7 +416,7 @@ static void register_hook(const omni_handle *handle, omni_hook *hook) {
 
     entry_point->handle = handle;
     entry_point->fn = hook->fn.ptr;
-    entry_point->name = hook->name ? pstrdup(hook->name) : NULL;
+    entry_point->name = hook->name;
     entry_point->state_index = hook_entry_points.entry_points_count[hook->type] - 1;
 
     hook_entry_points.entry_points[hook->type] = entry_point;
@@ -419,7 +435,7 @@ static void register_hook(const omni_handle *handle, omni_hook *hook) {
 
   entry_point->handle = handle;
   entry_point->fn = hook->fn.ptr;
-  entry_point->name = hook->name ? pstrdup(hook->name) : NULL;
+  entry_point->name = hook->name;
   entry_point->state_index = hook_entry_points.entry_points_count[hook->type] - 1;
 }
 
@@ -811,6 +827,15 @@ void request_bgworker_termination(const omni_handle *handle, omni_bgworker_handl
   }
 }
 
+static MemoryContext BackendModuleContextForModule(omni_handle_private *phandle) {
+  for (MemoryContext cxt = TopMemoryContext->firstchild; cxt != NULL; cxt = cxt->nextchild) {
+    if (strcmp(cxt->name, "TopMemoryContext/omni") == 0 && strcmp(cxt->ident, phandle->path) == 0) {
+      return cxt;
+    }
+  }
+  return NULL;
+}
+
 MODULE_FUNCTION void unload_module(omni_handle_private *phandle, bool missing_ok) {
   LWLockAcquire(&(locks + OMNI_LOCK_MODULE)->lock, LW_EXCLUSIVE);
   bool found = false;
@@ -824,14 +849,25 @@ MODULE_FUNCTION void unload_module(omni_handle_private *phandle, bool missing_ok
     }
   }
 
+  MemoryContext module_memory_context = BackendModuleContextForModule(phandle);
+  if (module_memory_context == NULL) {
+    LWLockRelease(&(locks + OMNI_LOCK_MODULE)->lock);
+    ereport(ERROR, errcode(ERRCODE_INTERNAL_ERROR),
+            errmsg("no module memory context found for %s", phandle->path));
+  }
+
   // Decrement the refcount
   pg_atomic_add_fetch_u32(&phandle->refcount, -1);
 
   // Deinitialize this backend
   void *dlhandle = dlopen(phandle->path, RTLD_LAZY);
-  void (*deinit)(const omni_handle *) = dlsym(dlhandle, "_Omni_deinit");
-  if (deinit != NULL) {
-    deinit(&phandle->handle);
+  {
+    MemoryContext oldcontext = MemoryContextSwitchTo(module_memory_context);
+    void (*deinit)(const omni_handle *) = dlsym(dlhandle, "_Omni_deinit");
+    if (deinit != NULL) {
+      deinit(&phandle->handle);
+    }
+    MemoryContextSwitchTo(oldcontext);
   }
   // Exclude the module from this backend
   MemoryContext oldcontext = MemoryContextSwitchTo(TopMemoryContext);
@@ -845,12 +881,17 @@ MODULE_FUNCTION void unload_module(omni_handle_private *phandle, bool missing_ok
   // If it was found and if we were able to capture `loaded` set to `1`
   if (found && pg_atomic_compare_exchange_u32(&phandle->loaded, &loaded, 0)) {
     // Perform unloading
+    MemoryContext oldcontext = MemoryContextSwitchTo(module_memory_context);
     void (*unload)(const omni_handle *) = dlsym(dlhandle, "_Omni_unload");
     if (unload != NULL) {
       unload(&phandle->handle);
     }
+    MemoryContextSwitchTo(oldcontext);
     dlclose(dlhandle);
   }
+  // Insted of deleting the memory context, just release all the space and
+  // children, in case we'll use this module record again
+  MemoryContextReset(module_memory_context);
   // We no longer need the lock
   dshash_release_lock(omni_modules, module);
   LWLockRelease(&(locks + OMNI_LOCK_MODULE)->lock);

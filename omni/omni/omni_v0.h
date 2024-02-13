@@ -56,6 +56,8 @@ typedef struct omni_handle omni_handle;
  *
  * Defined by the extension. Optional but highly recommended.
  *
+ * Will be called in a memory context that is specific to this module.
+ *
  * @param handle Loader handle
  */
 void _Omni_load(const omni_handle *handle);
@@ -65,6 +67,8 @@ void _Omni_load(const omni_handle *handle);
  *
  * Defined by the extension. Optional but highly recommended.
  *
+ * Will be called in a memory context that is specific to this module.
+ *
  * @param handle Loader handle
  */
 void _Omni_init(const omni_handle *handle);
@@ -73,6 +77,8 @@ void _Omni_init(const omni_handle *handle);
  * @brief Extension de-initialization callback, called once per backend
  *
  * Defined by the extension. Optional but highly recommended.
+ *
+ * Will be called in a memory context that is specific to this module.
  *
  * @param handle Loader handle
  */
@@ -85,6 +91,8 @@ void _Omni_deinit(const omni_handle *handle);
  * but is guaranteed to be called once (before another load may take place)
  *
  * Defined by the extension. Optional.
+ *
+ * Will be called in a memory context that is specific to this module.
  *
  * @param handle Loader handle
  */
@@ -283,7 +291,9 @@ typedef struct {
  * where it was called.
  *
  * @param handle
- * @param hook
+ * @param hook Hook to register. `hook` doesn't need to be allocated in a memory context, but
+ * `hook->name` must be allocated either statically or in a context that outlives the module (either
+ * the module's own memory context, or something that would live longer than that)
  */
 typedef void (*omni_register_hook_function)(const omni_handle *handle, omni_hook *hook);
 
