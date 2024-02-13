@@ -480,7 +480,21 @@ static struct dsa_ref {
   if (!*found) {
     if (action == HASH_ENTER || action == HASH_ENTER_NULL) {
       alloc->dsa_handle = dsa_get_handle(dsa);
-      alloc->dsa_pointer = dsa_allocate(dsa, size);
+      uint32 interrupt_holdoff = InterruptHoldoffCount;
+      PG_TRY();
+      { alloc->dsa_pointer = dsa_allocate(dsa, size); }
+      PG_CATCH();
+      {
+        // errfinish sets `InterruptHoldoffCount` to zero as part of its cleanup
+        // and suggests that handlers can save and restore it itself.
+        InterruptHoldoffCount = interrupt_holdoff;
+        // If shared memory allocation fails, remove the record
+        dshash_delete_entry(omni_allocations, alloc);
+        LWLockRelease(&(locks + OMNI_LOCK_ALLOCATION)->lock);
+        // and continue with the error
+        PG_RE_THROW();
+      }
+      PG_END_TRY();
       alloc->size = size;
 
       if (init != NULL) {

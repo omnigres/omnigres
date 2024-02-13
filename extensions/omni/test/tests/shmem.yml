@@ -76,3 +76,16 @@ tests:
   - name: test:yregress
     module_id: 2
     size: 128
+
+- name: bad shared memory allocation doesn't get recorded
+  steps:
+  - query: select omni_test.bad_shmalloc()
+    error: invalid DSA memory alloc request size 18446744073709551615
+  - query: select
+               count(*)
+           from
+               omni.shmem_allocations
+           where
+               name = 'bad_shmalloc'
+    results:
+    - count: 0

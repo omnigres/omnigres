@@ -77,3 +77,8 @@ create function lwlock_identifier(int2) returns cstring
     language c
     volatile as
 'MODULE_PATHNAME';
+
+create function bad_shmalloc() returns void
+    language c
+    volatile as
+'MODULE_PATHNAME';

@@ -257,3 +257,10 @@ PG_FUNCTION_INFO_V1(lwlock_identifier);
 Datum lwlock_identifier(PG_FUNCTION_ARGS) {
   PG_RETURN_CSTRING(GetLWLockIdentifier(PG_WAIT_LWLOCK, PG_GETARG_INT16(0)));
 }
+
+PG_FUNCTION_INFO_V1(bad_shmalloc);
+Datum bad_shmalloc(PG_FUNCTION_ARGS) {
+  bool found;
+  saved_handle->allocate_shmem(saved_handle, "bad_shmalloc", SIZE_MAX, NULL, NULL, &found);
+  PG_RETURN_VOID();
+}
