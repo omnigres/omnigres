@@ -9,15 +9,12 @@
 #include <commands/user.h>
 #include <executor/executor.h>
 #include <miscadmin.h>
-#include <storage/ipc.h>
 #include <storage/latch.h>
 #include <storage/lwlock.h>
-#include <storage/shmem.h>
 #include <utils/builtins.h>
 #include <utils/hsearch.h>
 #include <utils/memutils.h>
 #include <utils/rel.h>
-#include <utils/snapmgr.h>
 #include <utils/syscache.h>
 #if PG_MAJORVERSION_NUM >= 14
 #include <utils/wait_event.h>

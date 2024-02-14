@@ -4,7 +4,6 @@
 // clang-format on
 #include <commands/user.h>
 #include <executor/executor.h>
-#include <storage/lwlock.h>
 
 #include "omni_common.h"
 

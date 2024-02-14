@@ -10,7 +10,6 @@
 #include <storage/ipc.h>
 #include <storage/lwlock.h>
 #include <storage/shmem.h>
-#include <utils/hsearch.h>
 #include <utils/inval.h>
 #include <utils/memutils.h>
 #include <utils/snapmgr.h>

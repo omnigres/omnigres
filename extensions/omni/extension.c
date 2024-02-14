@@ -8,9 +8,7 @@
 #include <catalog/pg_extension.h>
 #include <commands/extension.h>
 #include <executor/executor.h>
-#include <lib/dshash.h>
 #include <miscadmin.h>
-#include <storage/lwlock.h>
 #if PG_MAJORVERSION_NUM >= 16
 #include <utils/conffiles.h>
 #else
