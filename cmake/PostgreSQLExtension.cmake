@@ -245,6 +245,7 @@ function(add_postgresql_extension NAME)
         set_target_properties(
                 ${_ext_TARGET}
                 PROPERTIES
+                OUTPUT_NAME "${NAME}"
                 PREFIX ""
                 SUFFIX "${_suffix}"
                 LINK_FLAGS "${_link_flags}"

@@ -230,4 +230,10 @@ DECLARE_MODULE_VARIABLE(MemoryContext OmniGUCContext);
 
 MODULE_FUNCTION dsa_area *dsa_handle_to_area(dsa_handle handle);
 
+MODULE_FUNCTION void extension_upgrade_hook(omni_hook_handle *handle, PlannedStmt *pstmt,
+                                            const char *queryString, bool readOnlyTree,
+                                            ProcessUtilityContext context, ParamListInfo params,
+                                            QueryEnvironment *queryEnv, DestReceiver *dest,
+                                            QueryCompletion *qc);
+
 #endif // OMNI_COMMON_H

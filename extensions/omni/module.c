@@ -2,17 +2,25 @@
 #include <postgres.h>
 #include <fmgr.h>
 // clang-format on
+#include <access/genam.h>
+#include <catalog/indexing.h>
+#include <commands/extension.h>
 #include <executor/executor.h>
 #include <lib/dshash.h>
 #include <miscadmin.h>
 #include <storage/lwlock.h>
-#include <utils/rel.h>
 
 #include "omni_common.h"
 
 void _Omni_load(const omni_handle *handle) {}
 
-void _Omni_init(const omni_handle *handle) {}
+void _Omni_init(const omni_handle *handle) {
+  omni_hook alter_extension_hook = {.name = "extension upgrade",
+                                    .type = omni_hook_process_utility,
+                                    .fn = {.process_utility = extension_upgrade_hook},
+                                    .wrap = true};
+  handle->register_hook(handle, &alter_extension_hook);
+}
 
 void _Omni_unload(const omni_handle *handle) {}
 
