@@ -25,3 +25,15 @@ tests:
   query: select 1
   notices:
   - run_hook
+
+- name: drop extension in an uncommitted transaction
+  steps:
+  - drop extension omni_test
+  - query: select 1
+    # Hook is not running
+    notices: [ ]
+
+- name: the hook should still stay
+  query: select 1
+  notices:
+  - run_hook

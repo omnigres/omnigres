@@ -177,6 +177,15 @@ void _Omni_init(const omni_handle *handle) {
   saved_handle = handle; // not always the best idea, but...
 }
 
+void _Omni_deinit(const omni_handle *handle) {
+  bool found;
+
+  handle->deallocate_shmem(handle, psprintf("test:%s", get_database_name(MyDatabaseId)), &found);
+  handle->deallocate_shmem(handle, psprintf("test1:%s", get_database_name(MyDatabaseId)), &found);
+  handle->deallocate_shmem(handle, "mylock", &found);
+  handle->deallocate_shmem(handle, psprintf("workers:%s", get_database_name(MyDatabaseId)), &found);
+}
+
 void _Omni_unload(const omni_handle *handle) { handle->unregister_lwlock(handle, mylock); }
 
 PG_FUNCTION_INFO_V1(hello);
