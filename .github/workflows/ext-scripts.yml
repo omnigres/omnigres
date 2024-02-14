@@ -2,7 +2,7 @@ name: Extension scripts
 
 on:
   push:
-    branches: [ "master" ]
+    branches: [ "master", "test-gh-workflows" ]
   pull_request_target:
     branches: [ "master", "**" ]
 
@@ -18,7 +18,7 @@ jobs:
     strategy:
       matrix:
         pgver: [ 16, 15, 14, 13 ]
-        os: [ warp-ubuntu-latest-x64-4x ]
+        os: [ { name: ubuntu, image: warp-ubuntu-latest-x64-4x, arch: x86-64 } ]
         build_type: [ Release ]
       fail-fast: false
 
@@ -26,7 +26,7 @@ jobs:
       AWS_ACCESS_KEY_ID: ${{ secrets.CI_AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.CI_AWS_SECRET_ACCESS_KEY }}
 
-    runs-on: ${{ matrix.os }}
+    runs-on: ${{ matrix.os.image }}
 
     environment: ${{ (github.event_name == 'push' || github.event_name == 'schedule' || contains(fromJSON(vars.AUTO_APPROVED_CONTRIBUTORS), github.event.pull_request.user.login) || contains(fromJSON('["OWNER", "MEMBER"]'), github.event.pull_request.author_association)) && 'master' || 'Integrate Pull Request' }}
 
@@ -47,20 +47,20 @@ jobs:
     # GitHub Action runner won't work when restored in another one since dylds have install_name pointing
     # to the original location. We include the hash of their path into the cache name.
     - name: Get path hash
-      if: matrix.os == 'macos'
+      if: matrix.os.name == 'macos'
       run: |
         echo "PATH_SUFFIX=-$(pwd | sha256sum | awk '{print $1}')" >> $GITHUB_ENV
 
     # On other systems, make it explicitly empty
     - name: Get path hash
-      if: matrix.os != 'macos'
+      if: matrix.os.name != 'macos'
       run: |
         echo "PATH_SUFFIX=" >> $GITHUB_ENV
 
     - uses: actions/cache@v3
       with:
         path: .pg
-        key: ${{ matrix.os }}-pg-${{ matrix.pgver }}-${{ matrix.build_type }}-${{ hashFiles('cmake/FindPostgreSQL.cmake') }}${{ env.PATH_SUFFIX }}
+        key: ${{ matrix.os.image }}-pg-${{ matrix.pgver }}-${{ matrix.build_type }}-${{ hashFiles('cmake/FindPostgreSQL.cmake') }}${{ env.PATH_SUFFIX }}
 
     - uses: actions/cache@v3
       with:
@@ -72,33 +72,148 @@ jobs:
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DPGVER=${{ matrix.pgver }}
 
-    - name: Build inja
-      # (We need it)
-      run: cmake --build ${{github.workspace}}/build --parallel --config ${{matrix.build_type}} --target inja
+    - name: Build
+      run: cmake --build ${{github.workspace}}/build --parallel --config ${{matrix.build_type}}
 
-    - name: Download S3 cache for the Postgres ${{ matrix.pgver }}
-      # We don't sign S3 request here as the bucket is public and we want this to work in
-      # external pull requests
-      run: mkdir -p s3_extensions/packaged && aws --no-sign-request s3 sync s3://omnigres-extensions/${{ matrix.pgver }} s3_extensions/packaged
+    - name: Package extensions
+      run: cmake --build ${{github.workspace}}/build --parallel --target package_extensions
 
-    - name: For every commit between start of upgrades (${{ vars.EXT_UPGRADES_START }}) and now
+    - name: Get modified directories
+      if: ${{ github.event_name }} == 'pull_request_target'
+      id: modified-dirs
+      uses: tj-actions/changed-files@v42
+      with:
+        base_sha: ${{ github.event.pull_request.base.sha }}
+        dir_names: true
+        escape_json: false
+        json: true
+        files_ignore: |
+          **/*.md
+          **/*.txt
+          **/*.yml
+
+    - name: Output modified directories
+      if: ${{ github.event_name }} == 'pull_request_target'
       run: |
-        export TMPDIR=$RUNNER_TEMP
-        export PG_CONFIG=$(find .pg -name pg_config -type f -executable | grep -v src | head -n 1)
-        export DEST_DIR=s3_extensions
-        echo "Using $PG_CONFIG"
-        for VER in "$(git rev-list ${{ vars.EXT_UPGRADES_START }}^1..HEAD^1 --reverse --abbrev-commit)"; do
-          echo "============> $VER"
-          if [ ! -f "s3_extensions/artifacts-$VER.txt" ]; then
-            ./generate-upgrades.sh || exit 1
+        echo "Modified dirs: ${{ steps.modified-dirs.outputs.all_modified_files }}"
+
+    - name: Prepare extension files for s3 upload
+      id: new_ext_releases
+      working-directory: ${{ github.workspace }}/build
+      run: |
+        MATRIX_COMBINATION=${{ matrix.pgver }}/${{ matrix.build_type }}/${{ matrix.os.name }}-${{ matrix.os.arch }}
+        EXTENSION_FILES_DIR=packaged/s3/
+        mkdir -p $EXTENSION_FILES_DIR
+        
+        index_contents=$(curl --fail-with-body https://index.omnigres.com/$MATRIX_COMBINATION/index.json | jq .)
+        
+        format_version=$(curl --fail-with-body https://index.omnigres.com/$MATRIX_COMBINATION/index.json | jq ".format_version")
+        if [ $format_version != 1 ]; then
+          echo "unrecognised format_version: \"$format_version\", make changes to this workflow to work with newer format_version" && exit 1
+        fi
+        
+        new_ext_releases=""
+        
+        while read -r line; do
+          # extension artifact format: name=1.2.2#dep1=1.0.1,dep2=2.3.1
+          ext_name_with_version=$(echo $line | cut -d "#" -f 1)
+          ext_name=$(echo $ext_name_with_version | cut -d "=" -f 1)
+          ext_ver=$(echo $ext_name_with_version | cut -d "=" -f 2)
+        
+          if [ $ext_ver = unreleased ]; then
+            if [ $(echo $index_contents | jq ".extensions.$ext_name") != null ]; then
+              echo "$ext_name has already been released, can't go back to unreleased" && exit 1
+            fi
+            echo "skipping $ext_name because version is unreleased"
+            continue
           fi
-        done
+        
+          commit_sha=$(echo $index_contents | jq ".extensions.$ext_name.\"$ext_ver\"")
+        
+          if [ $commit_sha = null ]; then
+        
+            cp packaged/extension/{$ext_name--$ext_ver.sql,$ext_name--$ext_ver.control,$ext_name.control} $EXTENSION_FILES_DIR/
+
+            if [ -f packaged/$ext_name--$ext_ver.so ]; then
+                mkdir -p $EXTENSION_FILES_DIR/lib
+                cp packaged/$ext_name--$ext_ver.so $EXTENSION_FILES_DIR/lib/
+            fi
+
+            echo $line >> $EXTENSION_FILES_DIR/artifacts.txt
+        
+            if [ -z $new_ext_releases ]; then
+              new_ext_releases+="$ext_name=$ext_ver"
+            else
+              new_ext_releases+="&$ext_name=$ext_ver"
+            fi
+        
+            # generate upgrade scripts only if there are existing releases of an extension
+            if [ $(echo $index_contents | jq ".extensions.$ext_name | length") -gt 1 ]; then
+              export TMPDIR=$RUNNER_TEMP
+              export BUILD_TYPE=${{matrix.build_type}}
+              export PG_CONFIG=$(find ../.pg -name pg_config -type f -executable | grep -v src | head -n 1)
+              echo "Using $PG_CONFIG"
+              ../generate-upgrades.sh "$EXTENSION_FILES_DIR/index.json" $ext_name $ext_ver || exit 1
+          
+              # generate-upgrades.sh places the generated upgrade files here unless overriden
+              cp _migrations/packaged/$ext_name--*.sql $EXTENSION_FILES_DIR/
+            fi
+          else
+            # check if version is bumped for extension file changes
+            if [ ${{ github.event_name }} == 'pull_request_target' ]; then
+              modified_dirs='${{ steps.modified-dirs.outputs.all_modified_files }}'
+              # check if extensions/$ext_name is a modified dir
+              if [ $(echo $modified_dirs | jq "any(index(\"extensions/$ext_name\"))") = true ]; then
+                echo "some files belonging to $ext_name are modified and $ext_ver is an already released version," \
+                     "please change the version to create new release" && exit 1
+              fi
+              # check if extensions/<some-ext>/migrate/$ext_name is a modified dir
+              if [ $(echo $modified_dirs | jq "any(endswith(\"migrate/$ext_name\"))") = true ]; then
+                echo "some files belonging to $ext_name are modified and $ext_ver is an already released version," \
+                     "please change the version to create new release" && exit 1
+              fi
+            fi
+          fi
+        done < artifacts.txt
+        
+        tar -zcvf ${{ github.sha }}.tar.gz $EXTENSION_FILES_DIR
+        
+        echo "S3_FILE_PATH=$MATRIX_COMBINATION/${{ github.sha }}.tar.gz" >> "$GITHUB_OUTPUT"
+        
+        echo "POST_URL=$MATRIX_COMBINATION/extensions" >> "$GITHUB_OUTPUT"
+        # this will be the post body for creating new extension versions in omnigres-index after s3 upload
+        echo "POST_BODY=$new_ext_releases" >> "$GITHUB_OUTPUT"
 
     - name: Pretend to sync back to S3
+      working-directory: ${{ github.workspace }}/build
       if: github.event_name != 'push'
-      run: aws s3 sync --dryrun --exclude *.so s3_extensions/packaged s3://omnigres-extensions/${{ matrix.pgver }}
+      run: |
+        POST_BODY=${{ github.new_ext_releases.outputs.POST_BODY }}
+        
+        if [ -z $POST_BODY ]; then
+          echo "no new extension versions were released"
+        else
+          S3_FILE_PATH=${{ github.new_ext_releases.outputs.S3_FILE_PATH }}
+          aws s3 sync --dryrun ${{ github.sha }}.tar.gz s3://omnigres-ext-semver/$S3_FILE_PATH
+        
+          echo "The gzipped tar contains the following files:"
+          tar -tf ${{ github.sha }}.tar.gz
+        fi
 
     - name: Sync back to S3
+      working-directory: ${{ github.workspace }}/build
       if: github.event_name == 'push'
-      run: aws s3 sync --exclude *.so s3_extensions/packaged s3://omnigres-extensions/${{ matrix.pgver }}
+      run: |
+        POST_BODY=${{ github.new_ext_releases.outputs.POST_BODY }}
+        
+        if [ -z $POST_BODY ]; then
+          echo "no new extension versions were released"
+        else
+          S3_FILE_PATH=${{ github.new_ext_releases.outputs.S3_FILE_PATH }}
+          aws s3 sync ${{ github.sha }}.tar.gz s3://omnigres-ext-semver/$S3_FILE_PATH
+        
+          # update omnigres-index with new extension version releases after s3 upload
+          POST_URL=${{ github.new_ext_releases.outputs.POST_URL }}
+          curl --fail-with-body -d "$POST_BODY" http://omnigres-index/$POST_URL?commit_sha=${{ github.sha }}
+        fi
 
