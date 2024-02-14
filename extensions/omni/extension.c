@@ -11,7 +11,11 @@
 #include <lib/dshash.h>
 #include <miscadmin.h>
 #include <storage/lwlock.h>
+#if PG_MAJORVERSION_NUM >= 16
 #include <utils/conffiles.h>
+#else
+#define CONF_FILE_START_DEPTH 0
+#endif
 #include <utils/fmgroids.h>
 #include <utils/lsyscache.h>
 #include <utils/rel.h>
