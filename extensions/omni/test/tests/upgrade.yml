@@ -23,7 +23,7 @@ tests:
                     pg_proc.probin = pg_proc_1.probin as result
                 from
                     pg_proc
-                    inner join pg_proc_1 on pg_proc_1.oid = pg_proc.oid)
+                    inner join pg_proc_1 on pg_proc_1.oid = pg_proc.oid) p
            where
                result
     results:
