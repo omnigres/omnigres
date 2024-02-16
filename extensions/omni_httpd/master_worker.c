@@ -260,6 +260,7 @@ void master_worker(Datum db_oid) {
 
     Oid nspoid = get_namespace_oid("omni_httpd", false);
     Oid listenersoid = get_relname_relid("listeners", nspoid);
+    bool listenersoid_locked = false;
 
     // Get listeners
     while (worker_reload) {
@@ -270,6 +271,7 @@ void master_worker(Datum db_oid) {
       // the master worker with http workers) as they will use the order of listeners to align
       // with the vector of sockets sent.
       LockRelationOid(listenersoid, ExclusiveLock);
+      listenersoid_locked = true;
 
       if (SPI_execute(
               "select address, port, id, effective_port from omni_httpd.listeners order by id asc",
@@ -412,6 +414,7 @@ void master_worker(Datum db_oid) {
 
       // Unlock the table to allow for updates to it
       UnlockRelationOid(listenersoid, ExclusiveLock);
+      listenersoid_locked = false;
 
       // And then waiting
       (void)WaitLatch(MyLatch, WL_LATCH_SET | WL_TIMEOUT | WL_EXIT_ON_PM_DEATH, 1000L,
@@ -470,7 +473,10 @@ void master_worker(Datum db_oid) {
     }
 
     // Unlock the table at last
-    UnlockRelationOid(listenersoid, ExclusiveLock);
+    if (listenersoid_locked) {
+      UnlockRelationOid(listenersoid, ExclusiveLock);
+      listenersoid_locked = false;
+    }
 
     // After doing this, we're ready to commit
     SPI_finish();
