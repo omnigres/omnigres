@@ -30,6 +30,9 @@ static void shmem_hook();
 void procoid_syscache_callback(Datum arg, int cacheid, uint32 hashvalue) {
   backend_force_reload = true;
 }
+
+extern void deinitialize_backend(int code, Datum arg);
+
 /**
  * Shared preload initialization.
  */
@@ -256,4 +259,7 @@ MODULE_FUNCTION void init_backend(void *arg) {
       AbortCurrentTransaction();
     }
   }
+
+  // Ensure we can clean up when the backend is exiting
+  before_shmem_exit(deinitialize_backend, DatumGetInt32(0));
 }

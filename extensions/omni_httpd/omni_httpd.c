@@ -67,6 +67,8 @@ OMNI_MAGIC;
 #error "Extension version (VERSION) is not defined!"
 #endif
 
+#define MASTER_WORKER_START 1 << 0
+
 CACHED_OID(omni_http, http_header);
 CACHED_OID(omni_http, http_method);
 CACHED_OID(http_response);
@@ -109,8 +111,6 @@ static void init_httpd_master_worker_pid(void *ptr, void *data) {
   pg_atomic_write_u32((pg_atomic_uint32 *)ptr, 0);
 }
 
-void _Omni_load(const omni_handle *handle) {}
-
 omni_bgworker_handle *master_worker_bgw;
 
 static int num_http_workers_holder;
@@ -123,7 +123,8 @@ static void init_semaphore(const omni_handle *handle, void *ptr, void *arg, bool
 
 static void register_start_master_worker(const omni_handle *handle, void *ptr, void *arg,
                                          bool allocated) {
-  if (allocated) {
+  if ((handle->atomic_switch(handle, omni_switch_on, 0, MASTER_WORKER_START) &
+       MASTER_WORKER_START) == MASTER_WORKER_START) {
     // Prepares and registers the main background worker
     BackgroundWorker bgw = {.bgw_name = "omni_httpd",
                             .bgw_type = "omni_httpd",
@@ -135,6 +136,7 @@ static void register_start_master_worker(const omni_handle *handle, void *ptr, v
                             .bgw_notify_pid = MyProcPid,
                             .bgw_start_time = BgWorkerStart_RecoveryFinished};
     strncpy(bgw.bgw_library_name, handle->get_library_name(handle), BGW_MAXLEN);
+
     handle->request_bgworker_start(handle, &bgw, (omni_bgworker_handle *)ptr,
                                    (omni_bgworker_options){.timing = omni_timing_after_commit});
   }
@@ -188,13 +190,15 @@ void _Omni_deinit(const omni_handle *handle) {
   if (master_worker_bgw != NULL) {
     bool found;
     omni_bgworker_handle *bgw_handle = (omni_bgworker_handle *)MemoryContextAlloc(
-        TopTransactionContext, sizeof(*master_worker_bgw));
+        IsTransactionState() ? TopTransactionContext : TopMemoryContext,
+        sizeof(*master_worker_bgw));
     memcpy(bgw_handle, master_worker_bgw, sizeof(*master_worker_bgw));
     handle->deallocate_shmem(handle, OMNI_HTTPD_MASTER_WORKER, &found);
-    if (found) {
-      handle->deallocate_shmem(handle, OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE, &found);
+    handle->deallocate_shmem(handle, OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE, &found);
+    if ((handle->atomic_switch(handle, omni_switch_off, 0, MASTER_WORKER_START) &
+         MASTER_WORKER_START) == MASTER_WORKER_START) {
       handle->request_bgworker_termination(
-          handle, bgw_handle, (omni_bgworker_options){.timing = omni_timing_at_commit});
+          handle, bgw_handle, (omni_bgworker_options){.timing = omni_timing_after_commit});
     }
   }
 }

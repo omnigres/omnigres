@@ -33,21 +33,8 @@ void run_hook_fn(omni_hook_handle *handle, QueryDesc *queryDesc, ScanDirection d
   ereport(NOTICE, errmsg("run_hook"));
 }
 
-void _Omni_load(const omni_handle *handle) {
-  {
-    // Register a global dynamic background worker
-    BackgroundWorker master_worker = {.bgw_name = "test_global_worker",
-                                      .bgw_type = "test_global_worker",
-                                      .bgw_flags = BGWORKER_SHMEM_ACCESS |
-                                                   BGWORKER_BACKEND_DATABASE_CONNECTION,
-                                      .bgw_start_time = BgWorkerStart_RecoveryFinished,
-                                      .bgw_restart_time = BGW_NEVER_RESTART,
-                                      .bgw_function_name = "test_worker",
-                                      .bgw_notify_pid = 0};
-    strncpy(master_worker.bgw_library_name, handle->get_library_name(handle), BGW_MAXLEN);
-    RegisterDynamicBackgroundWorker(&master_worker, NULL);
-  }
-}
+#define GLOBAL_WORKER_STARTED 1 << 0
+#define LOCK_REGISTRATION 1 << 1
 
 void test_worker(Datum id) {
   pqsignal(SIGTERM, die);
@@ -108,20 +95,36 @@ static void init_strcpy(const omni_handle *handle, void *ptr, void *data, bool a
 void _Omni_init(const omni_handle *handle) {
   initialized = true;
 
+  if ((handle->atomic_switch(handle, omni_switch_on, 0, GLOBAL_WORKER_STARTED) &
+       GLOBAL_WORKER_STARTED) == GLOBAL_WORKER_STARTED) {
+    // Register a global dynamic background worker
+    BackgroundWorker master_worker = {.bgw_name = "test_global_worker",
+                                      .bgw_type = "test_global_worker",
+                                      .bgw_flags = BGWORKER_SHMEM_ACCESS |
+                                                   BGWORKER_BACKEND_DATABASE_CONNECTION,
+                                      .bgw_start_time = BgWorkerStart_RecoveryFinished,
+                                      .bgw_restart_time = BGW_NEVER_RESTART,
+                                      .bgw_function_name = "test_worker",
+                                      .bgw_notify_pid = 0};
+    strncpy(master_worker.bgw_library_name, handle->get_library_name(handle), BGW_MAXLEN);
+    RegisterDynamicBackgroundWorker(&master_worker, NULL);
+  }
+
   omni_hook run_hook = {
       .name = "run_hook", .type = omni_hook_executor_run, .fn = {.executor_run = run_hook_fn}};
   handle->register_hook(handle, &run_hook);
 
   bool found;
 
-  shmem_test =
-      (char *)handle->allocate_shmem(handle, psprintf("test:%s", get_database_name(MyDatabaseId)),
-                                     128, init_strcpy, "hello", &found);
+  char *dbname = get_database_name(MyDatabaseId);
 
-  shmem_test1 =
-      (char *)handle->allocate_shmem(handle, psprintf("test1:%s", get_database_name(MyDatabaseId)),
-                                     128, init_strcpy, "hello", &found);
+  shmem_test = (char *)handle->allocate_shmem(handle, psprintf("test:%s", dbname), 128, init_strcpy,
+                                              "hello", &found);
 
+  shmem_test1 = (char *)handle->allocate_shmem(handle, psprintf("test1:%s", dbname), 128,
+                                               init_strcpy, "hello", &found);
+
+  handle->atomic_switch(handle, omni_switch_on, 0, LOCK_REGISTRATION);
   mylock = handle->allocate_shmem(handle, "mylock", sizeof(LWLock),
                                   (omni_allocate_shmem_callback_function)handle->register_lwlock,
                                   "mylock", &found);
@@ -132,8 +135,8 @@ void _Omni_init(const omni_handle *handle) {
     // Let's use allocator's lock to prevent others from starting
     bool found;
     local_bgw_handle = (omni_bgworker_handle *)handle->allocate_shmem(
-        handle, psprintf("workers:%s", get_database_name(MyDatabaseId)), sizeof(*local_bgw_handle),
-        register_bgworker, NULL, &found);
+        handle, psprintf("workers:%s", dbname), sizeof(*local_bgw_handle), register_bgworker, NULL,
+        &found);
   }
 
   omni_guc_variable guc_bool = {.name = "omni_test.bool",
@@ -180,13 +183,18 @@ void _Omni_init(const omni_handle *handle) {
 void _Omni_deinit(const omni_handle *handle) {
   bool found;
 
-  handle->deallocate_shmem(handle, psprintf("test:%s", get_database_name(MyDatabaseId)), &found);
-  handle->deallocate_shmem(handle, psprintf("test1:%s", get_database_name(MyDatabaseId)), &found);
-  handle->deallocate_shmem(handle, "mylock", &found);
-  handle->deallocate_shmem(handle, psprintf("workers:%s", get_database_name(MyDatabaseId)), &found);
-}
+  if ((handle->atomic_switch(handle, omni_switch_off, 0, LOCK_REGISTRATION) & LOCK_REGISTRATION) ==
+      LOCK_REGISTRATION) {
+    handle->unregister_lwlock(handle, mylock);
+  }
 
-void _Omni_unload(const omni_handle *handle) { handle->unregister_lwlock(handle, mylock); }
+  char *dbname = get_database_name(MyDatabaseId);
+
+  handle->deallocate_shmem(handle, psprintf("test:%s", dbname), &found);
+  handle->deallocate_shmem(handle, psprintf("test1:%s", dbname), &found);
+  handle->deallocate_shmem(handle, "mylock", &found);
+  handle->deallocate_shmem(handle, psprintf("workers:%s", dbname), &found);
+}
 
 PG_FUNCTION_INFO_V1(hello);
 Datum hello(PG_FUNCTION_ARGS) { PG_RETURN_CSTRING(hello_message); }
@@ -272,4 +280,31 @@ Datum bad_shmalloc(PG_FUNCTION_ARGS) {
   bool found;
   saved_handle->allocate_shmem(saved_handle, "bad_shmalloc", SIZE_MAX, NULL, NULL, &found);
   PG_RETURN_VOID();
+}
+
+PG_FUNCTION_INFO_V1(alloc_shmem);
+Datum alloc_shmem(PG_FUNCTION_ARGS) {
+  bool found;
+  saved_handle->allocate_shmem(saved_handle, text_to_cstring(PG_GETARG_TEXT_PP(0)),
+                               PG_GETARG_INT64(1), NULL, NULL, &found);
+  PG_RETURN_BOOL(found);
+}
+
+PG_FUNCTION_INFO_V1(dealloc_shmem);
+Datum dealloc_shmem(PG_FUNCTION_ARGS) {
+  bool found;
+  saved_handle->deallocate_shmem(saved_handle, text_to_cstring(PG_GETARG_TEXT_PP(0)), &found);
+  PG_RETURN_BOOL(found);
+}
+
+PG_FUNCTION_INFO_V1(atomic_on);
+Datum atomic_on(PG_FUNCTION_ARGS) {
+  uint64 i = saved_handle->atomic_switch(saved_handle, omni_switch_on, 0, PG_GETARG_INT64(0));
+  PG_RETURN_INT64(i);
+}
+
+PG_FUNCTION_INFO_V1(atomic_off);
+Datum atomic_off(PG_FUNCTION_ARGS) {
+  uint64 i = saved_handle->atomic_switch(saved_handle, omni_switch_off, 0, PG_GETARG_INT64(0));
+  PG_RETURN_INT64(i);
 }

@@ -105,9 +105,22 @@ static inline void initialize_omni_modules() {
   MemoryContextSwitchTo(oldcontext);
 }
 
+static bool backend_initialized = false;
+
+// List of `ModuleAllocationKey` entries specific to this backend
+static List *backend_shmem_acquisitions = NIL;
+
+static MemoryContext BackendModuleContextForModule(omni_handle_private *phandle) {
+  for (MemoryContext cxt = TopMemoryContext->firstchild; cxt != NULL; cxt = cxt->nextchild) {
+    if (strcmp(cxt->name, "TopMemoryContext/omni") == 0 && strcmp(cxt->ident, phandle->path) == 0) {
+      return cxt;
+    }
+  }
+  return NULL;
+}
+
 static void ensure_backend_initialized(void) {
   // Indicates whether we have ever done anything on this backend
-  static bool backend_initialized = false;
   if (backend_initialized)
     return;
 
@@ -198,6 +211,24 @@ static void unregister_lwlock(const omni_handle *handle, LWLock *lock) {
   // TODO: schedule tranche id for reuse
 }
 
+static uint64 atomic_switch(const omni_handle *handle, omni_switch_operation op, uint32 switchboard,
+                            uint64 mask) {
+  if (switchboard > 0) {
+    ereport(ERROR, errcode(ERRCODE_INSUFFICIENT_RESOURCES),
+            errmsg("no more switchboards can be allocated"),
+            errdetail("Current implementation only provides a single switchboard (0)"));
+  }
+  omni_handle_private *phandle = struct_from_member(omni_handle_private, handle, handle);
+  switch (op) {
+  case omni_switch_on: {
+    uint64 m = pg_atomic_fetch_or_u64(&phandle->switchboard, mask);
+    return (m ^ mask) & mask;
+  }
+  case omni_switch_off:
+    return pg_atomic_fetch_and_u64(&phandle->switchboard, ~mask) & mask;
+  }
+}
+
 /*
  * Substitute for any macros appearing in the given string.
  * Result is always freshly palloc'd.
@@ -258,6 +289,7 @@ static List *consider_probin(HeapTuple tp) {
               handle = (omni_handle_private *)dsa_get_address(dsa, ptr);
               handle->magic = *magic;
               pg_atomic_init_u32(&handle->refcount, 0);
+              pg_atomic_init_u64(&handle->switchboard, 0);
               strcpy(handle->path, key);
 #define set_function_implementations(handle)                                                       \
   handle->register_hook = register_hook;                                                           \
@@ -270,7 +302,8 @@ static List *consider_probin(HeapTuple tp) {
   handle->request_bgworker_start = request_bgworker_start;                                         \
   handle->request_bgworker_termination = request_bgworker_termination;                             \
   handle->register_lwlock = register_lwlock;                                                       \
-  handle->unregister_lwlock = unregister_lwlock
+  handle->unregister_lwlock = unregister_lwlock;                                                   \
+  handle->atomic_switch = atomic_switch
               if (magic->revision < 4) {
                 // In 0.4 (0D), we moved `register_hook` below `lookup_shmem`
                 struct _omni_handle_0r3 {
@@ -290,6 +323,9 @@ static List *consider_probin(HeapTuple tp) {
 
                   omni_register_lwlock_function register_lwlock;
                   omni_unregister_lwlock_function unregister_lwlock;
+
+                  // Not really defined, but here to make `set_function_implementations` work
+                  omni_atomic_switch_function atomic_switch;
                 };
 
                 set_function_implementations(((struct _omni_handle_0r3 *)&handle->handle));
@@ -327,12 +363,15 @@ static List *consider_probin(HeapTuple tp) {
                   MemoryContext oldcontext = MemoryContextSwitchTo(module_memory_context);
 
                   // This backend is the first one to load this module
-                  if (pg_atomic_add_fetch_u32(&handle->refcount, 1) == 1) {
-                    // Let's also load it if there's a callback
-                    pg_atomic_init_u32(&handle->loaded, 1);
-                    void (*load_fn)(const omni_handle *) = dlsym(dlhandle, "_Omni_load");
-                    if (load_fn != NULL) {
-                      load_fn(&handle->handle);
+
+                  if (unlikely(handle->magic.revision < 5)) {
+                    if (pg_atomic_add_fetch_u32(&handle->refcount, 1) == 1) {
+                      // Let's also load it if there's a callback
+                      pg_atomic_init_u32(&handle->loaded, 1);
+                      void (*load_fn)(const omni_handle *) = dlsym(dlhandle, "_Omni_load");
+                      if (load_fn != NULL) {
+                        load_fn(&handle->handle);
+                      }
                     }
                   }
 
@@ -443,6 +482,7 @@ MODULE_FUNCTION char *get_library_name(const omni_handle *handle) {
 static struct dsa_ref {
   dsa_handle handle;
   dsa_pointer pointer;
+  ModuleAllocation *alloc;
 } find_or_allocate_shmem_dsa(const omni_handle *handle, const char *name, size_t size,
                              omni_allocate_shmem_callback_function init, void *data,
                              HASHACTION action, bool *found) {
@@ -493,6 +533,7 @@ static struct dsa_ref {
       }
       PG_END_TRY();
       alloc->size = size;
+      pg_atomic_init_u32(&alloc->refcounter, 0);
 
       if (init != NULL) {
         if (phandle->magic.revision < 3) {
@@ -503,19 +544,28 @@ static struct dsa_ref {
         }
       }
     }
-  } else if (init != NULL) {
-    if (phandle->magic.revision >= 3) {
-      init(handle, dsa_get_address(dsa_handle_to_area(alloc->dsa_handle), alloc->dsa_pointer), data,
-           false);
+  } else {
+    if (init != NULL) {
+      if (phandle->magic.revision >= 3) {
+        init(handle, dsa_get_address(dsa_handle_to_area(alloc->dsa_handle), alloc->dsa_pointer),
+             data, false);
+      }
     }
   }
   struct dsa_ref result =
       (*found || (action == HASH_ENTER || action == HASH_ENTER_NULL) // if it was found or allocated
-           ? ((struct dsa_ref){.pointer = alloc->dsa_pointer, .handle = alloc->dsa_handle})
+           ? ((struct dsa_ref){
+                 .pointer = alloc->dsa_pointer, .handle = alloc->dsa_handle, .alloc = alloc})
            : (struct dsa_ref){});
   if (action == HASH_REMOVE && *found) {
-    dshash_delete_entry(omni_allocations, alloc);
+    if (pg_atomic_sub_fetch_u32(&alloc->refcounter, 1) == 0) {
+      dshash_delete_entry(omni_allocations, alloc);
+      result.alloc = NULL;
+    } else {
+      dshash_release_lock(omni_allocations, alloc);
+    }
   } else if (action == HASH_ENTER || *found) {
+    pg_atomic_add_fetch_u32(&alloc->refcounter, 1);
     dshash_release_lock(omni_allocations, alloc);
   }
   LWLockRelease(&(locks + OMNI_LOCK_ALLOCATION)->lock);
@@ -535,6 +585,16 @@ static void *find_or_allocate_shmem(const omni_handle *handle, const char *name,
     ptr = dsa_get_address(dsa_handle_to_area(ref.handle), ref.pointer);
   }
 
+  if (ptr != NULL) {
+    omni_handle_private *phandle = struct_from_member(omni_handle_private, handle, handle);
+    MemoryContext oldcontext = MemoryContextSwitchTo(BackendModuleContextForModule(phandle));
+    ModuleAllocationKey *key = palloc(sizeof(*key));
+    key->module_id = phandle->id;
+    strncpy(key->name, name, sizeof(key->name) - 1);
+    backend_shmem_acquisitions = list_append_unique_ptr(backend_shmem_acquisitions, key);
+    MemoryContextSwitchTo(oldcontext);
+  }
+
   return ptr;
 }
 
@@ -552,6 +612,18 @@ static void deallocate_shmem(const omni_handle *handle, const char *name, bool *
   struct dsa_ref ref = find_or_allocate_shmem_dsa(
       handle, name, 1 /* size is ignored in this case */, NULL, NULL, HASH_REMOVE, found);
   if (*found) {
+    omni_handle_private *phandle = struct_from_member(omni_handle_private, handle, handle);
+    MemoryContext oldcontext = MemoryContextSwitchTo(BackendModuleContextForModule(phandle));
+    ListCell *lc;
+    foreach (lc, backend_shmem_acquisitions) {
+      ModuleAllocationKey *key = (ModuleAllocationKey *)lfirst(lc);
+      if (key->module_id == phandle->id && strcmp(key->name, name) == 0) {
+        backend_shmem_acquisitions = foreach_delete_current(backend_shmem_acquisitions, lc);
+      }
+    }
+    MemoryContextSwitchTo(oldcontext);
+  }
+  if (*found && ref.alloc == NULL) {
     dsa_free(dsa_handle_to_area(ref.handle), ref.pointer);
   }
 }
@@ -838,15 +910,6 @@ void request_bgworker_termination(const omni_handle *handle, omni_bgworker_handl
   }
 }
 
-static MemoryContext BackendModuleContextForModule(omni_handle_private *phandle) {
-  for (MemoryContext cxt = TopMemoryContext->firstchild; cxt != NULL; cxt = cxt->nextchild) {
-    if (strcmp(cxt->name, "TopMemoryContext/omni") == 0 && strcmp(cxt->ident, phandle->path) == 0) {
-      return cxt;
-    }
-  }
-  return NULL;
-}
-
 MODULE_FUNCTION void unload_module(omni_handle_private *phandle, bool missing_ok) {
   LWLockAcquire(&(locks + OMNI_LOCK_MODULE)->lock, LW_EXCLUSIVE);
   bool found = false;
@@ -887,18 +950,20 @@ MODULE_FUNCTION void unload_module(omni_handle_private *phandle, bool missing_ok
   // Purge hooks
   reorganize_hooks();
 
-  // Try to unload the module
-  uint32 loaded = 1;
-  // If it was found and if we were able to capture `loaded` set to `1`
-  if (found && pg_atomic_compare_exchange_u32(&phandle->loaded, &loaded, 0)) {
-    // Perform unloading
-    MemoryContext oldcontext = MemoryContextSwitchTo(module_memory_context);
-    void (*unload)(const omni_handle *) = dlsym(dlhandle, "_Omni_unload");
-    if (unload != NULL) {
-      unload(&phandle->handle);
+  if (unlikely(phandle->magic.revision < 5)) {
+    // Try to unload the module
+    uint32 loaded = 1;
+    // If it was found and if we were able to capture `loaded` set to `1`
+    if (found && pg_atomic_compare_exchange_u32(&phandle->loaded, &loaded, 0)) {
+      // Perform unloading
+      MemoryContext oldcontext = MemoryContextSwitchTo(module_memory_context);
+      void (*unload)(const omni_handle *) = dlsym(dlhandle, "_Omni_unload");
+      if (unload != NULL) {
+        unload(&phandle->handle);
+      }
+      MemoryContextSwitchTo(oldcontext);
+      dlclose(dlhandle);
     }
-    MemoryContextSwitchTo(oldcontext);
-    dlclose(dlhandle);
   }
   // Insted of deleting the memory context, just release all the space and
   // children, in case we'll use this module record again
@@ -906,4 +971,69 @@ MODULE_FUNCTION void unload_module(omni_handle_private *phandle, bool missing_ok
   // We no longer need the lock
   dshash_release_lock(omni_modules, module);
   LWLockRelease(&(locks + OMNI_LOCK_MODULE)->lock);
+}
+
+// When backend is exiting, we need to clean up some resources
+void deinitialize_backend(int code, Datum arg) {
+
+  if (code == 1) {
+    // If exiting because of a `FATAL` error, don't try to deinitialize.
+    return;
+  }
+
+  // If we didn't have a chance to initialize, bail
+  if (!backend_initialized) {
+    return;
+  }
+
+  bool in_xact = IsTransactionState();
+
+  // Start transaction if are not in one
+  if (!in_xact) {
+    SetCurrentStatementStartTimestamp();
+    StartTransactionCommand();
+    PushActiveSnapshot(GetTransactionSnapshot());
+  }
+
+  // Ensure we deinitialize modules that are supposed to be deinitialized
+  load_pending_modules();
+
+  // Abort the transaction if we had to start one
+  if (!in_xact) {
+    PopActiveSnapshot();
+    AbortCurrentTransaction();
+  }
+
+  // If no allocations were ever made, bail
+  if (omni_allocations == NULL) {
+    return;
+  }
+
+  // Out of abundance of caution, lock
+  LWLockAcquire(&(locks + OMNI_LOCK_ALLOCATION)->lock, LW_EXCLUSIVE);
+
+  ListCell *lc;
+  // For every module that is still initialized
+  foreach (lc, initialized_modules) {
+    omni_handle_private *handle = (omni_handle_private *)lfirst(lc);
+    MemoryContext oldcontext = MemoryContextSwitchTo(BackendModuleContextForModule(handle));
+    ListCell *lc1;
+    // Scan through all backend shmem acquisitions
+    foreach (lc1, backend_shmem_acquisitions) {
+      ModuleAllocationKey *key = (ModuleAllocationKey *)lfirst(lc1);
+      // If the module ID is matching, means we acquired this shmem
+      if (key->module_id == handle->id) {
+        // Decrement the refcounter
+        ModuleAllocation *allocation = dshash_find(omni_allocations, key, true);
+        if (allocation != NULL) {
+          pg_atomic_sub_fetch_u32(&allocation->refcounter, 1);
+          dshash_release_lock(omni_allocations, allocation);
+        }
+      }
+    }
+    MemoryContextSwitchTo(oldcontext);
+  }
+  backend_shmem_acquisitions = NIL;
+
+  LWLockRelease(&(locks + OMNI_LOCK_ALLOCATION)->lock);
 }

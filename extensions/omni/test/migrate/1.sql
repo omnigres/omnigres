@@ -82,3 +82,24 @@ create function bad_shmalloc() returns void
     language c
     volatile as
 'MODULE_PATHNAME';
+
+create function alloc_shmem(text, int8) returns bool
+    language c
+    volatile as
+'MODULE_PATHNAME';
+
+create function dealloc_shmem(text) returns bool
+    language c
+    volatile as
+'MODULE_PATHNAME';
+
+
+create function atomic_on(int8) returns int8
+    language c
+    volatile as
+'MODULE_PATHNAME';
+
+create function atomic_off(int8) returns int8
+    language c
+    volatile as
+'MODULE_PATHNAME';

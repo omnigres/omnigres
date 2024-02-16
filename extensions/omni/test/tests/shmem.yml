@@ -38,6 +38,7 @@ tests:
 
 - name: original value in a new database
   database: db1
+  commit: true
   steps:
   - create extension omni_test cascade
   - query: select omni_test.get_shmem()
@@ -55,7 +56,10 @@ tests:
   - lookup_shmem: hello
 
 - name: informational view
-  query: select *
+  query: select
+             name,
+             module_id,
+             size
          from
              omni.shmem_allocations
          where
@@ -89,3 +93,44 @@ tests:
                name = 'bad_shmalloc'
     results:
     - count: 0
+
+- name: shmem refcounting
+  steps:
+  - query: select omni_test.alloc_shmem('refc', 100);
+    results:
+    - alloc_shmem: false
+  - query: select omni_test.alloc_shmem('refc', 100);
+    results:
+    - alloc_shmem: true
+  - query: select
+               refcounter
+           from
+               omni.shmem_allocations
+           where
+               name = 'refc'
+    results:
+    - refcounter: 2
+  - query: select omni_test.dealloc_shmem('refc');
+    results:
+    - dealloc_shmem: true
+  - query: select
+               refcounter
+           from
+               omni.shmem_allocations
+           where
+               name = 'refc'
+    results:
+    - refcounter: 1
+  - query: select omni_test.dealloc_shmem('refc');
+    results:
+    - dealloc_shmem: true
+  - query: select
+               refcounter
+           from
+               omni.shmem_allocations
+           where
+               name = 'refc'
+    results: [ ]
+  - query: select omni_test.dealloc_shmem('refc');
+    results:
+    - dealloc_shmem: false

@@ -79,6 +79,8 @@ typedef struct {
   char path[PATH_MAX];
   /**
    * Reference counter
+   *
+   * @deprecated as of 0F
    */
   volatile pg_atomic_uint32 refcount;
   /**
@@ -89,6 +91,10 @@ typedef struct {
    * DSA
    */
   dsa_handle dsa;
+  /**
+   *
+   */
+  pg_atomic_uint64 switchboard;
 } omni_handle_private;
 
 DECLARE_MODULE_VARIABLE(omni_handle_private *module_handles);
@@ -124,10 +130,10 @@ StaticAssertDecl(sizeof(ModuleAllocationKey) == sizeof(int) + sizeof(char[NAMEDA
 
 typedef struct {
   ModuleAllocationKey key;
-  int flags;
   dsa_handle dsa_handle;
   dsa_pointer dsa_pointer;
   size_t size;
+  pg_atomic_uint32 refcounter;
 } ModuleAllocation;
 
 typedef struct {

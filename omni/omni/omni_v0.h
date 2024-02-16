@@ -47,20 +47,9 @@ typedef struct {
 StaticAssertDecl(sizeof(omni_magic) <= UINT16_MAX, "omni_magic should fit into 16 bits");
 
 #define OMNI_INTERFACE_VERSION 0
-#define OMNI_INTERFACE_REVISION 4
+#define OMNI_INTERFACE_REVISION 5
 
 typedef struct omni_handle omni_handle;
-
-/**
- * @brief Extension initialization callback, called once per load
- *
- * Defined by the extension. Optional but highly recommended.
- *
- * Will be called in a memory context that is specific to this module.
- *
- * @param handle Loader handle
- */
-void _Omni_load(const omni_handle *handle);
 
 /**
  * @brief Extension initialization callback, called once per backend
@@ -83,20 +72,6 @@ void _Omni_init(const omni_handle *handle);
  * @param handle Loader handle
  */
 void _Omni_deinit(const omni_handle *handle);
-
-/**
- * @brief Extension deinitialization callback, on unload
- *
- * It cannot be guaranteed to be called in any specific order in relation to to `_Omni_deinit`
- * but is guaranteed to be called once (before another load may take place)
- *
- * Defined by the extension. Optional.
- *
- * Will be called in a memory context that is specific to this module.
- *
- * @param handle Loader handle
- */
-void _Omni_unload(const omni_handle *handle);
 
 /**
  * @brief Every dynamic extension should use this macro in addition to `PG_MODULE_MAGIC`
@@ -409,6 +384,31 @@ typedef void (*omni_request_bgworker_termination_function)(const omni_handle *ha
                                                            const omni_bgworker_options options);
 
 /**
+ * Switch operation
+ */
+typedef enum { omni_switch_off = 0, omni_switch_on = 1 } omni_switch_operation;
+
+/**
+ * @brief Function that flips switches to desired state
+ *
+ * Switches are simple 1/0 values that can be atomically switched either to `on` or `off` state.
+ * This function returns a number that sets bits that were flipped by this operation to `1`. This
+ * allows the caller to be able to determine if they were the first party to flip the switch,
+ * enabling a primitive form of leader election.
+ *
+ * @param handle
+ * @param op `omni_switch_on` turns the switches on, `omni_switch_off` turns the switches off
+ * @param switchboard switchboard ID
+ *        Omni provides 64 switches per switchboard. At least one switchboard must be provided
+ *        (`switchboard = 0`) by the loader, attempts to get `switchboard` greater than zero,
+ *        may trigger `ERROR` if no more switchboards can be allocated.
+ * @param mask select switches to perform `op` on
+ *
+ */
+typedef uint64 (*omni_atomic_switch_function)(const omni_handle *handle, omni_switch_operation op,
+                                              uint32 switchboard, uint64 mask);
+
+/**
  * @brief Handle provided by the loader
  *
  */
@@ -434,6 +434,8 @@ typedef struct omni_handle {
 
   omni_register_lwlock_function register_lwlock;
   omni_unregister_lwlock_function unregister_lwlock;
+
+  omni_atomic_switch_function atomic_switch;
 
 } omni_handle;
 

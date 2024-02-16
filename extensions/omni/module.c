@@ -12,8 +12,6 @@
 
 #include "omni_common.h"
 
-void _Omni_load(const omni_handle *handle) {}
-
 void _Omni_init(const omni_handle *handle) {
   omni_hook alter_extension_hook = {.name = "extension upgrade",
                                     .type = omni_hook_process_utility,
@@ -21,8 +19,6 @@ void _Omni_init(const omni_handle *handle) {
                                     .wrap = true};
   handle->register_hook(handle, &alter_extension_hook);
 }
-
-void _Omni_unload(const omni_handle *handle) {}
 
 PG_FUNCTION_INFO_V1(modules);
 Datum modules(PG_FUNCTION_ARGS) {
@@ -119,9 +115,10 @@ Datum shmem_allocations(PG_FUNCTION_ARGS) {
   ModuleAllocation *entry;
   while ((entry = dshash_seq_next(&status)) != NULL) {
 
-    Datum values[3] = {CStringGetDatum(entry->key.name), Int64GetDatum(entry->key.module_id),
-                       Int64GetDatum(entry->size)};
-    bool isnull[3] = {false, false, false};
+    Datum values[4] = {CStringGetDatum(entry->key.name), Int64GetDatum(entry->key.module_id),
+                       Int64GetDatum(entry->size),
+                       Int32GetDatum(pg_atomic_read_u32(&entry->refcounter))};
+    bool isnull[4] = {false, false, false, false};
     tuplestore_putvalues(tupstore, rsinfo->expectedDesc, values, isnull);
   }
 
