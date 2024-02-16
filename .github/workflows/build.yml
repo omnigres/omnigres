@@ -48,6 +48,8 @@ jobs:
 
     runs-on: ${{ matrix.os }}
 
+    timeout-minutes: 20
+
     steps:
     - run: |
         echo "Author association: ${{ github.event.pull_request.author_association }}"
