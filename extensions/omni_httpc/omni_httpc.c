@@ -209,8 +209,6 @@ struct request {
   h2o_iovec_t request_body;
   // Response body
   StringInfoData body;
-  // Pointer to a counter of completed requests
-  int *done;
   // Request URL
   h2o_url_t url;
   // Error (NULL if none)
@@ -246,7 +244,6 @@ static int on_body(h2o_httpclient_t *client, const char *errstr, h2o_header_t *t
   if (errstr != NULL) {
     if (errstr != h2o_httpclient_error_is_eos) {
       req->errstr = errstr;
-      (*req->done)++;
       req->complete = true;
       return -1;
     }
@@ -264,7 +261,6 @@ static int on_body(h2o_httpclient_t *client, const char *errstr, h2o_header_t *t
   // End of stream, complete the request
   if (errstr == h2o_httpclient_error_is_eos) {
     SET_VARSIZE(req->body.data, req->body.len);
-    (*req->done)++;
     req->complete = true;
   }
 
@@ -292,7 +288,6 @@ static h2o_httpclient_body_cb on_head(h2o_httpclient_t *client, const char *errs
   // If there's an error, report it
   if (errstr != NULL && errstr != h2o_httpclient_error_is_eos) {
     req->errstr = errstr;
-    (*req->done)++;
     req->complete = true;
     return NULL;
   }
@@ -311,10 +306,9 @@ static h2o_httpclient_body_cb on_head(h2o_httpclient_t *client, const char *errs
     if ((location_index = h2o_find_header(headers_vec, H2O_TOKEN_LOCATION, -1)) > -1) {
       // create a new request based on the original request
       struct request *new_req = palloc0(sizeof(struct request));
-      new_req->done = req->done;
       new_req->complete = false;
       new_req->connected = false;
-      new_req->headers = headers_vec->entries;
+      new_req->headers = req->headers;
 
       initStringInfo(&new_req->body);
       appendStringInfoSpaces(&new_req->body, sizeof(struct varlena));
@@ -330,7 +324,9 @@ static h2o_httpclient_body_cb on_head(h2o_httpclient_t *client, const char *errs
         new_req->request_body = req->request_body;
       } else {
         // omit the request body
-//        new_req->request_body = h2o_iovec_init(NULL, 0);
+        // we don't need to remove the header, as it will be automatically omitted if the body
+        // is empty
+        new_req->request_body = h2o_iovec_init(NULL, 0);
         // if the method is POST, override the method as GET
         if (h2o_memis(req->method.base, req->method.len, H2O_STRLIT("POST"))) {
           new_req->method = h2o_iovec_init(H2O_STRLIT("GET"));
@@ -340,6 +336,9 @@ static h2o_httpclient_body_cb on_head(h2o_httpclient_t *client, const char *errs
       }
 
       h2o_url_t url;
+      // re-evaluate location index after the headers have been modified
+      location_index = h2o_find_header(headers_vec, H2O_TOKEN_LOCATION, -1);
+
       h2o_iovec_t location_header = headers_vec->entries[location_index].value;
       // try to parse the URL as an absolute URL
       int result = h2o_url_parse(client->pool, location_header.base, location_header.len, &url);
@@ -368,7 +367,6 @@ static h2o_httpclient_body_cb on_head(h2o_httpclient_t *client, const char *errs
       // copy the response from the new request to the original request
       copy_request_fields(new_req, req);
       req->complete = true;
-      (*req->done)++;
       return NULL;
     } else {
       ereport(
@@ -402,7 +400,6 @@ static h2o_httpclient_body_cb on_head(h2o_httpclient_t *client, const char *errs
 
   // End of stream, complete the request
   if (errstr == h2o_httpclient_error_is_eos) {
-    (*req->done)++;
     req->complete = true;
     return NULL;
   }
@@ -422,7 +419,7 @@ static h2o_httpclient_head_cb on_connect(h2o_httpclient_t *client, const char *e
   // If there's an error, report it
   if (errstr != NULL) {
     req->errstr = errstr;
-    (*req->done)++;
+    req->complete = true;
     return NULL;
   }
   // Provide H2O client with necessary request payload
@@ -455,8 +452,6 @@ PG_FUNCTION_INFO_V1(http_execute);
 
 Datum http_execute(PG_FUNCTION_ARGS) {
   init();
-
-  int done = 0;
 
   // Prepare to return the set
   ReturnSetInfo *rsinfo = (ReturnSetInfo *)fcinfo->resultinfo;
@@ -647,12 +642,12 @@ Datum http_execute(PG_FUNCTION_ARGS) {
       h2o_add_header(pool, headers_vec, H2O_TOKEN_CONTENT_LENGTH, NULL, clbuf, clbuf_len);
     }
 
-    request->done = &done;
     request->redirects_left = MAX_REDIRECTS;
     request->errstr = NULL;
     request->num_headers = headers_vec->size;
     request->headers = headers_vec->entries;
     request->connected = false;
+    request->complete = false;
     initStringInfo(&request->body);
     // Prepend the response with varlena's header so that we can populate it
     // in the end, when the ull length is known.
@@ -699,9 +694,12 @@ Datum http_execute(PG_FUNCTION_ARGS) {
   }
 
   // Run the event loop until all requests have been completed
-  while (done < num_requests) {
-    CHECK_FOR_INTERRUPTS();
-    h2o_evloop_run(ctx.loop, INT32_MAX);
+  for (int i = 0; i < num_requests; i++) {
+    struct request *request = &requests[i];
+    while (!request->complete) {
+      CHECK_FOR_INTERRUPTS();
+      h2o_evloop_run(ctx.loop, INT32_MAX);
+    }
   }
 
   // Start populating the result set
