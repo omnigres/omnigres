@@ -345,7 +345,8 @@ static h2o_httpclient_body_cb on_head(h2o_httpclient_t *client, const char *errs
       if (result == -1) {
         // if the URL is not an absolute URL, treat it as a relative URL
         h2o_url_t relative_url;
-        result = h2o_url_parse_relative(client->pool, location_header.base, location_header.len, &relative_url);
+        result = h2o_url_parse_relative(client->pool, location_header.base, location_header.len,
+                                        &relative_url);
         if (result == -1) {
           ereport(ERROR, errmsg("location header value not a valid URL`"));
           return NULL;
