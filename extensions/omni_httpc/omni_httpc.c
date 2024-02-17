@@ -298,17 +298,21 @@ static h2o_httpclient_body_cb on_head(h2o_httpclient_t *client, const char *errs
 
   // Handle Redirect if necessary
   if (handle_redirect) {
-    h2o_headers_t *headers_vec = (h2o_headers_t *)palloc0(sizeof(*headers_vec));
-    headers_vec->entries = args->headers;
-    headers_vec->size = args->num_headers;
-    headers_vec->capacity = args->num_headers;
+    h2o_headers_t *response_headers_vec = (h2o_headers_t *)palloc0(sizeof(*response_headers_vec));
+    response_headers_vec->entries = args->headers;
+    response_headers_vec->size = args->num_headers;
+    response_headers_vec->capacity = args->num_headers;
+
     ssize_t location_index;
-    if ((location_index = h2o_find_header(headers_vec, H2O_TOKEN_LOCATION, -1)) > -1) {
+    if ((location_index = h2o_find_header(response_headers_vec, H2O_TOKEN_LOCATION, -1)) > -1) {
       // create a new request based on the original request
       struct request *new_req = palloc0(sizeof(struct request));
       new_req->complete = false;
       new_req->connected = false;
       new_req->headers = req->headers;
+      h2o_headers_t *request_headers_vec = (h2o_headers_t *)palloc0(sizeof(*request_headers_vec));
+      request_headers_vec->entries = req->headers;
+      request_headers_vec->size = req->num_headers;
 
       initStringInfo(&new_req->body);
       appendStringInfoSpaces(&new_req->body, sizeof(struct varlena));
@@ -323,23 +327,30 @@ static h2o_httpclient_body_cb on_head(h2o_httpclient_t *client, const char *errs
         new_req->method = req->method;
         new_req->request_body = req->request_body;
       } else {
-        // omit the request body
-        // we don't need to remove the header, as it will be automatically omitted if the body
-        // is empty
+        // omit the request body and content-length header
+        int content_length_index =
+            h2o_find_header(request_headers_vec, H2O_TOKEN_CONTENT_LENGTH, -1);
+        if (content_length_index != -1) {
+          ereport(WARNING, errmsg("deleting content-length header"));
+          h2o_delete_header(request_headers_vec, content_length_index);
+        }
         new_req->request_body = h2o_iovec_init(NULL, 0);
         // if the method is POST, override the method as GET
         if (h2o_memis(req->method.base, req->method.len, H2O_STRLIT("POST"))) {
+          ereport(WARNING, errmsg("following a redirect from a POST request to a non-POST URL"));
           new_req->method = h2o_iovec_init(H2O_STRLIT("GET"));
         } else {
           new_req->method = req->method;
         }
       }
+      new_req->headers = request_headers_vec->entries;
+      new_req->num_headers = request_headers_vec->size;
 
       h2o_url_t url;
       // re-evaluate location index after the headers have been modified
-      location_index = h2o_find_header(headers_vec, H2O_TOKEN_LOCATION, -1);
+      location_index = h2o_find_header(response_headers_vec, H2O_TOKEN_LOCATION, -1);
 
-      h2o_iovec_t location_header = headers_vec->entries[location_index].value;
+      h2o_iovec_t location_header = response_headers_vec->entries[location_index].value;
       // try to parse the URL as an absolute URL
       int result = h2o_url_parse(client->pool, location_header.base, location_header.len, &url);
       if (result == -1) {
