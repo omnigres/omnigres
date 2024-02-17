@@ -331,13 +331,11 @@ static h2o_httpclient_body_cb on_head(h2o_httpclient_t *client, const char *errs
         int content_length_index =
             h2o_find_header(request_headers_vec, H2O_TOKEN_CONTENT_LENGTH, -1);
         if (content_length_index != -1) {
-          ereport(WARNING, errmsg("deleting content-length header"));
           h2o_delete_header(request_headers_vec, content_length_index);
         }
         new_req->request_body = h2o_iovec_init(NULL, 0);
         // if the method is POST, override the method as GET
         if (h2o_memis(req->method.base, req->method.len, H2O_STRLIT("POST"))) {
-          ereport(WARNING, errmsg("following a redirect from a POST request to a non-POST URL"));
           new_req->method = h2o_iovec_init(H2O_STRLIT("GET"));
         } else {
           new_req->method = req->method;
