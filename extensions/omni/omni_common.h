@@ -242,4 +242,17 @@ MODULE_FUNCTION void extension_upgrade_hook(omni_hook_handle *handle, PlannedStm
                                             QueryEnvironment *queryEnv, DestReceiver *dest,
                                             QueryCompletion *qc);
 
+// These are used as a hard-coded path for xact callbacks that need to be ordered
+// TODO: As we develop support for xact callbacks, this needs to be reviewed
+// and we can then figure out if it should become available to omni users directly
+// through xact hooks (noting that these ones are specifically oneshot callbacks)
+
+struct xact_oneshot_callback {
+  void (*fn)(XactEvent event, void *arg);
+  void *arg;
+};
+
+DECLARE_MODULE_VARIABLE(List *xact_oneshot_callbacks);
+DECLARE_MODULE_VARIABLE(List *after_xact_oneshot_callbacks);
+
 #endif // OMNI_COMMON_H

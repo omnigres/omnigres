@@ -34,6 +34,9 @@ tests:
     notices: [ ]
 
 - name: the hook should still stay
-  query: select 1
-  notices:
-  - run_hook
+  steps:
+  # FIXME: Hack to ensure `relation "events" already exists" notice doesn't creep in
+  - select 1
+  - query: select 1
+    notices:
+    - run_hook

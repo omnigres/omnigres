@@ -160,6 +160,8 @@ MODULE_FUNCTION void extension_upgrade_hook(omni_hook_handle *handle, PlannedStm
           systable_beginscan(depend_rel, DependReferenceIndexId, true, NULL, 2, key);
 
       HeapTuple dep_tup;
+      bool updated = false;
+
       while (HeapTupleIsValid(dep_tup = systable_getnext(dep_scan))) {
         Form_pg_depend pg_depend = (Form_pg_depend)GETSTRUCT(dep_tup);
 
@@ -188,10 +190,17 @@ MODULE_FUNCTION void extension_upgrade_hook(omni_hook_handle *handle, PlannedStm
 
               // Update the record
               CatalogTupleUpdate(proc_rel, &newtup->t_self, newtup);
+              updated = true;
             }
             ReleaseSysCache(tup);
           }
         }
+      }
+
+      if (updated) {
+        // It is important to increment the counter here so that the changes
+        // we've made are visible to our pg_proc scanner
+        CommandCounterIncrement();
       }
 
       systable_endscan(dep_scan);

@@ -6,6 +6,7 @@
 #include <fmgr.h>
 // clang-format on
 #include <commands/dbcommands.h>
+#include <executor/spi.h>
 #include <miscadmin.h>
 #include <storage/latch.h>
 #include <storage/lwlock.h>
@@ -93,6 +94,17 @@ static void init_strcpy(const omni_handle *handle, void *ptr, void *data, bool a
 }
 
 void _Omni_init(const omni_handle *handle) {
+  {
+    SPI_connect();
+    SPI_execute("create table if not exists public.events ("
+                "    event text,"
+                "    ts    timestamp default clock_timestamp()"
+                ")",
+                false, 0);
+    SPI_execute("insert into public.events (event) values ('init')", false, 0);
+    SPI_finish();
+  }
+
   initialized = true;
 
   if ((handle->atomic_switch(handle, omni_switch_on, 0, GLOBAL_WORKER_STARTED) &
@@ -181,6 +193,16 @@ void _Omni_init(const omni_handle *handle) {
 }
 
 void _Omni_deinit(const omni_handle *handle) {
+  {
+    SPI_connect();
+    SPI_execute("create table if not exists public.events ("
+                "    event text,"
+                "    ts    timestamp default clock_timestamp()"
+                ")",
+                false, 0);
+    SPI_execute("insert into public.events (event) values ('deinit')", false, 0);
+    SPI_finish();
+  }
   bool found;
 
   if ((handle->atomic_switch(handle, omni_switch_off, 0, LOCK_REGISTRATION) & LOCK_REGISTRATION) ==

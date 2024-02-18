@@ -183,17 +183,51 @@ MODULE_FUNCTION void omni_process_utility_hook(PlannedStmt *pstmt, const char *q
   iterate_hooks(omni_hook_process_utility, pstmt, queryString, readOnlyTree, context, params,
                 queryEnv, dest, qc);
 
-  load_pending_modules();
+  // It is critical here to NOT try to rescan modules if we're
+  // processing a transaction statement as we may be not having valid invariants for
+  // any substantial transactional work (especially if init/deinit callbacks do something
+  // with the database). We rely on the next statements to allow us to catch up.
+  if (nodeTag(pstmt->utilityStmt) != T_TransactionStmt) {
+    load_pending_modules();
+  }
+}
+
+MODULE_VARIABLE(List *xact_oneshot_callbacks);
+MODULE_VARIABLE(List *after_xact_oneshot_callbacks);
+
+static void on_xact_dealloc(void *arg) {
+  XactEvent event = (XactEvent)(uintptr_t)arg;
+  // Hard-coded single-shot hooks
+  ListCell *lc;
+  foreach (lc, after_xact_oneshot_callbacks) {
+    struct xact_oneshot_callback *cb = (struct xact_oneshot_callback *)lfirst(lc);
+    cb->fn(event, cb->arg);
+  }
+  after_xact_oneshot_callbacks = NIL;
 }
 
 MODULE_FUNCTION void omni_xact_callback_hook(XactEvent event, void *arg) {
   iterate_hooks(omni_hook_xact_callback, event);
-  if (MyDatabaseId == InvalidOid) {
-    // There is a case of the first transaction's callbacks when MyDatabaseId is not yet set,
-    // so let's bail here as doing otherwise will trip over accessing the database.
-    return;
+
+  // Hard-coded single-shot hooks
+  MemoryContext oldcontext = MemoryContextSwitchTo(TopTransactionContext);
+  ListCell *lc;
+
+  foreach (lc, xact_oneshot_callbacks) {
+    struct xact_oneshot_callback *cb = (struct xact_oneshot_callback *)lfirst(lc);
+    cb->fn(event, cb->arg);
+    xact_oneshot_callbacks = foreach_delete_current(xact_oneshot_callbacks, lc);
   }
-  load_pending_modules();
+
+  if (list_length(after_xact_oneshot_callbacks) > 0) {
+    MemoryContextCallback *cb = MemoryContextAlloc(TopTransactionContext, sizeof(*cb));
+    StaticAssertStmt(sizeof(arg) >= sizeof(event), "event should fit into the pointer");
+    cb->func = on_xact_dealloc;
+    cb->arg = (void *)event;
+    MemoryContextRegisterResetCallback(TopTransactionContext, cb);
+  }
+
+  MemoryContextSwitchTo(oldcontext);
 }
 
 MODULE_FUNCTION void omni_emit_log_hook(ErrorData *edata) {

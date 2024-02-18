@@ -119,14 +119,18 @@ static MemoryContext BackendModuleContextForModule(omni_handle_private *phandle)
   return NULL;
 }
 
-static void ensure_backend_initialized(void) {
+static bool ensure_backend_initialized(void) {
   // Indicates whether we have ever done anything on this backend
   if (backend_initialized)
-    return;
+    return true;
+
+  if (!(MyBackendType == B_BACKEND || MyBackendType == B_BG_WORKER)) {
+    return false;
+  }
 
   // If we're out of any transaction (for example, `ShutdownPostgres` would do that), bail
   if (!IsTransactionState()) {
-    return;
+    return false;
   }
 
   LWLockRegisterTranche(OMNI_DSA_TRANCHE, "omni:dsa");
@@ -159,6 +163,8 @@ static void ensure_backend_initialized(void) {
 
   backend_initialized = true;
   initialized_modules = NIL;
+
+  return true;
 }
 
 static void register_hook(const omni_handle *handle, omni_hook *hook);
@@ -346,48 +352,6 @@ static List *consider_probin(HeapTuple tp) {
             dshash_release_lock(omni_modules, entry);
             LWLockRelease(&(locks + OMNI_LOCK_MODULE)->lock);
 
-            {
-              // If the module was not initialized in this backend, do so
-              if (!list_member_ptr(initialized_modules, handle)) {
-
-                // Create a memory context
-                MemoryContext module_memory_context = AllocSetContextCreate(
-                    TopMemoryContext, "TopMemoryContext/omni", ALLOCSET_DEFAULT_SIZES);
-                // We copy the identifier in the top memory context so that what we reset it
-                // upon deinitialization, the identifier is still valid.
-                MemoryContextSetIdentifier(module_memory_context,
-                                           MemoryContextStrdup(TopMemoryContext, key));
-
-                {
-                  // Ensure `_Omni_load` and `_Omni_init` are called in module's memory context
-                  MemoryContext oldcontext = MemoryContextSwitchTo(module_memory_context);
-
-                  // This backend is the first one to load this module
-
-                  if (unlikely(handle->magic.revision < 5)) {
-                    if (pg_atomic_add_fetch_u32(&handle->refcount, 1) == 1) {
-                      // Let's also load it if there's a callback
-                      pg_atomic_init_u32(&handle->loaded, 1);
-                      void (*load_fn)(const omni_handle *) = dlsym(dlhandle, "_Omni_load");
-                      if (load_fn != NULL) {
-                        load_fn(&handle->handle);
-                      }
-                    }
-                  }
-
-                  void (*init_fn)(const omni_handle *) = dlsym(dlhandle, "_Omni_init");
-                  if (init_fn != NULL) {
-                    init_fn(&handle->handle);
-                  }
-
-                  MemoryContextSwitchTo(oldcontext);
-                }
-                MemoryContext oldcontext = MemoryContextSwitchTo(TopMemoryContext);
-                initialized_modules = list_append_unique_ptr(initialized_modules, handle);
-                MemoryContextSwitchTo(oldcontext);
-              }
-            }
-
           } else {
             ereport(WARNING, errmsg("Incompatible magic version %d (expected 0)", magic->version));
           }
@@ -401,7 +365,9 @@ static List *consider_probin(HeapTuple tp) {
 }
 
 MODULE_FUNCTION void load_pending_modules() {
-  ensure_backend_initialized();
+  if (!ensure_backend_initialized()) {
+    return;
+  }
 
   if (IsTransactionState() && backend_force_reload) {
     backend_force_reload = false;
@@ -419,10 +385,66 @@ MODULE_FUNCTION void load_pending_modules() {
     }
     table_close(rel, RowExclusiveLock);
 
-    List *removed_modules = list_difference_ptr(initialized_modules, loaded_modules);
+    // Modules that we need to remove
+    List *modules_to_remove = list_difference_ptr(initialized_modules, loaded_modules);
+    // Modules that we need to load
+    List *modules_to_load = list_difference_ptr(loaded_modules, initialized_modules);
+
     ListCell *lc;
-    foreach (lc, removed_modules) {
+
+    // Remove first so that we have a chance to unload on upgrades
+    foreach (lc, modules_to_remove) {
       unload_module(lfirst(lc), true);
+    }
+
+    // Now we can proceed with loads
+    foreach (lc, modules_to_load) {
+      omni_handle_private *handle = (omni_handle_private *)lfirst(lc);
+
+      {
+        // If the module was not initialized in this backend, do so
+        if (!list_member_ptr(initialized_modules, handle)) {
+
+          // Create a memory context
+          MemoryContext module_memory_context = AllocSetContextCreate(
+              TopMemoryContext, "TopMemoryContext/omni", ALLOCSET_DEFAULT_SIZES);
+          // We copy the identifier in the top memory context so that what we reset it
+          // upon deinitialization, the identifier is still valid.
+          MemoryContextSetIdentifier(module_memory_context,
+                                     MemoryContextStrdup(TopMemoryContext, handle->path));
+
+          {
+            // Ensure `_Omni_load` and `_Omni_init` are called in module's memory context
+            MemoryContext oldcontext = MemoryContextSwitchTo(BackendModuleContextForModule(handle));
+
+            void *dlhandle = dlopen(handle->path, RTLD_LAZY);
+
+            // This backend is the first one to load this module
+
+            if (unlikely(handle->magic.revision < 5)) {
+              if (pg_atomic_add_fetch_u32(&handle->refcount, 1) == 1) {
+                // Let's also load it if there's a callback
+                pg_atomic_init_u32(&handle->loaded, 1);
+                void (*load_fn)(const omni_handle *) = dlsym(dlhandle, "_Omni_load");
+                if (load_fn != NULL) {
+                  load_fn(&handle->handle);
+                }
+              }
+            }
+
+            void (*init_fn)(const omni_handle *) = dlsym(dlhandle, "_Omni_init");
+            if (init_fn != NULL) {
+              init_fn(&handle->handle);
+            }
+
+            MemoryContextSwitchTo(oldcontext);
+          }
+
+          MemoryContext oldcontext = MemoryContextSwitchTo(TopMemoryContext);
+          initialized_modules = list_append_unique_ptr(initialized_modules, handle);
+          MemoryContextSwitchTo(oldcontext);
+        }
+      }
     }
   }
 }
@@ -587,10 +609,13 @@ static void *find_or_allocate_shmem(const omni_handle *handle, const char *name,
 
   if (ptr != NULL) {
     omni_handle_private *phandle = struct_from_member(omni_handle_private, handle, handle);
+    // Allocate the key on module's memory context
     MemoryContext oldcontext = MemoryContextSwitchTo(BackendModuleContextForModule(phandle));
     ModuleAllocationKey *key = palloc(sizeof(*key));
     key->module_id = phandle->id;
     strncpy(key->name, name, sizeof(key->name) - 1);
+    // But change the acquisitions list in top memory context
+    MemoryContextSwitchTo(TopMemoryContext);
     backend_shmem_acquisitions = list_append_unique_ptr(backend_shmem_acquisitions, key);
     MemoryContextSwitchTo(oldcontext);
   }
@@ -613,10 +638,11 @@ static void deallocate_shmem(const omni_handle *handle, const char *name, bool *
       handle, name, 1 /* size is ignored in this case */, NULL, NULL, HASH_REMOVE, found);
   if (*found) {
     omni_handle_private *phandle = struct_from_member(omni_handle_private, handle, handle);
-    MemoryContext oldcontext = MemoryContextSwitchTo(BackendModuleContextForModule(phandle));
+    MemoryContext oldcontext = MemoryContextSwitchTo(TopMemoryContext);
     ListCell *lc;
     foreach (lc, backend_shmem_acquisitions) {
       ModuleAllocationKey *key = (ModuleAllocationKey *)lfirst(lc);
+
       if (key->module_id == phandle->id && strcmp(key->name, name) == 0) {
         backend_shmem_acquisitions = foreach_delete_current(backend_shmem_acquisitions, lc);
       }
@@ -766,148 +792,100 @@ struct omni_bgworker_handle_private {
   pid_t pid;
 };
 
-#if PG_MAJORVERSION_NUM < 16
-static void xact_request_bgworker_start(XactEvent event, void *arg);
-static void unregister_xact_request_bgworker_start(void *arg) {
-  UnregisterXactCallback(xact_request_bgworker_start, arg);
-}
-#endif
-
 struct bgworker_request_payload {
   BackgroundWorker bgworker;
   omni_bgworker_options options;
   struct omni_bgworker_handle *handle;
 };
 
-static void do_start_bgworker(void *arg) {
-  struct bgworker_request_payload *payload = (struct bgworker_request_payload *)arg;
-  BackgroundWorkerHandle *bgw_handle;
-  RegisterDynamicBackgroundWorker(&payload->bgworker, &bgw_handle);
-  payload->handle->registered = true;
-  if (!payload->options.dont_wait) {
-    pid_t pid;
-    WaitForBackgroundWorkerStartup(bgw_handle, &pid);
-  }
-  payload->handle->bgw_handle = *bgw_handle;
-}
-
-static void xact_request_bgworker_start(XactEvent event, void *arg) {
+static void do_start_bgworker(XactEvent event, void *arg) {
   struct bgworker_request_payload *payload = (struct bgworker_request_payload *)arg;
   if (event == XACT_EVENT_COMMIT) {
-    if (payload->options.timing == omni_timing_at_commit) {
-      do_start_bgworker(arg);
-    } else if (payload->options.timing == omni_timing_after_commit) {
-      MemoryContextCallback *cb = MemoryContextAlloc(TopTransactionContext, sizeof(*cb));
-      cb->func = do_start_bgworker;
-      cb->arg = arg;
-      MemoryContextRegisterResetCallback(TopTransactionContext, cb);
+    BackgroundWorkerHandle *bgw_handle;
+    RegisterDynamicBackgroundWorker(&payload->bgworker, &bgw_handle);
+    payload->handle->registered = true;
+    if (!payload->options.dont_wait) {
+      pid_t pid;
+      WaitForBackgroundWorkerStartup(bgw_handle, &pid);
     }
-
-    // Unregister this callback
-#if PG_MAJORVERSION_NUM >= 16
-    UnregisterXactCallback(xact_request_bgworker_start, arg);
-#else
-    {
-      MemoryContextCallback *cb = MemoryContextAlloc(TopTransactionContext, sizeof(*cb));
-      cb->func = unregister_xact_request_bgworker_start;
-      cb->arg = arg;
-      MemoryContextRegisterResetCallback(TopTransactionContext, cb);
-    }
-#endif
+    payload->handle->bgw_handle = *bgw_handle;
   }
+}
+
+static void request_bgworker_op(const omni_handle *handle, BackgroundWorker *bgworker,
+                                omni_bgworker_handle *bgw_handle,
+                                const omni_bgworker_options options, XactCallback op) {
+  struct bgworker_request_payload *payload = MemoryContextAllocExtended(
+      options.timing == omni_timing_immediately ? CurrentMemoryContext : TopTransactionContext,
+      sizeof(*payload), MCXT_ALLOC_ZERO);
+  if (bgworker != NULL) {
+    memcpy(&payload->bgworker, bgworker, sizeof(*bgworker));
+  }
+  payload->options = options;
+  payload->handle = bgw_handle;
+  List **oneshot_list;
+  switch (options.timing) {
+  case omni_timing_immediately:
+    op(XACT_EVENT_COMMIT /* pretend */, payload);
+    return;
+  case omni_timing_at_commit:
+    oneshot_list = &xact_oneshot_callbacks;
+    break;
+  case omni_timing_after_commit:
+    oneshot_list = &after_xact_oneshot_callbacks;
+    break;
+  }
+
+  MemoryContext oldcontext = MemoryContextSwitchTo(TopTransactionContext);
+  struct xact_oneshot_callback *cb = palloc(sizeof(*cb));
+  cb->fn = op;
+  cb->arg = payload;
+  *oneshot_list = list_append_unique_ptr(*oneshot_list, cb);
+  MemoryContextSwitchTo(oldcontext);
 }
 
 static void request_bgworker_start(const omni_handle *handle, BackgroundWorker *bgworker,
                                    omni_bgworker_handle *bgw_handle,
                                    const omni_bgworker_options options) {
-  struct bgworker_request_payload *payload =
-      MemoryContextAlloc(TopTransactionContext, sizeof(*payload));
-  memcpy(&payload->bgworker, bgworker, sizeof(*bgworker));
-  payload->options = options;
-  payload->handle = bgw_handle;
-  if (options.timing == omni_timing_immediately) {
-    do_start_bgworker(payload);
-  } else {
-    RegisterXactCallback(xact_request_bgworker_start, payload);
-  }
+  request_bgworker_op(handle, bgworker, bgw_handle, options, do_start_bgworker);
 }
 
-static void do_stop_bgworker(void *arg) {
-  struct bgworker_request_payload *payload = (struct bgworker_request_payload *)arg;
-  TerminateBackgroundWorker(&payload->handle->bgw_handle);
-  if (!payload->options.dont_wait) {
-    // This is similar to `WaitForBackgroundWorkerShutdown` but we can't fully rely on
-    // being the PID set for notification in bgw_notify_pid
-    BgwHandleStatus status;
-    int rc;
-
-    for (;;) {
-      pid_t pid;
-
-      CHECK_FOR_INTERRUPTS();
-
-      status = GetBackgroundWorkerPid(&payload->handle->bgw_handle, &pid);
-      if (status == BGWH_STOPPED)
-        break;
-
-      // Particularly, we have to use timeout here
-      rc = WaitLatch(MyLatch, WL_LATCH_SET | WL_POSTMASTER_DEATH | WL_TIMEOUT,
-                     50 /* arbitrary timeout of 50ms*/, WAIT_EVENT_BGWORKER_SHUTDOWN);
-
-      if (rc & WL_POSTMASTER_DEATH) {
-        break;
-      }
-
-      ResetLatch(MyLatch);
-    }
-  }
-}
-
-#if PG_MAJORVERSION_NUM < 16
-static void xact_request_bgworker_stop(XactEvent event, void *arg);
-static void unregister_xact_request_bgworker_stop(void *arg) {
-  UnregisterXactCallback(xact_request_bgworker_stop, arg);
-}
-#endif
-
-static void xact_request_bgworker_stop(XactEvent event, void *arg) {
+static void do_stop_bgworker(XactEvent event, void *arg) {
   struct bgworker_request_payload *payload = (struct bgworker_request_payload *)arg;
   if (event == XACT_EVENT_COMMIT) {
-    if (payload->options.timing == omni_timing_at_commit) {
-      do_stop_bgworker(arg);
-    } else if (payload->options.timing == omni_timing_after_commit) {
-      MemoryContextCallback *cb = MemoryContextAlloc(TopTransactionContext, sizeof(*cb));
-      cb->func = do_stop_bgworker;
-      cb->arg = arg;
-      MemoryContextRegisterResetCallback(TopTransactionContext, cb);
-    }
+    TerminateBackgroundWorker(&payload->handle->bgw_handle);
+    if (!payload->options.dont_wait) {
+      // This is similar to `WaitForBackgroundWorkerShutdown` but we can't fully rely on
+      // being the PID set for notification in bgw_notify_pid
+      BgwHandleStatus status;
+      int rc;
 
-    // Unregister this callback
-#if PG_MAJORVERSION_NUM >= 16
-    UnregisterXactCallback(xact_request_bgworker_stop, arg);
-#else
-    {
-      MemoryContextCallback *cb = MemoryContextAlloc(TopTransactionContext, sizeof(*cb));
-      cb->func = unregister_xact_request_bgworker_stop;
-      cb->arg = arg;
-      MemoryContextRegisterResetCallback(TopTransactionContext, cb);
+      for (;;) {
+        pid_t pid;
+
+        CHECK_FOR_INTERRUPTS();
+
+        status = GetBackgroundWorkerPid(&payload->handle->bgw_handle, &pid);
+        if (status == BGWH_STOPPED)
+          break;
+
+        // Particularly, we have to use timeout here
+        rc = WaitLatch(MyLatch, WL_LATCH_SET | WL_POSTMASTER_DEATH | WL_TIMEOUT,
+                       50 /* arbitrary timeout of 50ms*/, WAIT_EVENT_BGWORKER_SHUTDOWN);
+
+        if (rc & WL_POSTMASTER_DEATH) {
+          break;
+        }
+
+        ResetLatch(MyLatch);
+      }
     }
-#endif
   }
 }
 
-void request_bgworker_termination(const omni_handle *handle, omni_bgworker_handle *bgworker_handle,
+void request_bgworker_termination(const omni_handle *handle, omni_bgworker_handle *bgw_handle,
                                   const omni_bgworker_options options) {
-  struct bgworker_request_payload *payload = MemoryContextAllocExtended(
-      options.timing == omni_timing_immediately ? CurrentMemoryContext : TopTransactionContext,
-      sizeof(*payload), MCXT_ALLOC_ZERO);
-  payload->handle = bgworker_handle;
-  payload->options = options;
-  if (options.timing == omni_timing_immediately) {
-    do_stop_bgworker(payload);
-  } else {
-    RegisterXactCallback(xact_request_bgworker_stop, payload);
-  }
+  request_bgworker_op(handle, NULL, bgw_handle, options, do_stop_bgworker);
 }
 
 MODULE_FUNCTION void unload_module(omni_handle_private *phandle, bool missing_ok) {
@@ -933,6 +911,13 @@ MODULE_FUNCTION void unload_module(omni_handle_private *phandle, bool missing_ok
   // Decrement the refcount
   pg_atomic_add_fetch_u32(&phandle->refcount, -1);
 
+  // Exclude the module from this backend
+  MemoryContext oldcontext = MemoryContextSwitchTo(TopMemoryContext);
+  initialized_modules = list_delete_ptr(initialized_modules, phandle);
+  MemoryContextSwitchTo(oldcontext);
+  // Purge hooks
+  reorganize_hooks();
+
   // Deinitialize this backend
   void *dlhandle = dlopen(phandle->path, RTLD_LAZY);
   {
@@ -943,12 +928,6 @@ MODULE_FUNCTION void unload_module(omni_handle_private *phandle, bool missing_ok
     }
     MemoryContextSwitchTo(oldcontext);
   }
-  // Exclude the module from this backend
-  MemoryContext oldcontext = MemoryContextSwitchTo(TopMemoryContext);
-  initialized_modules = list_delete_ptr(initialized_modules, phandle);
-  MemoryContextSwitchTo(oldcontext);
-  // Purge hooks
-  reorganize_hooks();
 
   if (unlikely(phandle->magic.revision < 5)) {
     // Try to unload the module
@@ -965,9 +944,26 @@ MODULE_FUNCTION void unload_module(omni_handle_private *phandle, bool missing_ok
       dlclose(dlhandle);
     }
   }
-  // Insted of deleting the memory context, just release all the space and
-  // children, in case we'll use this module record again
-  MemoryContextReset(module_memory_context);
+  {
+    // Cleanup
+
+    // Because we're going to reset the module's memory context below, we need to make sure
+    // that shmem acquisitions recorded for this module need to be removed from the list to
+    // keep all pointers in that list valid.
+    ListCell *lc;
+    MemoryContext oldcontext = MemoryContextSwitchTo(TopMemoryContext);
+    foreach (lc, backend_shmem_acquisitions) {
+      ModuleAllocationKey *key = (ModuleAllocationKey *)lfirst(lc);
+      if (key->module_id == phandle->id) {
+        backend_shmem_acquisitions = foreach_delete_current(backend_shmem_acquisitions, lc);
+      }
+    }
+    MemoryContextSwitchTo(oldcontext);
+
+    // Instead of deleting the memory context, just release all the space and
+    // children, in case we'll use this module record again
+    MemoryContextReset(module_memory_context);
+  }
   // We no longer need the lock
   dshash_release_lock(omni_modules, module);
   LWLockRelease(&(locks + OMNI_LOCK_MODULE)->lock);
@@ -1016,7 +1012,7 @@ void deinitialize_backend(int code, Datum arg) {
   // For every module that is still initialized
   foreach (lc, initialized_modules) {
     omni_handle_private *handle = (omni_handle_private *)lfirst(lc);
-    MemoryContext oldcontext = MemoryContextSwitchTo(BackendModuleContextForModule(handle));
+    MemoryContext oldcontext = MemoryContextSwitchTo(TopMemoryContext);
     ListCell *lc1;
     // Scan through all backend shmem acquisitions
     foreach (lc1, backend_shmem_acquisitions) {

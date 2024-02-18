@@ -144,6 +144,9 @@ void _PG_init() {
   OmniGUCContext = AllocSetContextCreate(TopMemoryContext, "omni:guc", ALLOCSET_DEFAULT_SIZES);
 
   omni_modules = NULL;
+
+  xact_oneshot_callbacks = NIL;
+  after_xact_oneshot_callbacks = NIL;
 }
 
 /**
