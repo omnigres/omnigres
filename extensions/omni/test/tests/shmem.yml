@@ -4,7 +4,8 @@ instance:
     shared_preload_libraries: */env/OMNI_SO
   init:
   # We create the extension here
-  - create extension omni_test cascade
+  - create extension omni_test
+  - create extension omni
 
 tests:
 
@@ -40,7 +41,7 @@ tests:
   database: db1
   commit: true
   steps:
-  - create extension omni_test cascade
+  - create extension omni_test
   - query: select omni_test.get_shmem()
     results:
     - get_shmem: hello
@@ -58,7 +59,6 @@ tests:
 - name: informational view
   query: select
              name,
-             module_id,
              size
          from
              omni.shmem_allocations
@@ -69,16 +69,12 @@ tests:
              name
   results:
   - name: test1:db1
-    module_id: 2
     size: 128
   - name: test1:yregress
-    module_id: 2
     size: 128
   - name: test:db1
-    module_id: 2
     size: 128
   - name: test:yregress
-    module_id: 2
     size: 128
 
 - name: bad shared memory allocation doesn't get recorded

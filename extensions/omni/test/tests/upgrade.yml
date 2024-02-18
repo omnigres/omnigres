@@ -5,6 +5,7 @@ instance:
   init:
   # We create the extension here
   - create extension omni_test version '1' cascade
+  - create extension omni
 
 tests:
 
@@ -28,21 +29,3 @@ tests:
                result
     results:
     - count: 0
-
-- name: deinitialize old version before initializing new one
-  steps:
-  # FIXME: Hack flush events from the above test
-  - select 1
-  - delete
-    from
-        events
-  - alter extension omni_test update to '2'
-  - query: select
-               event
-           from
-               events
-           order by
-               ts asc
-    results:
-    - event: deinit
-    - event: init

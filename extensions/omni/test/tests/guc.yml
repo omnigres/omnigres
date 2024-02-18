@@ -9,7 +9,7 @@ instance:
     omni_test.enum: test1
   init:
   # We create the extension here
-  - create extension omni_test cascade
+  - create extension omni_test
 
 tests:
 

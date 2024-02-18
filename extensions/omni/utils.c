@@ -86,8 +86,6 @@ done:
 /**
  * @brief Get path to omni's library shared object
  *
- * This is to be primarily used by omni_ext's workers.
- *
  * @return const char*
  */
 MODULE_FUNCTION const char *get_omni_library_name() {

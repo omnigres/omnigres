@@ -10,7 +10,7 @@ tests:
 - name: uncommited allocations don't leak
   tests:
   - steps:
-    - create extension omni_test cascade
+    - create extension omni_test
     - query: select
                  count(*)
              from

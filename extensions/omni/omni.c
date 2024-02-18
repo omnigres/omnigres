@@ -258,45 +258,33 @@ static char *substitute_libpath_macro(const char *name) {
   return psprintf("%s%s", pkglib_path, sep_ptr);
 }
 
-static List *consider_probin(HeapTuple tp) {
-  Form_pg_proc proc = (Form_pg_proc)GETSTRUCT(tp);
-  List *loaded = NIL;
-  if (proc->prolang == ClanguageId) {
-    // If it is a module implemented in C, we can start looking into whether this is an Omni module
-    bool isnull;
-    Datum probin = heap_getattr(tp, Anum_pg_proc_probin, pg_proc_tuple_desc, &isnull);
-    if (!isnull) {
-      char *path = substitute_libpath_macro(text_to_cstring(DatumGetTextPP(probin)));
-      char key[PATH_MAX] = {0};
-      strcpy(key, path);
-      pfree(path);
+static omni_handle_private *load_module(const char *path) {
+  omni_handle_private *result = NULL;
+  void *dlhandle = dlopen(path, RTLD_LAZY);
 
-      // Try to load it
-      void *dlhandle = dlopen(key, RTLD_LAZY);
+  if (dlhandle != NULL) {
+    // If loaded, check for magic header
+    omni_magic *(*magic_fn)() = dlsym(dlhandle, "_Omni_magic");
+    if (magic_fn != NULL) {
+      // Check if magic is correct
+      omni_magic *magic = magic_fn();
+      if (magic->size == sizeof(omni_magic) && magic->version == OMNI_INTERFACE_VERSION) {
+        // We are going to record it if it wasn't yet
+        LWLockAcquire(&(locks + OMNI_LOCK_MODULE)->lock, LW_EXCLUSIVE);
+        bool found = false;
+        ModuleEntry *entry = dshash_find_or_insert(omni_modules, path, &found);
+        omni_handle_private *handle;
 
-      if (dlhandle != NULL) {
-        // If loaded, check for magic header
-        omni_magic *(*magic_fn)() = dlsym(dlhandle, "_Omni_magic");
-        if (magic_fn != NULL) {
-          // Check if magic is correct
-          omni_magic *magic = magic_fn();
-          if (magic->size == sizeof(omni_magic) && magic->version == OMNI_INTERFACE_VERSION) {
-            // We are going to record it if it wasn't yet
-            LWLockAcquire(&(locks + OMNI_LOCK_MODULE)->lock, LW_EXCLUSIVE);
-            bool found = false;
-            ModuleEntry *entry = dshash_find_or_insert(omni_modules, key, &found);
-            omni_handle_private *handle;
+        if (!found) {
+          uint32 id = pg_atomic_add_fetch_u32(&shared_info->module_counter, 1);
 
-            if (!found) {
-              uint32 id = pg_atomic_add_fetch_u32(&shared_info->module_counter, 1);
-
-              // If not found, prepare the handle
-              dsa_pointer ptr = dsa_allocate(dsa, sizeof(*handle));
-              handle = (omni_handle_private *)dsa_get_address(dsa, ptr);
-              handle->magic = *magic;
-              pg_atomic_init_u32(&handle->refcount, 0);
-              pg_atomic_init_u64(&handle->switchboard, 0);
-              strcpy(handle->path, key);
+          // If not found, prepare the handle
+          dsa_pointer ptr = dsa_allocate(dsa, sizeof(*handle));
+          handle = (omni_handle_private *)dsa_get_address(dsa, ptr);
+          handle->magic = *magic;
+          pg_atomic_init_u32(&handle->refcount, 0);
+          pg_atomic_init_u64(&handle->switchboard, 0);
+          strcpy(handle->path, path);
 #define set_function_implementations(handle)                                                       \
   handle->register_hook = register_hook;                                                           \
   handle->allocate_shmem =                                                                         \
@@ -310,54 +298,75 @@ static List *consider_probin(HeapTuple tp) {
   handle->register_lwlock = register_lwlock;                                                       \
   handle->unregister_lwlock = unregister_lwlock;                                                   \
   handle->atomic_switch = atomic_switch
-              if (magic->revision < 4) {
-                // In 0.4 (0D), we moved `register_hook` below `lookup_shmem`
-                struct _omni_handle_0r3 {
-                  char *(*get_library_name)(const omni_handle *handle);
+          if (magic->revision < 4) {
+            // In 0.4 (0D), we moved `register_hook` below `lookup_shmem`
+            struct _omni_handle_0r3 {
+              char *(*get_library_name)(const omni_handle *handle);
 
-                  omni_allocate_shmem_function allocate_shmem;
-                  omni_deallocate_shmem_function deallocate_shmem;
+              omni_allocate_shmem_function allocate_shmem;
+              omni_deallocate_shmem_function deallocate_shmem;
 
-                  omni_register_hook_function register_hook;
+              omni_register_hook_function register_hook;
 
-                  omni_lookup_shmem_function lookup_shmem;
+              omni_lookup_shmem_function lookup_shmem;
 
-                  omni_declare_guc_variable_function declare_guc_variable;
+              omni_declare_guc_variable_function declare_guc_variable;
 
-                  omni_request_bgworker_start_function request_bgworker_start;
-                  omni_request_bgworker_termination_function request_bgworker_termination;
+              omni_request_bgworker_start_function request_bgworker_start;
+              omni_request_bgworker_termination_function request_bgworker_termination;
 
-                  omni_register_lwlock_function register_lwlock;
-                  omni_unregister_lwlock_function unregister_lwlock;
+              omni_register_lwlock_function register_lwlock;
+              omni_unregister_lwlock_function unregister_lwlock;
 
-                  // Not really defined, but here to make `set_function_implementations` work
-                  omni_atomic_switch_function atomic_switch;
-                };
+              // Not really defined, but here to make `set_function_implementations` work
+              omni_atomic_switch_function atomic_switch;
+            };
 
-                set_function_implementations(((struct _omni_handle_0r3 *)&handle->handle));
-              } else {
-                set_function_implementations((&handle->handle));
-              }
-              entry->dsa = handle->dsa = dsa_get_handle(dsa);
-              entry->pointer = ptr;
-              handle->id = entry->id = id;
-            } else {
-              dsa_area *entry_dsa = dsa_handle_to_area(entry->dsa);
-              handle = dsa_get_address(entry_dsa, entry->pointer);
-            }
-
-            loaded = list_append_unique_ptr(loaded, handle);
-
-            // We no longer need an exclusive lock for modules
-            dshash_release_lock(omni_modules, entry);
-            LWLockRelease(&(locks + OMNI_LOCK_MODULE)->lock);
-
+            set_function_implementations(((struct _omni_handle_0r3 *)&handle->handle));
           } else {
-            ereport(WARNING, errmsg("Incompatible magic version %d (expected 0)", magic->version));
+            set_function_implementations((&handle->handle));
           }
+#undef set_function_implementations
+          entry->dsa = handle->dsa = dsa_get_handle(dsa);
+          entry->pointer = ptr;
+          handle->id = entry->id = id;
         } else {
-          dlclose(dlhandle);
+          dsa_area *entry_dsa = dsa_handle_to_area(entry->dsa);
+          handle = dsa_get_address(entry_dsa, entry->pointer);
         }
+
+        result = handle;
+
+        // We no longer need an exclusive lock for modules
+        dshash_release_lock(omni_modules, entry);
+        LWLockRelease(&(locks + OMNI_LOCK_MODULE)->lock);
+
+      } else {
+        ereport(WARNING, errmsg("Incompatible magic version %d (expected 0)", magic->version));
+      }
+    } else {
+      dlclose(dlhandle);
+    }
+  }
+  return result;
+}
+
+static List *consider_probin(HeapTuple tp) {
+  Form_pg_proc proc = (Form_pg_proc)GETSTRUCT(tp);
+  List *loaded = NIL;
+  if (proc->prolang == ClanguageId) {
+    // If it is a module implemented in C, we can start looking into whether this is an Omni module
+    bool isnull;
+    Datum probin = heap_getattr(tp, Anum_pg_proc_probin, pg_proc_tuple_desc, &isnull);
+    if (!isnull) {
+      char *path = substitute_libpath_macro(text_to_cstring(DatumGetTextPP(probin)));
+      char key[PATH_MAX] = {0};
+      strcpy(key, path);
+      pfree(path);
+
+      omni_handle_private *handle = load_module(key);
+      if (handle != NULL) {
+        loaded = list_append_unique_ptr(loaded, handle);
       }
     }
   }
@@ -385,6 +394,18 @@ MODULE_FUNCTION void load_pending_modules() {
     }
     table_close(rel, RowExclusiveLock);
 
+    static omni_handle_private *self = NULL;
+    {
+      // Ensure `omni` itself is loaded (once)
+      static bool omni_loaded = false;
+      if (unlikely(!omni_loaded)) {
+        self = load_module(get_omni_library_name());
+        Assert(self != NULL);
+        loaded_modules = list_append_unique_ptr(loaded_modules, self);
+        omni_loaded = true;
+      }
+    }
+
     // Modules that we need to remove
     List *modules_to_remove = list_difference_ptr(initialized_modules, loaded_modules);
     // Modules that we need to load
@@ -394,7 +415,10 @@ MODULE_FUNCTION void load_pending_modules() {
 
     // Remove first so that we have a chance to unload on upgrades
     foreach (lc, modules_to_remove) {
-      unload_module(lfirst(lc), true);
+      // Unload unless it's `omni` itself
+      if (likely((omni_handle_private *)lfirst(lc) != self)) {
+        unload_module(lfirst(lc), true);
+      }
     }
 
     // Now we can proceed with loads

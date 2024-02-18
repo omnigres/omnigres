@@ -16,7 +16,7 @@ add_postgresql_extension(
         PRIVATE ON
         RELOCATABLE false
         SOURCES omni_test.c
-        REQUIRES omni
+        TESTS_REQUIRE omni
         VERSION 1)
 
 add_postgresql_extension(
@@ -28,7 +28,7 @@ add_postgresql_extension(
         SOURCES omni_test.c
         UPGRADE_SCRIPTS tests/omni_test--1--2.sql
         NO_DEFAULT_CONTROL ON
-        REQUIRES omni
+        TESTS_REQUIRE omni
         VERSION 2
         TESTS OFF)
 

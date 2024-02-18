@@ -4,7 +4,7 @@ instance:
     shared_preload_libraries: */env/OMNI_SO
   init:
   # We create the extension here
-  - create extension omni_test cascade
+  - create extension omni_test
 
 tests:
 
@@ -47,7 +47,7 @@ tests:
 - name: with a new database, there's going to be more local workers
   database: db1
   tests:
-  - create extension omni_test cascade
+  - create extension omni_test
   - query: select
                count(*)
            from

@@ -4,7 +4,8 @@ instance:
     shared_preload_libraries: */env/OMNI_SO
   init:
   # We create the extension here
-  - create extension omni_test cascade
+  - create extension omni_test
+  - create extension omni
 
 tests:
 
