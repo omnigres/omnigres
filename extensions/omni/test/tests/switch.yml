@@ -1,0 +1,31 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+  init:
+  # We create the extension here
+  - create extension omni_test
+
+tests:
+
+# NB: we don't use two first switches because they already used in init/deinit
+
+- name: turn some on
+  query: select omni_test.atomic_on(B'110100'::int8)::bit(6)
+  results:
+  - atomic_on: 110100
+
+- name: turn more on
+  query: select omni_test.atomic_on(B'111100'::int8)::bit(6)
+  results:
+  - atomic_on: 001000
+
+- name: turn some off
+  query: select omni_test.atomic_off(B'101000'::int8)::bit(6)
+  results:
+  - atomic_off: 101000
+
+- name: turn more off
+  query: select omni_test.atomic_off(B'111000'::int8)::bit(6)
+  results:
+  - atomic_off: 010000

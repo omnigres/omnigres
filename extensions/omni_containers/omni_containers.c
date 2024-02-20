@@ -4,11 +4,11 @@
 #include <postgres.h>
 #include <fmgr.h>
 // clang-format on
-
 #include <port/pg_bswap.h>
 #include <utils/builtins.h>
-
-#include "omni_containers.h"
+#if PG_MAJORVERSION_NUM >= 16
+#include <varatt.h>
+#endif
 
 PG_MODULE_MAGIC;
 

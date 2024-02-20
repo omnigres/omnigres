@@ -1,0 +1,71 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+  init:
+  # We create the extension here
+  - create extension omni_test
+
+tests:
+
+- name: global worker is present
+  query: select
+             count(*)
+         from
+             pg_catalog.pg_stat_activity
+         where
+             pg_stat_activity.backend_type = 'test_global_worker'
+  results:
+  - count: 1
+
+- name: local worker is present
+  query: select
+             count(*)
+         from
+             pg_catalog.pg_stat_activity
+         where
+             pg_stat_activity.backend_type = 'test_local_worker'
+  results:
+  - count: 1
+
+- name: still just one local worker is present
+  # This tests whether every backend will try to start it
+  reset: true
+  query: select
+             count(*)
+         from
+             pg_catalog.pg_stat_activity
+         where
+             pg_stat_activity.backend_type = 'test_local_worker'
+  results:
+  - count: 1
+
+- name: create another database
+  transaction: false
+  query: create database db1
+
+- name: with a new database, there's going to be more local workers
+  database: db1
+  tests:
+  - create extension omni_test
+  - query: select
+               count(*)
+           from
+               pg_catalog.pg_stat_activity
+           where
+               pg_stat_activity.backend_type = 'test_local_worker'
+    results:
+    - count: 2
+
+- name: omni's own background worker handle
+  query: select omni_test.local_worker_pid() is not null as result
+  results:
+  - result: true
+
+- name: waiting for the bgworker doesn't hang startup
+  restart: true
+  # What we query is not important
+  query: select 1
+  # NB: this test likely succeeds most of the time even when we do hang
+  # because we might be able to get to _Omni_init in a backend first (before the worker
+  # gets to it). But let's keep it here for now.

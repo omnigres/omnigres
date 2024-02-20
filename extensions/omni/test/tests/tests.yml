@@ -1,0 +1,32 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+  init:
+  # We create the extension here
+  - create extension omni_test
+  - create extension omni
+
+tests:
+
+- name: _Omni_init() gets called
+  query: select omni_test.is_backend_initialized()
+  results:
+  - is_backend_initialized: true
+
+- name: module is automatically registered
+  query: select
+             count(*)
+         from
+             omni.modules
+         where
+             path like '%/omni_test--1.so'
+  results:
+  - count: 1
+
+- name: handling errors
+  tests:
+  # An error
+  - query: select current_setting('doesnotexist')
+    error: unrecognized configuration parameter "doesnotexist"
+  - select 1

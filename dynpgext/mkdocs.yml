@@ -1,3 +1,0 @@
-INHERIT: ../mkdocs.base.yml
-site_name: Dynpgext
-

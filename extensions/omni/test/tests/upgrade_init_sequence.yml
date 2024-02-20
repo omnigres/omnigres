@@ -1,0 +1,37 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+  init:
+  # We create the extension here
+  - create extension omni_test version '1' cascade
+
+tests:
+
+# This test is separate from `upgrade.yml` because we want to ensure
+# that this works without `omni` loaded
+- name: ensure omni is not installed
+  query: select
+             count(*)
+         from
+             pg_catalog.pg_extension
+         where
+             pg_extension.extname = 'omni'
+  results:
+  - count: 0
+
+- name: deinitialize old version before initializing new one
+  steps:
+  - delete
+    from
+        events
+  - alter extension omni_test update to '2'
+  - query: select
+               event
+           from
+               events
+           order by
+               ts asc
+    results:
+    - event: deinit
+    - event: init

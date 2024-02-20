@@ -1,0 +1,42 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+
+tests:
+
+- name: load hooks in a transaction
+  tests:
+  - steps:
+    - create extension omni_test
+    - query: select 1
+      notices:
+      - run_hook
+  # But once we're out of the transaction, hooks should not apply
+  - steps:
+    - query: select 1
+      notices: [ ]
+
+- name: commit creating the extension
+  query: create extension omni_test
+  commit: true
+
+- name: the hook should stay
+  query: select 1
+  notices:
+  - run_hook
+
+- name: drop extension in an uncommitted transaction
+  steps:
+  - drop extension omni_test
+  - query: select 1
+    # Hook is not running
+    notices: [ ]
+
+- name: the hook should still stay
+  steps:
+  # FIXME: Hack to ensure `relation "events" already exists" notice doesn't creep in
+  - select 1
+  - query: select 1
+    notices:
+    - run_hook

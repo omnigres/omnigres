@@ -1,0 +1,25 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+  init:
+  - create extension omni
+
+tests:
+
+- name: uncommited allocations don't leak
+  tests:
+  - steps:
+    - create extension omni_test
+    - query: select
+                 count(*)
+             from
+                 omni.shmem_allocations
+      results:
+      - count: 4
+  - query: select
+               count(*)
+           from
+               omni.shmem_allocations
+    results:
+    - count: 0

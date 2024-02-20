@@ -44,7 +44,6 @@
 
 #include <h2o.h>
 
-#include <dynpgext.h>
 #include <libpgaug.h>
 
 #include <libgluepg_stc.h>
@@ -113,7 +112,9 @@ static void on_accept(h2o_socket_t *listener, const char *err) {
   int fd = h2o_socket_get_fd(sock);
   if (send_fds(fd, &sockets) != 0) {
     int e = errno;
-    ereport(WARNING, errmsg("error sending listening socket descriptor: %s", strerror(e)));
+    if (e != EPIPE) {
+      ereport(WARNING, errmsg("error sending listening socket descriptor: %s", strerror(e)));
+    }
   }
   h2o_socket_close(sock);
 }
@@ -189,6 +190,9 @@ static void sigusr1_handler(int signo) {
 #define i_val int
 #define i_tag port
 #include <stc/cset.h>
+
+pg_atomic_uint32 *semaphore;
+
 /**
  * @brief Master httpd worker
  *
@@ -196,14 +200,6 @@ static void sigusr1_handler(int signo) {
  */
 void master_worker(Datum db_oid) {
   IsOmniHttpdWorker = true;
-  char *tmp_path = mkdtemp(
-      psprintf("%s/%s", GetConfigOption("omni_httpd.temp_dir", false, false), "omni_httpdXXXXXX"));
-  if (tmp_path == NULL) {
-    ereport(ERROR, errmsg("'%s' isn't a directory, please set omni_httpd.temp_dir to an existing "
-                          "temporary directory",
-                          GetConfigOption("omni_httpd.temp_dir", false, false)));
-  }
-  socket_path = psprintf("%s/socket.%d", tmp_path, getpid());
 
 #if PG_MAJORVERSION_NUM >= 13
   pqsignal(SIGHUP, SignalHandlerForConfigReload);
@@ -215,11 +211,18 @@ void master_worker(Datum db_oid) {
   BackgroundWorkerUnblockSignals();
   BackgroundWorkerInitializeConnectionByOid(db_oid, InvalidOid, 0);
 
-  // Share our PID. We do it after initializing the connection because it'll
-  // perform this lookup on a per-database basis and we need to know our database ID.
-  pid_t *master_worker = dynpgext_lookup_shmem(OMNI_HTTPD_MASTER_WORKER);
-  Assert(master_worker != NULL);
-  pg_atomic_write_u32((pg_atomic_uint32 *)master_worker, MyProcPid);
+  if (!BackendInitialized) {
+    // Chances are, the extension was already dropped since this was not called.
+    return;
+  }
+
+  char *tmp_path = mkdtemp(psprintf("%s/%s", *temp_dir, "omni_httpdXXXXXX"));
+  if (tmp_path == NULL) {
+    ereport(ERROR, errmsg("'%s' isn't a directory, please set omni_httpd.temp_dir to an existing "
+                          "temporary directory",
+                          *temp_dir));
+  }
+  socket_path = psprintf("%s/socket.%d", tmp_path, getpid());
 
   sigusr1_original_handler = pqsignal(SIGUSR1, sigusr1_handler);
 
@@ -243,9 +246,10 @@ void master_worker(Datum db_oid) {
   bool http_workers_started = false;
   bool port_ready = false;
 
-  volatile pg_atomic_uint32 *semaphore =
-      dynpgext_lookup_shmem(OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE);
-  Assert(semaphore != NULL);
+  if (master_worker_bgw == NULL || semaphore == NULL) {
+    // Already being terminated
+    return;
+  }
   pg_atomic_write_u32(semaphore, 0);
 
   while (!shutdown_worker) {
@@ -263,13 +267,28 @@ void master_worker(Datum db_oid) {
 
     // Get listeners
     while (worker_reload) {
-      worker_reload = false;
 
       // Lock this table so that nobody can modify it
       // and therefore change the order of listeners (this is important for coordination of
       // the master worker with http workers) as they will use the order of listeners to align
       // with the vector of sockets sent.
-      LockRelationOid(listenersoid, ExclusiveLock);
+      if (!ConditionalLockRelationOid(listenersoid, ExclusiveLock)) {
+        // However, if we can't get the lock, see if ought to be shut down
+        if (shutdown_worker) {
+          // (and comply if we are)
+          SPI_finish();
+          PopActiveSnapshot();
+          AbortCurrentTransaction();
+          goto terminate;
+        }
+        // otherwise, try again
+        continue;
+        // (The big use case for conditionally locking here is that when we drop the extension,
+        // it will lock extension objects exclusively and we're terminating master worker at the
+        // final phase of the commit
+      }
+
+      worker_reload = false;
 
       if (SPI_execute(
               "select address, port, id, effective_port from omni_httpd.listeners order by id asc",
@@ -482,7 +501,7 @@ void master_worker(Datum db_oid) {
       BackgroundWorker worker = {.bgw_name = "omni_httpd worker",
                                  .bgw_type = "omni_httpd worker",
                                  .bgw_function_name = "http_worker",
-                                 .bgw_notify_pid = getpid(),
+                                 .bgw_notify_pid = MyProcPid,
                                  .bgw_main_arg = db_oid,
                                  .bgw_restart_time = BGW_NEVER_RESTART,
                                  .bgw_flags =
@@ -490,7 +509,7 @@ void master_worker(Datum db_oid) {
                                  .bgw_start_time = BgWorkerStart_RecoveryFinished};
       strncpy(worker.bgw_extra, socket_path, BGW_EXTRALEN - 1);
       strncpy(worker.bgw_library_name, MyBgworkerEntry->bgw_library_name, BGW_MAXLEN - 1);
-      for (int i = 0; i < num_http_workers; i++) {
+      for (int i = 0; i < *num_http_workers; i++) {
         BackgroundWorkerHandle *handle;
         RegisterDynamicBackgroundWorker(&worker, &handle);
         pid_t worker_pid;
