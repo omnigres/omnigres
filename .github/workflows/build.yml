@@ -138,7 +138,7 @@ jobs:
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Release -DPG_CONFIG=$(which pg_config)
 
     - name: Build
-      run: cmake --build ${{github.workspace}}/build --parallel --config Release --target all --target package
+      run: cmake --build ${{github.workspace}}/build --parallel --config Release --target all --target package_extensions
 
   # Ensure every extension can be built independently
   build-extensions-independently:
