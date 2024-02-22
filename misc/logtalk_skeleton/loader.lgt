@@ -1,0 +1,1 @@
+:- initialization(logtalk_load([format(loader), main])).
