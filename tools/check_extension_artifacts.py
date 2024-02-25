@@ -67,8 +67,8 @@ def check_extension_artifacts(artifacts):
         ext = line.split("#")[0]
         [ext_name, ext_version] = ext.split("=")
         if (
-                version_pattern.match(ext_version) is None
-                and ext_version != OMNI_EXTENSION_UNRELEASED_VERSION
+            version_pattern.match(ext_version) is None
+            and ext_version != OMNI_EXTENSION_UNRELEASED_VERSION
         ):
             raise Exception(
                 f"extension '{ext_name}' version '{ext_version}' is neither semver compliant "
@@ -88,8 +88,8 @@ def check_extension_artifacts(artifacts):
         graph[ext_name] = []
 
         if (
-                ext_name in extension_versions
-                and extension_versions[ext_name] != ext_version
+            ext_name in extension_versions
+            and extension_versions[ext_name] != ext_version
         ):
             raise Exception(
                 f"version of '{ext_name}' extension should be same throughout the file"
@@ -104,8 +104,8 @@ def check_extension_artifacts(artifacts):
 
                 if d_name.startswith(OMNI_EXTENSION_PREFIX):
                     if (
-                            version_pattern.match(d_version) is None
-                            and d_version != OMNI_EXTENSION_UNRELEASED_VERSION
+                        version_pattern.match(d_version) is None
+                        and d_version != OMNI_EXTENSION_UNRELEASED_VERSION
                     ):
                         raise Exception(
                             f"'{d_name}' dependency version '{d_version}' is neither semver "
@@ -113,8 +113,8 @@ def check_extension_artifacts(artifacts):
                         )
 
                     if (
-                            version_pattern.match(ext_version) is not None
-                            and d_version == OMNI_EXTENSION_UNRELEASED_VERSION
+                        version_pattern.match(ext_version) is not None
+                        and d_version == OMNI_EXTENSION_UNRELEASED_VERSION
                     ):
                         raise Exception(
                             f"'{ext_name}' extension with release version '{ext_version}' "
@@ -129,8 +129,8 @@ def check_extension_artifacts(artifacts):
                         )
 
                 if (
-                        d_name in extension_versions
-                        and extension_versions[d_name] != d_version
+                    d_name in extension_versions
+                    and extension_versions[d_name] != d_version
                 ):
                     raise Exception(
                         f"version of '{d_name}' extension should be same throughout the file"
@@ -153,8 +153,8 @@ def check_extension_artifacts(artifacts):
     extensions_to_release = []
     for ext in topological_sort(graph):
         if (
-                ext.startswith(OMNI_EXTENSION_PREFIX)
-                and version_pattern.match(extension_versions[ext]) is not None
+            ext.startswith(OMNI_EXTENSION_PREFIX)
+            and version_pattern.match(extension_versions[ext]) is not None
         ):
             extensions_to_release.append(f"{ext}={extension_versions[ext]}")
 

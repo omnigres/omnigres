@@ -102,16 +102,26 @@ jobs:
       working-directory: ${{ github.workspace }}/build
       run: |
         MATRIX_COMBINATION=${{ matrix.pgver }}/${{ matrix.build_type }}/${{ matrix.os.name }}-${{ matrix.os.arch }}
-        EXTENSION_FILES_DIR=packaged/s3/
-        mkdir -p $EXTENSION_FILES_DIR
+        S3_FILES_DIR=packaged/s3
+        mkdir -p $S3_FILES_DIR
+        
+        # directory to sync with s3 bucket
+        S3_FILES_UPLOAD_DIR=$S3_FILES_DIR/output
+        mkdir -p $S3_FILES_UPLOAD_DIR
         
         index_contents=$(curl --fail-with-body https://index.omnigres.com/$MATRIX_COMBINATION/index.json | jq .)
         
-        format_version=$(curl --fail-with-body https://index.omnigres.com/$MATRIX_COMBINATION/index.json | jq ".format_version")
+        echo "index_contents: $index_contents"
+        
+        # used for generating upgrade scripts later
+        echo $index_contents > $S3_FILES_DIR/index.json
+        
+        format_version=$(echo $index_contents | jq ".format_version")
         if [ $format_version != 1 ]; then
           echo "unrecognised format_version: \"$format_version\", make changes to this workflow to work with newer format_version" && exit 1
         fi
         
+        # used to check whether to any releases were created
         new_ext_releases=""
         
         while read -r line; do
@@ -132,14 +142,16 @@ jobs:
         
           if [ $commit_sha = null ]; then
         
-            cp packaged/extension/{$ext_name--$ext_ver.sql,$ext_name--$ext_ver.control,$ext_name.control} $EXTENSION_FILES_DIR/
+            # extension specific directory
+            EXTENSION_DIR=$S3_FILES_DIR/$ext_name
+            mkdir $EXTENSION_DIR
+        
+            cp packaged/extension/{$ext_name--$ext_ver.sql,$ext_name--$ext_ver.control,$ext_name.control} $EXTENSION_DIR/
 
             if [ -f packaged/$ext_name--$ext_ver.so ]; then
-                mkdir -p $EXTENSION_FILES_DIR/lib
-                cp packaged/$ext_name--$ext_ver.so $EXTENSION_FILES_DIR/lib/
+                mkdir -p $EXTENSION_DIR/lib
+                cp packaged/$ext_name--$ext_ver.so $EXTENSION_DIR/lib/
             fi
-
-            echo $line >> $EXTENSION_FILES_DIR/artifacts.txt
         
             if [ -z $new_ext_releases ]; then
               new_ext_releases+="$ext_name=$ext_ver"
@@ -148,16 +160,29 @@ jobs:
             fi
         
             # generate upgrade scripts only if there are existing releases of an extension
-            if [ $(echo $index_contents | jq ".extensions.$ext_name | length") -gt 1 ]; then
+            if [ $(echo $index_contents | jq ".extensions.$ext_name | length") -gt 0 ]; then
               export TMPDIR=$RUNNER_TEMP
-              export BUILD_TYPE=${{matrix.build_type}}
+              export BUILD_TYPE=${{ matrix.build_type }}
               export PG_CONFIG=$(find ../.pg -name pg_config -type f -executable | grep -v src | head -n 1)
               echo "Using $PG_CONFIG"
-              ../generate-upgrades.sh "$EXTENSION_FILES_DIR/index.json" $ext_name $ext_ver || exit 1
+              ../generate-upgrades.sh "$S3_FILES_DIR/index.json" $ext_name $ext_ver || exit 1
           
-              # generate-upgrades.sh places the generated upgrade files here unless overriden
-              cp _migrations/packaged/$ext_name--*.sql $EXTENSION_FILES_DIR/
+              # generate-upgrades.sh places the generated upgrade files in _migrations unless overriden
+              cp _migrations/packaged/$ext_name--*.sql $EXTENSION_DIR/
             fi
+        
+            cat artifacts.txt | grep -v unreleased > $EXTENSION_DIR/artifacts.txt
+            tar -C $EXTENSION_DIR -zcvf "$S3_FILES_UPLOAD_DIR/$ext_name--$ext_ver.tar.gz" .
+          
+            source venv/bin/activate  
+            # populate dependency files of the extension in DESTINATION_DIR
+            MATRIX_COMBINATION=$MATRIX_COMBINATION \
+            DESTINATION_DIR=$EXTENSION_DIR \
+            TMPDIR=$RUNNER_TEMP \
+            python ../tools/package_extension_with_dependencies.py $EXTENSION_DIR/artifacts.txt $ext_name $ext_ver
+        
+            tar -C $EXTENSION_DIR -zcvf "$S3_FILES_UPLOAD_DIR/$ext_name--$ext_ver-with-dependencies.tar.gz" .
+
           else
             # check if version is bumped for extension file changes
             if [ ${{ github.event_name }} == 'pull_request_target' ]; then
@@ -176,44 +201,51 @@ jobs:
           fi
         done < artifacts.txt
         
-        tar -zcvf ${{ github.sha }}.tar.gz $EXTENSION_FILES_DIR
-        
-        echo "S3_FILE_PATH=$MATRIX_COMBINATION/${{ github.sha }}.tar.gz" >> "$GITHUB_OUTPUT"
+        echo "S3_FILE_PATH=$MATRIX_COMBINATION/${{ github.sha }}" >> "$GITHUB_OUTPUT"
+        echo "S3_FILES_UPLOAD_DIR=$S3_FILES_UPLOAD_DIR" >> "$GITHUB_OUTPUT"
         
         echo "POST_URL=$MATRIX_COMBINATION/extensions" >> "$GITHUB_OUTPUT"
         # this will be the post body for creating new extension versions in omnigres-index after s3 upload
         echo "POST_BODY=$new_ext_releases" >> "$GITHUB_OUTPUT"
 
+    - name: Tailscale
+      uses: omnigres/tailscale-github-action@acfb679296986fae0eba66aadc3a9b40edfb287b #tailscale/github-action@v2
+      with:
+        oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+        oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+        tags: tag:ci
+
     - name: Pretend to sync back to S3
       working-directory: ${{ github.workspace }}/build
       if: github.event_name != 'push'
       run: |
-        POST_BODY=${{ github.new_ext_releases.outputs.POST_BODY }}
+        POST_BODY="${{ steps.new_ext_releases.outputs.POST_BODY }}"
         
-        if [ -z $POST_BODY ]; then
+        if [ -z "$POST_BODY" ]; then
           echo "no new extension versions were released"
         else
-          S3_FILE_PATH=${{ github.new_ext_releases.outputs.S3_FILE_PATH }}
-          aws s3 sync --dryrun ${{ github.sha }}.tar.gz s3://omnigres-ext-semver/$S3_FILE_PATH
+          S3_FILE_PATH="${{ steps.new_ext_releases.outputs.S3_FILE_PATH }}"
+          S3_FILES_UPLOAD_DIR="${{ steps.new_ext_releases.outputs.S3_FILES_UPLOAD_DIR }}"
+          aws s3 sync --dryrun "$S3_FILES_UPLOAD_DIR"  "s3://omnigres-ext-semver/$S3_FILE_PATH"
         
-          echo "The gzipped tar contains the following files:"
-          tar -tf ${{ github.sha }}.tar.gz
+          echo "POST_BODY: $POST_BODY"
         fi
 
     - name: Sync back to S3
       working-directory: ${{ github.workspace }}/build
       if: github.event_name == 'push'
       run: |
-        POST_BODY=${{ github.new_ext_releases.outputs.POST_BODY }}
+        POST_BODY="${{ steps.new_ext_releases.outputs.POST_BODY }}"
         
-        if [ -z $POST_BODY ]; then
+        if [ -z "$POST_BODY" ]; then
           echo "no new extension versions were released"
         else
-          S3_FILE_PATH=${{ github.new_ext_releases.outputs.S3_FILE_PATH }}
-          aws s3 sync ${{ github.sha }}.tar.gz s3://omnigres-ext-semver/$S3_FILE_PATH
+          S3_FILE_PATH="${{ steps.new_ext_releases.outputs.S3_FILE_PATH }}"
+          S3_FILES_UPLOAD_DIR="${{ steps.new_ext_releases.outputs.S3_FILES_UPLOAD_DIR }}"
+          aws s3 sync "$S3_FILES_UPLOAD_DIR"  "s3://omnigres-ext-semver/$S3_FILE_PATH"
         
           # update omnigres-index with new extension version releases after s3 upload
-          POST_URL=${{ github.new_ext_releases.outputs.POST_URL }}
-          curl --fail-with-body -d "$POST_BODY" http://omnigres-index/$POST_URL?commit_sha=${{ github.sha }}
+          POST_URL="${{ steps.new_ext_releases.outputs.POST_URL }}"
+          curl --fail-with-body -d "$POST_BODY" http://omnigres-index/"$POST_URL"?commit_sha=${{ github.sha }}
         fi
 

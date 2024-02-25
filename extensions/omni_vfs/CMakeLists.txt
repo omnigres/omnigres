@@ -13,12 +13,14 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_vfs_types_v1
+        VERSION 0.1.0
         SCHEMA omni_vfs_types_v1
         RELOCATABLE false
         TESTS OFF)
 
 add_postgresql_extension(
         omni_vfs
+        VERSION 0.1.0
         SCHEMA omni_vfs
         RELOCATABLE false
         DEPENDS_ON libpgaug

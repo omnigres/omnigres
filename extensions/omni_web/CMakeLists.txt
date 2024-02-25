@@ -13,6 +13,7 @@ find_package(Uriparser REQUIRED)
 
 add_postgresql_extension(
         omni_web
+        VERSION 0.1.0
         SCHEMA omni_web
         RELOCATABLE false
         SOURCES omni_web.c urlencode.c
