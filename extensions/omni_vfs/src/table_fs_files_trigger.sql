@@ -71,6 +71,7 @@ begin
                 end if;
 
                 iteration_count = iteration_count + 1;
+                raise info 'hello world';
             end loop;
     end if;
     return new;

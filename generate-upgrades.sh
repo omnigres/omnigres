@@ -85,7 +85,7 @@ revision() {
     "$PG_BINDIR/initdb" -D "$db" --no-clean --no-sync --locale=C --encoding=UTF8 || exit 1
     sockdir=$(mktemp -d)
     export PGSHAREDIR="$DEST_DIR/$old_rev/build/pg-share"
-    "$PG_BINDIR/pg_ctl" start -D "$db" -o "-c max_worker_processes=64" -o "-c listen_addresses=''" -o "-k $sockdir" -o "-c shared_preload_libraries='$DEST_DIR/$old_rev/build/extensions/omni_ext/omni_ext.so'" || exit 1
+    "$PG_BINDIR/pg_ctl" start -D "$db" -o "-c max_worker_processes=64" -o "-c listen_addresses=''" -o "-k $sockdir" -o "-c shared_preload_libraries='$DEST_DIR/$old_rev/build/extensions/omni/omni.so'" || exit 1
     "$PG_BINDIR/createdb" -h "$sockdir" "$ext_name" || exit 1
     # * install the extension in this revision, snapshot pg_proc, drop the extension
     # We copy all scripts because there are dependencies
@@ -107,7 +107,7 @@ EOF
     export PGSHAREDIR="$DEST_DIR/$new_rev/build/pg-share"
     # We copy all scripts because there are dependencies
     cp "$DEST_DIR"/$new_rev/build/packaged/extension/*.sql "$PGSHAREDIR/extension"
-    "$PG_BINDIR/pg_ctl" start -D "$db" -o "-c max_worker_processes=64" -o "-c listen_addresses=''" -o "-k $sockdir"  -o "-c shared_preload_libraries='$DEST_DIR/$new_rev/build/extensions/omni_ext/omni_ext.so'" || exit 1
+    "$PG_BINDIR/pg_ctl" start -D "$db" -o "-c max_worker_processes=64" -o "-c listen_addresses=''" -o "-k $sockdir"  -o "-c shared_preload_libraries='$DEST_DIR/$new_rev/build/extensions/omni/omni.so'" || exit 1
     # * install the extension from the head revision
     echo "create extension $ext_name version '$new_ver' cascade;" | "$PG_BINDIR/psql" -h "$sockdir" -v ON_ERROR_STOP=1 $ext_name
     if [ "${PIPESTATUS[0]}" -ne 0 ]; then
