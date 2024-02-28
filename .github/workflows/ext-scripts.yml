@@ -3,8 +3,12 @@ name: Extension scripts
 on:
   push:
     branches: [ "master", "test-gh-workflows" ]
+    paths:
+      - versions.txt
   pull_request_target:
     branches: [ "master", "**" ]
+    paths:
+      - versions.txt
 
 env:
   CPM_SOURCE_CACHE: ${{ github.workspace }}/cpm_modules
