@@ -41,6 +41,10 @@ jobs:
       with:
         fetch-depth: all
 
+    - if: github.event_name == 'push'
+      run: echo "before push commit ${{ github.event.push.before }}"
+
+
     - uses: actions/checkout@v3
       if: github.event_name != 'push'
       with:
