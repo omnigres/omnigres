@@ -13,6 +13,7 @@ find_package(PostgreSQL REQUIRED)
 find_package(H2O REQUIRED)
 
 pkg_check_modules(BROTLI_DEC libbrotlidec)
+
 pkg_check_modules(BROTLI_ENC libbrotlienc)
 
 add_postgresql_extension(
