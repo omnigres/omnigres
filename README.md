@@ -9,11 +9,14 @@
 
 ---
 
+some changes
+
 [![Discord Chat](https://img.shields.io/discord/1060568981725003789?label=Discord)][Discord]
 [![Documentation](https://img.shields.io/badge/docs-ready-green)](https://docs.omnigres.org)
 ![License](https://img.shields.io/github/license/omnigres/omnigres)
 
-Omnigres makes Postgres a developer-first application platform. You can deploy a single database instance and it can host your entire application, scaling as needed.
+Omnigres makes Postgres a developer-first application platform. You can deploy a single database instance and it can
+host your entire application, scaling as needed.
 
 * Running application logic **inside** or **next to** the database instance
 * **Deployment** provisioning (**Git**, **containers**, etc.)
@@ -30,7 +33,8 @@ Omnigres makes Postgres a developer-first application platform. You can deploy a
 
 ## :runner: Quick start
 
-The fastest way to try Omnigres out is by using its [container image](https://github.com/omnigres/omnigres/pkgs/container/omnigres):
+The fastest way to try Omnigres out is by using
+its [container image](https://github.com/omnigres/omnigres/pkgs/container/omnigres):
 
 ```shell
 docker volume create omnigres
@@ -47,7 +51,8 @@ You can access the HTTP server at [localhost:8080](http://localhost:8080)
 
 ### Building your own image
 
-If you can't use the pre-built image (for example, you are running a fork or made changes), you can build the image yourself:
+If you can't use the pre-built image (for example, you are running a fork or made changes), you can build the image
+yourself:
 
 ```shell
 # Build the image
@@ -165,28 +170,28 @@ this [MOTD service example](https://docs.omnigres.org/examples/motd/).
 Below is the current list of components being worked on, experimented with and discussed. This list will change
 (and grow) over time.
 
-| Name                                                                                        | Status                                                                  | Description                                           |
-|---------------------------------------------------------------------------------------------|-------------------------------------------------------------------------|-------------------------------------------------------|
-| [omni_schema](extensions/omni_schema/README.md)                                             | :white_check_mark: First release candidate                              | Application schema management                         |
-| [omni_json](extensions/omni_json/README.md)                                                 | :white_check_mark: First release candidate                              | JSON toolkit                                          |
-| [omni_xml](extensions/omni_xml/README.md)                                                   | :white_check_mark: First release candidate                              | XML toolkit                                           |
-| [omni_http](extensions/omni_http/README.md)                                                 | :white_check_mark: First release candidate                              | Common HTTP types library                             |
-| [omni_httpd](extensions/omni_httpd/README.md) and [omni_web](extensions/omni_web/README.md) | :white_check_mark: First release candidate                              | Serving HTTP in Postgres and building services in SQL |
-| [omni_mimetypes](extensions/omni_mimetypes/README.md)                                       | :white_check_mark: First release candidate                              | MIME types and file extensions                        |
-| [omni_httpc](extensions/omni_httpc/README.md)                                               | :white_check_mark: First release candidate                              | HTTP client                                           |
-| [omni_sql](extensions/omni_sql/README.md)                                                   | :construction: Extremely limited API surface                            | Programmatic SQL manipulation                         |
-| [omni_vfs](extensions/omni_vfs/README.md)                                                   | :ballot_box_with_check: Initial prototype                               | Virtual File System interface                         |
-| [omni_containers](extensions/omni_containers/README.md)                                     | :ballot_box_with_check: Initial prototype                               | Managing containers                                   |
-| [omni](extensions/omni/README.md) and [Omni interface](omni/README.md)                      | :white_check_mark: First release candidate | Advanced adapter for Postgres extensions              |
-| [omni_manifest](extensions/omni_manifest/README.md)                                         | :ballot_box_with_check: Initial prototype                               | Improved extension installation                       |
-| [omni_types](extensions/omni_types/README.md)                                               | :white_check_mark: First release candidate                              | Advanced Postgres typing techniques (sum types, etc.) |
-| [omni_seq](extensions/omni_seq/README.md)                                                   | :white_check_mark: First release candidate                              | Extended Postgres sequence tooling                    |
-| [omni_var](extensions/omni_var/README.md)                                                   | :white_check_mark: First release candidate                              | Variable management                                   |
-| [omni_txn](extensions/omni_txn/README.md)                                                   | :white_check_mark: First release candidate                              | Transaction management                                |
-| [omni_python](extensions/omni_python/README.md)                                             | :ballot_box_with_check: Initial prototype                               | First-class Python Development Experience             |
-| [omni_os](extensions/omni_os/README.md)                                                     | :ballot_box_with_check: Initial prototype                               | Access to the operating system                        |
-| omni_git                                                                                    | :lab_coat: Early experiments (unpublished)                              | Postgres Git client                                   |
-| omni_reactive                                                                               | :spiral_calendar: Haven't started yet                                   | Reactive queries                                      |
+| Name                                                                                        | Status                                       | Description                                           |
+|---------------------------------------------------------------------------------------------|----------------------------------------------|-------------------------------------------------------|
+| [omni_schema](extensions/omni_schema/README.md)                                             | :white_check_mark: First release candidate   | Application schema management                         |
+| [omni_json](extensions/omni_json/README.md)                                                 | :white_check_mark: First release candidate   | JSON toolkit                                          |
+| [omni_xml](extensions/omni_xml/README.md)                                                   | :white_check_mark: First release candidate   | XML toolkit                                           |
+| [omni_http](extensions/omni_http/README.md)                                                 | :white_check_mark: First release candidate   | Common HTTP types library                             |
+| [omni_httpd](extensions/omni_httpd/README.md) and [omni_web](extensions/omni_web/README.md) | :white_check_mark: First release candidate   | Serving HTTP in Postgres and building services in SQL |
+| [omni_mimetypes](extensions/omni_mimetypes/README.md)                                       | :white_check_mark: First release candidate   | MIME types and file extensions                        |
+| [omni_httpc](extensions/omni_httpc/README.md)                                               | :white_check_mark: First release candidate   | HTTP client                                           |
+| [omni_sql](extensions/omni_sql/README.md)                                                   | :construction: Extremely limited API surface | Programmatic SQL manipulation                         |
+| [omni_vfs](extensions/omni_vfs/README.md)                                                   | :ballot_box_with_check: Initial prototype    | Virtual File System interface                         |
+| [omni_containers](extensions/omni_containers/README.md)                                     | :ballot_box_with_check: Initial prototype    | Managing containers                                   |
+| [omni](extensions/omni/README.md) and [Omni interface](omni/README.md)                      | :white_check_mark: First release candidate   | Advanced adapter for Postgres extensions              |
+| [omni_manifest](extensions/omni_manifest/README.md)                                         | :ballot_box_with_check: Initial prototype    | Improved extension installation                       |
+| [omni_types](extensions/omni_types/README.md)                                               | :white_check_mark: First release candidate   | Advanced Postgres typing techniques (sum types, etc.) |
+| [omni_seq](extensions/omni_seq/README.md)                                                   | :white_check_mark: First release candidate   | Extended Postgres sequence tooling                    |
+| [omni_var](extensions/omni_var/README.md)                                                   | :white_check_mark: First release candidate   | Variable management                                   |
+| [omni_txn](extensions/omni_txn/README.md)                                                   | :white_check_mark: First release candidate   | Transaction management                                |
+| [omni_python](extensions/omni_python/README.md)                                             | :ballot_box_with_check: Initial prototype    | First-class Python Development Experience             |
+| [omni_os](extensions/omni_os/README.md)                                                     | :ballot_box_with_check: Initial prototype    | Access to the operating system                        |
+| omni_git                                                                                    | :lab_coat: Early experiments (unpublished)   | Postgres Git client                                   |
+| omni_reactive                                                                               | :spiral_calendar: Haven't started yet        | Reactive queries                                      |
 
 ## :keyboard: Hacking
 
