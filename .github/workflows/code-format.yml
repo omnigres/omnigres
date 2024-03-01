@@ -1,4 +1,3 @@
-# If it fails, run `make fix-format`
 name: clang-format
 on: [push, pull_request]
 jobs:
@@ -7,8 +6,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
+      # If it fails, run `make fix-format`
     - name: Run clang-format style check
       uses: jidicula/clang-format-action@v4.10.2
       with:
         clang-format-version: '17'
         check-path: '.'
+      # If it fails, run `ruff format`
+    - uses: chartboost/ruff-action@v1
+      with:
+        src: "./tools"
+        args: "format --check"

@@ -14,6 +14,7 @@ add_subdirectory_once(libpgaug)
 add_subdirectory_once(libgluepg_stc)
 add_subdirectory_once(extensions)
 add_subdirectory_once(languages)
+add_subdirectory_once(tools)
 
 include(CPM)
 CPMAddPackage(

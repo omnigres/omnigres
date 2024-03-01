@@ -165,8 +165,6 @@ function(add_postgresql_extension NAME)
         add_library(${_ext_TARGET} MODULE ${_ext_SOURCES})
     endif()
 
-    add_dependencies(${_ext_TARGET} check_git_commit_hash)
-
     # inja ia a default target dependency for all extensions    
     if(NOT TARGET inja)
         add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../../misc/inja" "${CMAKE_CURRENT_BINARY_DIR}/inja")
