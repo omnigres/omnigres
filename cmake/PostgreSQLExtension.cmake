@@ -605,7 +605,7 @@ ${PG_CTL} stop -D  \"$PSQLDB\" -m smart
             foreach(requirement ${_ext_REQUIRES})
                 math(EXPR _ctr "${_ctr} + 1")
                 if(TARGET ${requirement})
-                    get_version(requirement _ver)
+                    get_version(${requirement} _ver)
                 else()
                     set(_ver "*")
                 endif()
