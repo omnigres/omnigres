@@ -16,3 +16,8 @@ foreach(_extension_dir_item ${_extension_dir_items})
         add_subdirectory_once(${_extension_dir_item})
     endif()
 endforeach()
+
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
+execute_process(COMMAND ${Python3_EXECUTABLE} "${CMAKE_SOURCE_DIR}/tools/check_extension_artifacts.py" "${CMAKE_BINARY_DIR}/artifacts.txt"
+        COMMAND_ERROR_IS_FATAL ANY)
