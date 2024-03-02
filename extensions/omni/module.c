@@ -55,15 +55,7 @@ Datum modules(PG_FUNCTION_ARGS) {
   PG_RETURN_NULL();
 }
 
-char *omni_hook_types[__OMNI_HOOK_TYPE_COUNT] = {[omni_hook_executor_start] = "executor_start",
-                                                 [omni_hook_executor_run] = "executor_run",
-                                                 [omni_hook_executor_finish] = "executor_finish",
-                                                 [omni_hook_executor_end] = "executor_end",
-                                                 [omni_hook_needs_fmgr] = "needs_fmgr",
-                                                 [omni_hook_process_utility] = "process_utility",
-                                                 [omni_hook_emit_log] = "emit_hook",
-                                                 [omni_hook_check_password] = "check_password",
-                                                 0};
+#include "hook_types.h"
 
 PG_FUNCTION_INFO_V1(hooks);
 Datum hooks(PG_FUNCTION_ARGS) {

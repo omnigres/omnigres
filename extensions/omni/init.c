@@ -92,6 +92,7 @@ void _PG_init() {
       [omni_hook_emit_log] = saved_hooks[omni_hook_emit_log] ? default_emit_log : NULL,
       [omni_hook_check_password] =
           saved_hooks[omni_hook_check_password] ? default_check_password_hook : NULL,
+      [omni_hook_xact_callback] = NULL,
       NULL};
 
   {
