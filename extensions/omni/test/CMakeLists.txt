@@ -10,12 +10,14 @@ enable_testing()
 
 find_package(PostgreSQL REQUIRED)
 
+set(SOURCES omni_test.c hooks.c)
+
 add_postgresql_extension(
         omni_test
         SCHEMA omni_test
         PRIVATE ON
         RELOCATABLE false
-        SOURCES omni_test.c
+        SOURCES ${SOURCES}
         TESTS_REQUIRE omni
         VERSION 1)
 
@@ -25,7 +27,7 @@ add_postgresql_extension(
         SCHEMA omni_test
         PRIVATE ON
         RELOCATABLE false
-        SOURCES omni_test.c
+        SOURCES ${SOURCES}
         UPGRADE_SCRIPTS tests/omni_test--1--2.sql
         NO_DEFAULT_CONTROL ON
         TESTS_REQUIRE omni

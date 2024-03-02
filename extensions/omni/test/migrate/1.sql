@@ -103,3 +103,8 @@ create function atomic_off(int8) returns int8
     language c
     volatile as
 'MODULE_PATHNAME';
+
+create function was_hook_called(text) returns boolean
+    language c
+    volatile as
+'MODULE_PATHNAME';

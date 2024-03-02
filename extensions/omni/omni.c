@@ -504,10 +504,16 @@ static void register_hook(const omni_handle *handle, omni_hook *hook) {
     hook_entry_points.entry_points[hook->type] = entry_point;
 
   } else {
-    hook_entry_points.entry_points[hook->type] =
-        repalloc(hook_entry_points.entry_points[hook->type],
-                 sizeof(*hook_entry_points.entry_points[hook->type]) *
-                     (++hook_entry_points.entry_points_count[hook->type]));
+    size_t size = sizeof(*hook_entry_points.entry_points[hook->type]) *
+                  (++hook_entry_points.entry_points_count[hook->type]);
+    if (hook_entry_points.entry_points[hook->type] != NULL) {
+      // If there are entrypoints, reallocate
+      hook_entry_points.entry_points[hook->type] =
+          repalloc(hook_entry_points.entry_points[hook->type], size);
+    } else {
+      // Otherwise, allocate
+      hook_entry_points.entry_points[hook->type] = palloc(size);
+    }
   }
 
   MemoryContextSwitchTo(oldcontext);

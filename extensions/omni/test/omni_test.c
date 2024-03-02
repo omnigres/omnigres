@@ -19,6 +19,8 @@
 
 #include <omni/omni_v0.h>
 
+#include "hooks.h"
+
 PG_MODULE_MAGIC;
 OMNI_MAGIC;
 
@@ -125,6 +127,11 @@ void _Omni_init(const omni_handle *handle) {
   omni_hook run_hook = {
       .name = "run_hook", .type = omni_hook_executor_run, .fn = {.executor_run = run_hook_fn}};
   handle->register_hook(handle, &run_hook);
+
+  omni_hook xact_callback_hook = {.name = "xact_callback",
+                                  .type = omni_hook_xact_callback,
+                                  .fn = {.xact_callback = xact_callback}};
+  handle->register_hook(handle, &xact_callback_hook);
 
   bool found;
 
