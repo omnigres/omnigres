@@ -4,7 +4,7 @@
 ARG OMNIGRES_VERSION=current
 
 # Version of PostgreSQL
-ARG PG=16.1
+ARG PG=16.2
 # Build type
 ARG BUILD_TYPE=RelWithDebInfo
 # User name to be used for builder
