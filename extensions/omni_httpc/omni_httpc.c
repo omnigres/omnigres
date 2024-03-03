@@ -39,6 +39,7 @@ CACHED_OID(omni_http, http_header);
 CACHED_OID(http_response);
 
 #define IO_TIMEOUT 5000
+#define MAX_REDIRECTS 5
 
 //
 // Global variables below are used to share information across requests
@@ -50,6 +51,12 @@ static h2o_multithread_receiver_t getaddr_receiver;
 
 static h2o_httpclient_connection_pool_t *connpool;
 static h2o_socketpool_t *sockpool;
+static h2o_httpclient_head_cb on_connect(h2o_httpclient_t *client, const char *errstr,
+                                         h2o_iovec_t *_method, h2o_url_t *url,
+                                         const h2o_header_t **headers, size_t *num_headers,
+                                         h2o_iovec_t *body,
+                                         h2o_httpclient_proceed_req_cb *proceed_req_cb,
+                                         h2o_httpclient_properties_t *props, h2o_url_t *origin);
 
 static struct {
   ptls_iovec_t token;
@@ -202,8 +209,6 @@ struct request {
   h2o_iovec_t request_body;
   // Response body
   StringInfoData body;
-  // Pointer to a counter of completed requests
-  int *done;
   // Request URL
   h2o_url_t url;
   // Error (NULL if none)
@@ -222,6 +227,12 @@ struct request {
   int version;
   // Signals that the authority has been connected to for this request
   bool connected;
+  // Signals that the request has finished processing
+  bool complete;
+  // follow HTTP redirects
+  bool follow_redirects;
+  // limit on the number of redirects to follow
+  int redirects_left;
 };
 
 // Called when response body chunk is being received
@@ -233,7 +244,7 @@ static int on_body(h2o_httpclient_t *client, const char *errstr, h2o_header_t *t
   if (errstr != NULL) {
     if (errstr != h2o_httpclient_error_is_eos) {
       req->errstr = errstr;
-      (*req->done)++;
+      req->complete = true;
       return -1;
     }
   }
@@ -250,10 +261,23 @@ static int on_body(h2o_httpclient_t *client, const char *errstr, h2o_header_t *t
   // End of stream, complete the request
   if (errstr == h2o_httpclient_error_is_eos) {
     SET_VARSIZE(req->body.data, req->body.len);
-    (*req->done)++;
+    req->complete = true;
   }
 
   return 0;
+}
+
+void copy_request_fields(struct request *src, struct request *dest) {
+  dest->method = src->method;
+  dest->request_body = src->request_body;
+  dest->url = src->url;
+  dest->headers = src->headers;
+  dest->num_headers = src->num_headers;
+  dest->status = src->status;
+  dest->response_headers = src->response_headers;
+  dest->num_response_headers = src->num_response_headers;
+  dest->body = src->body;
+  dest->version = src->version;
 }
 
 // Called when response head has been received
@@ -264,8 +288,103 @@ static h2o_httpclient_body_cb on_head(h2o_httpclient_t *client, const char *errs
   // If there's an error, report it
   if (errstr != NULL && errstr != h2o_httpclient_error_is_eos) {
     req->errstr = errstr;
-    (*req->done)++;
+    req->complete = true;
     return NULL;
+  }
+
+  bool handle_redirect =
+      req->follow_redirects && req->redirects_left > 0 &&
+      (args->status == 301 || args->status == 302 || args->status == 307 || args->status == 308);
+
+  // Handle Redirect if necessary
+  if (handle_redirect) {
+    h2o_headers_t *response_headers_vec = (h2o_headers_t *)palloc0(sizeof(*response_headers_vec));
+    response_headers_vec->entries = args->headers;
+    response_headers_vec->size = args->num_headers;
+    response_headers_vec->capacity = args->num_headers;
+
+    ssize_t location_index;
+    if ((location_index = h2o_find_header(response_headers_vec, H2O_TOKEN_LOCATION, -1)) > -1) {
+      // create a new request based on the original request
+      struct request *new_req = palloc0(sizeof(struct request));
+      new_req->complete = false;
+      new_req->connected = false;
+      new_req->headers = req->headers;
+      h2o_headers_t *request_headers_vec = (h2o_headers_t *)palloc0(sizeof(*request_headers_vec));
+      request_headers_vec->entries = req->headers;
+      request_headers_vec->size = req->num_headers;
+
+      initStringInfo(&new_req->body);
+      appendStringInfoSpaces(&new_req->body, sizeof(struct varlena));
+      SET_VARSIZE(new_req->body.data, VARHDRSZ);
+
+      new_req->num_headers = req->num_headers;
+      new_req->errstr = NULL;
+      new_req->version = req->version;
+      new_req->follow_redirects = req->follow_redirects;
+      // for 307 and 308, we must preserve the method, even if non-idempotent
+      if (args->status == 307 || args->status == 308) {
+        new_req->method = req->method;
+        new_req->request_body = req->request_body;
+      } else {
+        // omit the request body and content-length header
+        int content_length_index =
+            h2o_find_header(request_headers_vec, H2O_TOKEN_CONTENT_LENGTH, -1);
+        if (content_length_index != -1) {
+          h2o_delete_header(request_headers_vec, content_length_index);
+        }
+        new_req->request_body = h2o_iovec_init(NULL, 0);
+        // if the method is POST, override the method as GET
+        if (h2o_memis(req->method.base, req->method.len, H2O_STRLIT("POST"))) {
+          new_req->method = h2o_iovec_init(H2O_STRLIT("GET"));
+        } else {
+          new_req->method = req->method;
+        }
+      }
+      new_req->headers = request_headers_vec->entries;
+      new_req->num_headers = request_headers_vec->size;
+
+      h2o_url_t url;
+      // re-evaluate location index after the headers have been modified
+      location_index = h2o_find_header(response_headers_vec, H2O_TOKEN_LOCATION, -1);
+
+      h2o_iovec_t location_header = response_headers_vec->entries[location_index].value;
+      // try to parse the URL as an absolute URL
+      int result = h2o_url_parse(client->pool, location_header.base, location_header.len, &url);
+      if (result == -1) {
+        // if the URL is not an absolute URL, treat it as a relative URL
+        h2o_url_t relative_url;
+        result = h2o_url_parse_relative(client->pool, location_header.base, location_header.len,
+                                        &relative_url);
+        if (result == -1) {
+          ereport(ERROR, errmsg("location header value not a valid URL`"));
+          return NULL;
+        }
+        // resolve the relative URL against the original URL
+        h2o_url_resolve(client->pool, &req->url, &relative_url, &url);
+      }
+      // mark redirect as followed
+      new_req->redirects_left = req->redirects_left - 1;
+      new_req->url = url;
+
+      // follow the URL in the location header and wait for the request to finish
+      h2o_httpclient_connect(NULL, client->pool, new_req, client->ctx, client->connpool,
+                             &new_req->url, NULL, on_connect);
+      while (!new_req->complete) {
+        CHECK_FOR_INTERRUPTS();
+        h2o_evloop_run(ctx.loop, INT32_MAX);
+      }
+      // copy the response from the new request to the original request
+      copy_request_fields(new_req, req);
+      req->complete = true;
+      return NULL;
+    } else {
+      ereport(
+          WARNING,
+          errmsg(
+              "received a redirect-specific HTTP status %d without a corresponding location header",
+              args->status));
+    }
   }
 
   // Collect information from the head
@@ -291,7 +410,7 @@ static h2o_httpclient_body_cb on_head(h2o_httpclient_t *client, const char *errs
 
   // End of stream, complete the request
   if (errstr == h2o_httpclient_error_is_eos) {
-    (*req->done)++;
+    req->complete = true;
     return NULL;
   }
 
@@ -310,7 +429,7 @@ static h2o_httpclient_head_cb on_connect(h2o_httpclient_t *client, const char *e
   // If there's an error, report it
   if (errstr != NULL) {
     req->errstr = errstr;
-    (*req->done)++;
+    req->complete = true;
     return NULL;
   }
   // Provide H2O client with necessary request payload
@@ -344,8 +463,6 @@ PG_FUNCTION_INFO_V1(http_execute);
 Datum http_execute(PG_FUNCTION_ARGS) {
   init();
 
-  int done = 0;
-
   // Prepare to return the set
   ReturnSetInfo *rsinfo = (ReturnSetInfo *)fcinfo->resultinfo;
   rsinfo->returnMode = SFRM_Materialize;
@@ -357,6 +474,8 @@ Datum http_execute(PG_FUNCTION_ARGS) {
   h2o_mem_pool_t *pool = (h2o_mem_pool_t *)palloc(sizeof(*pool));
   h2o_mem_init_pool(pool);
 
+  bool follow_redirects = true;
+
   // Options
   {
     HeapTupleHeader options = PG_GETARG_HEAPTUPLEHEADER(0);
@@ -367,6 +486,11 @@ Datum http_execute(PG_FUNCTION_ARGS) {
     int http2_ratio = 0;
     if (!isnull) {
       http2_ratio = DatumGetInt32(option_http2_ratio);
+    }
+
+    Datum option_follow_redirects = GetAttributeByName(options, "follow_redirects", &isnull);
+    if (!isnull) {
+      follow_redirects = DatumGetBool(option_follow_redirects);
     }
 
     Datum option_http3_ratio = GetAttributeByName(options, "http3_ratio", &isnull);
@@ -425,9 +549,6 @@ Datum http_execute(PG_FUNCTION_ARGS) {
   int num_requests = ArrayGetNItems(ARR_NDIM(requests_array), ARR_DIMS(requests_array));
   struct request *requests = palloc_array(struct request, num_requests);
 
-  // Indicates if any target requires SSL
-  bool ssl_targets = false;
-
   bool any_requests = false;
   // For every request:
   for (int req_i = 0; req_i < num_requests; req_i++) {
@@ -448,6 +569,9 @@ Datum http_execute(PG_FUNCTION_ARGS) {
 
     struct request *request = &requests[req_i];
     HeapTupleHeader arg_request = DatumGetHeapTupleHeader(request_datum);
+
+    // Follow redirects?
+    request->follow_redirects = follow_redirects;
 
     // URL
     Datum url = GetAttributeByName(arg_request, "url", &isnull);
@@ -528,16 +652,12 @@ Datum http_execute(PG_FUNCTION_ARGS) {
       h2o_add_header(pool, headers_vec, H2O_TOKEN_CONTENT_LENGTH, NULL, clbuf, clbuf_len);
     }
 
-    // If request requires SSL, take a note of that
-    if (request->url.scheme->is_ssl) {
-      ssl_targets = true;
-    }
-
-    request->done = &done;
+    request->redirects_left = MAX_REDIRECTS;
     request->errstr = NULL;
     request->num_headers = headers_vec->size;
     request->headers = headers_vec->entries;
     request->connected = false;
+    request->complete = false;
     initStringInfo(&request->body);
     // Prepend the response with varlena's header so that we can populate it
     // in the end, when the ull length is known.
@@ -557,7 +677,7 @@ Datum http_execute(PG_FUNCTION_ARGS) {
   sockpool->capacity = Max(num_requests, sockpool->capacity);
 
   // Load CA bundle if necessary
-  if (ssl_targets && sockpool->_ssl_ctx == NULL) {
+  if (sockpool->_ssl_ctx == NULL) {
     SSL_CTX *ssl_ctx = SSL_CTX_new(TLS_client_method());
     int bundle_loaded = load_ca_bundle(ssl_ctx, ca_bundle);
     assert(bundle_loaded == 1);
@@ -584,9 +704,12 @@ Datum http_execute(PG_FUNCTION_ARGS) {
   }
 
   // Run the event loop until all requests have been completed
-  while (done < num_requests) {
-    CHECK_FOR_INTERRUPTS();
-    h2o_evloop_run(ctx.loop, INT32_MAX);
+  for (int i = 0; i < num_requests; i++) {
+    struct request *request = &requests[i];
+    while (!request->complete) {
+      CHECK_FOR_INTERRUPTS();
+      h2o_evloop_run(ctx.loop, INT32_MAX);
+    }
   }
 
   // Start populating the result set

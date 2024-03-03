@@ -4,7 +4,8 @@ create type http_execute_options as
     http3_ratio           smallint,
     force_cleartext_http2 bool,
     timeout               int,
-    first_byte_timeout    int
+    first_byte_timeout    int,
+    follow_redirects      bool
 );
 
 create domain valid_http_execute_options as http_execute_options

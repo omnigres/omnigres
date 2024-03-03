@@ -202,6 +202,7 @@ headers      | {"(age,500311)","(cache-control,max-age=604800)","(content-type,\
 | **force_cleartext_http2** | bool     | Allow HTTP/2 to be used without SSL                                    | `false` |
 |    **first_byte_timeout** | int      | Timeout before first bytes received in milliseconds.                   | 5000    |
 |               **timeout** | int      | General timeout                                                        | 5000    |
+|      **follow_redirects** | bool     | Whether to follow HTTP redirects                                       | `true`  |
 
 !!! tip "More options will be added in the near future"
 
