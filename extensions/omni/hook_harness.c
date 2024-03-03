@@ -114,7 +114,6 @@ MODULE_FUNCTION void reorganize_hooks() {
     omni_hook_return_value retval = {.ptr_value = NULL};                                           \
     if (hook_entry_points.entry_points_count[HOOK] > 0)                                            \
       for (int i = hook_entry_points.entry_points_count[HOOK] - 1; i >= 0; i--) {                  \
-        bool done = false;                                                                         \
         hook_entry_point *hook = hook_entry_points.entry_points[HOOK] + i;                         \
         ctxs[i] = NULL;                                                                            \
         omni_hook_handle handle = {.handle = hook->handle,                                         \
@@ -128,11 +127,10 @@ MODULE_FUNCTION void reorganize_hooks() {
         case hook_next_action_next:                                                                \
           continue;                                                                                \
         case hook_next_action_finish:                                                              \
-          done = true;                                                                             \
+          goto done;                                                                               \
         }                                                                                          \
-        if (done)                                                                                  \
-          break;                                                                                   \
       }                                                                                            \
+  done:                                                                                            \
     retval;                                                                                        \
   })
 
