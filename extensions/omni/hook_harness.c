@@ -199,35 +199,41 @@ static void on_xact_dealloc(void *arg) {
   XactEvent event = (XactEvent)(uintptr_t)arg;
   // Hard-coded single-shot hooks
   ListCell *lc;
+  // Fire every `after)xact` callback now
   foreach (lc, after_xact_oneshot_callbacks) {
     struct xact_oneshot_callback *cb = (struct xact_oneshot_callback *)lfirst(lc);
     cb->fn(event, cb->arg);
+    after_xact_oneshot_callbacks = foreach_delete_current(after_xact_oneshot_callbacks, lc);
   }
-  after_xact_oneshot_callbacks = NIL;
+  Assert(after_xact_oneshot_callbacks == NIL);
 }
 
 MODULE_FUNCTION void omni_xact_callback_hook(XactEvent event, void *arg) {
   iterate_hooks(omni_hook_xact_callback, event);
 
   // Hard-coded single-shot hooks
-  MemoryContext oldcontext = MemoryContextSwitchTo(TopTransactionContext);
-  ListCell *lc;
+  // TODO: these are a bit of a hack and we should find ways to get rid of them
 
-  foreach (lc, xact_oneshot_callbacks) {
-    struct xact_oneshot_callback *cb = (struct xact_oneshot_callback *)lfirst(lc);
-    cb->fn(event, cb->arg);
-    xact_oneshot_callbacks = foreach_delete_current(xact_oneshot_callbacks, lc);
+  if (xact_oneshot_callbacks != NIL) {
+    ListCell *lc;
+
+    // Fire every `xact` callback now
+    foreach (lc, xact_oneshot_callbacks) {
+      struct xact_oneshot_callback *cb = (struct xact_oneshot_callback *)lfirst(lc);
+      cb->fn(event, cb->arg);
+      xact_oneshot_callbacks = foreach_delete_current(xact_oneshot_callbacks, lc);
+    }
+    Assert(xact_oneshot_callbacks == NIL);
   }
 
-  if (list_length(after_xact_oneshot_callbacks) > 0) {
+  if (after_xact_oneshot_callbacks != NIL) {
     MemoryContextCallback *cb = MemoryContextAlloc(TopTransactionContext, sizeof(*cb));
     StaticAssertStmt(sizeof(arg) >= sizeof(event), "event should fit into the pointer");
+    // Schedule firing `after_xact` callbacks when `TopTransactionContext` is deleted or reset
     cb->func = on_xact_dealloc;
     cb->arg = (void *)event;
     MemoryContextRegisterResetCallback(TopTransactionContext, cb);
   }
-
-  MemoryContextSwitchTo(oldcontext);
 }
 
 MODULE_FUNCTION void omni_emit_log_hook(ErrorData *edata) {
