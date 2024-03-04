@@ -6,4 +6,5 @@ create type http_request as
     body bytea
 );
 
+
 /*{% include "../src/http_request.sql" %}*/
