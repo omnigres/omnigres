@@ -1,18 +1,3 @@
-if(NOT TARGET check_git_commit_hash)
-    find_package(Git REQUIRED)
-
-    if(DEFINED OMNIGRES_VERSION)
-        file(GENERATE OUTPUT ${CMAKE_BINARY_DIR}/git_commit CONTENT "${OMNIGRES_VERSION}")
-    else()
-        add_custom_command(
-                OUTPUT ${CMAKE_BINARY_DIR}/git_commit
-                COMMAND ${GIT_EXECUTABLE} rev-parse HEAD > ${CMAKE_BINARY_DIR}/git_commit
-                WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
-    endif()
-
-    add_custom_target(check_git_commit_hash ALL DEPENDS ${CMAKE_BINARY_DIR}/git_commit)
-endif()
-
 set_property(GLOBAL PROPERTY version_dir "${CMAKE_CURRENT_LIST_DIR}")
 
 macro(get_version NAME VERSION_VAR)
