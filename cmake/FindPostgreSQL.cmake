@@ -135,9 +135,9 @@ if(NOT DEFINED PG_CONFIG)
         endif()
 
         if(BUILD_TYPE STREQUAL "RelWithDebInfo")
-            set(ENV{CFLAGS} "$ENV{CFLAGS} -O2")
+            set(ENV{CFLAGS} "$ENV{CFLAGS} ${CMAKE_C_FLAGS_RELWITHDEBINFO}")
         elseif(BUILD_TYPE STREQUAL "Release")
-            set(ENV{CFLAGS} "$ENV{CFLAGS} -O2")
+            set(ENV{CFLAGS} "$ENV{CFLAGS} ${CMAKE_C_FLAGS_RELEASE}")
         endif()
 
         execute_process(
