@@ -1,7 +1,7 @@
 import re
 import sys
 
-OMNI_EXTENSION_PREFIX = "omni_"
+OMNI_EXTENSION_PREFIX = "omni"
 OMNI_EXTENSION_UNRELEASED_VERSION = "unreleased"
 
 

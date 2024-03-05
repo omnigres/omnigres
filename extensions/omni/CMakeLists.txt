@@ -19,7 +19,6 @@ add_postgresql_extension(
         RELOCATABLE false
         SOURCES init.c omni.c hook_harness.c module.c extension.c workers.c utils.c dshash.c
         DEPENDS_ON libomni
-        UNVERSIONED_SO ON
         SHARED_PRELOAD ON)
 
 target_link_libraries(omni libomni)

@@ -11,11 +11,13 @@ tests:
 
 - name: updates pg_proc's probin
   steps:
-  - create table pg_proc_1 as (select *
+  - query: create table pg_proc_1 as (select *
                                from
                                    pg_proc
                                    inner join omni.modules
-                                              on modules.path = probin and modules.path not like '%omni.so%')
+                                              on modules.path = probin and modules.path not like '%' || $1 || '%')
+    params:
+      - */env/OMNI_SO
   - alter extension omni_test update to '2'
   - query: select
                count(*)

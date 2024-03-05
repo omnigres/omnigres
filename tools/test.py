@@ -1,5 +1,5 @@
 import unittest
-from check_extension_artifacts import check_extension_artifacts
+from check_extension_artifacts import check_extension_artifacts, OMNI_EXTENSION_PREFIX
 
 
 class TestExtensionArtifacts(unittest.TestCase):
@@ -121,7 +121,7 @@ omni_web=1.3.0#omni_httpd=1.2.1"""
 omni_os=1.1.0"""
             )
         self.assertIn(
-            "non omnigres extension (doesn't have 'omni_' prefix) 'pgcrypto' can only be in dependencies",
+            f"non omnigres extension (doesn't have '{OMNI_EXTENSION_PREFIX}' prefix) 'pgcrypto' can only be in dependencies",
             str(e.exception),
         )
 
@@ -135,7 +135,8 @@ omni_os=1.1.0"""
 """
             )
         self.assertIn(
-            "non omnigres dependency (doesn't have 'omni_' prefix) 'pgcrypto' version should only be '*'",
+            f"non omnigres dependency (doesn't have '{OMNI_EXTENSION_PREFIX}' prefix) "
+            f"'pgcrypto' version should only be '*'",
             str(e.exception),
         )
 
