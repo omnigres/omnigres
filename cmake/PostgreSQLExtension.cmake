@@ -586,7 +586,7 @@ ${PG_CTL} stop -D  \"$PSQLDB\" -m smart
                 --verbose --output-on-failure)
     endif()
 
-    if(NOT _ext_PRIVATE AND NOT NAME STREQUAL "omni")
+    if(NOT _ext_PRIVATE)
         get_property(omni_artifacts GLOBAL PROPERTY omni_artifacts)
         if(NOT omni_artifacts)
             # Make an empty file
@@ -619,7 +619,7 @@ ${PG_CTL} stop -D  \"$PSQLDB\" -m smart
 
     if(NOT _ext_PRIVATE)
         get_property(omni_path_map GLOBAL PROPERTY omni_path_map)
-        if(NOT omni_artifacts)
+        if(NOT omni_path_map)
             # Make an empty file
             set_property(GLOBAL PROPERTY omni_path_map "${CMAKE_BINARY_DIR}/paths.txt")
             get_property(omni_path_map GLOBAL PROPERTY omni_path_map)
