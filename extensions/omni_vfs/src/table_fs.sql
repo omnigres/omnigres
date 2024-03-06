@@ -6,6 +6,7 @@ $$
 declare
     result_id integer;
 begin
+    raise info 'hello world';
     select
         id
     from

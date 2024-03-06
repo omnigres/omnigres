@@ -131,6 +131,8 @@ begin
         end if;
     end if;
 
+    raise info 'hello containers!';
+
     if wait = true then
         select *
         into response
