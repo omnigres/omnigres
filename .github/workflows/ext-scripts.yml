@@ -2,7 +2,7 @@ name: Extension scripts
 
 on:
   push:
-    branches: [ "master", "test-gh-workflows" ]
+    branches: [ "master" ]
     paths:
       - versions.txt
   pull_request_target:
@@ -191,12 +191,14 @@ jobs:
               if [ $(echo $index_contents | jq ".extensions.$ext_name | length") -gt 0 ]; then
                 export TMPDIR=$RUNNER_TEMP
                 export BUILD_TYPE=${{ matrix.build_type }}
-                export PG_CONFIG=$(find ../.pg -name pg_config -type f -executable | grep -v src | head -n 1)
+                export DEST_DIR=_migrations
+                mkdir -p $DEST_DIR
+                export PG_CONFIG=$(find ../.pg -name pg_config -type f \( -perm -u=x -o -perm -g=x -o -perm -o=x \) | grep -v src | head -n 1)
                 echo "Using $PG_CONFIG"
                 ../generate-upgrades.sh $S3_FILES_DIR/index.json $ext_name $ext_ver || exit 1
           
-                # generate-upgrades.sh places the generated upgrade files in _migrations unless overriden
-                cp _migrations/packaged/$ext_name--*.sql $EXTENSION_DIR/
+                # generate-upgrades.sh places the generated upgrade files in $DEST_DIR
+                cp $DEST_DIR/packaged/$ext_name--*.sql $EXTENSION_DIR/
               fi
           
               # store artifacts.txt containing only released versions
@@ -216,7 +218,7 @@ jobs:
               if [ ${{ github.event_name }} != 'push' ]; then
                 modified_dirs='${{ steps.modified-dirs.outputs.all_modified_files }}'
                 # check if extensions/$ext_name is a modified dir
-                if [ $(echo $modified_dirs | jq "any(index(\"extensions/$ext_name\"))") = true ]; then
+                if [ $(echo $modified_dirs | jq "[.[] | test(\"^extensions/$ext_name$\")] | any") = true ] || [ $(echo $modified_dirs | jq "[.[] | test(\"^extensions/$ext_name/\")] | any") = true ]; then
                   echo "some files belonging to $ext_name are modified and $ext_ver is an already released version," \
                        "please change the version to create new release" && exit 1
                 fi

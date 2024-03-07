@@ -24,8 +24,26 @@ revision() {
     old_ver=$1
     new_ver=$2
 
+    # $ext_ver is the version of the extension about to be released so it's entry won't be index file
+    # use commit SHA of HEAD as revision for $ext_ver
+    if [ "$old_ver" = "$ext_ver" ]; then
+      old_rev=$(git rev-parse HEAD)
+      new_rev=$(echo $index_contents | jq -r ".extensions.$ext_name.\"$new_ver\"")
+    else
+      old_rev=$(echo $index_contents | jq -r ".extensions.$ext_name.\"$old_ver\"")
+      new_rev=$(git rev-parse HEAD)
+    fi
+
+    # omni version at old and revisions, required for shared_preload_libraries
+    old_rev_omni_ver="$(git show $old_rev:$script_dir/versions.txt | egrep '^omni=' | cut -d '=' -f 2)"
+    new_rev_omni_ver="$(git show $new_rev:$script_dir/versions.txt | egrep '^omni=' | cut -d '=' -f 2)"
+
     for ver in $old_ver $new_ver; do
-      rev=$(echo $index_contents | jq -r ".extensions.$ext_name.\"$ver\"")
+      if [ "$ver" = "$old_ver" ]; then
+        rev="$old_rev"
+      else
+        rev="$new_rev"
+      fi
       if [ ! -f "${DEST_DIR}/$rev/.complete" ]; then
         rm -rf "${DEST_DIR}/$rev" # in case if there was a prior failure to complete
         echo -n "Cloning $rev... "
@@ -41,9 +59,6 @@ revision() {
         touch "${DEST_DIR}/$rev/.complete"
       fi
     done
-
-    old_rev=$(echo $index_contents | jq -r ".extensions.$ext_name.\"$old_ver\"")
-    new_rev=$(echo $index_contents | jq -r ".extensions.$ext_name.\"$new_ver\"")
 
     extpath=$(cat ${DEST_DIR}/$new_rev/build/paths.txt | grep "^$ext_name " | cut -d " " -f 2)
     # List migrations in new version
@@ -85,7 +100,7 @@ revision() {
     "$PG_BINDIR/initdb" -D "$db" --no-clean --no-sync --locale=C --encoding=UTF8 || exit 1
     sockdir=$(mktemp -d)
     export PGSHAREDIR="$DEST_DIR/$old_rev/build/pg-share"
-    "$PG_BINDIR/pg_ctl" start -D "$db" -o "-c max_worker_processes=64" -o "-c listen_addresses=''" -o "-k $sockdir" -o "-c shared_preload_libraries='$DEST_DIR/$old_rev/build/extensions/omni/omni.so'" || exit 1
+    "$PG_BINDIR/pg_ctl" start -D "$db" -o "-c max_worker_processes=64" -o "-c listen_addresses=''" -o "-k $sockdir" -o "-c shared_preload_libraries='$DEST_DIR/$old_rev/build/extensions/omni/omni--$old_rev_omni_ver.so'" || exit 1
     "$PG_BINDIR/createdb" -h "$sockdir" "$ext_name" || exit 1
     # * install the extension in this revision, snapshot pg_proc, drop the extension
     # We copy all scripts because there are dependencies
@@ -107,7 +122,7 @@ EOF
     export PGSHAREDIR="$DEST_DIR/$new_rev/build/pg-share"
     # We copy all scripts because there are dependencies
     cp "$DEST_DIR"/$new_rev/build/packaged/extension/*.sql "$PGSHAREDIR/extension"
-    "$PG_BINDIR/pg_ctl" start -D "$db" -o "-c max_worker_processes=64" -o "-c listen_addresses=''" -o "-k $sockdir"  -o "-c shared_preload_libraries='$DEST_DIR/$new_rev/build/extensions/omni/omni.so'" || exit 1
+    "$PG_BINDIR/pg_ctl" start -D "$db" -o "-c max_worker_processes=64" -o "-c listen_addresses=''" -o "-k $sockdir"  -o "-c shared_preload_libraries='$DEST_DIR/$new_rev/build/extensions/omni/omni--$new_rev_omni_ver.so'" || exit 1
     # * install the extension from the head revision
     echo "create extension $ext_name version '$new_ver' cascade;" | "$PG_BINDIR/psql" -h "$sockdir" -v ON_ERROR_STOP=1 $ext_name
     if [ "${PIPESTATUS[0]}" -ne 0 ]; then
