@@ -244,86 +244,323 @@ installed, at which point it'll return `kept`.
     It is highly recommended to perform installations transactionally to be able to check
     reports for missing dependencies.
 
-## Updating extensions
+## Download omnigres extensions
 
-To update extensions using `omni_manifest.install` please ensure the update scripts for the extensions are saved to the
-Postgres extension scripts directory.
+Omnigres extensions can be downloaded from public domain `index.omnigres.com`.
 
-!!! tip "Where is this directory?"
+### Index endpoint
+
+To view the extensions available for a given platform combination call
+the `<pg_major_version>/<build_type>/<os-arch>/index.json` endpoint.
+
+`Release` builds are available for following platforms:
+
+| os-arch       | pg_major_versions |
+|---------------|-------------------|
+| ubuntu-x86-64 | 13, 14, 15, 16    |
+| macos-arm     | 16                |
+
+The response consists of all available extension versions:
+
+```shell
+$ curl -s https://index.omnigres.com/16/Release/ubuntu-x86-64/index.json | jq .
+{
+  "os_arch": "ubuntu-x86-64",
+  "build_type": "Release",
+  "extensions": {
+    "omni": {
+    # version: commit SHA at time of release
+      "0.1.0": "3fb44b2d70622b8599282f610b9939f560981d83"
+    },
+    "omni_httpd": {
+      "0.1.0": "3fb44b2d70622b8599282f610b9939f560981d83"
+    },
+    "omni_manifest": {
+      "0.1.0": "3fb44b2d70622b8599282f610b9939f560981d83"
+    }
+  },
+  "pg_version": "16",
+  "format_version": 1
+}
+
+```
+
+The request fails with an error message if an unsupported platform combination is used
+
+```shell
+$ curl -s https://index.omnigres.com/12/Release/ubuntu-x86-64/index.json
+pg_version should be one of the following: 13,14,15,16
+```
+
+### Prerequisites
+
+Omnigres extensions require `omni` loaded as shared preload library. It is also recommended to use
+the `omni_manifest` to create and update extensions in postgres.
+
+```shell
+# download omni extension for it's shared object library
+curl -sSfL https://index.omnigres.com/16/Release/ubuntu-x86-64/omni/0.1.0?with-dependencies -o omni.tar.gz
+
+mkdir omni && tar -C omni -xzf omni.tar.gz
+
+# download omni_manifest extension for creating other extensions
+curl -sSfL https://index.omnigres.com/16/Release/ubuntu-x86-64/omni_manifest/0.1.0?with-dependencies -o omni_manifest.tar.gz
+
+tar -C omni -xzf omni_manifest.tar.gz
+```
+
+The directory contents after untarring both `omni` and `omni_manifest` extensions:
+
+```shell
+$ tree omni
+omni
+├── artifacts.txt
+├── lib
+│   └── omni--0.1.0.so # omni shared object library to preload
+├── omni--0.1.0.control
+├── omni--0.1.0.sql
+├── omni.control
+├── omni_manifest--0.1.0.control
+├── omni_manifest--0.1.0.sql
+└── omni_manifest.control
+
+2 directories, 8 files
+```
+
+Copy the .so, .sql and .control files as follows:
+
+```shell
+# copy .so files to appropriate postgres directory
+cp omni/lib/*.so $(pg_config --pkglibdir)
+
+# copy .control and .sql files to appropriate postgres directory
+cp omni/*{.control,.sql} $(pg_config --sharedir)/extension
+```
+
+Add `omni` shared object library to `shared_preload_libraries` and increase `max_worker_processes` in `postgresql.conf`:
+
+```text
+# add name of shared object library without .so file extension
+shared_preload_libraries = 'omni--0.1.0'
+
+# some omnigres extensions use postgres background workers, set it to high enough value
+max_worker_processes = 64
+```
+
+Restart the postgres server after making changes to `postgresql.conf`:
+
+```shell
+# postgres restart required after changing the above settings 
+pg_ctl -D <PGDATA> restart
+```
+
+Create `omni_manifest` extension in postgres to create and update other extensions:
+
+```postgresql
+create extension omni_manifest version '0.1.0';
+```
+
+```
+postgres=# \dx
+                      List of installed extensions
+     Name      | Version |    Schema     |         Description          
+---------------+---------+---------------+------------------------------
+ omni_manifest | 0.1.0   | omni_manifest | 
+ plpgsql       | 1.0     | pg_catalog    | PL/pgSQL procedural language
+(2 rows)
+```
+
+### Download and install an extension
+
+To download an omnigres extension call
+the `<pg_major_version>/<build_type>/<os-arch>/<ext-name>/<ext-version>`
+endpoint. A compressed tarball containing extension files will be sent in response.
+The list of extensions and its released versions is available at [`index.json`](#index-endpoint) endpoint.
+
+!!! tip  "Downloading extension with its dependencies"
+
+     `<pg_major_version>/<build_type>/<os-arch>/<ext-name>/<ext-version>?with-dependencies`
+     endpoint will download an extension along with all it's dependency files.
+
+     `with-dependencies` query parameter is optional, drop it only if extension files 
+     without its dependencies files is required. It is highly recommended to use it
+     because dependencies of an extension may change between versions.
+
+#### Download extension files
+
+```shell
+# download omni_httpd 0.1.0 along with its dependencies
+$ curl -sSfL https://index.omnigres.com/16/Release/ubuntu-x86-64/omni_httpd/0.1.0?with-dependencies -o omni_httpd.tar.gz
+
+# create a directory and untar inside it
+$ mkdir omni_httpd && tar -C omni_httpd -xzf omni_httpd.tar.gz
+
+$ tree omni_httpd
+omni_httpd
+├── artifacts.txt # contains artifact format of an extension
+├── lib # contains .so files required for an extension and it's dependencies
+│   ├── omni_httpd--0.1.0.so
+│   └── omni_types--0.1.0.so
+├── omni_http--0.1.0.control
+├── omni_http--0.1.0.sql
+├── omni_http.control
+├── omni_httpd--0.1.0.control
+├── omni_httpd--0.1.0.sql
+├── omni_httpd.control
+├── omni_types--0.1.0.control
+├── omni_types--0.1.0.sql
+└── omni_types.control
+
+2 directories, 12 files
+```
+
+#### Copy extension files to postgres directories
+
+Copy the .so, .sql and .control files from untarred directory to postgres directories.
+
+!!! tip "Where are the directories?"
 
     To find it, run the following command:
 
     ```shell
+    # .sql and .control files location
     echo $(pg_config --sharedir)/extension
     ```
+    
+    ```shell
+    # .so files location
+    echo $(pg_config --pkglibdir)
+    ```
 
-Currently, all Omnigres extensions are versioned using git commit SHA from within Omnigres' repo, and extension update
-is only possible from an older commit version to a newer one.
+```shell
+# copy .so files to appropriate postgres directory
+cp omni_httpd/lib/*.so $(pg_config --pkglibdir)
+
+# copy .control and .sql files to appropriate postgres directory
+cp omni_httpd/*{.control,.sql} $(pg_config --sharedir)/extension
+```
+
+#### Install extension
+
+Copy the artifact format of an extension from `artifacts.txt` in untarred directory.
+
+```shell
+# artifact format of an extension is available in artifacts.txt file of untarred directory
+$ grep "omni_httpd=" omni_httpd/artifacts.txt 
+omni_httpd=0.1.0#omni_types=0.1.0,omni_http=0.1.0
+```
+
+Use the artifact format of an extension copied from artifacts.txt:
 
 ```postgresql
--- check available version of omni_python
-select * from pg_available_extension_versions where name = 'omni_python';
-    name     | version | installed | superuser | trusted | relocatable |   schema    |   requires   | comment 
--------------+---------+-----------+-----------+---------+-------------+-------------+--------------+---------
- omni_python | 2c7e737 | f         | t         | f       | f           | omni_python | {plpython3u} | 
-(1 row) 
-
--- create omni_python extension with version '2c7e737'
-select *                                
+select *
 from
-    omni_manifest.install(
-            'omni_python=2c7e737#plpython3u=*'::text::omni_manifest.artifact[]
-    );
-      requirement      |  status   
------------------------+-----------
- (plpython3u,*)        | installed
- (omni_python,2c7e737) | installed
-(2 rows)
+    omni_manifest.install('omni_httpd=0.1.0#omni_types=0.1.0,omni_http=0.1.0'::text::omni_manifest.artifact[]);
 ```
 
-A public AWS S3 endpoint is available to download extension update scripts (old to new versions) for Omnigres-provided
-extensions:
-
-```bash
-# download all the extension update scripts to a local directory
-mkdir ext_updates && aws --no-sign-request s3 sync s3://omnigres-extensions/<postgres-major-version> ext_updates
+```
+    requirement     |  status   
+--------------------+-----------
+ (omni_http,0.1.0)  | installed
+ (omni_types,0.1.0) | installed
+ (omni_httpd,0.1.0) | installed
+(3 rows)
 ```
 
-To update `omni_python` to a later version for eg. `e135aa7` copy the following `omni_python` sql and control files
-from `ext_updates` created above to postgres extension script directory
-```bash
-cp omni_python--2c7e737--e135aa7.sql omni_python--e135aa7.control <postgres-extension-script-directory>
+List of installed extensions:
+
 ```
+postgres=# \dx
+                      List of installed extensions
+     Name      | Version |    Schema     |         Description          
+---------------+---------+---------------+------------------------------
+ omni_http     | 0.1.0   | omni_http     | 
+ omni_httpd    | 0.1.0   | omni_httpd    | 
+ omni_manifest | 0.1.0   | omni_manifest | 
+ omni_types    | 0.1.0   | omni_types    | 
+ plpgsql       | 1.0     | pg_catalog    | PL/pgSQL procedural language
+(5 rows)
+
+```
+
+## Update omnigres extensions
+
+To update extensions using `omni_manifest.install`
+please [download newer version of an extension](#download-extension-files)
+and
+ensure [all the extension files are copied to the appropriate postgres directories](#copy-extension-files-to-postgres-directories).
+
+Currently, all Omnigres extensions are versioned using semver format(`x.y.z`), and extension update
+is only possible from an older version to a newer one.
 
 ```postgresql
--- recheck the available omni_python versions
-select * from pg_available_extension_versions where name = 'omni_python';
-    name     | version | installed | superuser | trusted | relocatable |   schema    |   requires   | comment 
--------------+---------+-----------+-----------+---------+-------------+-------------+--------------+---------
- omni_python | 2c7e737 | t         | t         | f       | f           | omni_python | {plpython3u} | 
- omni_python | e135aa7 | f         | t         | f       | f           | omni_python | {plpython3u} | 
-(2 rows)
-
--- update omni_python to version 'e135aa7' and plpythonu3u version unchanged using '*'
-select *                                
+-- check available versions of omni_httpd
+select *
 from
-    omni_manifest.install(
-            'omni_python=e135aa7#plpython3u=*'::text::omni_manifest.artifact[]
-    );
-      requirement      | status  
------------------------+---------
- (plpython3u,*)        | kept
- (omni_python,e135aa7) | updated
-(2 rows)
+    pg_available_extension_versions
+where
+    name = 'omni_httpd';
+```
 
--- verify omni_python is updated
-select * from pg_extension where extname = 'omni_python';
-  oid  |   extname   | extowner | extnamespace | extrelocatable | extversion | extconfig | extcondition 
--------+-------------+----------+--------------+----------------+------------+-----------+--------------
- 16484 | omni_python |       10 |        16483 | f              | e135aa7    |           | 
+```
+    name    | version | installed | superuser | trusted | relocatable |   schema   |        requires        | comment 
+------------+---------+-----------+-----------+---------+-------------+------------+------------------------+---------
+ omni_httpd | 0.1.0   | t         | t         | f       | f           | omni_httpd | {omni_types,omni_http} | 
 (1 row)
+```
+
+After downloading and copying the extension files of newer version, verify it's available:
+
+```postgresql
+-- check the available omni_httpd versions
+select *
+from
+    pg_available_extension_versions
+where
+    name = 'omni_httpd';
+```
+
+```
+    name    | version | installed | superuser | trusted | relocatable |   schema   |        requires        | comment 
+------------+---------+-----------+-----------+---------+-------------+------------+------------------------+---------
+ omni_httpd | 0.1.0   | t         | t         | f       | f           | omni_httpd | {omni_types,omni_http} | 
+ omni_httpd | 0.2.0   | f         | t         | f       | f           | omni_httpd | {omni_types,omni_http} | 
+(2 rows)
+```
+
+[Install the newer version](#install-extension) of the extension
+
+```postgresql
+select *
+from
+    omni_manifest.install('omni_httpd=0.2.0#omni_types=0.1.0,omni_http=0.1.0'::text::omni_manifest.artifact[]);
+```
+
+```
+    requirement     |  status   
+--------------------+-----------
+ (omni_http,0.1.0)  | kept
+ (omni_types,0.1.0) | kept
+ (omni_httpd,0.2.0) | updated
+(3 rows)
+```
+
+Verify omni_httpd is updated:
+
+```
+postgres=# \dx
+                      List of installed extensions
+     Name      | Version |    Schema     |         Description          
+---------------+---------+---------------+------------------------------
+ omni_http     | 0.1.0   | omni_http     | 
+ omni_httpd    | 0.2.0   | omni_httpd    | 
+ omni_manifest | 0.1.0   | omni_manifest | 
+ omni_types    | 0.1.0   | omni_types    | 
+ plpgsql       | 1.0     | pg_catalog    | PL/pgSQL procedural language
+(5 rows)
+
 ```
 
 !!! tip "Artifact format of extensions"
 
-    The artifact format of extensions can be copied from files named `artifacts-<version>`.txt in `ext_updates` created above
+    The artifact format of extensions can be copied from file named `artifacts`.txt in tarball of an extension

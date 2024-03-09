@@ -54,6 +54,12 @@ If you can't use the pre-built image (for example, you are running a fork or mad
 DOCKER_BUILDKIT=1 docker build . -t ghcr.io/omnigres/omnigres
 ```
 
+## Download omnigres extensions
+
+Omnigres extensions can also
+be [downloaded and installed](https://docs.omnigres.org/omni_manifest/usage/#download-omnigres-extensions)
+in any postgres installation with file system access.
+
 ## :wave: "Hello, world"
 
 Here we expect you are running the [container image](#-runner--quick-start), which has
