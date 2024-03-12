@@ -292,6 +292,29 @@ $ curl -s https://index.omnigres.com/12/Release/ubuntu-x86-64/index.json
 pg_version should be one of the following: 13,14,15,16
 ```
 
+A script is available to download and copy omnigres extension files(if it doesn't exist) to appropriate postgres directories at
+<https://raw.githubusercontent.com/omnigres/omnigres/master/download-omnigres-extension.sh>
+
+It is recommended to always run latest version of script as follows:
+```shell
+# use no arguments for the script help output
+$ curl -s https://raw.githubusercontent.com/omnigres/omnigres/master/download-omnigres-extension.sh | bash -s
+```
+
+!!! tip "Where are the postgres directories for extension files?"
+
+    To find it, run the following command:
+
+    ```shell
+    # .sql and .control files location
+    echo $(pg_config --sharedir)/extension
+    ```
+    
+    ```shell
+    # .so files location
+    echo $(pg_config --pkglibdir)
+    ```
+
 ### Prerequisites
 
 Omnigres extensions require `omni` loaded as shared preload library. It is also recommended to use
@@ -299,49 +322,29 @@ the `omni_manifest` to create and update extensions in postgres.
 
 ```shell
 # download omni extension for it's shared object library
-curl -sSfL https://index.omnigres.com/16/Release/ubuntu-x86-64/omni/0.1.0?with-dependencies -o omni.tar.gz
+$ curl -s https://raw.githubusercontent.com/omnigres/omnigres/master/download-omnigres-extension.sh | bash -s install omni "0.1.0"
+'/tmp/omni--0.1.0--untarred/omni--0.1.0.sql' -> '/usr/share/postgresql/16/extension/omni--0.1.0.sql'
+'/tmp/omni--0.1.0--untarred/omni--0.1.0.control' -> '/usr/share/postgresql/16/extension/omni--0.1.0.control'
+'/tmp/omni--0.1.0--untarred/omni.control' -> '/usr/share/postgresql/16/extension/omni.control'
+'/tmp/omni--0.1.0--untarred/lib/omni--0.1.0.so' -> '/usr/lib/postgresql/16/lib/omni--0.1.0.so'
 
-mkdir omni && tar -C omni -xzf omni.tar.gz
+The omni_manifest query to create the extension:
+      select *
+      from
+          omni_manifest.install('omni=0.1.0'::text::omni_manifest.artifact[])
 
 # download omni_manifest extension for creating other extensions
-curl -sSfL https://index.omnigres.com/16/Release/ubuntu-x86-64/omni_manifest/0.1.0?with-dependencies -o omni_manifest.tar.gz
-
-tar -C omni -xzf omni_manifest.tar.gz
-```
-
-The directory contents after untarring both `omni` and `omni_manifest` extensions:
-
-```shell
-$ tree omni
-omni
-├── artifacts.txt
-├── lib
-│   └── omni--0.1.0.so # omni shared object library to preload
-├── omni--0.1.0.control
-├── omni--0.1.0.sql
-├── omni.control
-├── omni_manifest--0.1.0.control
-├── omni_manifest--0.1.0.sql
-└── omni_manifest.control
-
-2 directories, 8 files
-```
-
-Copy the .so, .sql and .control files as follows:
-
-```shell
-# copy .so files to appropriate postgres directory
-cp omni/lib/*.so $(pg_config --pkglibdir)
-
-# copy .control and .sql files to appropriate postgres directory
-cp omni/*{.control,.sql} $(pg_config --sharedir)/extension
+$ curl -s https://raw.githubusercontent.com/omnigres/omnigres/master/download-omnigres-extension.sh | bash -s install omni_manifest "0.1.0"
+'/tmp/omni_manifest--0.1.0--untarred/omni_manifest--0.1.0.sql' -> '/usr/share/postgresql/16/extension/omni_manifest--0.1.0.sql'
+'/tmp/omni_manifest--0.1.0--untarred/omni_manifest--0.1.0.control' -> '/usr/share/postgresql/16/extension/omni_manifest--0.1.0.control'
+'/tmp/omni_manifest--0.1.0--untarred/omni_manifest.control' -> '/usr/share/postgresql/16/extension/omni_manifest.control'
 ```
 
 Add `omni` shared object library to `shared_preload_libraries` and increase `max_worker_processes` in `postgresql.conf`:
 
 ```text
-# add name of shared object library without .so file extension
-shared_preload_libraries = 'omni--0.1.0'
+# add omni shared object library
+shared_preload_libraries = 'omni--0.1.0.so'
 
 # some omnigres extensions use postgres background workers, set it to high enough value
 max_worker_processes = 64
@@ -390,67 +393,28 @@ The list of extensions and its released versions is available at [`index.json`](
 
 ```shell
 # download omni_httpd 0.1.0 along with its dependencies
-$ curl -sSfL https://index.omnigres.com/16/Release/ubuntu-x86-64/omni_httpd/0.1.0?with-dependencies -o omni_httpd.tar.gz
+$ curl -s https://raw.githubusercontent.com/omnigres/omnigres/master/download-omnigres-extension.sh | bash -s install omni_httpd "0.1.0"
+'/tmp/omni_httpd--0.1.0--untarred/omni_http--0.1.0.sql' -> '/usr/share/postgresql/16/extension/omni_http--0.1.0.sql'
+'/tmp/omni_httpd--0.1.0--untarred/omni_httpd--0.1.0.sql' -> '/usr/share/postgresql/16/extension/omni_httpd--0.1.0.sql'
+'/tmp/omni_httpd--0.1.0--untarred/omni_types--0.1.0.sql' -> '/usr/share/postgresql/16/extension/omni_types--0.1.0.sql'
+'/tmp/omni_httpd--0.1.0--untarred/omni_http--0.1.0.control' -> '/usr/share/postgresql/16/extension/omni_http--0.1.0.control'
+'/tmp/omni_httpd--0.1.0--untarred/omni_http.control' -> '/usr/share/postgresql/16/extension/omni_http.control'
+'/tmp/omni_httpd--0.1.0--untarred/omni_httpd--0.1.0.control' -> '/usr/share/postgresql/16/extension/omni_httpd--0.1.0.control'
+'/tmp/omni_httpd--0.1.0--untarred/omni_httpd.control' -> '/usr/share/postgresql/16/extension/omni_httpd.control'
+'/tmp/omni_httpd--0.1.0--untarred/omni_types--0.1.0.control' -> '/usr/share/postgresql/16/extension/omni_types--0.1.0.control'
+'/tmp/omni_httpd--0.1.0--untarred/omni_types.control' -> '/usr/share/postgresql/16/extension/omni_types.control'
+'/tmp/omni_httpd--0.1.0--untarred/lib/omni_httpd--0.1.0.so' -> '/usr/lib/postgresql/16/lib/omni_httpd--0.1.0.so'
+'/tmp/omni_httpd--0.1.0--untarred/lib/omni_types--0.1.0.so' -> '/usr/lib/postgresql/16/lib/omni_types--0.1.0.so'
 
-# create a directory and untar inside it
-$ mkdir omni_httpd && tar -C omni_httpd -xzf omni_httpd.tar.gz
-
-$ tree omni_httpd
-omni_httpd
-├── artifacts.txt # contains artifact format of an extension
-├── lib # contains .so files required for an extension and it's dependencies
-│   ├── omni_httpd--0.1.0.so
-│   └── omni_types--0.1.0.so
-├── omni_http--0.1.0.control
-├── omni_http--0.1.0.sql
-├── omni_http.control
-├── omni_httpd--0.1.0.control
-├── omni_httpd--0.1.0.sql
-├── omni_httpd.control
-├── omni_types--0.1.0.control
-├── omni_types--0.1.0.sql
-└── omni_types.control
-
-2 directories, 12 files
-```
-
-#### Copy extension files to postgres directories
-
-Copy the .so, .sql and .control files from untarred directory to postgres directories.
-
-!!! tip "Where are the directories?"
-
-    To find it, run the following command:
-
-    ```shell
-    # .sql and .control files location
-    echo $(pg_config --sharedir)/extension
-    ```
-    
-    ```shell
-    # .so files location
-    echo $(pg_config --pkglibdir)
-    ```
-
-```shell
-# copy .so files to appropriate postgres directory
-cp omni_httpd/lib/*.so $(pg_config --pkglibdir)
-
-# copy .control and .sql files to appropriate postgres directory
-cp omni_httpd/*{.control,.sql} $(pg_config --sharedir)/extension
+The omni_manifest query to create the extension:
+      select *
+      from
+          omni_manifest.install('omni_httpd=0.1.0#omni_types=0.1.0,omni_http=0.1.0'::text::omni_manifest.artifact[])
 ```
 
 #### Install extension
 
-Copy the artifact format of an extension from `artifacts.txt` in untarred directory.
-
-```shell
-# artifact format of an extension is available in artifacts.txt file of untarred directory
-$ grep "omni_httpd=" omni_httpd/artifacts.txt 
-omni_httpd=0.1.0#omni_types=0.1.0,omni_http=0.1.0
-```
-
-Use the artifact format of an extension copied from artifacts.txt:
+Use the `omni_manifest.install` query of the extension from the script output above.
 
 ```postgresql
 select *
@@ -486,30 +450,24 @@ postgres=# \dx
 ## Update omnigres extensions
 
 To update extensions using `omni_manifest.install`
-please [download newer version of an extension](#download-extension-files)
-and
-ensure [all the extension files are copied to the appropriate postgres directories](#copy-extension-files-to-postgres-directories).
+please download newer version of the extension.
 
-Currently, all Omnigres extensions are versioned using semver format(`x.y.z`), and extension update
-is only possible from an older version to a newer one.
+```shell
+# download omni_httpd 0.2.0 along with its dependencies for update
+$ curl -s https://raw.githubusercontent.com/omnigres/omnigres/master/download-omnigres-extension.sh | bash -s install omni_httpd "0.2.0"
+'/tmp/omni_httpd--0.2.0--untarred/omni_httpd--0.2.0.sql' -> '/usr/share/postgresql/16/extension/omni_httpd--0.2.0.sql'
+'/tmp/omni_httpd--0.2.0--untarred/omni_httpd--0.1.0--0.2.0.sql' -> '/usr/share/postgresql/16/extension/omni_httpd--0.1.0--0.2.0.sql'
+'/tmp/omni_httpd--0.2.0--untarred/omni_httpd--0.2.0.control' -> '/usr/share/postgresql/16/extension/omni_httpd--0.2.0.control'
+'/tmp/omni_httpd--0.2.0--untarred/lib/omni_httpd--0.2.0.so' -> '/usr/lib/postgresql/16/lib/omni_httpd--0.2.0.so'
 
-```postgresql
--- check available versions of omni_httpd
-select *
-from
-    pg_available_extension_versions
-where
-    name = 'omni_httpd';
+The omni_manifest query to create the extension:
+      select *
+      from
+          omni_manifest.install('omni_httpd=0.2.0#omni_types=0.1.0,omni_http=0.1.0'::text::omni_manifest.artifact[])
+
 ```
 
-```
-    name    | version | installed | superuser | trusted | relocatable |   schema   |        requires        | comment 
-------------+---------+-----------+-----------+---------+-------------+------------+------------------------+---------
- omni_httpd | 0.1.0   | t         | t         | f       | f           | omni_httpd | {omni_types,omni_http} | 
-(1 row)
-```
-
-After downloading and copying the extension files of newer version, verify it's available:
+After the download of newer version, verify it's available:
 
 ```postgresql
 -- check the available omni_httpd versions
@@ -528,12 +486,12 @@ where
 (2 rows)
 ```
 
-[Install the newer version](#install-extension) of the extension
+Install the newer version of the extension using the `omni_manifest.install` query of the extension from the script output
 
 ```postgresql
 select *
 from
-    omni_manifest.install('omni_httpd=0.2.0#omni_types=0.1.0,omni_http=0.1.0'::text::omni_manifest.artifact[]);
+    omni_manifest.install('omni_httpd=0.2.0#omni_types=0.1.0,omni_http=0.1.0'::text::omni_manifest.artifact[])
 ```
 
 ```
@@ -563,4 +521,4 @@ postgres=# \dx
 
 !!! tip "Artifact format of extensions"
 
-    The artifact format of extensions can be copied from file named `artifacts`.txt in tarball of an extension
+    The artifact format of an extension can be copied from script output
