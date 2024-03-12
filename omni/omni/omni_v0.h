@@ -180,6 +180,9 @@ typedef void (*omni_hook_check_password_t)(omni_hook_handle *handle, const char 
                                            Datum validuntil_time, bool validuntil_null);
 
 typedef void (*omni_hook_needs_fmgr_t)(omni_hook_handle *handle, Oid fn_oid);
+typedef void (*omni_hook_planner_t)(omni_hook_handle *handle, Query *parse,
+                                    const char *query_string, int cursorOptions,
+                                    ParamListInfo boundParams);
 typedef void (*omni_hook_executor_start_t)(omni_hook_handle *handle, QueryDesc *queryDesc,
                                            int eflags);
 typedef void (*omni_hook_executor_run_t)(omni_hook_handle *handle, QueryDesc *queryDesc,
@@ -198,6 +201,7 @@ typedef union {
   omni_hook_emit_log_t emit_log;
   omni_hook_check_password_t check_password;
   omni_hook_needs_fmgr_t needs_fmgr;
+  omni_hook_planner_t planner;
   omni_hook_executor_start_t executor_start;
   omni_hook_executor_run_t executor_run;
   omni_hook_executor_finish_t executor_finish;

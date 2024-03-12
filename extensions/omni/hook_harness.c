@@ -4,6 +4,7 @@
 // clang-format on
 #include <commands/user.h>
 #include <executor/executor.h>
+#include <optimizer/planner.h>
 
 #include "omni_common.h"
 
@@ -31,6 +32,17 @@ MODULE_FUNCTION bool default_needs_fmgr(omni_hook_handle *handle, Oid fn_oid) {
   return saved_hooks[omni_hook_needs_fmgr] == NULL
              ? false
              : ((needs_fmgr_hook_type)saved_hooks[omni_hook_needs_fmgr])(fn_oid);
+}
+
+MODULE_FUNCTION void default_planner(omni_hook_handle *handle, Query *parse,
+                                     const char *query_string, int cursorOptions,
+                                     ParamListInfo boundParams) {
+
+  handle->returns.PlannedStmt_value =
+      saved_hooks[omni_hook_planner] == NULL
+          ? standard_planner(parse, query_string, cursorOptions, boundParams)
+          : ((planner_hook_type)saved_hooks[omni_hook_planner])(parse, query_string, cursorOptions,
+                                                                boundParams);
 }
 
 MODULE_FUNCTION void default_executor_start(omni_hook_handle *handle, QueryDesc *queryDesc,
@@ -143,6 +155,14 @@ MODULE_FUNCTION void omni_check_password_hook(const char *username, const char *
                                               bool validuntil_null) {
   iterate_hooks(omni_hook_check_password, username, shadow_pass, password_type, validuntil_time,
                 validuntil_null);
+}
+
+MODULE_FUNCTION PlannedStmt *omni_planner_hook(Query *parse, const char *query_string,
+                                               int cursorOptions, ParamListInfo boundParams) {
+  PlannedStmt *stmt =
+      iterate_hooks(omni_hook_planner, parse, query_string, cursorOptions, boundParams)
+          .PlannedStmt_value;
+  return stmt;
 }
 
 MODULE_FUNCTION void omni_executor_start_hook(QueryDesc *queryDesc, int eflags) {

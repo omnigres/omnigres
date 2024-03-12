@@ -7,4 +7,5 @@ char *omni_hook_types[__OMNI_HOOK_TYPE_COUNT] = {[omni_hook_executor_start] = "e
                                                  [omni_hook_emit_log] = "emit_hook",
                                                  [omni_hook_check_password] = "check_password",
                                                  [omni_hook_xact_callback] = "xact_callback",
+                                                 [omni_hook_planner] = "planner",
                                                  0};

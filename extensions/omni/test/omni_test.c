@@ -133,6 +133,10 @@ void _Omni_init(const omni_handle *handle) {
                                   .fn = {.xact_callback = xact_callback}};
   handle->register_hook(handle, &xact_callback_hook);
 
+  omni_hook planner_hook = {
+      .name = "planner_hook", .type = omni_hook_planner, .fn = {.planner = planner}, .wrap = true};
+  handle->register_hook(handle, &planner_hook);
+
   bool found;
 
   char *dbname = get_database_name(MyDatabaseId);
