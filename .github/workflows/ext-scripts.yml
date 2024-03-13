@@ -6,7 +6,7 @@ on:
     paths:
       - versions.txt
   pull_request_target:
-    branches: [ "master", "**" ]
+    branches: [ "master" ]
 
 env:
   CPM_SOURCE_CACHE: ${{ github.workspace }}/cpm_modules
