@@ -482,7 +482,11 @@ static void register_hook(const omni_handle *handle, omni_hook *hook) {
   // Ensure we allocate in the top memory context as we need to keep these around forever
   MemoryContext oldcontext = MemoryContextSwitchTo(TopMemoryContext);
 
-  if (hook->wrap) {
+  if (hook->position == 0) {
+    hook->position = omni_hook_position_leading;
+  }
+
+  if ((hook->position & omni_hook_position_trailing) == omni_hook_position_trailing) {
     int initial_count = hook_entry_points.entry_points_count[hook->type];
 
     // Shift index states
@@ -518,13 +522,16 @@ static void register_hook(const omni_handle *handle, omni_hook *hook) {
 
   MemoryContextSwitchTo(oldcontext);
 
-  entry_point = hook_entry_points.entry_points[hook->type] +
-                (hook_entry_points.entry_points_count[hook->type] - 1);
+  if ((hook->position & omni_hook_position_leading) == omni_hook_position_leading) {
 
-  entry_point->handle = handle;
-  entry_point->fn = hook->fn;
-  entry_point->name = hook->name;
-  entry_point->state_index = hook_entry_points.entry_points_count[hook->type] - 1;
+    entry_point = hook_entry_points.entry_points[hook->type] +
+                  (hook_entry_points.entry_points_count[hook->type] - 1);
+
+    entry_point->handle = handle;
+    entry_point->fn = hook->fn;
+    entry_point->name = hook->name;
+    entry_point->state_index = hook_entry_points.entry_points_count[hook->type] - 1;
+  }
 }
 
 MODULE_FUNCTION char *get_library_name(const omni_handle *handle) {

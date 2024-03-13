@@ -47,7 +47,7 @@ typedef struct {
 StaticAssertDecl(sizeof(omni_magic) <= UINT16_MAX, "omni_magic should fit into 16 bits");
 
 #define OMNI_INTERFACE_VERSION 0
-#define OMNI_INTERFACE_REVISION 5
+#define OMNI_INTERFACE_REVISION 6
 
 typedef struct omni_handle omni_handle;
 
@@ -247,11 +247,17 @@ typedef enum {
   __OMNI_HOOK_TYPE_COUNT // Counter
 } omni_hook_type;
 
+typedef enum {
+  omni_hook_position_default = 0,
+  omni_hook_position_leading = 1 << 0,
+  omni_hook_position_trailing = 1 << 1
+} omni_hook_position;
+
 typedef struct {
   omni_hook_type type;
   omni_hook_fn fn;
   char *name;
-  bool wrap : 1;
+  omni_hook_position position;
 } omni_hook;
 
 /**
