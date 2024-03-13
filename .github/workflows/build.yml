@@ -5,7 +5,7 @@ on:
     # one can merge their branch to test-gh-workflows for testing changes of current workflow before merging them to master
     branches: [ "master", "test-gh-workflows" ]
   pull_request_target:
-    branches: [ "master" ]
+    branches: [ "master", "next/*" ]
   schedule:
     - cron: '33 13 * * *'
 
