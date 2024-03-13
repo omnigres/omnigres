@@ -145,7 +145,7 @@ DECLARE_MODULE_VARIABLE(LWLockPadded *locks);
 
 typedef struct {
   const omni_handle *handle;
-  void *fn;
+  omni_hook_fn fn;
   int state_index;
   char *name;
 } hook_entry_point;
@@ -202,7 +202,7 @@ MODULE_FUNCTION void default_check_password_hook(omni_hook_handle *handle, const
                                                  PasswordType password_type, Datum validuntil_time,
                                                  bool validuntil_null);
 
-MODULE_FUNCTION bool default_needs_fmgr(omni_hook_handle *handle, Oid fn_oid);
+MODULE_FUNCTION void default_needs_fmgr(omni_hook_handle *handle, Oid fn_oid);
 
 MODULE_FUNCTION void default_executor_start(omni_hook_handle *handle, QueryDesc *queryDesc,
                                             int eflags);

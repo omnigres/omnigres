@@ -82,17 +82,20 @@ void _PG_init() {
 
   RegisterXactCallback(omni_xact_callback_hook, NULL);
 
-  void *default_hooks[__OMNI_HOOK_TYPE_COUNT] = {
-      [omni_hook_needs_fmgr] = saved_hooks[omni_hook_needs_fmgr] ? default_needs_fmgr : NULL,
-      [omni_hook_executor_start] = default_executor_start,
-      [omni_hook_executor_run] = default_executor_run,
-      [omni_hook_executor_finish] = default_executor_finish,
-      [omni_hook_executor_end] = default_executor_end,
-      [omni_hook_process_utility] = default_process_utility,
-      [omni_hook_emit_log] = saved_hooks[omni_hook_emit_log] ? default_emit_log : NULL,
-      [omni_hook_check_password] =
-          saved_hooks[omni_hook_check_password] ? default_check_password_hook : NULL,
-      [omni_hook_xact_callback] = NULL,
+  omni_hook_fn default_hooks[__OMNI_HOOK_TYPE_COUNT] = {
+      [omni_hook_needs_fmgr] = {.needs_fmgr =
+                                    saved_hooks[omni_hook_needs_fmgr] ? default_needs_fmgr : NULL},
+      [omni_hook_executor_start] = {.executor_start = default_executor_start},
+      [omni_hook_executor_run] = {.executor_run = default_executor_run},
+      [omni_hook_executor_finish] = {.executor_finish = default_executor_finish},
+      [omni_hook_executor_end] = {.executor_end = default_executor_end},
+      [omni_hook_process_utility] = {.process_utility = default_process_utility},
+      [omni_hook_emit_log] = {.emit_log =
+                                  saved_hooks[omni_hook_emit_log] ? default_emit_log : NULL},
+      [omni_hook_check_password] = {.check_password = saved_hooks[omni_hook_check_password]
+                                                          ? default_check_password_hook
+                                                          : NULL},
+      [omni_hook_xact_callback] = {.xact_callback = NULL},
       NULL};
 
   {
@@ -102,7 +105,7 @@ void _PG_init() {
     for (int type = 0; type < __OMNI_HOOK_TYPE_COUNT; type++) {
       // It is important to use palloc0 here to ensure the first recors in the hook array are
       // calling the original hooks (if present)
-      if (default_hooks[type] != NULL) {
+      if (default_hooks[type].ptr != NULL) {
         hook_entry_point *entry;
         entry = hook_entry_points.entry_points[type] =
             palloc0(sizeof(*hook_entry_points.entry_points[type]));

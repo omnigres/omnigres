@@ -497,7 +497,7 @@ static void register_hook(const omni_handle *handle, omni_hook *hook) {
            sizeof(*hook_entry_points.entry_points[hook->type]) * initial_count);
 
     entry_point->handle = handle;
-    entry_point->fn = hook->fn.ptr;
+    entry_point->fn = hook->fn;
     entry_point->name = hook->name;
     entry_point->state_index = hook_entry_points.entry_points_count[hook->type] - 1;
 
@@ -522,7 +522,7 @@ static void register_hook(const omni_handle *handle, omni_hook *hook) {
                 (hook_entry_points.entry_points_count[hook->type] - 1);
 
   entry_point->handle = handle;
-  entry_point->fn = hook->fn.ptr;
+  entry_point->fn = hook->fn;
   entry_point->name = hook->name;
   entry_point->state_index = hook_entry_points.entry_points_count[hook->type] - 1;
 }
