@@ -1,8 +1,13 @@
 $schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
-instance:
-  config:
-    shared_preload_libraries: */env/OMNI_SO
-    max_worker_processes: 64
+instances:
+  default:
+    config:
+      shared_preload_libraries: */env/OMNI_SO
+      max_worker_processes: 64
+    default: true
+  no_omni:
+    config:
+      max_worker_processes: 64
 
 tests:
 
@@ -49,3 +54,10 @@ tests:
   error:
     severity: ERROR
     message: temp directory location should not be inside the data directory
+
+- name: create extension omni_httpd fails with no omni
+  instance: no_omni
+  query: create extension omni_httpd cascade
+  error:
+    severity: ERROR
+    message: extension requires omni but omni not found in shared_preload_libraries
