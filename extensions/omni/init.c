@@ -44,7 +44,7 @@ void _PG_init() {
   if (!process_shared_preload_libraries_in_progress) {
     if (!preloaded) {
       // Issue a warning if it is not preloaded, as it won't be useful
-      ereport(WARNING, errmsg("omni extension has not been preloaded"),
+      ereport(ERROR, errmsg("omni extension has not been preloaded"),
               errhint("`shared_preload_libraries` should list `omni`"));
     }
     // If it is not being preloaded, nothing to do here

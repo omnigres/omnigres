@@ -27,6 +27,9 @@
 PG_MODULE_MAGIC;
 OMNI_MAGIC;
 
+OMNI_MODULE_INFO(.name = "omni", .version = EXT_VERSION,
+                 .identity = "d71344f3-7e9f-4987-9ebb-7fd0d9253157");
+
 omni_shared_info *shared_info;
 
 MODULE_VARIABLE(dshash_table *omni_modules);
@@ -268,6 +271,50 @@ static omni_handle_private *load_module(const char *path) {
     if (magic_fn != NULL) {
       // Check if magic is correct
       omni_magic *magic = magic_fn();
+
+      omni_module_information *module_info = dlsym(dlhandle, "_omni_module_information");
+
+      {
+        // Special case for omni 0.1.0 (TODO: deprecate)
+        void *database_worker_fn = dlsym(dlhandle, "database_worker");
+        void *startup_worker_fn = dlsym(dlhandle, "startup_worker");
+        void *deinitialize_backend_fn = dlsym(dlhandle, "deinitialize_backend");
+        if (magic != NULL && magic->revision < 6 && module_info == NULL &&
+            database_worker_fn != NULL && startup_worker_fn != NULL &&
+            deinitialize_backend_fn != NULL && _Omni_magic != magic_fn) {
+          ereport(ERROR, errmsg("omni extension 0.1.0 is incompatible with a preloaded omni "
+                                "library of %s, please upgrade",
+                                _omni_module_information.version));
+        }
+      }
+
+      {
+        if (magic != NULL && module_info != NULL &&
+            strcmp(module_info->identity, _omni_module_information.identity) == 0 &&
+            _Omni_magic != magic_fn) {
+
+          // Check versions
+          if (strcmp(module_info->version, _omni_module_information.version) != 0) {
+            ereport(ERROR, errmsg("omni extension %s is incompatible with a preloaded omni "
+                                  "library of %s",
+                                  module_info->version, _omni_module_information.version));
+          }
+
+          // Different file paths
+          if (strcmp(path, get_omni_library_name()) != 0) {
+            ereport(ERROR,
+                    errmsg("attempting to loading omni extension from a file different from the "
+                           "preloaded library"),
+                    errdetail("expected %s, got %s", get_omni_library_name(), path));
+          }
+
+          // In this case, the path is the same, but we still didn't load into the same address apce
+          ereport(ERROR,
+                  errmsg("attempting to loading omni extension from a file different from the "
+                         "preloaded library"));
+        }
+      }
+
       if (magic->size == sizeof(omni_magic) && magic->version == OMNI_INTERFACE_VERSION) {
         // We are going to record it if it wasn't yet
         LWLockAcquire(&(locks + OMNI_LOCK_MODULE)->lock, LW_EXCLUSIVE);

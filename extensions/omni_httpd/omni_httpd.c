@@ -63,6 +63,9 @@
 PG_MODULE_MAGIC;
 OMNI_MAGIC;
 
+OMNI_MODULE_INFO(.name = "omni_httpd", .version = EXT_VERSION,
+                 .identity = "7005f29d-22ef-4c81-aff5-975dac62ad36");
+
 #ifndef EXT_VERSION
 #error "Extension version (VERSION) is not defined!"
 #endif
