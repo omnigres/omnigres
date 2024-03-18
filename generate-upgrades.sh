@@ -142,10 +142,17 @@ EOF
         exit 1
     fi
     # test the upgrade
-    cp "$DEST_DIR/$ext_name--$old_ver--$new_ver.sql" "$DEST_DIR/$old_rev/build/pg-share/extension/$ext_name--$old_ver.control" "$DEST_DIR/$old_rev/build/pg-share/extension/$ext_name--$old_ver.sql" "$PGSHAREDIR/extension"
+    # first, let's stop current database to load older extension again
+    "$PG_BINDIR/pg_ctl" stop -D  "$db" -m smart
+    "$PG_BINDIR/pg_ctl" start -D "$db" -o "-c max_worker_processes=64" -o "-c listen_addresses=''" -o "-k $sockdir" -o "-c shared_preload_libraries='$DEST_DIR/$old_rev/build/extensions/omni/omni--$old_rev_omni_ver.so'" || exit 1
     cat <<EOF | "$PG_BINDIR/psql" -h "$sockdir" $ext_name -v ON_ERROR_STOP=1
-    drop extension $ext_name;
-    create extension $ext_name version '$old_ver' cascade;
+        drop extension $ext_name;
+        create extension $ext_name version '$old_ver' cascade;
+EOF
+    "$PG_BINDIR/pg_ctl" stop -D  "$db" -m smart
+    cp "$DEST_DIR/$ext_name--$old_ver--$new_ver.sql" "$DEST_DIR/$old_rev/build/pg-share/extension/$ext_name--$old_ver.control" "$DEST_DIR/$old_rev/build/pg-share/extension/$ext_name--$old_ver.sql" "$PGSHAREDIR/extension"
+    "$PG_BINDIR/pg_ctl" start -D "$db" -o "-c max_worker_processes=64" -o "-c listen_addresses=''" -o "-k $sockdir"  -o "-c shared_preload_libraries='$DEST_DIR/$new_rev/build/extensions/omni/omni--$new_rev_omni_ver.so'" || exit 1
+    cat <<EOF | "$PG_BINDIR/psql" -h "$sockdir" $ext_name -v ON_ERROR_STOP=1
     alter extension $ext_name update to '$new_ver';
 EOF
     if [ "${PIPESTATUS[1]}" -ne 0 ]; then
