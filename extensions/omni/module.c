@@ -16,7 +16,8 @@ void _Omni_init(const omni_handle *handle) {
   omni_hook alter_extension_hook = {.name = "extension upgrade",
                                     .type = omni_hook_process_utility,
                                     .fn = {.process_utility = extension_upgrade_hook},
-                                    .wrap = true};
+                                    .position =
+                                        omni_hook_position_leading | omni_hook_position_trailing};
   handle->register_hook(handle, &alter_extension_hook);
 }
 
