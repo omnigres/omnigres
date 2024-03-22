@@ -34,6 +34,19 @@ typedef struct BackgroundWorkerHandle {
 #endif
 
 /**
+ * @brief Module information
+ */
+typedef struct {
+  char *name;
+  char *version;
+  char *identity;
+} omni_module_information;
+
+#define OMNI_MODULE_INFO(...) omni_module_information _omni_module_information = {__VA_ARGS__}
+
+extern omni_module_information _omni_module_information;
+
+/**
  * @private
  * @brief Magic structure for compatibility checks
  */
@@ -47,7 +60,7 @@ typedef struct {
 StaticAssertDecl(sizeof(omni_magic) <= UINT16_MAX, "omni_magic should fit into 16 bits");
 
 #define OMNI_INTERFACE_VERSION 0
-#define OMNI_INTERFACE_REVISION 5
+#define OMNI_INTERFACE_REVISION 6
 
 typedef struct omni_handle omni_handle;
 
@@ -81,7 +94,12 @@ void _Omni_deinit(const omni_handle *handle);
   static omni_magic __Omni_magic = {.size = sizeof(omni_magic),                                    \
                                     .version = OMNI_INTERFACE_VERSION,                             \
                                     .revision = OMNI_INTERFACE_REVISION};                          \
-  omni_magic *_Omni_magic() { return &__Omni_magic; }
+  omni_magic *_Omni_magic() {                                                                      \
+    if (_omni_module_information.name == NULL) {                                                   \
+      ereport(WARNING, errmsg("missing module name"));                                             \
+    }                                                                                              \
+    return &__Omni_magic;                                                                          \
+  }
 
 /**
  * @brief Shared memory allocation callback
