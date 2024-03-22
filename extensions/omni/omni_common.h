@@ -41,6 +41,7 @@
 typedef struct {
   volatile pg_atomic_uint32 module_counter;
   pg_atomic_flag tables_initialized;
+  pg_atomic_flag dsa_initialized;
   dsa_handle dsa;
   dshash_table_handle modules_tab;
   dshash_table_handle allocations_tab;
@@ -51,6 +52,7 @@ extern omni_shared_info *shared_info;
 typedef enum {
   OMNI_LOCK_MODULE,
   OMNI_LOCK_ALLOCATION,
+  OMNI_LOCK_DSA,
   __omni_num_locks,
 } omni_locks;
 
