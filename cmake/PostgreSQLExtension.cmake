@@ -322,6 +322,35 @@ $<$<NOT:$<BOOL:${_ext_SUPERUSER}>>:#>superuser = ${_ext_SUPERUSER}
     endif()
     endif()
 
+    # add this if an extension depends on libomni
+    set(omni_preloaded_check [=[
+do
+\$\$
+    declare
+        present boolean;
+    begin
+        select
+            -- ensure last component of matched library is omni
+            coalesce(match[array_length(match, 1)], '') ~ 'omni--\d+\.\d+\.\d+(\.so)?$'
+        from
+            regexp_split_to_array((select
+                                       library
+                                   from
+                                       -- comma separated list of libraries
+                                       regexp_split_to_table(current_setting('shared_preload_libraries'),
+                                                             ',') as library
+                                   where
+                                       -- pick the library which ends with omni--x.y.z where .so is optional
+                                       library ~ 'omni--\d+\.\d+\.\d+(\.so)?$'), '/') as match
+        into present;
+        if not present then
+            raise exception 'extension requires omni but omni not found in shared_preload_libraries'
+                using hint = 'add omni shared object library to shared_preload_libraries';
+        end if;
+    end;
+\$\$ language plpgsql;
+]=])
+
     file(GENERATE OUTPUT ${CMAKE_BINARY_DIR}/script_${_ext_TARGET}
             CONTENT "#! /usr/bin/env bash
 # Indicate that we've started provisioning ${NAME}
@@ -353,6 +382,9 @@ for f in $(ls \"$_dir/\"*.sql | sort -V)
   do
   pushd $(pwd) >/dev/null
   cd \"${CMAKE_CURRENT_SOURCE_DIR}\"
+  $<$<IN_LIST:libomni,${_ext_DEPENDS_ON}>:cat << EOF $<ANGLE-R>$<ANGLE-R> \"$1/_$$_${NAME}--${_ext_VERSION}.sql\"
+${omni_preloaded_check}
+EOF>
   $<TARGET_FILE:inja> \"$f\" >> \"$1/_$$_${NAME}--${_ext_VERSION}.sql\"
   echo >> \"$1/_$$_${NAME}--${_ext_VERSION}.sql\"
   popd >/dev/null
