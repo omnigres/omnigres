@@ -43,7 +43,9 @@ void _PG_init() {
   // We only initialize once, as a shared preloaded library.
   if (!process_shared_preload_libraries_in_progress) {
     if (!preloaded) {
-      // Issue a warning if it is not preloaded, as it won't be useful
+      // Issue an error if it is not preloaded, as it won't be functional
+      // (and may be even outright dangerous) to allow calling any function
+      // in it if it was not preloaded.
       ereport(ERROR, errmsg("omni extension has not been preloaded"),
               errhint("`shared_preload_libraries` should list `omni`"));
     }
