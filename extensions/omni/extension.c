@@ -135,8 +135,11 @@ MODULE_FUNCTION void extension_upgrade_hook(omni_hook_handle *handle, PlannedStm
     if (handle->ctx == NULL) {
       extoid = get_extension_oid(extname, true);
       // Indicate that we're past the first pass with the context
-      handle->ctx = &extoid;
+      char *extver = get_extension_version(extname, true);
+      char *module_pathname = get_extension_module_pathname(extname, extver);
+      handle->ctx = module_pathname;
     } else {
+      char *old_module_pathname = (char *)handle->ctx;
       // Second pass
 
       // Get necessary extension information
@@ -180,17 +183,22 @@ MODULE_FUNCTION void extension_upgrade_hook(omni_hook_handle *handle, PlannedStm
                 values[i] = (Datum)0;
                 replaces[i] = false;
               }
+              // Ensure to replace only those procedures that had a matching module_pathname
+              // from the previous version of the extension (we recorded that in the context)
+              bool isnull;
+              Datum probin = heap_getattr(tup, Anum_pg_proc_probin, pg_proc_tuple_desc, &isnull);
+              if (!isnull && strcmp(old_module_pathname, TextDatumGetCString(probin)) == 0) {
+                // Get the new module_pathname in
+                values[Anum_pg_proc_probin - 1] = CStringGetTextDatum(module_pathname);
+                replaces[Anum_pg_proc_probin - 1] = true;
 
-              // Get the new module_pathname in
-              values[Anum_pg_proc_probin - 1] = CStringGetTextDatum(module_pathname);
-              replaces[Anum_pg_proc_probin - 1] = true;
+                HeapTuple newtup =
+                    heap_modify_tuple(tup, pg_proc_tuple_desc, values, nulls, replaces);
 
-              HeapTuple newtup =
-                  heap_modify_tuple(tup, pg_proc_tuple_desc, values, nulls, replaces);
-
-              // Update the record
-              CatalogTupleUpdate(proc_rel, &newtup->t_self, newtup);
-              updated = true;
+                // Update the record
+                CatalogTupleUpdate(proc_rel, &newtup->t_self, newtup);
+                updated = true;
+              }
             }
             ReleaseSysCache(tup);
           }
