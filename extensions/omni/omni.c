@@ -268,7 +268,8 @@ static char *substitute_libpath_macro(const char *name) {
   return psprintf("%s%s", pkglib_path, sep_ptr);
 }
 
-static omni_handle_private *load_module(const char *path) {
+static omni_handle_private *load_module(const char *path,
+                                        bool warning_on_omni_mismatch_preference) {
   omni_handle_private *result = NULL;
   void *dlhandle = dlopen(path, RTLD_LAZY);
 
@@ -284,6 +285,8 @@ static omni_handle_private *load_module(const char *path) {
       {
         // Omni compatibility check
 
+        bool warn_on_mismatch = IsBackgroundWorker || warning_on_omni_mismatch_preference;
+
         {
           // Special case for omni 0.1.0 (TODO: deprecate)
           void *database_worker_fn = dlsym(dlhandle, "database_worker");
@@ -292,7 +295,7 @@ static omni_handle_private *load_module(const char *path) {
           if (magic != NULL && magic->revision < 6 && module_info == NULL &&
               database_worker_fn != NULL && startup_worker_fn != NULL &&
               deinitialize_backend_fn != NULL && _Omni_magic != magic_fn) {
-            ereport(IsBackgroundWorker ? WARNING : ERROR,
+            ereport(warn_on_mismatch ? WARNING : ERROR,
                     errmsg("omni extension 0.1.0 is incompatible with a preloaded omni "
                            "library of %s, please upgrade",
                            _omni_module_information.version));
@@ -307,7 +310,7 @@ static omni_handle_private *load_module(const char *path) {
 
             // Check versions
             if (strcmp(module_info->version, _omni_module_information.version) != 0) {
-              ereport(IsBackgroundWorker ? WARNING : ERROR,
+              ereport(warn_on_mismatch ? WARNING : ERROR,
                       errmsg("omni extension %s is incompatible with a preloaded omni "
                              "library of %s",
                              module_info->version, _omni_module_information.version));
@@ -315,7 +318,7 @@ static omni_handle_private *load_module(const char *path) {
 
             // Different file paths
             if (strcmp(path, get_omni_library_name()) != 0) {
-              ereport(IsBackgroundWorker ? WARNING : ERROR,
+              ereport(warn_on_mismatch ? WARNING : ERROR,
                       errmsg("attempting to loading omni extension from a file different from the "
                              "preloaded library"),
                       errdetail("expected %s, got %s", get_omni_library_name(), path));
@@ -323,7 +326,7 @@ static omni_handle_private *load_module(const char *path) {
 
             // In this case, the path is the same, but we still didn't load into the same address
             // space
-            ereport(IsBackgroundWorker ? WARNING : ERROR,
+            ereport(warn_on_mismatch ? WARNING : ERROR,
                     errmsg("attempting to loading omni extension from a file different from the "
                            "preloaded library"));
 
@@ -429,7 +432,19 @@ static List *consider_probin(HeapTuple tp) {
       strcpy(key, path);
       pfree(path);
 
-      omni_handle_private *handle = load_module(key);
+      bool warning_on_omni_mismatch = true;
+
+      // If the tuple is added in current transaction, if the version is mismatched, it should
+      // be an error, otherwise, a warning.
+      //
+      // Otherwise, it is impossible to successfully load previously-installed version to proceed
+      // further to upgrade to the correct version.
+      if (TransactionIdIsValid(GetCurrentTransactionIdIfAny()) &&
+          TransactionIdEquals(HeapTupleHeaderGetXmin(tp->t_data), GetCurrentTransactionIdIfAny())) {
+        warning_on_omni_mismatch = false;
+      }
+
+      omni_handle_private *handle = load_module(key, warning_on_omni_mismatch);
       if (handle != NULL) {
         loaded = list_append_unique_ptr(loaded, handle);
       }
@@ -464,7 +479,7 @@ MODULE_FUNCTION void load_pending_modules() {
       // Ensure `omni` itself is loaded (once)
       static bool omni_loaded = false;
       if (unlikely(!omni_loaded)) {
-        self = load_module(get_omni_library_name());
+        self = load_module(get_omni_library_name(), false);
         Assert(self != NULL); // must be always true as we're loading the same file
         loaded_modules = list_append_unique_ptr(loaded_modules, self);
         omni_loaded = true;
