@@ -5,7 +5,7 @@ function(find_swipl SWIPL_VAR)
     else()
     endif()
     if(NOT SWIPL_VERSION)
-        set(SWIPL_VERSION 9.3.1)
+        set(SWIPL_VERSION 9.3.3)
     endif()
     if(NOT DEFINED SWIPL_${SWIPL_VERSION})
         CPMAddPackage(NAME swiprolog_${SWIPL_VERSION} GITHUB_REPOSITORY SWI-Prolog/swipl-devel VERSION ${SWIPL_VERSION} GIT_TAG V${SWIPL_VERSION}
