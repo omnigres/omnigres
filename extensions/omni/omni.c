@@ -275,43 +275,53 @@ static omni_handle_private *load_module(const char *path) {
       omni_module_information *module_info = dlsym(dlhandle, "_omni_module_information");
 
       {
-        // Special case for omni 0.1.0 (TODO: deprecate)
-        void *database_worker_fn = dlsym(dlhandle, "database_worker");
-        void *startup_worker_fn = dlsym(dlhandle, "startup_worker");
-        void *deinitialize_backend_fn = dlsym(dlhandle, "deinitialize_backend");
-        if (magic != NULL && magic->revision < 6 && module_info == NULL &&
-            database_worker_fn != NULL && startup_worker_fn != NULL &&
-            deinitialize_backend_fn != NULL && _Omni_magic != magic_fn) {
-          ereport(ERROR, errmsg("omni extension 0.1.0 is incompatible with a preloaded omni "
-                                "library of %s, please upgrade",
-                                _omni_module_information.version));
+        // Omni compatibility check
+
+        {
+          // Special case for omni 0.1.0 (TODO: deprecate)
+          void *database_worker_fn = dlsym(dlhandle, "database_worker");
+          void *startup_worker_fn = dlsym(dlhandle, "startup_worker");
+          void *deinitialize_backend_fn = dlsym(dlhandle, "deinitialize_backend");
+          if (magic != NULL && magic->revision < 6 && module_info == NULL &&
+              database_worker_fn != NULL && startup_worker_fn != NULL &&
+              deinitialize_backend_fn != NULL && _Omni_magic != magic_fn) {
+            ereport(IsBackgroundWorker ? WARNING : ERROR,
+                    errmsg("omni extension 0.1.0 is incompatible with a preloaded omni "
+                           "library of %s, please upgrade",
+                           _omni_module_information.version));
+            return NULL;
+          }
         }
-      }
 
-      {
-        if (magic != NULL && module_info != NULL &&
-            strcmp(module_info->identity, _omni_module_information.identity) == 0 &&
-            _Omni_magic != magic_fn) {
+        {
+          if (magic != NULL && module_info != NULL &&
+              strcmp(module_info->identity, _omni_module_information.identity) == 0 &&
+              _Omni_magic != magic_fn) {
 
-          // Check versions
-          if (strcmp(module_info->version, _omni_module_information.version) != 0) {
-            ereport(ERROR, errmsg("omni extension %s is incompatible with a preloaded omni "
-                                  "library of %s",
-                                  module_info->version, _omni_module_information.version));
-          }
+            // Check versions
+            if (strcmp(module_info->version, _omni_module_information.version) != 0) {
+              ereport(IsBackgroundWorker ? WARNING : ERROR,
+                      errmsg("omni extension %s is incompatible with a preloaded omni "
+                             "library of %s",
+                             module_info->version, _omni_module_information.version));
+            }
 
-          // Different file paths
-          if (strcmp(path, get_omni_library_name()) != 0) {
-            ereport(ERROR,
+            // Different file paths
+            if (strcmp(path, get_omni_library_name()) != 0) {
+              ereport(IsBackgroundWorker ? WARNING : ERROR,
+                      errmsg("attempting to loading omni extension from a file different from the "
+                             "preloaded library"),
+                      errdetail("expected %s, got %s", get_omni_library_name(), path));
+            }
+
+            // In this case, the path is the same, but we still didn't load into the same address
+            // space
+            ereport(IsBackgroundWorker ? WARNING : ERROR,
                     errmsg("attempting to loading omni extension from a file different from the "
-                           "preloaded library"),
-                    errdetail("expected %s, got %s", get_omni_library_name(), path));
-          }
+                           "preloaded library"));
 
-          // In this case, the path is the same, but we still didn't load into the same address apce
-          ereport(ERROR,
-                  errmsg("attempting to loading omni extension from a file different from the "
-                         "preloaded library"));
+            return NULL;
+          }
         }
       }
 
@@ -447,7 +457,7 @@ MODULE_FUNCTION void load_pending_modules() {
       static bool omni_loaded = false;
       if (unlikely(!omni_loaded)) {
         self = load_module(get_omni_library_name());
-        Assert(self != NULL);
+        Assert(self != NULL); // must be always true as we're loading the same file
         loaded_modules = list_append_unique_ptr(loaded_modules, self);
         omni_loaded = true;
       }
