@@ -11,7 +11,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `default_needs_fmgr` had an invalid signature [#519](https://github.com/omnigres/omnigres/pull/519)
 * Mismatched extension upgrades may have resulted in a non-functional
-  extension [6ea51b5](https://github.com/omnigres/omnigres/pull/522/commits/6ea51b5ef931d5a62af44234055223538ad3f721), [#529](https://github.com/omnigres/omnigres/pull/529)
+  extension [6ea51b5](https://github.com/omnigres/omnigres/pull/522/commits/6ea51b5ef931d5a62af44234055223538ad3f721), [#529](https://github.com/omnigres/omnigres/pull/529),
+  [81906791c](https://github.com/omnigres/omnigres/pull/522/commits/81906791cbae9eab07e2a3414720255b6bd2e4c2)
 * Fixed a case when excessive or dynamic creation of backends may lead to  
   "too many dynamic shared memory segments" error [#528](https://github.com/omnigres/omnigres/pull/528)
 
