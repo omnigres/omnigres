@@ -190,6 +190,7 @@ static void shmem_hook() {
     shared_info->modules_tab = InvalidDsaPointer;
     shared_info->allocations_tab = InvalidDsaPointer;
     pg_atomic_init_flag(&shared_info->tables_initialized);
+    pg_atomic_init_flag(&shared_info->dsa_initialized);
   }
 
   LWLockRelease(AddinShmemInitLock);

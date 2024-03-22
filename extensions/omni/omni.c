@@ -52,7 +52,7 @@ MODULE_VARIABLE(MemoryContext OmniGUCContext);
 static dsa_area *dsa = NULL;
 
 MODULE_FUNCTION dsa_area *dsa_handle_to_area(dsa_handle handle) {
-  if (handle != dsa_get_handle(dsa)) {
+  if (dsa == NULL || (dsa != NULL && handle != dsa_get_handle(dsa))) {
     if (!dsm_find_mapping(handle)) {
       // It is important to allocate DSA in the top memory context
       // so it doesn't get deallocated when the context we're in is gone
@@ -90,9 +90,11 @@ static inline void initialize_omni_modules() {
                                                .compare_function = dshash_memcmp,
                                                .tranche_id = OMNI_DSA_TRANCHE};
   MemoryContext oldcontext = MemoryContextSwitchTo(TopMemoryContext);
+  LWLockAcquire(&(locks + OMNI_LOCK_MODULE)->lock, LW_EXCLUSIVE);
   if (pg_atomic_test_set_flag(&shared_info->tables_initialized)) {
     // Nobody has initialized modules table yet. And we're under an exclusive lock,
     // so we can do it
+    dsa_area *dsa = dsa_handle_to_area(shared_info->dsa);
     omni_modules = dshash_create(dsa, &module_params, NULL);
     shared_info->modules_tab = dshash_get_hash_table_handle(omni_modules);
     omni_allocations = dshash_create(dsa, &allocation_params, NULL);
@@ -105,6 +107,7 @@ static inline void initialize_omni_modules() {
     omni_allocations =
         dshash_attach(dsa_area, &allocation_params, shared_info->allocations_tab, NULL);
   }
+  LWLockRelease(&(locks + OMNI_LOCK_MODULE)->lock);
   MemoryContextSwitchTo(oldcontext);
 }
 
@@ -138,7 +141,10 @@ static bool ensure_backend_initialized(void) {
 
   LWLockRegisterTranche(OMNI_DSA_TRANCHE, "omni:dsa");
 
-  {
+  locks = GetNamedLWLockTranche("omni");
+  LWLockAcquire(&(locks + OMNI_LOCK_DSA)->lock, LW_EXCLUSIVE);
+
+  if (pg_atomic_test_set_flag(&shared_info->dsa_initialized)) {
     // It is important to allocate DSA in the top memory context
     // so it doesn't get deallocated when the context we're in is gone
     MemoryContext oldcontext = MemoryContextSwitchTo(TopMemoryContext);
@@ -146,7 +152,10 @@ static bool ensure_backend_initialized(void) {
     MemoryContextSwitchTo(oldcontext);
     dsa_pin(dsa);
     dsa_pin_mapping(dsa);
+    shared_info->dsa = dsa_get_handle(dsa);
   }
+
+  LWLockRelease(&(locks + OMNI_LOCK_DSA)->lock);
 
   {
     // Get `pg_proc` TupleDesc
@@ -154,8 +163,6 @@ static bool ensure_backend_initialized(void) {
     pg_proc_tuple_desc = RelationGetDescr(rel);
     table_close(rel, AccessShareLock);
   }
-
-  locks = GetNamedLWLockTranche("omni");
 
   {
     HASHCTL ctl = {.keysize = sizeof(dsa_handle), .entrysize = sizeof(DSAHandleEntry)};
@@ -336,6 +343,7 @@ static omni_handle_private *load_module(const char *path) {
           uint32 id = pg_atomic_add_fetch_u32(&shared_info->module_counter, 1);
 
           // If not found, prepare the handle
+          dsa_area *dsa = dsa_handle_to_area(shared_info->dsa);
           dsa_pointer ptr = dsa_allocate(dsa, sizeof(*handle));
           handle = (omni_handle_private *)dsa_get_address(dsa, ptr);
           handle->magic = *magic;
@@ -625,7 +633,8 @@ static struct dsa_ref {
   }
   if (!*found) {
     if (action == HASH_ENTER || action == HASH_ENTER_NULL) {
-      alloc->dsa_handle = dsa_get_handle(dsa);
+      alloc->dsa_handle = shared_info->dsa;
+      dsa_area *dsa = dsa_handle_to_area(shared_info->dsa);
       uint32 interrupt_holdoff = InterruptHoldoffCount;
       PG_TRY();
       { alloc->dsa_pointer = dsa_allocate(dsa, size); }
@@ -689,6 +698,7 @@ static void *find_or_allocate_shmem(const omni_handle *handle, const char *name,
                                                   find ? HASH_FIND : HASH_ENTER, found);
   if (!*found) {
     // If just searching, return NULL, otherwise return allocation
+    dsa_area *dsa = dsa_handle_to_area(shared_info->dsa);
     ptr = find ? NULL : dsa_get_address(dsa, ref.pointer);
   } else {
     ptr = dsa_get_address(dsa_handle_to_area(ref.handle), ref.pointer);
