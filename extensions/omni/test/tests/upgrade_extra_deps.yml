@@ -1,0 +1,47 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+
+# Test that dependencies are only updated for module_pathname
+
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+  init:
+  # We create the extension here
+  - create extension omni_test version '1' cascade
+  - create extension omni
+  # We use omni_types to test how dependencies are upgraded
+  - create extension omni_types
+
+tests:
+
+- steps:
+  - select omni_types.sum_type('t', 'bool', 'int4')
+  - insert
+    into
+        pg_catalog.pg_depend (classid, objid, objsubid, refclassid, refobjid, refobjsubid, deptype)
+    values
+        ((select oid from pg_class where relname = 'pg_proc'),
+         (select oid from pg_proc where prosrc = 'sum_in' limit 1), 0,
+         (select oid from pg_class where relname = 'pg_extension'),
+         (select oid from pg_catalog.pg_extension where extname = 'omni_test'), 0, 'e')
+  - query: select
+               probin like '%omni_types%' as result
+           from
+               pg_proc
+           where
+               prosrc = 'sum_in'
+    results:
+    - result: true
+  commit: true
+
+- name: updates pg_proc's probin
+  steps:
+  - alter extension omni_test update to '2'
+  - query: select
+               probin like '%omni_types%' as result
+           from
+               pg_proc
+           where
+               prosrc = 'sum_in'
+    results:
+    - result: true

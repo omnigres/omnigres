@@ -565,25 +565,38 @@ static void register_hook(const omni_handle *handle, omni_hook *hook) {
   if (hook->wrap) {
     int initial_count = hook_entry_points.entry_points_count[hook->type];
 
-    // Shift index states
+    // Increment all index states by one as we're inserting a new element
+    // in the front which will assume the first index.
+    hook_entry_point *ep = hook_entry_points.entry_points[hook->type];
     for (int i = 0; i < initial_count; i++) {
-      hook_entry_points.entry_points[hook->type]->state_index = i + 1;
+      ep->state_index++;
+      ep++;
     }
 
+    // Increment the count for both elements (before & after)
     hook_entry_points.entry_points_count[hook->type] += 2;
+
+    // Allocate a new array of hooks as we're inject in the front
     entry_point = palloc(sizeof(*hook_entry_points.entry_points[hook->type]) *
                          hook_entry_points.entry_points_count[hook->type]);
+    // Copy the old array to the second element of the new one
     memcpy(entry_point + 1, hook_entry_points.entry_points[hook->type],
            sizeof(*hook_entry_points.entry_points[hook->type]) * initial_count);
 
+    // Prepare new first element
     entry_point->handle = handle;
     entry_point->fn = hook->fn;
     entry_point->name = hook->name;
     entry_point->state_index = hook_entry_points.entry_points_count[hook->type] - 1;
 
+    // Free the old array
+    pfree(hook_entry_points.entry_points[hook->type]);
+
+    // Ensure we're pointing to the new array
     hook_entry_points.entry_points[hook->type] = entry_point;
 
   } else {
+    // Figure out the size of the array needed while incrementing the counter
     size_t size = sizeof(*hook_entry_points.entry_points[hook->type]) *
                   (++hook_entry_points.entry_points_count[hook->type]);
     if (hook_entry_points.entry_points[hook->type] != NULL) {
@@ -598,6 +611,7 @@ static void register_hook(const omni_handle *handle, omni_hook *hook) {
 
   MemoryContextSwitchTo(oldcontext);
 
+  // Add an element to the end of the array
   entry_point = hook_entry_points.entry_points[hook->type] +
                 (hook_entry_points.entry_points_count[hook->type] - 1);
 
