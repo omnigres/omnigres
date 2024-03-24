@@ -117,6 +117,8 @@ MODULE_FUNCTION void reorganize_hooks() {
       for (int i = hook_entry_points.entry_points_count[omni_hook_##HOOK] - 1; i >= 0; i--) {      \
         hook_entry_point *hook = hook_entry_points.entry_points[omni_hook_##HOOK] + i;             \
         ctxs[i] = NULL;                                                                            \
+        Assert(hook->state_index >= i);                                                            \
+        Assert(hook->state_index < hook_entry_points.entry_points_count[omni_hook_##HOOK]);        \
         omni_hook_handle handle = {.handle = hook->handle,                                         \
                                    .ctx = ctxs[hook->state_index],                                 \
                                    .next_action = hook_next_action_next,                           \
