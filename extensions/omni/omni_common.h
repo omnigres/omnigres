@@ -41,6 +41,7 @@
 typedef struct {
   volatile pg_atomic_uint32 module_counter;
   pg_atomic_flag tables_initialized;
+  pg_atomic_flag dsa_initialized;
   dsa_handle dsa;
   dshash_table_handle modules_tab;
   dshash_table_handle allocations_tab;
@@ -51,6 +52,7 @@ extern omni_shared_info *shared_info;
 typedef enum {
   OMNI_LOCK_MODULE,
   OMNI_LOCK_ALLOCATION,
+  OMNI_LOCK_DSA,
   __omni_num_locks,
 } omni_locks;
 
@@ -145,7 +147,7 @@ DECLARE_MODULE_VARIABLE(LWLockPadded *locks);
 
 typedef struct {
   const omni_handle *handle;
-  void *fn;
+  omni_hook_fn fn;
   int state_index;
   char *name;
 } hook_entry_point;
@@ -205,7 +207,7 @@ MODULE_FUNCTION void default_check_password_hook(omni_hook_handle *handle, const
                                                  PasswordType password_type, Datum validuntil_time,
                                                  bool validuntil_null);
 
-MODULE_FUNCTION bool default_needs_fmgr(omni_hook_handle *handle, Oid fn_oid);
+MODULE_FUNCTION void default_needs_fmgr(omni_hook_handle *handle, Oid fn_oid);
 
 MODULE_FUNCTION void default_planner(omni_hook_handle *handle, Query *parse,
                                      const char *query_string, int cursorOptions,

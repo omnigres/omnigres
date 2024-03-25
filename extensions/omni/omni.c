@@ -27,6 +27,9 @@
 PG_MODULE_MAGIC;
 OMNI_MAGIC;
 
+OMNI_MODULE_INFO(.name = "omni", .version = EXT_VERSION,
+                 .identity = "d71344f3-7e9f-4987-9ebb-7fd0d9253157");
+
 omni_shared_info *shared_info;
 
 MODULE_VARIABLE(dshash_table *omni_modules);
@@ -49,7 +52,7 @@ MODULE_VARIABLE(MemoryContext OmniGUCContext);
 static dsa_area *dsa = NULL;
 
 MODULE_FUNCTION dsa_area *dsa_handle_to_area(dsa_handle handle) {
-  if (handle != dsa_get_handle(dsa)) {
+  if (dsa == NULL || (dsa != NULL && handle != dsa_get_handle(dsa))) {
     if (!dsm_find_mapping(handle)) {
       // It is important to allocate DSA in the top memory context
       // so it doesn't get deallocated when the context we're in is gone
@@ -87,9 +90,11 @@ static inline void initialize_omni_modules() {
                                                .compare_function = dshash_memcmp,
                                                .tranche_id = OMNI_DSA_TRANCHE};
   MemoryContext oldcontext = MemoryContextSwitchTo(TopMemoryContext);
+  LWLockAcquire(&(locks + OMNI_LOCK_MODULE)->lock, LW_EXCLUSIVE);
   if (pg_atomic_test_set_flag(&shared_info->tables_initialized)) {
     // Nobody has initialized modules table yet. And we're under an exclusive lock,
     // so we can do it
+    dsa_area *dsa = dsa_handle_to_area(shared_info->dsa);
     omni_modules = dshash_create(dsa, &module_params, NULL);
     shared_info->modules_tab = dshash_get_hash_table_handle(omni_modules);
     omni_allocations = dshash_create(dsa, &allocation_params, NULL);
@@ -102,6 +107,7 @@ static inline void initialize_omni_modules() {
     omni_allocations =
         dshash_attach(dsa_area, &allocation_params, shared_info->allocations_tab, NULL);
   }
+  LWLockRelease(&(locks + OMNI_LOCK_MODULE)->lock);
   MemoryContextSwitchTo(oldcontext);
 }
 
@@ -135,7 +141,10 @@ static bool ensure_backend_initialized(void) {
 
   LWLockRegisterTranche(OMNI_DSA_TRANCHE, "omni:dsa");
 
-  {
+  locks = GetNamedLWLockTranche("omni");
+  LWLockAcquire(&(locks + OMNI_LOCK_DSA)->lock, LW_EXCLUSIVE);
+
+  if (pg_atomic_test_set_flag(&shared_info->dsa_initialized)) {
     // It is important to allocate DSA in the top memory context
     // so it doesn't get deallocated when the context we're in is gone
     MemoryContext oldcontext = MemoryContextSwitchTo(TopMemoryContext);
@@ -143,7 +152,10 @@ static bool ensure_backend_initialized(void) {
     MemoryContextSwitchTo(oldcontext);
     dsa_pin(dsa);
     dsa_pin_mapping(dsa);
+    shared_info->dsa = dsa_get_handle(dsa);
   }
+
+  LWLockRelease(&(locks + OMNI_LOCK_DSA)->lock);
 
   {
     // Get `pg_proc` TupleDesc
@@ -151,8 +163,6 @@ static bool ensure_backend_initialized(void) {
     pg_proc_tuple_desc = RelationGetDescr(rel);
     table_close(rel, AccessShareLock);
   }
-
-  locks = GetNamedLWLockTranche("omni");
 
   {
     HASHCTL ctl = {.keysize = sizeof(dsa_handle), .entrysize = sizeof(DSAHandleEntry)};
@@ -258,7 +268,8 @@ static char *substitute_libpath_macro(const char *name) {
   return psprintf("%s%s", pkglib_path, sep_ptr);
 }
 
-static omni_handle_private *load_module(const char *path) {
+static omni_handle_private *load_module(const char *path,
+                                        bool warning_on_omni_mismatch_preference) {
   omni_handle_private *result = NULL;
   void *dlhandle = dlopen(path, RTLD_LAZY);
 
@@ -268,6 +279,62 @@ static omni_handle_private *load_module(const char *path) {
     if (magic_fn != NULL) {
       // Check if magic is correct
       omni_magic *magic = magic_fn();
+
+      omni_module_information *module_info = dlsym(dlhandle, "_omni_module_information");
+
+      {
+        // Omni compatibility check
+
+        bool warn_on_mismatch = IsBackgroundWorker || warning_on_omni_mismatch_preference;
+
+        {
+          // Special case for omni 0.1.0 (TODO: deprecate)
+          void *database_worker_fn = dlsym(dlhandle, "database_worker");
+          void *startup_worker_fn = dlsym(dlhandle, "startup_worker");
+          void *deinitialize_backend_fn = dlsym(dlhandle, "deinitialize_backend");
+          if (magic != NULL && magic->revision < 6 && module_info == NULL &&
+              database_worker_fn != NULL && startup_worker_fn != NULL &&
+              deinitialize_backend_fn != NULL && _Omni_magic != magic_fn) {
+            ereport(warn_on_mismatch ? WARNING : ERROR,
+                    errmsg("omni extension 0.1.0 is incompatible with a preloaded omni "
+                           "library of %s, please upgrade",
+                           _omni_module_information.version));
+            return NULL;
+          }
+        }
+
+        {
+          if (magic != NULL && module_info != NULL &&
+              strcmp(module_info->identity, _omni_module_information.identity) == 0 &&
+              _Omni_magic != magic_fn) {
+
+            // Check versions
+            if (strcmp(module_info->version, _omni_module_information.version) != 0) {
+              ereport(warn_on_mismatch ? WARNING : ERROR,
+                      errmsg("omni extension %s is incompatible with a preloaded omni "
+                             "library of %s",
+                             module_info->version, _omni_module_information.version));
+            }
+
+            // Different file paths
+            if (strcmp(path, get_omni_library_name()) != 0) {
+              ereport(warn_on_mismatch ? WARNING : ERROR,
+                      errmsg("attempting to loading omni extension from a file different from the "
+                             "preloaded library"),
+                      errdetail("expected %s, got %s", get_omni_library_name(), path));
+            }
+
+            // In this case, the path is the same, but we still didn't load into the same address
+            // space
+            ereport(warn_on_mismatch ? WARNING : ERROR,
+                    errmsg("attempting to loading omni extension from a file different from the "
+                           "preloaded library"));
+
+            return NULL;
+          }
+        }
+      }
+
       if (magic->size == sizeof(omni_magic) && magic->version == OMNI_INTERFACE_VERSION) {
         // We are going to record it if it wasn't yet
         LWLockAcquire(&(locks + OMNI_LOCK_MODULE)->lock, LW_EXCLUSIVE);
@@ -279,6 +346,7 @@ static omni_handle_private *load_module(const char *path) {
           uint32 id = pg_atomic_add_fetch_u32(&shared_info->module_counter, 1);
 
           // If not found, prepare the handle
+          dsa_area *dsa = dsa_handle_to_area(shared_info->dsa);
           dsa_pointer ptr = dsa_allocate(dsa, sizeof(*handle));
           handle = (omni_handle_private *)dsa_get_address(dsa, ptr);
           handle->magic = *magic;
@@ -364,7 +432,19 @@ static List *consider_probin(HeapTuple tp) {
       strcpy(key, path);
       pfree(path);
 
-      omni_handle_private *handle = load_module(key);
+      bool warning_on_omni_mismatch = true;
+
+      // If the tuple is added in current transaction, if the version is mismatched, it should
+      // be an error, otherwise, a warning.
+      //
+      // Otherwise, it is impossible to successfully load previously-installed version to proceed
+      // further to upgrade to the correct version.
+      if (TransactionIdIsValid(GetCurrentTransactionIdIfAny()) &&
+          TransactionIdEquals(HeapTupleHeaderGetXmin(tp->t_data), GetCurrentTransactionIdIfAny())) {
+        warning_on_omni_mismatch = false;
+      }
+
+      omni_handle_private *handle = load_module(key, warning_on_omni_mismatch);
       if (handle != NULL) {
         loaded = list_append_unique_ptr(loaded, handle);
       }
@@ -399,8 +479,8 @@ MODULE_FUNCTION void load_pending_modules() {
       // Ensure `omni` itself is loaded (once)
       static bool omni_loaded = false;
       if (unlikely(!omni_loaded)) {
-        self = load_module(get_omni_library_name());
-        Assert(self != NULL);
+        self = load_module(get_omni_library_name(), false);
+        Assert(self != NULL); // must be always true as we're loading the same file
         loaded_modules = list_append_unique_ptr(loaded_modules, self);
         omni_loaded = true;
       }
@@ -485,25 +565,38 @@ static void register_hook(const omni_handle *handle, omni_hook *hook) {
   if (hook->wrap) {
     int initial_count = hook_entry_points.entry_points_count[hook->type];
 
-    // Shift index states
+    // Increment all index states by one as we're inserting a new element
+    // in the front which will assume the first index.
+    hook_entry_point *ep = hook_entry_points.entry_points[hook->type];
     for (int i = 0; i < initial_count; i++) {
-      hook_entry_points.entry_points[hook->type]->state_index = i + 1;
+      ep->state_index++;
+      ep++;
     }
 
+    // Increment the count for both elements (before & after)
     hook_entry_points.entry_points_count[hook->type] += 2;
+
+    // Allocate a new array of hooks as we're inject in the front
     entry_point = palloc(sizeof(*hook_entry_points.entry_points[hook->type]) *
                          hook_entry_points.entry_points_count[hook->type]);
+    // Copy the old array to the second element of the new one
     memcpy(entry_point + 1, hook_entry_points.entry_points[hook->type],
            sizeof(*hook_entry_points.entry_points[hook->type]) * initial_count);
 
+    // Prepare new first element
     entry_point->handle = handle;
-    entry_point->fn = hook->fn.ptr;
+    entry_point->fn = hook->fn;
     entry_point->name = hook->name;
     entry_point->state_index = hook_entry_points.entry_points_count[hook->type] - 1;
 
+    // Free the old array
+    pfree(hook_entry_points.entry_points[hook->type]);
+
+    // Ensure we're pointing to the new array
     hook_entry_points.entry_points[hook->type] = entry_point;
 
   } else {
+    // Figure out the size of the array needed while incrementing the counter
     size_t size = sizeof(*hook_entry_points.entry_points[hook->type]) *
                   (++hook_entry_points.entry_points_count[hook->type]);
     if (hook_entry_points.entry_points[hook->type] != NULL) {
@@ -518,11 +611,12 @@ static void register_hook(const omni_handle *handle, omni_hook *hook) {
 
   MemoryContextSwitchTo(oldcontext);
 
+  // Add an element to the end of the array
   entry_point = hook_entry_points.entry_points[hook->type] +
                 (hook_entry_points.entry_points_count[hook->type] - 1);
 
   entry_point->handle = handle;
-  entry_point->fn = hook->fn.ptr;
+  entry_point->fn = hook->fn;
   entry_point->name = hook->name;
   entry_point->state_index = hook_entry_points.entry_points_count[hook->type] - 1;
 }
@@ -568,7 +662,8 @@ static struct dsa_ref {
   }
   if (!*found) {
     if (action == HASH_ENTER || action == HASH_ENTER_NULL) {
-      alloc->dsa_handle = dsa_get_handle(dsa);
+      alloc->dsa_handle = shared_info->dsa;
+      dsa_area *dsa = dsa_handle_to_area(shared_info->dsa);
       uint32 interrupt_holdoff = InterruptHoldoffCount;
       PG_TRY();
       { alloc->dsa_pointer = dsa_allocate(dsa, size); }
@@ -632,6 +727,7 @@ static void *find_or_allocate_shmem(const omni_handle *handle, const char *name,
                                                   find ? HASH_FIND : HASH_ENTER, found);
   if (!*found) {
     // If just searching, return NULL, otherwise return allocation
+    dsa_area *dsa = dsa_handle_to_area(shared_info->dsa);
     ptr = find ? NULL : dsa_get_address(dsa, ref.pointer);
   } else {
     ptr = dsa_get_address(dsa_handle_to_area(ref.handle), ref.pointer);

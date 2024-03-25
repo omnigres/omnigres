@@ -24,6 +24,9 @@
 PG_MODULE_MAGIC;
 OMNI_MAGIC;
 
+OMNI_MODULE_INFO(.name = "omni_test", .version = EXT_VERSION,
+                 .identity = "ed0aaa35-54c6-426e-a69d-2c74a836053b");
+
 static bool initialized = false;
 
 static char *hello_message;

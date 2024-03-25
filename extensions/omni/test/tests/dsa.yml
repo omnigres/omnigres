@@ -1,0 +1,2214 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+    max_worker_processes: 4
+  init:
+  # We create the extension here
+  - create extension omni_test
+  - create extension omni
+# This is silly, but pg_yregress is not programmable (yet)
+# so we just repeat the same thing a lot of times...name:
+# FIXME: ☝️
+tests:
+
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true
+- query: select 1
+  reset: true

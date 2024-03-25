@@ -28,10 +28,11 @@ MODULE_FUNCTION void default_check_password_hook(omni_hook_handle *handle, const
                    username, shadow_pass, password_type, validuntil_time, validuntil_null);
 }
 
-MODULE_FUNCTION bool default_needs_fmgr(omni_hook_handle *handle, Oid fn_oid) {
-  return saved_hooks[omni_hook_needs_fmgr] == NULL
-             ? false
-             : ((needs_fmgr_hook_type)saved_hooks[omni_hook_needs_fmgr])(fn_oid);
+MODULE_FUNCTION void default_needs_fmgr(omni_hook_handle *handle, Oid fn_oid) {
+  handle->returns.bool_value =
+      saved_hooks[omni_hook_needs_fmgr] == NULL
+          ? false
+          : ((needs_fmgr_hook_type)saved_hooks[omni_hook_needs_fmgr])(fn_oid);
 }
 
 MODULE_FUNCTION void default_planner(omni_hook_handle *handle, Query *parse,
@@ -122,17 +123,19 @@ MODULE_FUNCTION void reorganize_hooks() {
 
 #define iterate_hooks(HOOK, ...)                                                                   \
   ({                                                                                               \
-    void *ctxs[hook_entry_points.entry_points_count[HOOK]];                                        \
+    void *ctxs[hook_entry_points.entry_points_count[omni_hook_##HOOK]];                            \
     omni_hook_return_value retval = {.ptr_value = NULL};                                           \
-    if (hook_entry_points.entry_points_count[HOOK] > 0)                                            \
-      for (int i = hook_entry_points.entry_points_count[HOOK] - 1; i >= 0; i--) {                  \
-        hook_entry_point *hook = hook_entry_points.entry_points[HOOK] + i;                         \
+    if (hook_entry_points.entry_points_count[omni_hook_##HOOK] > 0)                                \
+      for (int i = hook_entry_points.entry_points_count[omni_hook_##HOOK] - 1; i >= 0; i--) {      \
+        hook_entry_point *hook = hook_entry_points.entry_points[omni_hook_##HOOK] + i;             \
         ctxs[i] = NULL;                                                                            \
+        Assert(hook->state_index >= i);                                                            \
+        Assert(hook->state_index < hook_entry_points.entry_points_count[omni_hook_##HOOK]);        \
         omni_hook_handle handle = {.handle = hook->handle,                                         \
                                    .ctx = ctxs[hook->state_index],                                 \
                                    .next_action = hook_next_action_next,                           \
                                    .returns = retval};                                             \
-        ((HOOK##_t)(hook->fn))(&handle, __VA_ARGS__);                                              \
+        (hook->fn.HOOK)(&handle, __VA_ARGS__);                                                     \
         retval = handle.returns;                                                                   \
         ctxs[i] = handle.ctx;                                                                      \
         switch (handle.next_action) {                                                              \
@@ -147,13 +150,13 @@ MODULE_FUNCTION void reorganize_hooks() {
   })
 
 MODULE_FUNCTION bool omni_needs_fmgr_hook(Oid fn_oid) {
-  return iterate_hooks(omni_hook_needs_fmgr, fn_oid).bool_value;
+  return iterate_hooks(needs_fmgr, fn_oid).bool_value;
 }
 
 MODULE_FUNCTION void omni_check_password_hook(const char *username, const char *shadow_pass,
                                               PasswordType password_type, Datum validuntil_time,
                                               bool validuntil_null) {
-  iterate_hooks(omni_hook_check_password, username, shadow_pass, password_type, validuntil_time,
+  iterate_hooks(check_password, username, shadow_pass, password_type, validuntil_time,
                 validuntil_null);
 }
 
@@ -168,21 +171,21 @@ MODULE_FUNCTION PlannedStmt *omni_planner_hook(Query *parse, const char *query_s
 MODULE_FUNCTION void omni_executor_start_hook(QueryDesc *queryDesc, int eflags) {
   load_pending_modules();
 
-  iterate_hooks(omni_hook_executor_start, queryDesc, eflags);
+  iterate_hooks(executor_start, queryDesc, eflags);
 }
 
 MODULE_FUNCTION void omni_executor_run_hook(QueryDesc *queryDesc, ScanDirection direction,
                                             uint64 count, bool execute_once) {
 
-  iterate_hooks(omni_hook_executor_run, queryDesc, direction, count, execute_once);
+  iterate_hooks(executor_run, queryDesc, direction, count, execute_once);
 }
 
 MODULE_FUNCTION void omni_executor_finish_hook(QueryDesc *queryDesc) {
-  iterate_hooks(omni_hook_executor_finish, queryDesc);
+  iterate_hooks(executor_finish, queryDesc);
 }
 
 MODULE_FUNCTION void omni_executor_end_hook(QueryDesc *queryDesc) {
-  iterate_hooks(omni_hook_executor_end, queryDesc);
+  iterate_hooks(executor_end, queryDesc);
   load_pending_modules();
 }
 
@@ -198,8 +201,8 @@ MODULE_FUNCTION void omni_process_utility_hook(PlannedStmt *pstmt, const char *q
   bool readOnlyTree = false;
 #endif
 
-  iterate_hooks(omni_hook_process_utility, pstmt, queryString, readOnlyTree, context, params,
-                queryEnv, dest, qc);
+  iterate_hooks(process_utility, pstmt, queryString, readOnlyTree, context, params, queryEnv, dest,
+                qc);
 
   // It is critical here to NOT try to rescan modules if we're
   // processing a transaction statement as we may be not having valid invariants for
@@ -227,7 +230,7 @@ static void on_xact_dealloc(void *arg) {
 }
 
 MODULE_FUNCTION void omni_xact_callback_hook(XactEvent event, void *arg) {
-  iterate_hooks(omni_hook_xact_callback, event);
+  iterate_hooks(xact_callback, event);
 
   // Hard-coded single-shot hooks
   // TODO: these are a bit of a hack and we should find ways to get rid of them
@@ -254,6 +257,4 @@ MODULE_FUNCTION void omni_xact_callback_hook(XactEvent event, void *arg) {
   }
 }
 
-MODULE_FUNCTION void omni_emit_log_hook(ErrorData *edata) {
-  iterate_hooks(omni_hook_emit_log, edata);
-}
+MODULE_FUNCTION void omni_emit_log_hook(ErrorData *edata) { iterate_hooks(emit_log, edata); }
