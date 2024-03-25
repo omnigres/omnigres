@@ -7,6 +7,7 @@
 #include <executor/executor.h>
 #include <lib/dshash.h>
 #include <miscadmin.h>
+#include <optimizer/planner.h>
 #include <storage/ipc.h>
 #include <storage/lwlock.h>
 #include <storage/shmem.h>
@@ -73,6 +74,7 @@ void _PG_init() {
   OLD = omni_##NAME##_hook
 
   save_hook(needs_fmgr, needs_fmgr_hook);
+  save_hook(planner, planner_hook);
   save_hook(executor_start, ExecutorStart_hook);
   save_hook(executor_run, ExecutorRun_hook);
   save_hook(executor_finish, ExecutorFinish_hook);
