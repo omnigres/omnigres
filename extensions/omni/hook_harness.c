@@ -163,8 +163,7 @@ MODULE_FUNCTION void omni_check_password_hook(const char *username, const char *
 MODULE_FUNCTION PlannedStmt *omni_planner_hook(Query *parse, const char *query_string,
                                                int cursorOptions, ParamListInfo boundParams) {
   PlannedStmt *stmt =
-      iterate_hooks(omni_hook_planner, parse, query_string, cursorOptions, boundParams)
-          .PlannedStmt_value;
+      iterate_hooks(planner, parse, query_string, cursorOptions, boundParams).PlannedStmt_value;
   return stmt;
 }
 
