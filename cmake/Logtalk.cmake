@@ -5,7 +5,7 @@ function(find_logtalk LOGTALK_VAR SWIPL_VERSION)
     else()
     endif()
     if(NOT LOGTALK_VERSION)
-        set(LOGTALK_VERSION 3.75.0)
+        set(LOGTALK_VERSION 3.76.0)
     endif()
 
     if(NOT DEFINED LOGTALK_GIT_TAG)
