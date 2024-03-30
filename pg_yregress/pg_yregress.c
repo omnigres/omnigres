@@ -1,6 +1,7 @@
 #include <getopt.h>
 #include <pwd.h>
 #include <stdio.h>
+#include <sys/wait.h>
 
 #include "pg_yregress.h"
 
@@ -520,6 +521,34 @@ static int execute_document(struct fy_document *fyd, bool managed, char *host, i
       fprintf(tap_file, "# Test suite: %.*s\n", (int)name_len, name);
     }
   }
+
+  {
+    void *iter = NULL;
+    // prepare used instances, so we can actually start them in a child process
+    // the parent will handle clean up
+    struct fy_node_pair *instance_pair;
+    while ((instance_pair = fy_node_mapping_iterate(instances, &iter)) != NULL) {
+      yinstance *y_instance = (yinstance *)fy_node_get_meta(fy_node_pair_value(instance_pair));
+      if (y_instance->used) {
+        yinstance_prepare(y_instance);
+      }
+    }
+  }
+  pid_t pid = fork();
+  if (pid < 0) {
+    // TODO: still need to clean up empty datadir(s) that we have created
+    exit(EXIT_FAILURE);
+  }
+  if (pid > 0) {
+    // Parent process
+    int status;
+    waitpid(pid, &status, 0);
+    instances_cleanup();
+    return WEXITSTATUS(status);
+  }
+  // let's become the session leader, so if pg_yregress crashes, all the children would be
+  // terminated and the parent takes care of cleaning up
+  setsid();
 
   // Initialize used instances
   {
