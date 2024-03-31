@@ -180,7 +180,7 @@ static void init() {
       ereport(ERROR, errmsg("failed to bind bind UDP socket"));
     }
     h2o_socket_t *sock = h2o_evloop_socket_create(ctx.loop, fd, H2O_SOCKET_FLAG_DONT_READ);
-    h2o_quic_init_context(&h3ctx.h3, ctx.loop, sock, &h3ctx.quic, NULL,
+    h2o_quic_init_context(&h3ctx.h3, ctx.loop, sock, &h3ctx.quic, NULL, NULL,
                           h2o_httpclient_http3_notify_connection_update, 1, NULL);
   }
 
