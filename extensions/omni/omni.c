@@ -201,9 +201,6 @@ static void register_lwlock(const omni_handle *handle, LWLock *lock, const char 
   // TODO: unused tranche id reuse
   int tranche_id = initialize ? LWLockNewTrancheId() : lock->tranche;
   LWLockRegisterTranche(tranche_id, name);
-  system(psprintf("syslog -s -k Facility com.apple.console -k Level notice -k Message 'omnigres "
-                  "register %d %p %d %s'",
-                  initialize, lock, tranche_id, name));
 
   if (initialize) {
     LWLockInitialize(lock, tranche_id);
