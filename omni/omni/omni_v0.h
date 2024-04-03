@@ -2,6 +2,7 @@
 #ifndef OMNI_H
 #define OMNI_H
 
+#ifndef DOXYGEN_SKIP_INCLUDES
 #include <dlfcn.h>
 #include <stddef.h>
 
@@ -18,6 +19,7 @@
 #include <tcop/utility.h>
 #include <utils/guc.h>
 #include <utils/guc_tables.h>
+#endif
 
 #if PG_MAJORVERSION_NUM >= 13 && PG_MAJORVERSION_NUM <= 16
 /**
@@ -103,6 +105,9 @@ void _Omni_deinit(const omni_handle *handle);
 
 /**
  * @brief Shared memory allocation callback
+ *
+ * This typedef defines the function pointer type for the callback function
+ * used to allocate shared memory.
  *
  * @param handle Handle passed by the loader
  * @param ptr Allocation

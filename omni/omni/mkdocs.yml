@@ -1,0 +1,4 @@
+#INHERIT: ../../mkdocs.base.yml
+site_name: omnilib
+nav:
+- omni: 'omni/omni__v0_8h.md'
