@@ -244,7 +244,6 @@ void on_accept(h2o_socket_t *listener, const char *err) {
   if (requests_in_flight > 0) {
     // Don't accept new connections if this instance is busy as we'd likely
     // have to proxy it (or put in the queue if it is not HTTP/2+)
-    h2o_socket_read_start(listener, NULL);
     return;
   }
   h2o_socket_t *sock;
@@ -265,9 +264,6 @@ void req_dispose(void *ptr) {
   request_message_t **message_ptr = (request_message_t **)ptr;
   request_message_t *message = *message_ptr;
   pthread_mutex_lock(&message->mutex);
-  if (requests_in_flight == 0 && message->server_socket != NULL) {
-    h2o_socket_read_start(message->server_socket, on_accept);
-  }
 
   message->req = NULL;
   pthread_mutex_unlock(&message->mutex);
