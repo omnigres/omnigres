@@ -22,6 +22,13 @@ pthread_cond_t event_loop_resume_cond_ack = PTHREAD_COND_INITIALIZER;
 h2o_multithread_receiver_t event_loop_receiver;
 h2o_multithread_queue_t *event_loop_queue;
 
+// Defines cset_socket
+#define i_val h2o_socket_t *
+#define i_tag socket
+#include <stc/cset.h>
+
+cset_socket paused_listeners;
+
 static size_t requests_in_flight = 0;
 
 typedef enum { MSG_KIND_SEND, MSG_KIND_ABORT, MSG_KIND_PROXY } send_message_kind;
@@ -42,9 +49,6 @@ typedef struct {
     } proxy;
   } payload;
 } send_message_t;
-
-// Implemented in from http_worker.c
-h2o_socket_t *get_server_socket_from_req(h2o_req_t *req);
 
 static void h2o_queue_send(request_message_t *msg, h2o_iovec_t *bufs, size_t bufcnt,
                            h2o_send_state_t state) {
@@ -148,7 +152,10 @@ static void on_message(h2o_multithread_receiver_t *receiver, h2o_linklist_t *mes
     send_message_t *send_msg = (send_message_t *)messages->next;
     request_message_t *reqmsg = send_msg->reqmsg;
     pthread_mutex_lock(&reqmsg->mutex);
-    requests_in_flight--;
+    if (--requests_in_flight == 0) {
+      c_FOREACH(it, cset_socket, paused_listeners) { h2o_socket_read_start(*it.ref, on_accept); }
+      cset_socket_clear(&paused_listeners);
+    }
 
     if (reqmsg->req == NULL) {
       // Connection is gone, bail
@@ -207,6 +214,8 @@ void *event_loop(void *arg) {
   assert(handler_queue != NULL);
   assert(event_loop_queue != NULL);
 
+  paused_listeners = cset_socket_init();
+
   bool running = atomic_load(&worker_running);
   bool reload = atomic_load(&worker_reload);
 
@@ -230,6 +239,16 @@ void *event_loop(void *arg) {
         ;
     }
 
+    {
+      // Ensure we don't have any paused listeners as listeners may be changed upon reload
+      // and sockets may be deallocated. It would be extremely unsafe to do it later as these
+      // records may be gone.
+      // The idea is that if they'll be resumed now, if the system is still busy, they'll
+      // get stopped again.
+      c_FOREACH(it, cset_socket, paused_listeners) { h2o_socket_read_start(*it.ref, on_accept); }
+      cset_socket_clear(&paused_listeners);
+    }
+
     // Make sure request handler no longer waits
     pthread_mutex_lock(&event_loop_mutex);
     event_loop_resumed = false;
@@ -244,7 +263,8 @@ void on_accept(h2o_socket_t *listener, const char *err) {
   if (requests_in_flight > 0) {
     // Don't accept new connections if this instance is busy as we'd likely
     // have to proxy it (or put in the queue if it is not HTTP/2+)
-    h2o_socket_read_start(listener, NULL);
+    h2o_socket_read_stop(listener);
+    cset_socket_push(&paused_listeners, listener);
     return;
   }
   h2o_socket_t *sock;
@@ -265,9 +285,6 @@ void req_dispose(void *ptr) {
   request_message_t **message_ptr = (request_message_t **)ptr;
   request_message_t *message = *message_ptr;
   pthread_mutex_lock(&message->mutex);
-  if (requests_in_flight == 0 && message->server_socket != NULL) {
-    h2o_socket_read_start(message->server_socket, on_accept);
-  }
 
   message->req = NULL;
   pthread_mutex_unlock(&message->mutex);
@@ -298,9 +315,6 @@ int event_loop_req_handler(h2o_handler_t *self, h2o_req_t *req) {
   request_message_t *msg = malloc(sizeof(*msg));
   msg->super = (h2o_multithread_message_t){{NULL}};
   msg->req = req;
-  if (req != NULL) {
-    msg->server_socket = get_server_socket_from_req(req);
-  }
   pthread_mutex_init(&msg->mutex, NULL);
 
   // Track request deallocation

@@ -909,8 +909,3 @@ release:
 
   return 0;
 }
-
-h2o_socket_t *get_server_socket_from_req(h2o_req_t *req) {
-  listener_ctx *lctx = H2O_STRUCT_FROM_MEMBER(listener_ctx, context, req->conn->ctx);
-  return lctx->socket;
-}
