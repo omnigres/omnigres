@@ -62,7 +62,6 @@ typedef struct {
   h2o_multithread_message_t super;
   h2o_req_t *req;
   pthread_mutex_t mutex;
-  h2o_socket_t *server_socket; /*< server socket */
 } request_message_t;
 
 /**
