@@ -141,6 +141,9 @@ class Cursor:
 
     _SPI_OK_UTILITY = 4
     _SPI_OK_SELECT = 5
+    _SPI_OK_INSERT_RETURNING = 11
+    _SPI_OK_DELETE_RETURNING = 12
+    _SPI_OK_UPDATE_RETURNING = 13
 
     def __init__(self):
         pass
@@ -181,7 +184,8 @@ class Cursor:
         self.description = None
         self.rowcount = -1
 
-        if res.status() == self._SPI_OK_SELECT:
+
+        if res.status() in (self._SPI_OK_SELECT, self._SPI_OK_INSERT_RETURNING, self._SPI_OK_DELETE_RETURNING, self._SPI_OK_UPDATE_RETURNING):
             self._execute_result = [[row[col] for col in row] for row in res]
             self.rownumber = 0
             if 'colnames' in res.__class__.__dict__:
@@ -198,6 +202,7 @@ class Cursor:
             self.rowcount = -1
         else:
             self.rowcount = res.nrows()
+
 
     @staticmethod
     def py_param_to_pg_type(param):
