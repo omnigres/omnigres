@@ -1,0 +1,27 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_sql cascade
+
+tests:
+
+- query: select *
+         from omni_sql.raw_statements('')
+  results: [ ]
+
+- query: select *
+         from omni_sql.raw_statements('Select True')
+  results:
+  - source: Select True
+    line: 1
+    col: 1
+
+- query: select *
+         from omni_sql.raw_statements(E'Select True;\n select 1')
+  results:
+  - source: Select True
+    line: 1
+    col: 1
+  - source: select 1
+    line: 2
+    col: 2 # intentional
