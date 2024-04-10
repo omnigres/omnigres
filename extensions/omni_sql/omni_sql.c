@@ -176,3 +176,388 @@ Datum raw_statements(PG_FUNCTION_ARGS) {
   MemoryContextSwitchTo(oldcontext);
   PG_RETURN_NULL();
 }
+
+PG_FUNCTION_INFO_V1(statement_type);
+Datum statement_type(PG_FUNCTION_ARGS) {
+  if (PG_ARGISNULL(0)) {
+    ereport(ERROR, errmsg("statement should not be NULL"));
+  }
+
+  text *statement = PG_GETARG_TEXT_PP(0);
+  char *cstatement = text_to_cstring(statement);
+  List *stmts = omni_sql_parse_statement(cstatement);
+
+  if (list_length(stmts) > 1) {
+    PG_RETURN_CSTRING("MultiStmt");
+  }
+
+  char *val;
+
+  ListCell *lc;
+  foreach (lc, stmts) {
+    switch (nodeTag(lfirst_node(RawStmt, lc)->stmt)) {
+    case T_InsertStmt:
+      val = "InsertStmt";
+      break;
+    case T_DeleteStmt:
+      val = "DeleteStmt";
+      break;
+    case T_UpdateStmt:
+      val = "UpdateStmt";
+      break;
+#if PG_MAJORVERSION_NUM > 14
+    case T_MergeStmt:
+      val = "MergeStmt";
+      break;
+#endif
+    case T_SelectStmt:
+      val = "SelectStmt";
+      break;
+    case T_SetOperationStmt:
+      val = "SetOperationStmt";
+      break;
+#if PG_MAJORVERSION_NUM > 13
+    case T_ReturnStmt:
+      val = "ReturnStmt";
+      break;
+    case T_PLAssignStmt:
+      val = "PLAssignStmt";
+      break;
+#endif
+    case T_CreateSchemaStmt:
+      val = "CreateSchemaStmt";
+      break;
+    case T_AlterTableStmt:
+      val = "AlterTableStmt";
+      break;
+    case T_ReplicaIdentityStmt:
+      val = "ReplicaIdentityStmt";
+      break;
+    case T_AlterCollationStmt:
+      val = "AlterCollationStmt";
+      break;
+    case T_AlterDomainStmt:
+      val = "AlterDomainStmt";
+      break;
+    case T_GrantStmt:
+      val = "GrantStmt";
+      break;
+    case T_GrantRoleStmt:
+      val = "GrantRoleStmt";
+      break;
+    case T_AlterDefaultPrivilegesStmt:
+      val = "AlterDefaultPrivilegesStmt";
+      break;
+    case T_CopyStmt:
+      val = "CopyStmt";
+      break;
+    case T_VariableSetStmt:
+      val = "VariableSetStmt";
+      break;
+    case T_VariableShowStmt:
+      val = "VariableShowStmt";
+      break;
+    case T_CreateStmt:
+      val = "CreateStmt";
+      break;
+    case T_CreateTableSpaceStmt:
+      val = "CreateTableSpaceStmt";
+      break;
+    case T_DropTableSpaceStmt:
+      val = "DropTableSpaceStmt";
+      break;
+    case T_AlterTableSpaceOptionsStmt:
+      val = "AlterTableSpaceOptionsStmt";
+      break;
+    case T_AlterTableMoveAllStmt:
+      val = "AlterTableMoveAllStmt";
+      break;
+    case T_CreateExtensionStmt:
+      val = "CreateExtensionStmt";
+      break;
+    case T_AlterExtensionStmt:
+      val = "AlterExtensionStmt";
+      break;
+    case T_AlterExtensionContentsStmt:
+      val = "AlterExtensionContentsStmt";
+      break;
+    case T_CreateFdwStmt:
+      val = "CreateFdwStmt";
+      break;
+    case T_AlterFdwStmt:
+      val = "AlterFdwStmt";
+      break;
+    case T_CreateForeignServerStmt:
+      val = "CreateForeignServerStmt";
+      break;
+    case T_AlterForeignServerStmt:
+      val = "AlterForeignServerStmt";
+      break;
+    case T_CreateForeignTableStmt:
+      val = "CreateForeignTableStmt";
+      break;
+    case T_CreateUserMappingStmt:
+      val = "CreateUserMappingStmt";
+      break;
+    case T_AlterUserMappingStmt:
+      val = "AlterUserMappingStmt";
+      break;
+    case T_DropUserMappingStmt:
+      val = "DropUserMappingStmt";
+      break;
+    case T_ImportForeignSchemaStmt:
+      val = "ImportForeignSchemaStmt";
+      break;
+    case T_CreatePolicyStmt:
+      val = "CreatePolicyStmt";
+      break;
+    case T_AlterPolicyStmt:
+      val = "AlterPolicyStmt";
+      break;
+    case T_CreateAmStmt:
+      val = "CreateAmStmt";
+      break;
+    case T_CreateTrigStmt:
+      val = "CreateTrigStmt";
+      break;
+    case T_CreateEventTrigStmt:
+      val = "CreateEventTrigStmt";
+      break;
+    case T_AlterEventTrigStmt:
+      val = "AlterEventTrigStmt";
+      break;
+    case T_CreatePLangStmt:
+      val = "CreatePLangStmt";
+      break;
+    case T_CreateRoleStmt:
+      val = "CreateRoleStmt";
+      break;
+    case T_AlterRoleStmt:
+      val = "AlterRoleStmt";
+      break;
+    case T_AlterRoleSetStmt:
+      val = "AlterRoleSetStmt";
+      break;
+    case T_DropRoleStmt:
+      val = "DropRoleStmt";
+      break;
+    case T_CreateSeqStmt:
+      val = "CreateSeqStmt";
+      break;
+    case T_AlterSeqStmt:
+      val = "AlterSeqStmt";
+      break;
+    case T_DefineStmt:
+      val = "DefineStmt";
+      break;
+    case T_CreateDomainStmt:
+      val = "CreateDomainStmt";
+      break;
+    case T_CreateOpClassStmt:
+      val = "CreateOpClassStmt";
+      break;
+    case T_CreateOpFamilyStmt:
+      val = "CreateOpFamilyStmt";
+      break;
+    case T_AlterOpFamilyStmt:
+      val = "AlterOpFamilyStmt";
+      break;
+    case T_DropStmt:
+      val = "DropStmt";
+      break;
+    case T_TruncateStmt:
+      val = "TruncateStmt";
+      break;
+    case T_CommentStmt:
+      val = "CommentStmt";
+      break;
+    case T_SecLabelStmt:
+      val = "SecLabelStmt";
+      break;
+    case T_DeclareCursorStmt:
+      val = "DeclareCursorStmt";
+      break;
+    case T_ClosePortalStmt:
+      val = "ClosePortalStmt";
+      break;
+    case T_FetchStmt:
+      val = "FetchStmt";
+      break;
+    case T_IndexStmt:
+      val = "IndexStmt";
+      break;
+    case T_CreateStatsStmt:
+      val = "CreateStatsStmt";
+      break;
+    case T_AlterStatsStmt:
+      val = "AlterStatsStmt";
+      break;
+    case T_CreateFunctionStmt:
+      val = "CreateFunctionStmt";
+      break;
+    case T_AlterFunctionStmt:
+      val = "AlterFunctionStmt";
+      break;
+    case T_DoStmt:
+      val = "DoStmt";
+      break;
+    case T_CallStmt:
+      val = "CallStmt";
+      break;
+    case T_RenameStmt:
+      val = "RenameStmt";
+      break;
+    case T_AlterObjectDependsStmt:
+      val = "AlterObjectDependsStmt";
+      break;
+    case T_AlterObjectSchemaStmt:
+      val = "AlterObjectSchemaStmt";
+      break;
+    case T_AlterOwnerStmt:
+      val = "AlterOwnerStmt";
+      break;
+    case T_AlterOperatorStmt:
+      val = "AlterOperatorStmt";
+      break;
+    case T_AlterTypeStmt:
+      val = "AlterTypeStmt";
+      break;
+    case T_RuleStmt:
+      val = "RuleStmt";
+      break;
+    case T_NotifyStmt:
+      val = "NotifyStmt";
+      break;
+    case T_ListenStmt:
+      val = "ListenStmt";
+      break;
+    case T_UnlistenStmt:
+      val = "UnlistenStmt";
+      break;
+    case T_TransactionStmt:
+      val = "TransactionStmt";
+      break;
+    case T_CompositeTypeStmt:
+      val = "CompositeTypeStmt";
+      break;
+    case T_CreateEnumStmt:
+      val = "CreateEnumStmt";
+      break;
+    case T_CreateRangeStmt:
+      val = "CreateRangeStmt";
+      break;
+    case T_AlterEnumStmt:
+      val = "AlterEnumStmt";
+      break;
+    case T_ViewStmt:
+      val = "ViewStmt";
+      break;
+    case T_LoadStmt:
+      val = "LoadStmt";
+      break;
+    case T_CreatedbStmt:
+      val = "CreatedbStmt";
+      break;
+    case T_AlterDatabaseStmt:
+      val = "AlterDatabaseStmt";
+      break;
+#if PG_MAJORVERSION_NUM > 14
+    case T_AlterDatabaseRefreshCollStmt:
+      val = "AlterDatabaseRefreshCollStmt";
+      break;
+#endif
+    case T_AlterDatabaseSetStmt:
+      val = "AlterDatabaseSetStmt";
+      break;
+    case T_DropdbStmt:
+      val = "DropdbStmt";
+      break;
+    case T_AlterSystemStmt:
+      val = "AlterSystemStmt";
+      break;
+    case T_ClusterStmt:
+      val = "ClusterStmt";
+      break;
+    case T_VacuumStmt:
+      val = "VacuumStmt";
+      break;
+    case T_ExplainStmt:
+      val = "ExplainStmt";
+      break;
+    case T_CreateTableAsStmt:
+      val = "CreateTableAsStmt";
+      break;
+    case T_RefreshMatViewStmt:
+      val = "RefreshMatViewStmt";
+      break;
+    case T_CheckPointStmt:
+      val = "CheckPointStmt";
+      break;
+    case T_DiscardStmt:
+      val = "DiscardStmt";
+      break;
+    case T_LockStmt:
+      val = "LockStmt";
+      break;
+    case T_ConstraintsSetStmt:
+      val = "ConstraintsSetStmt";
+      break;
+    case T_ReindexStmt:
+      val = "ReindexStmt";
+      break;
+    case T_CreateConversionStmt:
+      val = "CreateConversionStmt";
+      break;
+    case T_CreateCastStmt:
+      val = "CreateCastStmt";
+      break;
+    case T_CreateTransformStmt:
+      val = "CreateTransformStmt";
+      break;
+    case T_PrepareStmt:
+      val = "PrepareStmt";
+      break;
+    case T_ExecuteStmt:
+      val = "ExecuteStmt";
+      break;
+    case T_DeallocateStmt:
+      val = "DeallocateStmt";
+      break;
+    case T_DropOwnedStmt:
+      val = "DropOwnedStmt";
+      break;
+    case T_ReassignOwnedStmt:
+      val = "ReassignOwnedStmt";
+      break;
+    case T_AlterTSDictionaryStmt:
+      val = "AlterTSDictionaryStmt";
+      break;
+    case T_AlterTSConfigurationStmt:
+      val = "AlterTSConfigurationStmt";
+      break;
+    case T_CreatePublicationStmt:
+      val = "CreatePublicationStmt";
+      break;
+    case T_AlterPublicationStmt:
+      val = "AlterPublicationStmt";
+      break;
+    case T_CreateSubscriptionStmt:
+      val = "CreateSubscriptionStmt";
+      break;
+    case T_AlterSubscriptionStmt:
+      val = "AlterSubscriptionStmt";
+      break;
+    case T_DropSubscriptionStmt:
+      val = "DropSubscriptionStmt";
+      break;
+    case T_PlannedStmt:
+      val = "PlannedStmt";
+      break;
+    default:
+      val = "UnknownStmt";
+    }
+    PG_RETURN_CSTRING(val);
+  }
+
+  PG_RETURN_NULL();
+}

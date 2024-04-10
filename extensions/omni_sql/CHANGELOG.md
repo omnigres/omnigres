@@ -11,6 +11,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Raw statement parser that preserves statement syntax and
   location [#554](https://github.com/omnigres/omnigres/pull/554)
+* Statement type function [#555](https://github.com/omnigres/omnigres/pull/555)
 
 ## [0.1.0] - 2023-03-05
 
