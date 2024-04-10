@@ -7,6 +7,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.1.3] - TBD
 
+### Fixed
+
+* omni_httpd may crash under certain circumstances during early
+  startup [#551](https://github.com/omnigres/omnigres/pull/551)
+
 ## [0.1.2] - 2023-04-07
 
 ### Fixed
@@ -31,3 +36,5 @@ Initial release following a few months of iterative development.
 [0.1.1]: [https://github.com/omnigres/omnigres/pull/522]
 
 [0.1.2]: [https://github.com/omnigres/omnigres/pull/544]
+
+[0.1.3]: [https://github.com/omnigres/omnigres/pull/550]
