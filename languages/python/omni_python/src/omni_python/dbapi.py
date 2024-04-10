@@ -195,11 +195,8 @@ class Cursor:
             placeholders.append("$%d" % (i + 1))
             types.append(self.py_param_to_pg_type(param))
             values.append(param)
-        if len(placeholders) == 1:
-            query = operation % placeholders[0]
-        else:
-            query = operation % placeholders
         try:
+            query = operation % placeholders
             plan = plpy.prepare(query, types)
             res = plpy.execute(plan, values)
         except plpy.SPIError as e:
