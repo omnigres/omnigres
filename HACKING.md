@@ -32,3 +32,5 @@ You can also set up CLion to do this automatically for you (it is done this corr
 ![CLion setting for ClangFormat](docs/clion_clang_format.png)
 
 ![CLion setting for auto-save formatting](docs/clion_format_on_save.png)
+
+If CLion doesn't format automatically, you can use [clion-format](https://clang.llvm.org/docs/ClangFormat.html) CLI to format it.
