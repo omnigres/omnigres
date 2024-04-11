@@ -355,8 +355,8 @@ void http_worker(Datum db_oid) {
               Form_pg_authid rform = (Form_pg_authid)GETSTRUCT(roleTup);
               role_id = rform->oid;
               role_superuser = rform->rolsuper;
+              ReleaseSysCache(roleTup);
             }
-            ReleaseSysCache(roleTup);
           }
 
           const cvec_fd_fd_value *fd = cvec_fd_fd_at(&fds, index);
