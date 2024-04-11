@@ -1,0 +1,28 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_sql cascade
+
+tests:
+
+- query: select omni_sql.statement_type(null)
+  results:
+  - statement_type: null
+
+- query: select omni_sql.statement_type(''::omni_sql.statement)
+  results:
+  - statement_type: null
+
+- query: select omni_sql.statement_type('select ; create table a ()'::omni_sql.statement)
+  results:
+  - statement_type: MultiStmt
+
+# Incomplete list below. FIXME
+
+- query: select omni_sql.statement_type('select'::omni_sql.statement)
+  results:
+  - statement_type: SelectStmt
+
+- query: select omni_sql.statement_type('update tab set col = 1'::omni_sql.statement)
+  results:
+  - statement_type: UpdateStmt
