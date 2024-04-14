@@ -22,6 +22,8 @@ tests:
     select * from omni_vfs.list(omni_vfs.local_fs('../../../../extensions/omni_vfs/tests'), '')
     order by name
   results:
+  - name: deleted.yml
+    kind: file
   - name: empty
     kind: dir
   - name: local_fs.yml
@@ -46,6 +48,8 @@ tests:
     select * from omni_vfs.list_recursively(omni_vfs.local_fs('../../../../extensions/omni_vfs/tests'), '.')
     order by name
   results:
+  - name: deleted.yml
+    kind: file
   - name: empty
     kind: dir
   - name: empty/.keepme
