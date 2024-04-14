@@ -127,6 +127,10 @@ static char *get_mount_path(Datum fs_id) {
   if (rc != SPI_OK_SELECT) {
     ereport(ERROR, errmsg("fetching mount failed"), errdetail("%s", SPI_result_code_string(rc)));
   }
+  if (SPI_tuptable->numvals == 0) {
+    ereport(ERROR, errmsg("fetching mount failed"),
+            errdetail("missing information in omni_vfs.local_fs_mounts"));
+  }
 
   TupleDesc tupdesc = SPI_tuptable->tupdesc;
   HeapTuple tuple = SPI_tuptable->vals[0];
