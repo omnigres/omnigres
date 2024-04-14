@@ -30,3 +30,5 @@ Initial release following a few months of iterative development.
 
 [0.2.0]: [https://github.com/omnigres/omnigres/pull/553]
 
+[0.2.1]: [https://github.com/omnigres/omnigres/pull/561]
+
