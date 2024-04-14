@@ -1,0 +1,27 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_vfs cascade
+
+# This particular test is a regression test that ensure if between obtaining the `local_fs`
+# and using it, the record of it is gone, we don't crash and properly error out
+
+tests:
+
+- name: create a local filesystem
+  # We save it so we can avoid recreating it to test this regression
+  query: create table fs_info as (select omni_vfs.local_fs('.') as fs)
+  commit: true
+
+- name: destroy the backend information
+  query: delete
+         from omni_vfs.local_fs_mounts
+  commit: true
+
+- name: try accessing the filesystem
+  query: select *
+         from omni_vfs.list((select fs from fs_info), '.')
+  error:
+    severity: ERROR
+    message: fetching mount failed
+    detail: missing information in omni_vfs.local_fs_mounts
