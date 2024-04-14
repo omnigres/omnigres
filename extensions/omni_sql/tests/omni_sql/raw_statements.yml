@@ -17,11 +17,12 @@ tests:
     col: 1
 
 - query: select *
-         from omni_sql.raw_statements(E'Select True;\n select 1')
+         from omni_sql.raw_statements(E' Select True;\n select 1')
   results:
+  # leading space is intentional in the first query
   - source: Select True
     line: 1
-    col: 1
+    col: 2
   - source: select 1
     line: 2
     col: 2 # intentional
