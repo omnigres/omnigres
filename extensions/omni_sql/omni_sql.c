@@ -160,7 +160,7 @@ Datum raw_statements(PG_FUNCTION_ARGS) {
               raw_stmt->stmt_len == 0
                   ? cstring_to_text(statement + raw_stmt->stmt_location + actual_start)
                   : cstring_to_text_with_len(statement + raw_stmt->stmt_location + actual_start,
-                                             raw_stmt->stmt_len)),
+                                             raw_stmt->stmt_len - actual_start)),
           Int32GetDatum(line), Int32GetDatum(col)};
       bool isnull[3] = {false, false, false};
       tuplestore_putvalues(tupstore, rsinfo->expectedDesc, values, isnull);
