@@ -24,6 +24,8 @@
 
 #include "omni_common.h"
 
+#include "dshash_extras.h"
+
 PG_MODULE_MAGIC;
 OMNI_MAGIC;
 
@@ -81,8 +83,8 @@ MODULE_FUNCTION dsa_area *dsa_handle_to_area(dsa_handle handle) {
 static inline void initialize_omni_modules() {
   const dshash_parameters module_params = {.key_size = PATH_MAX,
                                            .entry_size = sizeof(ModuleEntry),
-                                           .hash_function = dshash_memhash,
-                                           .compare_function = dshash_memcmp,
+                                           .hash_function = dshash_string_hash,
+                                           .compare_function = dshash_strcmp,
                                            .tranche_id = OMNI_DSA_TRANCHE};
   const dshash_parameters allocation_params = {.key_size = sizeof(ModuleAllocationKey),
                                                .entry_size = sizeof(ModuleAllocation),
@@ -335,10 +337,7 @@ static omni_handle_private *load_module(const char *path,
         // We are going to record it if it wasn't yet
         LWLockAcquire(&(locks + OMNI_LOCK_MODULE)->lock, LW_EXCLUSIVE);
         bool found = false;
-        // Since keys are hashed up to PATH_MAX, we can't allow any trailing garbage
-        char stable_path_str[PATH_MAX] = {0};
-        memcpy(stable_path_str, path, strlen(path));
-        ModuleEntry *entry = dshash_find_or_insert(omni_modules, stable_path_str, &found);
+        ModuleEntry *entry = dshash_find_or_insert(omni_modules, path, &found);
         //
         omni_handle_private *handle;
 
@@ -1017,9 +1016,7 @@ void request_bgworker_termination(const omni_handle *handle, omni_bgworker_handl
 MODULE_FUNCTION void unload_module(omni_handle_private *phandle, bool missing_ok) {
   LWLockAcquire(&(locks + OMNI_LOCK_MODULE)->lock, LW_EXCLUSIVE);
   bool found = false;
-  char path[PATH_MAX] = {0};
-  memcpy(path, phandle->path, strlen(phandle->path));
-  ModuleEntry *module = (ModuleEntry *)dshash_find_or_insert(omni_modules, path, &found);
+  ModuleEntry *module = (ModuleEntry *)dshash_find_or_insert(omni_modules, phandle->path, &found);
   if (!found) {
     LWLockRelease(&(locks + OMNI_LOCK_MODULE)->lock);
     if (!missing_ok) {
