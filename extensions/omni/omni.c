@@ -99,7 +99,6 @@ static inline void initialize_omni_modules() {
     shared_info->modules_tab = dshash_get_hash_table_handle(omni_modules);
     omni_allocations = dshash_create(dsa, &allocation_params, NULL);
     shared_info->allocations_tab = dshash_get_hash_table_handle(omni_allocations);
-    shared_info->dsa = dsa_get_handle(dsa);
   } else {
     // Otherwise, attach to it
     dsa_area *dsa_area = dsa_handle_to_area(shared_info->dsa);
@@ -336,7 +335,11 @@ static omni_handle_private *load_module(const char *path,
         // We are going to record it if it wasn't yet
         LWLockAcquire(&(locks + OMNI_LOCK_MODULE)->lock, LW_EXCLUSIVE);
         bool found = false;
-        ModuleEntry *entry = dshash_find_or_insert(omni_modules, path, &found);
+        // Since keys are hashed up to PATH_MAX, we can't allow any trailing garbage
+        char stable_path_str[PATH_MAX] = {0};
+        memcpy(stable_path_str, path, strlen(path));
+        ModuleEntry *entry = dshash_find_or_insert(omni_modules, stable_path_str, &found);
+        //
         omni_handle_private *handle;
 
         if (!found) {
