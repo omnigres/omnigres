@@ -13,7 +13,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-* In some cases, extension modules might be loaded more than once [#563](https://github.com/omnigres/omnigres/pull/563)
+* In some cases, extension modules might be loaded more than once [#563](https://github.com/omnigres/omnigres/pull/563),
+  or fail to unload [#564](https://github.com/omnigres/omnigres/pull/564)
 
 ## [0.1.2] - 2023-03-23
 

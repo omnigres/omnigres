@@ -1017,7 +1017,9 @@ void request_bgworker_termination(const omni_handle *handle, omni_bgworker_handl
 MODULE_FUNCTION void unload_module(omni_handle_private *phandle, bool missing_ok) {
   LWLockAcquire(&(locks + OMNI_LOCK_MODULE)->lock, LW_EXCLUSIVE);
   bool found = false;
-  ModuleEntry *module = (ModuleEntry *)dshash_find_or_insert(omni_modules, phandle->path, &found);
+  char path[PATH_MAX] = {0};
+  memcpy(path, phandle->path, strlen(phandle->path));
+  ModuleEntry *module = (ModuleEntry *)dshash_find_or_insert(omni_modules, path, &found);
   if (!found) {
     LWLockRelease(&(locks + OMNI_LOCK_MODULE)->lock);
     if (!missing_ok) {
