@@ -127,6 +127,7 @@ typedef struct {
   char name[NAMEDATALEN];
 } ModuleAllocationKey;
 
+// TODO/FIXME: use a better hash function
 StaticAssertDecl(sizeof(ModuleAllocationKey) == sizeof(int) + sizeof(char[NAMEDATALEN]),
                  "no padding for ease of hashing");
 
