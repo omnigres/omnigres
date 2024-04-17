@@ -1,4 +1,4 @@
-omni=0.1.2
+omni=0.1.3
 omni_aws=0.1.0
 omni_containers=0.1.0
 omni_http=0.1.0

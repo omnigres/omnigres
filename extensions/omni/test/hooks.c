@@ -14,6 +14,11 @@ void xact_callback(omni_hook_handle *handle, XactEvent event) {
   hook_called[omni_hook_xact_callback] = true;
 }
 
+void planner_hook_fn(omni_hook_handle *handle, Query *parse, const char *query_string,
+                     int cursorOptions, ParamListInfo boundParams) {
+  hook_called[omni_hook_planner] = true;
+}
+
 #include "../hook_types.h"
 
 PG_FUNCTION_INFO_V1(was_hook_called);

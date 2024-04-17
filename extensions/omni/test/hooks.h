@@ -7,5 +7,6 @@
 // clang-format on
 
 void xact_callback(omni_hook_handle *handle, XactEvent event);
-
+void planner_hook_fn(omni_hook_handle *handle, Query *parse, const char *query_string,
+                     int cursorOptions, ParamListInfo boundParams);
 #endif // TEST_HOOKS_H
