@@ -2,7 +2,6 @@ $schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress
 instance:
   init:
     - create extension omni_schema cascade
-    - create extension dblink cascade
     - create database test
 
 tests:
