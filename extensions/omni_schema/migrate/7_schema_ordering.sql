@@ -1,0 +1,1 @@
+/*{% include "../src/schema_ordering.sql" %}*/
