@@ -42,6 +42,22 @@ begin
     -- conn for setting up table_fs in remote database
     perform dblink_connect(remote_table_fs_name, conn_info);
 
+    -- prepare necessary extensions in the remote database
+    for rec in select distinct extension
+               from omni_schema.languages
+               union
+               select distinct file_processor_extension as extension
+               from omni_schema.languages
+               union
+               select distinct processor_extension as extension
+               from omni_schema.auxiliary_tools
+        loop
+            if exists (select from pg_extension where extname = rec.extension) then
+                perform dblink(remote_table_fs_name,
+                               format('create extension if not exists %s cascade', rec.extension));
+            end if;
+        end loop;
+
     perform dblink(remote_table_fs_name, 'create extension if not exists omni_vfs cascade');
     -- create table_fs in remote database
     select
