@@ -1,4 +1,4 @@
-create function schema_ordering(conn_info text, fs anyelement, path text default '')
+create function assemble_schema(conn_info text, fs anyelement, path text default '')
     returns table
             (
                 execution_position  int,

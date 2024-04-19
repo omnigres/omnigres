@@ -62,7 +62,7 @@ tests:
         query: with
                    conn(port) as (select setting from pg_settings where name = 'port'),
                    results as (select
-                                   (omni_schema.schema_ordering(
+                                   (omni_schema.assemble_schema(
                                            'dbname=test user=yregress host=localhost port=' || port,
                                            omni_vfs.table_fs('python_and_sql_files')
                                     )).*
@@ -227,7 +227,7 @@ tests:
         query: with
                    conn(port) as (select setting from pg_settings where name = 'port'),
                    results as (select
-                                   (omni_schema.schema_ordering(
+                                   (omni_schema.assemble_schema(
                                            'dbname=test user=yregress host=localhost port=' || port,
                                            omni_vfs.table_fs('sql_files')
                                     )).*
