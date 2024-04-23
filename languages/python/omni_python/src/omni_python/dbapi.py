@@ -98,7 +98,6 @@ class ProgrammingError(DatabaseError):
 class NotSupportedError(DatabaseError):
     pass
 
-
 ## Connection Objects
 
 
@@ -115,6 +114,8 @@ class Connection:
     NotSupportedError = NotSupportedError
 
     closed = False
+    autocommit = True
+
 
     _subxact = None
 
@@ -226,6 +227,8 @@ class Cursor:
         else:
             self.rowcount = res.nrows()
 
+        if self.connection.autocommit == True:
+            self.connection.commit()
 
     @staticmethod
     def py_param_to_pg_type(param):
