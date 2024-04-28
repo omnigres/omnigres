@@ -1,6 +1,7 @@
 INHERIT: ../../mkdocs.base.yml
 site_name: omni_httpd
 nav:
+- Installation: 'install.md'
 - Intro: 'intro.md'
 - Headers: 'headers.md'
 - Architecture: 'architecture.md'
