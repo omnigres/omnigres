@@ -16,7 +16,7 @@ ARG DEBIAN_VER_PG=bookworm
 # Build parallelism
 ARG BUILD_PARALLEL_LEVEL
 # plrust version
-ARG PLRUST_VERSION=1.2.6
+ARG PLRUST_VERSION=1.2.8
 
 # Base builder image
 FROM debian:${DEBIAN_VER}-slim AS builder
@@ -74,7 +74,7 @@ RUN . "$HOME/.cargo/env" && \
 WORKDIR /var/lib/postgresql
 RUN git clone https://github.com/tcdi/plrust.git plrust && cd plrust && git checkout v${PLRUST_VERSION}
 RUN . "$HOME/.cargo/env" && cd plrust/plrustc && ./build.sh && mv ../build/bin/plrustc ~/.cargo/bin && cd ..
-RUN . "$HOME/.cargo/env" && cd plrust/plrust && cargo install cargo-pgrx --locked
+RUN . "$HOME/.cargo/env" && cd plrust/plrust && cargo install cargo-pgrx --version 0.11.0 --locked
 USER root
 RUN PG_VER=${PG%.*} && apt-get install -y postgresql-server-dev-${PG_VER}
 RUN chown -R postgres /usr/share/postgresql /usr/lib/postgresql
