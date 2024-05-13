@@ -5,6 +5,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - TBD
+
 ## [0.1.5] - 2024-09-27
 
 ### Added
@@ -29,7 +31,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   or fail to unload [#564](https://github.com/omnigres/omnigres/pull/564),
   [#565](https://github.com/omnigres/omnigres/pull/565)
 
-## [0.1.2] - 2024-03-23
+## [0.1.2] - 2023-03-23
 
 ### Fixed
 
@@ -38,7 +40,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Hook registration incorrectly adjusted indexing for context reference purposes, leading to undefined
   behavior [#532](https://github.com/omnigres/omnigres/pull/532)
 
-## [0.1.1] - 2024-03-22
+## [0.1.1] - 2023-03-22
 
 ### Fixed
 
@@ -49,7 +51,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Fixed a case when excessive or dynamic creation of backends may lead to  
   "too many dynamic shared memory segments" error [#528](https://github.com/omnigres/omnigres/pull/528)
 
-## [0.1.0] - 2024-03-05
+## [0.1.0] - 2023-03-05
 
 Initial release following a few months of iterative development.
 
@@ -60,9 +62,3 @@ Initial release following a few months of iterative development.
 [0.1.1]: [https://github.com/omnigres/omnigres/pull/522]
 
 [0.1.2]: [https://github.com/omnigres/omnigres/pull/531]
-
-[0.1.3]: [https://github.com/omnigres/omnigres/pull/540]
-
-[0.1.4]: [https://github.com/omnigres/omnigres/pull/566]
-
-[0.1.5]: [https://github.com/omnigres/omnigres/pull/650]
