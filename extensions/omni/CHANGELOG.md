@@ -62,3 +62,7 @@ Initial release following a few months of iterative development.
 [0.1.1]: [https://github.com/omnigres/omnigres/pull/522]
 
 [0.1.2]: [https://github.com/omnigres/omnigres/pull/531]
+
+[0.1.3]: [https://github.com/omnigres/omnigres/pull/540]
+
+[0.2.0]: [https://github.com/omnigres/omnigres/pull/572]
