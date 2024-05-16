@@ -55,12 +55,13 @@ typedef struct {
   uint16_t version; // interface version
   uint8_t revision; // version's backward compatible revision (number, but shown as letter 'A','B'
                     // to distinguish for Major.Minor. Version 0 allows for breaking revisions.
+  uint32_t pg_version; // Postgres version it is compiled against
 } omni_magic;
 
 StaticAssertDecl(sizeof(omni_magic) <= UINT16_MAX, "omni_magic should fit into 16 bits");
 
 #define OMNI_INTERFACE_VERSION 0
-#define OMNI_INTERFACE_REVISION 6
+#define OMNI_INTERFACE_REVISION 7
 
 typedef struct omni_handle omni_handle;
 
@@ -93,7 +94,8 @@ void _Omni_deinit(const omni_handle *handle);
 #define OMNI_MAGIC                                                                                 \
   static omni_magic __Omni_magic = {.size = sizeof(omni_magic),                                    \
                                     .version = OMNI_INTERFACE_VERSION,                             \
-                                    .revision = OMNI_INTERFACE_REVISION};                          \
+                                    .revision = OMNI_INTERFACE_REVISION,                           \
+                                    .pg_version = PG_VERSION_NUM};                                 \
   omni_magic *_Omni_magic() {                                                                      \
     if (_omni_module_information.name == NULL) {                                                   \
       ereport(WARNING, errmsg("missing module name"));                                             \
