@@ -564,6 +564,14 @@ MODULE_FUNCTION void load_pending_modules() {
               }
             }
 
+            // Check the target Postgres version
+            if (handle->magic.revision >= 7 && handle->magic.pg_version != ServerVersionNum) {
+              ereport(WARNING,
+                      errmsg("omni has been compiled against %d.%d, but running on %d.%d",
+                             handle->magic.pg_version / 10000, handle->magic.pg_version % 100,
+                             ServerVersionNum / 10000, ServerVersionNum % 100));
+            }
+
             void (*init_fn)(const omni_handle *) = dlsym(dlhandle, "_Omni_init");
             if (init_fn != NULL) {
               init_fn(&handle->handle);

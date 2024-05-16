@@ -271,4 +271,6 @@ struct xact_oneshot_callback {
 DECLARE_MODULE_VARIABLE(List *xact_oneshot_callbacks);
 DECLARE_MODULE_VARIABLE(List *after_xact_oneshot_callbacks);
 
+DECLARE_MODULE_VARIABLE(int32 ServerVersionNum);
+
 #endif // OMNI_COMMON_H
