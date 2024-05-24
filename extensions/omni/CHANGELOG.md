@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.2.0] - TBD
 
+### Added
+
+* Additional metadata information in `omni.modules`  [#574](https://github.com/omnigres/omnigres/pull/574)
+
 ## [0.1.3] - 2023-04-16
 
 ### Added
