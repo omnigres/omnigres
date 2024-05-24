@@ -97,6 +97,12 @@ typedef struct {
    *
    */
   pg_atomic_uint64 switchboard;
+  /**
+   * Module information
+   */
+  NameData module_info_name;
+  NameData module_info_version;
+  NameData module_info_identity;
 } omni_handle_private;
 
 DECLARE_MODULE_VARIABLE(omni_handle_private *module_handles);
