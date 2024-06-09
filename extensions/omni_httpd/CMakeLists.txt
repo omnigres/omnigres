@@ -32,7 +32,7 @@ add_postgresql_extension(
 
 set_property(TARGET omni_httpd PROPERTY C_STANDARD 11)
 
-target_link_libraries(omni_httpd libh2o-evloop libpgaug libomnisql libomnitypes
+target_link_libraries(omni_httpd ${H2O_LIBRARIES} libpgaug libomnisql libomnitypes
         libgluepg_stc libomni metalang99
         Threads::Threads)
 
@@ -45,8 +45,10 @@ endif()
 
 target_compile_definitions(omni_httpd PRIVATE H2O_USE_LIBUV=0)
 
-get_target_property(_h2o_deps libh2o INCLUDE_DIRECTORIES)
-target_include_directories(omni_httpd PUBLIC $<TARGET_PROPERTY:libh2o,INCLUDE_DIRECTORIES>)
+if (TARGET libh2o-evloop)
+  get_target_property(_h2o_deps libh2o-evloop INCLUDE_DIRECTORIES)
+  target_include_directories(omni_httpd PUBLIC $<TARGET_PROPERTY:libh2o-evloop,INCLUDE_DIRECTORIES>)
+endif()
 
 if(BROTLI_DEC_FOUND AND BROTLI_ENC_FOUND)
         target_link_directories(omni_httpd PUBLIC ${BROTLI_DEC_LIBRARY_DIRS} ${BROTLI_ENC_LIBRARY_DIRS})

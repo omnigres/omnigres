@@ -6,10 +6,14 @@ include(CTest)
 list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/../../cmake)
 
 include(CPM)
+include(FindPkgConfig)
 
 enable_testing()
 
-CPMAddPackage(NAME pugixml GIT_REPOSITORY https://github.com/zeux/pugixml VERSION 1.14 OPTIONS "PUGIXML_NO_EXCEPTIONS ON")
+pkg_check_modules (pugixml pugixml)
+if(NOT pugixml_FOUND)
+  CPMAddPackage(NAME pugixml GIT_REPOSITORY https://github.com/zeux/pugixml VERSION 1.14 OPTIONS "PUGIXML_NO_EXCEPTIONS ON")
+endif()
 
 find_package(PostgreSQL REQUIRED)
 
