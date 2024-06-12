@@ -12,7 +12,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * `raw_statements` parser would incorrectly calculate the length of a statement
   if it is preceeded by whitespace [#561](https://github.com/omnigres/omnigres/pull/561)
 
-## [0.2.0] - 2023-04-10
+## [0.2.0] - 2024-04-10
 
 ### Added
 
@@ -20,7 +20,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   location [#554](https://github.com/omnigres/omnigres/pull/554)
 * Statement type function [#555](https://github.com/omnigres/omnigres/pull/555)
 
-## [0.1.0] - 2023-03-05
+## [0.1.0] - 2024-03-05
 
 Initial release following a few months of iterative development.
 
