@@ -255,16 +255,6 @@ function(add_postgresql_extension NAME)
                 PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
     endif()
 
-    # Check that the extension has no conflicting symbols with the Postgres binary
-    # otherwise the linker might use the symbols from Postgres
-    find_package(Python COMPONENTS Interpreter REQUIRED)
-    execute_process(COMMAND dirname ${PG_CTL} OUTPUT_VARIABLE POSTGRES_BINARY)
-    get_filename_component(POSTGRES_BINARY ${PG_CTL}/../postgres ABSOLUTE)
-    set(SO_FILE "${CMAKE_CURRENT_BINARY_DIR}/${_ext_TARGET}${_suffix}")
-    add_custom_target(omni_check_symbol_conflict_${_ext_TARGET} ALL
-            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-            COMMAND ${Python_EXECUTABLE} ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/check_symbol_conflict.py ${POSTGRES_BINARY} ${SO_FILE})
-
     set(_pkg_dir "${CMAKE_BINARY_DIR}/packaged")
 
     if(_ext_SOURCES)
@@ -389,6 +379,12 @@ $command $@
                 ${CMAKE_COMMAND} -E copy_if_different
                 "${CMAKE_CURRENT_BINARY_DIR}/$<TARGET_FILE_NAME:${_ext_TARGET}>"
                 ${_pkg_dir})
+        # Check that the extension has no conflicting symbols with the Postgres binary
+        # otherwise the linker might use the symbols from Postgres
+        find_package(Python COMPONENTS Interpreter REQUIRED)
+        add_custom_target(omni_check_symbol_conflict_${_ext_TARGET} package_${_ext_TARGET}_extension
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                COMMAND ${Python_EXECUTABLE} ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/check_symbol_conflict.py ${PG_BINARY} "${CMAKE_CURRENT_BINARY_DIR}/$<TARGET_FILE:${_ext_TARGET}>")
     endif()
 
     add_custom_target(package_${_ext_TARGET}_migrations
