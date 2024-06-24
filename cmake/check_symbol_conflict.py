@@ -30,6 +30,7 @@ if __name__ == "__main__":
     symbols2 = get_symbols(binary2)
     intersection = symbols1 & symbols2
     if symbols1 & symbols2:
-        sys.stderr.write("Found symbols that are present in both binaries:\n")
-        sys.stderr.write("\n".join(intersection))
+        sys.stderr.write("Conflicting symbols with `postgres`:\n  ")
+        sys.stderr.write("\n  ".join(intersection))
+        sys.stderr.write("\n")
         sys.exit(1)
