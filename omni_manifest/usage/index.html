@@ -1,0 +1,2307 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../../omni_json/table_mapping/">
+      
+      
+        <link rel="next" href="../../omni_mimetypes/reference/">
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.4.2, mkdocs-material-9.1.5">
+    
+    
+      
+        <title>Usage - Omnigres documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.7a7fce14.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.a0c5b2b5.min.css">
+      
+      
+
+    
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Atkinson+Hyperlegible:300,300i,400,400i,700,700i%7CMartian+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Atkinson Hyperlegible";--md-code-font:"Martian Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+   <link href="../../assets/stylesheets/glightbox.min.css" rel="stylesheet"/><style>
+        html.glightbox-open { overflow: initial; height: 100%; }
+        .gslide-title { margin-top: 0px; user-select: text; }
+        .gslide-desc { color: #666; user-select: text; }
+        .gslide-image img { background: white; }
+        
+            .gscrollbar-fixer { padding-right: 15px; }
+            .gdesc-inner { font-size: 0.75rem; }
+            body[data-md-color-scheme="slate"] .gdesc-inner { background: var(--md-default-bg-color);}
+            body[data-md-color-scheme="slate"] .gslide-title { color: var(--md-default-fg-color);}
+            body[data-md-color-scheme="slate"] .gslide-desc { color: var(--md-default-fg-color);}
+            </style> <script src="../../assets/javascripts/glightbox.min.js"></script></head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="">
+  
+    
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#usage" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Omnigres documentation" class="md-header__button md-logo" aria-label="Omnigres documentation" data-md-component="logo">
+      
+  <img src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48c3ZnIGlkPSJMYXllcl8yIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNTggMTU4Ij48ZGVmcz48c3R5bGU+LmNscy0xe2ZpbGw6bm9uZTtzdHJva2U6IzNmYTlmNTtzdHJva2UtbWl0ZXJsaW1pdDoxMDtzdHJva2Utd2lkdGg6MjBweDt9PC9zdHlsZT48L2RlZnM+PGcgaWQ9IkxheWVyXzEtMiI+PGNpcmNsZSBjbGFzcz0iY2xzLTEiIGN4PSI3OSIgY3k9Ijc5IiByPSI2OSIvPjwvZz48L3N2Zz4=" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Omnigres documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Usage
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/omnigres/omnigres" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.3.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    omnigres/omnigres
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Omnigres documentation" class="md-nav__button md-logo" aria-label="Omnigres documentation" data-md-component="logo">
+      
+  <img src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48c3ZnIGlkPSJMYXllcl8yIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNTggMTU4Ij48ZGVmcz48c3R5bGU+LmNscy0xe2ZpbGw6bm9uZTtzdHJva2U6IzNmYTlmNTtzdHJva2UtbWl0ZXJsaW1pdDoxMDtzdHJva2Utd2lkdGg6MjBweDt9PC9zdHlsZT48L2RlZnM+PGcgaWQ9IkxheWVyXzEtMiI+PGNpcmNsZSBjbGFzcz0iY2xzLTEiIGN4PSI3OSIgY3k9Ijc5IiByPSI2OSIvPjwvZz48L3N2Zz4=" alt="logo">
+
+    </a>
+    Omnigres documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/omnigres/omnigres" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.3.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    omnigres/omnigres
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        Intro
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../quick_start/" class="md-nav__link">
+        Quick Start
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          Examples
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_3">
+          <span class="md-nav__icon md-icon"></span>
+          Examples
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/motd/" class="md-nav__link">
+        MOTD service
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+          Development
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_4">
+          <span class="md-nav__icon md-icon"></span>
+          Development
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_1" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_4_1" id="__nav_4_1_label" tabindex="0">
+          pg_yregress
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_4_1">
+          <span class="md-nav__icon md-icon"></span>
+          pg_yregress
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../pg_yregress/intro/" class="md-nav__link">
+        Intro
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../pg_yregress/install/" class="md-nav__link">
+        Installation
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../pg_yregress/usage/" class="md-nav__link">
+        Usage
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+          Extensions
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+        <label class="md-nav__title" for="__nav_5">
+          <span class="md-nav__icon md-icon"></span>
+          Extensions
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_1" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_1" id="__nav_5_1_label" tabindex="0">
+          omni_aws
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_1_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_1">
+          <span class="md-nav__icon md-icon"></span>
+          omni_aws
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_aws/s3/" class="md-nav__link">
+        S3
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_2" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="0">
+          omni_containers
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_2">
+          <span class="md-nav__icon md-icon"></span>
+          omni_containers
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_containers/intro/" class="md-nav__link">
+        Intro
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_3" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_3" id="__nav_5_3_label" tabindex="0">
+          omni_httpc
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_3">
+          <span class="md-nav__icon md-icon"></span>
+          omni_httpc
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_httpc/reference/" class="md-nav__link">
+        HTTP client
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_4" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_4" id="__nav_5_4_label" tabindex="0">
+          omni_httpd
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_4">
+          <span class="md-nav__icon md-icon"></span>
+          omni_httpd
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_httpd/install/" class="md-nav__link">
+        Installation
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_httpd/intro/" class="md-nav__link">
+        Intro
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_httpd/headers/" class="md-nav__link">
+        Headers
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_httpd/architecture/" class="md-nav__link">
+        Architecture
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_httpd/security/" class="md-nav__link">
+        Security
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_httpd/reverse_proxy/" class="md-nav__link">
+        Reverse Proxy
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_httpd/static_file/" class="md-nav__link">
+        Static File Server
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_5" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_5" id="__nav_5_5_label" tabindex="0">
+          omni_json
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_5_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_5">
+          <span class="md-nav__icon md-icon"></span>
+          omni_json
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_json/table_mapping/" class="md-nav__link">
+        Table Mapping
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_6" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_6" id="__nav_5_6_label" tabindex="0">
+          omni_manifest
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_6_label" aria-expanded="true">
+        <label class="md-nav__title" for="__nav_5_6">
+          <span class="md-nav__icon md-icon"></span>
+          omni_manifest
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Usage
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        Usage
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#types" class="md-nav__link">
+    Types
+  </a>
+  
+    <nav class="md-nav" aria-label="Types">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#requirement" class="md-nav__link">
+    Requirement
+  </a>
+  
+    <nav class="md-nav" aria-label="Requirement">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    Examples
+  </a>
+  
+    <nav class="md-nav" aria-label="Examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#from" class="md-nav__link">
+    From
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#to" class="md-nav__link">
+    To
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#artifact" class="md-nav__link">
+    Artifact
+  </a>
+  
+    <nav class="md-nav" aria-label="Artifact">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#examples_1" class="md-nav__link">
+    Examples
+  </a>
+  
+    <nav class="md-nav" aria-label="Examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#from_1" class="md-nav__link">
+    From
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#to_1" class="md-nav__link">
+    To
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#install-plan" class="md-nav__link">
+    Install Plan
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#install" class="md-nav__link">
+    Install
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#download-omnigres-extensions" class="md-nav__link">
+    Download omnigres extensions
+  </a>
+  
+    <nav class="md-nav" aria-label="Download omnigres extensions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#index-endpoint" class="md-nav__link">
+    Index endpoint
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    Prerequisites
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#download-and-install-an-extension" class="md-nav__link">
+    Download and install an extension
+  </a>
+  
+    <nav class="md-nav" aria-label="Download and install an extension">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#download-extension-files" class="md-nav__link">
+    Download extension files
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#install-extension" class="md-nav__link">
+    Install extension
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#update-omnigres-extensions" class="md-nav__link">
+    Update omnigres extensions
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_7" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_7" id="__nav_5_7_label" tabindex="0">
+          omni_mimetypes
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_7_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_7">
+          <span class="md-nav__icon md-icon"></span>
+          omni_mimetypes
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_mimetypes/reference/" class="md-nav__link">
+        omni_mimetypes
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_8" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_8" id="__nav_5_8_label" tabindex="0">
+          omni_os
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_8_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_8">
+          <span class="md-nav__icon md-icon"></span>
+          omni_os
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_os/intro/" class="md-nav__link">
+        Intro
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_9" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_9" id="__nav_5_9_label" tabindex="0">
+          omni_python
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_9_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_9">
+          <span class="md-nav__icon md-icon"></span>
+          omni_python
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_python/intro/" class="md-nav__link">
+        Intro
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_10" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_10" id="__nav_5_10_label" tabindex="0">
+          omni_schema
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_10_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_10">
+          <span class="md-nav__icon md-icon"></span>
+          omni_schema
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_schema/reference/" class="md-nav__link">
+        omni_schema
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_11" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_11" id="__nav_5_11_label" tabindex="0">
+          omni_seq
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_11_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_11">
+          <span class="md-nav__icon md-icon"></span>
+          omni_seq
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_seq/id/" class="md-nav__link">
+        Distributed IDs
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_12" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_12" id="__nav_5_12_label" tabindex="0">
+          omni_txn
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_12_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_12">
+          <span class="md-nav__icon md-icon"></span>
+          omni_txn
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_txn/variables/" class="md-nav__link">
+        Transaction Variables
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_13" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_13" id="__nav_5_13_label" tabindex="0">
+          omni_types
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_13_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_13">
+          <span class="md-nav__icon md-icon"></span>
+          omni_types
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_types/sum_types/" class="md-nav__link">
+        Sum types
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_14" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_14" id="__nav_5_14_label" tabindex="0">
+          omni_var
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_14_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_14">
+          <span class="md-nav__icon md-icon"></span>
+          omni_var
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_var/variables/" class="md-nav__link">
+        Transaction Variables
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_15" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_15" id="__nav_5_15_label" tabindex="0">
+          omni_vfs
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_15_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_15">
+          <span class="md-nav__icon md-icon"></span>
+          omni_vfs
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_vfs/reference/" class="md-nav__link">
+        omni_vfs
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_16" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_16" id="__nav_5_16_label" tabindex="0">
+          omni_web
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_16_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_16">
+          <span class="md-nav__icon md-icon"></span>
+          omni_web
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_web/cookies/" class="md-nav__link">
+        Cookies
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_web/intro/" class="md-nav__link">
+        Intro
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_web/query_strings/" class="md-nav__link">
+        Query Strings
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_web/uri/" class="md-nav__link">
+        URI
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_17" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_17" id="__nav_5_17_label" tabindex="0">
+          omni_xml
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_17_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_17">
+          <span class="md-nav__icon md-icon"></span>
+          omni_xml
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_xml/overview/" class="md-nav__link">
+        Overview
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_xml/usage/" class="md-nav__link">
+        Usage
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#types" class="md-nav__link">
+    Types
+  </a>
+  
+    <nav class="md-nav" aria-label="Types">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#requirement" class="md-nav__link">
+    Requirement
+  </a>
+  
+    <nav class="md-nav" aria-label="Requirement">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#examples" class="md-nav__link">
+    Examples
+  </a>
+  
+    <nav class="md-nav" aria-label="Examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#from" class="md-nav__link">
+    From
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#to" class="md-nav__link">
+    To
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#artifact" class="md-nav__link">
+    Artifact
+  </a>
+  
+    <nav class="md-nav" aria-label="Artifact">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#examples_1" class="md-nav__link">
+    Examples
+  </a>
+  
+    <nav class="md-nav" aria-label="Examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#from_1" class="md-nav__link">
+    From
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#to_1" class="md-nav__link">
+    To
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#install-plan" class="md-nav__link">
+    Install Plan
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#install" class="md-nav__link">
+    Install
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#download-omnigres-extensions" class="md-nav__link">
+    Download omnigres extensions
+  </a>
+  
+    <nav class="md-nav" aria-label="Download omnigres extensions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#index-endpoint" class="md-nav__link">
+    Index endpoint
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#prerequisites" class="md-nav__link">
+    Prerequisites
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#download-and-install-an-extension" class="md-nav__link">
+    Download and install an extension
+  </a>
+  
+    <nav class="md-nav" aria-label="Download and install an extension">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#download-extension-files" class="md-nav__link">
+    Download extension files
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#install-extension" class="md-nav__link">
+    Install extension
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#update-omnigres-extensions" class="md-nav__link">
+    Update omnigres extensions
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="usage">Usage<a class="headerlink" href="#usage" title="Permanent link">&para;</a></h1>
+<p>omni_manifest allows to install and upgrade extensions as a set. Instead of doing this with <code>create extension</code>
+and <code>alter extension</code> manually, especially when it comes to dependencies, this extension will take manifests (similar to
+lock files in other systems) and provision them.</p>
+<p>This extension is implemented in PL/pgSQL to simplify its provisioning (for example in environments where only trusted
+languages are allowed.)</p>
+<h2 id="types">Types<a class="headerlink" href="#types" title="Permanent link">&para;</a></h2>
+<h3 id="requirement">Requirement<a class="headerlink" href="#requirement" title="Permanent link">&para;</a></h3>
+<p>Requirement is a composite type (<code>omni_manifest.requirement</code>) that describes a <code>name</code> &amp; <code>version</code> pair, both of
+type <code>text</code>.</p>
+<p>It can be converted to and from the text format of <code>name=version</code> through casting and the functions used in cast. Also,
+an array (<code>requirement[]</code>)
+can be converted to and from the text format of `name1=version1,name2=version2'.</p>
+<p>Both the type and the array can be similarly converted to and from the JSON representation of
+<code>"name": "version"</code>.</p>
+<h4 id="examples">Examples<a class="headerlink" href="#examples" title="Permanent link">&para;</a></h4>
+<h5 id="from">From<a class="headerlink" href="#from" title="Permanent link">&para;</a></h5>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">select</span><span class="w"> </span><span class="p">(</span><span class="s1">&#39;myext=1.0&#39;</span><span class="o">::</span><span class="nb">text</span><span class="o">::</span><span class="n">omni_manifest</span><span class="mf">.</span><span class="n">requirement</span><span class="p">)</span><span class="mf">.</span><span class="o">*</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="c1">-- or</span>
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="k">select</span><span class="w"> </span><span class="p">(</span><span class="s1">&#39;{&quot;myext&quot;: &quot;1.0&quot;}&#39;</span><span class="o">::</span><span class="nb">json</span><span class="o">::</span><span class="n">omni_manifest</span><span class="mf">.</span><span class="n">requirement</span><span class="p">)</span><span class="mf">.</span><span class="o">*</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a> name  | version 
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>-------+---------
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a> myext | 1.0
+<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a>(1 row)
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">select</span><span class="w"> </span><span class="o">*</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">from</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">    </span><span class="n">unnest</span><span class="p">(</span><span class="s1">&#39;myext=1.0,myotherext=2.0&#39;</span><span class="o">::</span><span class="nb">text</span><span class="o">::</span><span class="n">omni_manifest</span><span class="mf">.</span><span class="n">requirement</span><span class="p">[])</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="c1">-- or</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="k">select</span><span class="w"> </span><span class="o">*</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="k">from</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="n">unnest</span><span class="p">(</span><span class="s1">&#39;{&quot;myext&quot;: &quot;1.0&quot;, &quot;myotherext&quot;: &quot;2.0&quot;}&#39;</span><span class="o">::</span><span class="nb">json</span><span class="o">::</span><span class="n">omni_manifest</span><span class="mf">.</span><span class="n">requirement</span><span class="p">[])</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>    name    | version 
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a>------------+---------
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a> myext      | 1.0
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a> myotherext | 2.0
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a>(2 rows)
+</code></pre></div>
+<h5 id="to">To<a class="headerlink" href="#to" title="Permanent link">&para;</a></h5>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">select</span><span class="w"> </span><span class="k">row</span><span class="w"> </span><span class="p">(</span><span class="s1">&#39;myext&#39;</span><span class="p">,</span><span class="s1">&#39;1.0&#39;</span><span class="p">)</span><span class="o">::</span><span class="n">omni_manifest</span><span class="mf">.</span><span class="n">requirement</span><span class="o">::</span><span class="nb">text</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="c1">-- alternatively,</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="k">select</span><span class="w"> </span><span class="k">row</span><span class="w"> </span><span class="p">(</span><span class="s1">&#39;myext&#39;</span><span class="p">,</span><span class="s1">&#39;1.0&#39;</span><span class="p">)</span><span class="o">::</span><span class="n">omni_manifest</span><span class="mf">.</span><span class="n">requirement</span><span class="o">::</span><span class="nb">json</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a>    row    
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>-----------
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a> myext=1.0
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>(1 row)
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a># -- alternatively,
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a>        row        
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>-------------------
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a> {&quot;myext&quot; : &quot;1.0&quot;}
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>(1 row)
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">select</span><span class="w"> </span><span class="k">array</span><span class="w"> </span><span class="p">[</span><span class="k">row</span><span class="w"> </span><span class="p">(</span><span class="s1">&#39;myext&#39;</span><span class="p">,</span><span class="s1">&#39;1.0&#39;</span><span class="p">),</span><span class="k">row</span><span class="w"> </span><span class="p">(</span><span class="s1">&#39;myotherext&#39;</span><span class="p">,</span><span class="s1">&#39;2.0&#39;</span><span class="p">)]</span><span class="o">::</span><span class="n">omni_manifest</span><span class="mf">.</span><span class="n">requirement</span><span class="p">[]</span><span class="o">::</span><span class="nb">text</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="c1">-- alternatively,</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="k">select</span><span class="w"> </span><span class="k">array</span><span class="w"> </span><span class="p">[</span><span class="k">row</span><span class="w"> </span><span class="p">(</span><span class="s1">&#39;myext&#39;</span><span class="p">,</span><span class="s1">&#39;1.0&#39;</span><span class="p">),</span><span class="k">row</span><span class="w"> </span><span class="p">(</span><span class="s1">&#39;myotherext&#39;</span><span class="p">,</span><span class="s1">&#39;2.0&#39;</span><span class="p">)]</span><span class="o">::</span><span class="n">omni_manifest</span><span class="mf">.</span><span class="n">requirement</span><span class="p">[]</span><span class="o">::</span><span class="nb">json</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a>          array           
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a>--------------------------
+<a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a> myext=1.0,myotherext=2.0
+<a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a>(1 row)
+<a id="__codelineno-7-5" name="__codelineno-7-5" href="#__codelineno-7-5"></a>
+<a id="__codelineno-7-6" name="__codelineno-7-6" href="#__codelineno-7-6"></a># -- alternatively,
+<a id="__codelineno-7-7" name="__codelineno-7-7" href="#__codelineno-7-7"></a>
+<a id="__codelineno-7-8" name="__codelineno-7-8" href="#__codelineno-7-8"></a>omni_manifest=# select array[row(&#39;myext&#39;,&#39;1.0&#39;),row(&#39;myotherext&#39;,&#39;2.0&#39;)]::omni_manifest.requirement[]::json;
+<a id="__codelineno-7-9" name="__codelineno-7-9" href="#__codelineno-7-9"></a>                   array                   
+<a id="__codelineno-7-10" name="__codelineno-7-10" href="#__codelineno-7-10"></a>-------------------------------------------
+<a id="__codelineno-7-11" name="__codelineno-7-11" href="#__codelineno-7-11"></a> { &quot;myext&quot; : &quot;1.0&quot;, &quot;myotherext&quot; : &quot;2.0&quot; }
+<a id="__codelineno-7-12" name="__codelineno-7-12" href="#__codelineno-7-12"></a>(1 row)
+</code></pre></div>
+<h3 id="artifact">Artifact<a class="headerlink" href="#artifact" title="Permanent link">&para;</a></h3>
+<p>Artifact is a composite type (<code>omni_manifest.artifact</code>) that consists of a requirement (<code>self</code>,
+typed <code>omni_manifest.requirement</code>) followed by its versioned requirements (<code>requirements</code>
+of <code>omni_manifest.requirement[]</code>).</p>
+<p>It can be constructed with the <code>omni_manifest.artifact</code> function:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="w"> </span><span class="k">select</span><span class="w"> </span><span class="p">(</span><span class="n">omni_manifest</span><span class="mf">.</span><span class="n">artifact</span><span class="p">(</span><span class="s1">&#39;ext=3.0&#39;</span><span class="o">::</span><span class="nb">text</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;myext=1.0,myotherext=2.0&#39;</span><span class="o">::</span><span class="nb">text</span><span class="p">))</span><span class="mf">.</span><span class="o">*</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a>   self    |            requirements            
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a>-----------+------------------------------------
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a> (ext,3.0) | {&quot;(myext,1.0)&quot;,&quot;(myotherext,2.0)&quot;}
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a>(1 row)
+</code></pre></div>
+<p>Besides that, artifacts can be constructed from and deconstructed to both text and JSON forms.</p>
+<p>The text form of a single artifact is the text representation of a requirement optionally followed by <code>#</code> (the hash
+sign) with a text representation of a list of requirements:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a>omni_manifest=1.0
+<a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a>omni_httpd=1.0#omni_http=1.0
+</code></pre></div>
+<p>The text form of multiple artifacts is a semicolon-separated list:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a>omni_manifest=1.0;omni_httpd=1.0#omni_http=1.0
+</code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>For convenience, newline is also allowed instead of the semicolon:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a>omni_manifest=1.0
+<a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a>omni_httpd=1.0#omni_http=1.0
+</code></pre></div>
+</div>
+<p>JSON representation is a JSON list of objects with a <code>target</code> property containing the target requirement,
+and <code>requirements</code>
+property containing all the requirements:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="p">[</span>
+<a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="w">  </span><span class="p">{</span>
+<a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a><span class="w">    </span><span class="nt">&quot;target&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="w">      </span><span class="nt">&quot;omni_manifest&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1.0&quot;</span>
+<a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a><span class="w">    </span><span class="p">},</span>
+<a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="w">    </span><span class="nt">&quot;requirements&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{}</span>
+<a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="w">  </span><span class="p">},</span>
+<a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="w">  </span><span class="p">{</span>
+<a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="w">    </span><span class="nt">&quot;target&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="w">      </span><span class="nt">&quot;omni_httpd&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1.0&quot;</span>
+<a id="__codelineno-13-11" name="__codelineno-13-11" href="#__codelineno-13-11"></a><span class="w">    </span><span class="p">},</span>
+<a id="__codelineno-13-12" name="__codelineno-13-12" href="#__codelineno-13-12"></a><span class="w">    </span><span class="nt">&quot;requirements&quot;</span><span class="p">:</span><span class="w"> </span><span class="p">{</span>
+<a id="__codelineno-13-13" name="__codelineno-13-13" href="#__codelineno-13-13"></a><span class="w">      </span><span class="nt">&quot;omni_http&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;1.0&quot;</span>
+<a id="__codelineno-13-14" name="__codelineno-13-14" href="#__codelineno-13-14"></a><span class="w">    </span><span class="p">}</span>
+<a id="__codelineno-13-15" name="__codelineno-13-15" href="#__codelineno-13-15"></a><span class="w">  </span><span class="p">}</span>
+<a id="__codelineno-13-16" name="__codelineno-13-16" href="#__codelineno-13-16"></a><span class="p">]</span>
+</code></pre></div>
+<h4 id="examples_1">Examples<a class="headerlink" href="#examples_1" title="Permanent link">&para;</a></h4>
+<h5 id="from_1">From<a class="headerlink" href="#from_1" title="Permanent link">&para;</a></h5>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-14-1" name="__codelineno-14-1" href="#__codelineno-14-1"></a><span class="k">select</span><span class="w"> </span><span class="o">*</span>
+<a id="__codelineno-14-2" name="__codelineno-14-2" href="#__codelineno-14-2"></a><span class="k">from</span>
+<a id="__codelineno-14-3" name="__codelineno-14-3" href="#__codelineno-14-3"></a><span class="w">    </span><span class="n">unnest</span><span class="p">(</span><span class="s1">&#39;omni_manifest=1.0;omni_httpd=1.0#omni_http=1.0&#39;</span><span class="o">::</span><span class="nb">text</span><span class="o">::</span><span class="n">omni_manifest</span><span class="mf">.</span><span class="n">artifact</span><span class="p">[]);</span>
+<a id="__codelineno-14-4" name="__codelineno-14-4" href="#__codelineno-14-4"></a><span class="c1">-- alternatively,</span>
+<a id="__codelineno-14-5" name="__codelineno-14-5" href="#__codelineno-14-5"></a><span class="k">select</span><span class="w"> </span><span class="o">*</span>
+<a id="__codelineno-14-6" name="__codelineno-14-6" href="#__codelineno-14-6"></a><span class="k">from</span>
+<a id="__codelineno-14-7" name="__codelineno-14-7" href="#__codelineno-14-7"></a><span class="w">    </span><span class="n">unnest</span><span class="p">(</span><span class="s1">&#39;[{&quot;target&quot; : {&quot;omni_manifest&quot; : &quot;1.0&quot;}, &quot;requirements&quot; : {}}, {&quot;target&quot; : {&quot;omni_httpd&quot; : &quot;1.0&quot;}, &quot;requirements&quot; : { &quot;omni_http&quot; : &quot;1.0&quot; }}]&#39;</span><span class="o">::</span><span class="nb">json</span><span class="o">::</span><span class="n">omni_manifest</span><span class="mf">.</span><span class="n">artifact</span><span class="p">[]);</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-15-1" name="__codelineno-15-1" href="#__codelineno-15-1"></a>        self         |    requirements     
+<a id="__codelineno-15-2" name="__codelineno-15-2" href="#__codelineno-15-2"></a>---------------------+---------------------
+<a id="__codelineno-15-3" name="__codelineno-15-3" href="#__codelineno-15-3"></a> (omni_manifest,1.0) | 
+<a id="__codelineno-15-4" name="__codelineno-15-4" href="#__codelineno-15-4"></a> (omni_httpd,1.0)    | {&quot;(omni_http,1.0)&quot;}
+<a id="__codelineno-15-5" name="__codelineno-15-5" href="#__codelineno-15-5"></a>(2 rows)
+</code></pre></div>
+<h5 id="to_1">To<a class="headerlink" href="#to_1" title="Permanent link">&para;</a></h5>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-16-1" name="__codelineno-16-1" href="#__codelineno-16-1"></a><span class="k">select</span>
+<a id="__codelineno-16-2" name="__codelineno-16-2" href="#__codelineno-16-2"></a><span class="w">    </span><span class="s1">&#39;[{&quot;target&quot; : {&quot;omni_manifest&quot; : &quot;1.0&quot;}, &quot;requirements&quot; : {}}, {&quot;target&quot; : {&quot;omni_httpd&quot; : &quot;1.0&quot;}, &quot;requirements&quot; : { &quot;omni_http&quot; : &quot;1.0&quot; }}]&#39;</span><span class="o">::</span><span class="nb">json</span><span class="o">::</span><span class="n">omni_manifest</span><span class="mf">.</span><span class="n">artifact</span><span class="p">[]</span><span class="o">::</span><span class="nb">text</span><span class="p">;</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-17-1" name="__codelineno-17-1" href="#__codelineno-17-1"></a>omni_manifest=1.0;omni_httpd=1.0#omni_http=1.0
+</code></pre></div>
+<h2 id="install-plan">Install Plan<a class="headerlink" href="#install-plan" title="Permanent link">&para;</a></h2>
+<p>From an array of artifacts, <code>omni_manifest.install_plan</code> can be used to show the order in which all extensions will be
+installed to satisfy the requirements.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-18-1" name="__codelineno-18-1" href="#__codelineno-18-1"></a><span class="k">select</span><span class="w"> </span><span class="o">*</span>
+<a id="__codelineno-18-2" name="__codelineno-18-2" href="#__codelineno-18-2"></a><span class="k">from</span>
+<a id="__codelineno-18-3" name="__codelineno-18-3" href="#__codelineno-18-3"></a><span class="w">    </span><span class="n">unnest</span><span class="p">(</span><span class="n">omni_manifest</span><span class="mf">.</span><span class="n">install_plan</span><span class="p">(</span>
+<a id="__codelineno-18-4" name="__codelineno-18-4" href="#__codelineno-18-4"></a><span class="w">            </span><span class="k">array</span><span class="w"> </span><span class="p">[</span><span class="n">omni_manifest</span><span class="mf">.</span><span class="n">artifact</span><span class="p">(</span><span class="s1">&#39;ext=3.0&#39;</span><span class="o">::</span><span class="nb">text</span><span class="p">,</span>
+<a id="__codelineno-18-5" name="__codelineno-18-5" href="#__codelineno-18-5"></a><span class="w">                                          </span><span class="s1">&#39;myext=1.0,myotherext=2.0&#39;</span><span class="o">::</span><span class="nb">text</span><span class="p">),</span>
+<a id="__codelineno-18-6" name="__codelineno-18-6" href="#__codelineno-18-6"></a><span class="w">                </span><span class="n">omni_manifest</span><span class="mf">.</span><span class="n">artifact</span><span class="p">(</span><span class="s1">&#39;ext2=3.0&#39;</span><span class="o">::</span><span class="nb">text</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;myext=1.0&#39;</span><span class="o">::</span><span class="nb">text</span><span class="p">)</span><span class="w"> </span><span class="p">]))</span><span class="w"> </span><span class="k">with</span><span class="w"> </span><span class="k">ordinality</span><span class="w"> </span><span class="n">t</span><span class="p">(</span><span class="k">name</span><span class="p">,</span><span class="w"> </span><span class="k">version</span><span class="p">,</span><span class="w"> </span><span class="k">position</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-19-1" name="__codelineno-19-1" href="#__codelineno-19-1"></a>    name    | version | position 
+<a id="__codelineno-19-2" name="__codelineno-19-2" href="#__codelineno-19-2"></a>------------+---------+----------
+<a id="__codelineno-19-3" name="__codelineno-19-3" href="#__codelineno-19-3"></a> myext      | 1.0     |        1
+<a id="__codelineno-19-4" name="__codelineno-19-4" href="#__codelineno-19-4"></a> myotherext | 2.0     |        2
+<a id="__codelineno-19-5" name="__codelineno-19-5" href="#__codelineno-19-5"></a> ext        | 3.0     |        3
+<a id="__codelineno-19-6" name="__codelineno-19-6" href="#__codelineno-19-6"></a> ext2       | 3.0     |        4
+<a id="__codelineno-19-7" name="__codelineno-19-7" href="#__codelineno-19-7"></a>(4 rows)
+</code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Tip</p>
+<p>This step is not necessary for installation. It is primarily used to
+preview the steps that the install step will take.</p>
+</div>
+<h2 id="install">Install<a class="headerlink" href="#install" title="Permanent link">&para;</a></h2>
+<p>Similar to <code>install_plan</code>, <code>omni_manifest.install</code> takes an array of artifacts and attempts to install them. It returns
+a set of <code>omni_manifest.install_report</code> composite type values. Each row contains a requirement (<code>requirement</code>) and
+status (<code>status</code>, typed <code>requirement_status</code>, an enum of <code>installed</code>, <code>missing</code>, <code>updated</code> or <code>kept</code>.</p>
+<p>For each effective requirement in the install plan, it'll attempt to install a given version. If one is not available,
+it'll report it as <code>missing</code>, otherwise, if a different version is installed it'll try to update and report it <code>updated</code>
+if successful. Otherwise, it'll try to install it and return a value of <code>installed</code>, unless such version is already
+installed, at which point it'll return <code>kept</code>.</p>
+<div class="admonition tip">
+<p class="admonition-title">Install transactionally</p>
+<p>It is highly recommended to perform installations transactionally to be able to check
+reports for missing dependencies.</p>
+</div>
+<h2 id="download-omnigres-extensions">Download omnigres extensions<a class="headerlink" href="#download-omnigres-extensions" title="Permanent link">&para;</a></h2>
+<p>Omnigres extensions can be downloaded from public domain <code>index.omnigres.com</code>.</p>
+<h3 id="index-endpoint">Index endpoint<a class="headerlink" href="#index-endpoint" title="Permanent link">&para;</a></h3>
+<p>To view the extensions available for a given platform combination call
+the <code>&lt;pg_major_version&gt;/&lt;build_type&gt;/&lt;os-arch&gt;/index.json</code> endpoint.</p>
+<p><code>Release</code> builds are available for following platforms:</p>
+<table>
+<thead>
+<tr>
+<th>os-arch</th>
+<th>pg_major_versions</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ubuntu-x86-64</td>
+<td>13, 14, 15, 16</td>
+</tr>
+<tr>
+<td>macos-arm</td>
+<td>16</td>
+</tr>
+</tbody>
+</table>
+<p>The response consists of all available extension versions:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-20-1" name="__codelineno-20-1" href="#__codelineno-20-1"></a>$<span class="w"> </span>curl<span class="w"> </span>-s<span class="w"> </span>https://index.omnigres.com/16/Release/ubuntu-x86-64/index.json<span class="w"> </span><span class="p">|</span><span class="w"> </span>jq<span class="w"> </span>.
+<a id="__codelineno-20-2" name="__codelineno-20-2" href="#__codelineno-20-2"></a><span class="o">{</span>
+<a id="__codelineno-20-3" name="__codelineno-20-3" href="#__codelineno-20-3"></a><span class="w">  </span><span class="s2">&quot;os_arch&quot;</span>:<span class="w"> </span><span class="s2">&quot;ubuntu-x86-64&quot;</span>,
+<a id="__codelineno-20-4" name="__codelineno-20-4" href="#__codelineno-20-4"></a><span class="w">  </span><span class="s2">&quot;build_type&quot;</span>:<span class="w"> </span><span class="s2">&quot;Release&quot;</span>,
+<a id="__codelineno-20-5" name="__codelineno-20-5" href="#__codelineno-20-5"></a><span class="w">  </span><span class="s2">&quot;extensions&quot;</span>:<span class="w"> </span><span class="o">{</span>
+<a id="__codelineno-20-6" name="__codelineno-20-6" href="#__codelineno-20-6"></a><span class="w">    </span><span class="s2">&quot;omni&quot;</span>:<span class="w"> </span><span class="o">{</span>
+<a id="__codelineno-20-7" name="__codelineno-20-7" href="#__codelineno-20-7"></a><span class="w">    </span><span class="c1"># version: commit SHA at time of release</span>
+<a id="__codelineno-20-8" name="__codelineno-20-8" href="#__codelineno-20-8"></a><span class="w">      </span><span class="s2">&quot;0.1.0&quot;</span>:<span class="w"> </span><span class="s2">&quot;3fb44b2d70622b8599282f610b9939f560981d83&quot;</span>
+<a id="__codelineno-20-9" name="__codelineno-20-9" href="#__codelineno-20-9"></a><span class="w">    </span><span class="o">}</span>,
+<a id="__codelineno-20-10" name="__codelineno-20-10" href="#__codelineno-20-10"></a><span class="w">    </span><span class="s2">&quot;omni_httpd&quot;</span>:<span class="w"> </span><span class="o">{</span>
+<a id="__codelineno-20-11" name="__codelineno-20-11" href="#__codelineno-20-11"></a><span class="w">      </span><span class="s2">&quot;0.1.0&quot;</span>:<span class="w"> </span><span class="s2">&quot;3fb44b2d70622b8599282f610b9939f560981d83&quot;</span>
+<a id="__codelineno-20-12" name="__codelineno-20-12" href="#__codelineno-20-12"></a><span class="w">    </span><span class="o">}</span>,
+<a id="__codelineno-20-13" name="__codelineno-20-13" href="#__codelineno-20-13"></a><span class="w">    </span><span class="s2">&quot;omni_manifest&quot;</span>:<span class="w"> </span><span class="o">{</span>
+<a id="__codelineno-20-14" name="__codelineno-20-14" href="#__codelineno-20-14"></a><span class="w">      </span><span class="s2">&quot;0.1.0&quot;</span>:<span class="w"> </span><span class="s2">&quot;3fb44b2d70622b8599282f610b9939f560981d83&quot;</span>
+<a id="__codelineno-20-15" name="__codelineno-20-15" href="#__codelineno-20-15"></a><span class="w">    </span><span class="o">}</span>
+<a id="__codelineno-20-16" name="__codelineno-20-16" href="#__codelineno-20-16"></a><span class="w">  </span><span class="o">}</span>,
+<a id="__codelineno-20-17" name="__codelineno-20-17" href="#__codelineno-20-17"></a><span class="w">  </span><span class="s2">&quot;pg_version&quot;</span>:<span class="w"> </span><span class="s2">&quot;16&quot;</span>,
+<a id="__codelineno-20-18" name="__codelineno-20-18" href="#__codelineno-20-18"></a><span class="w">  </span><span class="s2">&quot;format_version&quot;</span>:<span class="w"> </span><span class="m">1</span>
+<a id="__codelineno-20-19" name="__codelineno-20-19" href="#__codelineno-20-19"></a><span class="o">}</span>
+</code></pre></div>
+<p>The request fails with an error message if an unsupported platform combination is used</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-21-1" name="__codelineno-21-1" href="#__codelineno-21-1"></a>$<span class="w"> </span>curl<span class="w"> </span>-s<span class="w"> </span>https://index.omnigres.com/12/Release/ubuntu-x86-64/index.json
+<a id="__codelineno-21-2" name="__codelineno-21-2" href="#__codelineno-21-2"></a>pg_version<span class="w"> </span>should<span class="w"> </span>be<span class="w"> </span>one<span class="w"> </span>of<span class="w"> </span>the<span class="w"> </span>following:<span class="w"> </span><span class="m">13</span>,14,15,16
+</code></pre></div>
+<p>A script is available to download and copy omnigres extension files(if it doesn't exist) to appropriate postgres directories at
+<a href="https://raw.githubusercontent.com/omnigres/omnigres/master/download-omnigres-extension.sh">https://raw.githubusercontent.com/omnigres/omnigres/master/download-omnigres-extension.sh</a></p>
+<p>It is recommended to always run latest version of script as follows:
+<div class="highlight"><pre><span></span><code><a id="__codelineno-22-1" name="__codelineno-22-1" href="#__codelineno-22-1"></a><span class="c1"># use no arguments for the script help output</span>
+<a id="__codelineno-22-2" name="__codelineno-22-2" href="#__codelineno-22-2"></a>$<span class="w"> </span>curl<span class="w"> </span>-s<span class="w"> </span>https://raw.githubusercontent.com/omnigres/omnigres/master/download-omnigres-extension.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>bash<span class="w"> </span>-s
+</code></pre></div></p>
+<div class="admonition tip">
+<p class="admonition-title">Where are the postgres directories for extension files?</p>
+<p>To find it, run the following command:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-23-1" name="__codelineno-23-1" href="#__codelineno-23-1"></a><span class="c1"># .sql and .control files location</span>
+<a id="__codelineno-23-2" name="__codelineno-23-2" href="#__codelineno-23-2"></a><span class="nb">echo</span><span class="w"> </span><span class="k">$(</span>pg_config<span class="w"> </span>--sharedir<span class="k">)</span>/extension
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-24-1" name="__codelineno-24-1" href="#__codelineno-24-1"></a><span class="c1"># .so files location</span>
+<a id="__codelineno-24-2" name="__codelineno-24-2" href="#__codelineno-24-2"></a><span class="nb">echo</span><span class="w"> </span><span class="k">$(</span>pg_config<span class="w"> </span>--pkglibdir<span class="k">)</span>
+</code></pre></div>
+</div>
+<h3 id="prerequisites">Prerequisites<a class="headerlink" href="#prerequisites" title="Permanent link">&para;</a></h3>
+<p>Omnigres extensions require <code>omni</code> loaded as shared preload library. It is also recommended to use
+the <code>omni_manifest</code> to create and update extensions in postgres.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-25-1" name="__codelineno-25-1" href="#__codelineno-25-1"></a><span class="c1"># download omni extension for it&#39;s shared object library</span>
+<a id="__codelineno-25-2" name="__codelineno-25-2" href="#__codelineno-25-2"></a>$<span class="w"> </span>curl<span class="w"> </span>-s<span class="w"> </span>https://raw.githubusercontent.com/omnigres/omnigres/master/download-omnigres-extension.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>bash<span class="w"> </span>-s<span class="w"> </span>install<span class="w"> </span>omni<span class="w"> </span><span class="s2">&quot;0.1.0&quot;</span>
+<a id="__codelineno-25-3" name="__codelineno-25-3" href="#__codelineno-25-3"></a><span class="s1">&#39;/tmp/omni--0.1.0--untarred/omni--0.1.0.sql&#39;</span><span class="w"> </span>-&gt;<span class="w"> </span><span class="s1">&#39;/usr/share/postgresql/16/extension/omni--0.1.0.sql&#39;</span>
+<a id="__codelineno-25-4" name="__codelineno-25-4" href="#__codelineno-25-4"></a><span class="s1">&#39;/tmp/omni--0.1.0--untarred/omni--0.1.0.control&#39;</span><span class="w"> </span>-&gt;<span class="w"> </span><span class="s1">&#39;/usr/share/postgresql/16/extension/omni--0.1.0.control&#39;</span>
+<a id="__codelineno-25-5" name="__codelineno-25-5" href="#__codelineno-25-5"></a><span class="s1">&#39;/tmp/omni--0.1.0--untarred/omni.control&#39;</span><span class="w"> </span>-&gt;<span class="w"> </span><span class="s1">&#39;/usr/share/postgresql/16/extension/omni.control&#39;</span>
+<a id="__codelineno-25-6" name="__codelineno-25-6" href="#__codelineno-25-6"></a><span class="s1">&#39;/tmp/omni--0.1.0--untarred/lib/omni--0.1.0.so&#39;</span><span class="w"> </span>-&gt;<span class="w"> </span><span class="s1">&#39;/usr/lib/postgresql/16/lib/omni--0.1.0.so&#39;</span>
+<a id="__codelineno-25-7" name="__codelineno-25-7" href="#__codelineno-25-7"></a>
+<a id="__codelineno-25-8" name="__codelineno-25-8" href="#__codelineno-25-8"></a>The<span class="w"> </span>omni_manifest<span class="w"> </span>query<span class="w"> </span>to<span class="w"> </span>create<span class="w"> </span>the<span class="w"> </span>extension:
+<a id="__codelineno-25-9" name="__codelineno-25-9" href="#__codelineno-25-9"></a><span class="w">      </span><span class="k">select</span><span class="w"> </span>*
+<a id="__codelineno-25-10" name="__codelineno-25-10" href="#__codelineno-25-10"></a><span class="w">      </span>from
+<a id="__codelineno-25-11" name="__codelineno-25-11" href="#__codelineno-25-11"></a><span class="w">          </span>omni_manifest.install<span class="o">(</span><span class="s1">&#39;omni=0.1.0&#39;</span>::text::omni_manifest.artifact<span class="o">[])</span>
+<a id="__codelineno-25-12" name="__codelineno-25-12" href="#__codelineno-25-12"></a>
+<a id="__codelineno-25-13" name="__codelineno-25-13" href="#__codelineno-25-13"></a><span class="c1"># download omni_manifest extension for creating other extensions</span>
+<a id="__codelineno-25-14" name="__codelineno-25-14" href="#__codelineno-25-14"></a>$<span class="w"> </span>curl<span class="w"> </span>-s<span class="w"> </span>https://raw.githubusercontent.com/omnigres/omnigres/master/download-omnigres-extension.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>bash<span class="w"> </span>-s<span class="w"> </span>install<span class="w"> </span>omni_manifest<span class="w"> </span><span class="s2">&quot;0.1.0&quot;</span>
+<a id="__codelineno-25-15" name="__codelineno-25-15" href="#__codelineno-25-15"></a><span class="s1">&#39;/tmp/omni_manifest--0.1.0--untarred/omni_manifest--0.1.0.sql&#39;</span><span class="w"> </span>-&gt;<span class="w"> </span><span class="s1">&#39;/usr/share/postgresql/16/extension/omni_manifest--0.1.0.sql&#39;</span>
+<a id="__codelineno-25-16" name="__codelineno-25-16" href="#__codelineno-25-16"></a><span class="s1">&#39;/tmp/omni_manifest--0.1.0--untarred/omni_manifest--0.1.0.control&#39;</span><span class="w"> </span>-&gt;<span class="w"> </span><span class="s1">&#39;/usr/share/postgresql/16/extension/omni_manifest--0.1.0.control&#39;</span>
+<a id="__codelineno-25-17" name="__codelineno-25-17" href="#__codelineno-25-17"></a><span class="s1">&#39;/tmp/omni_manifest--0.1.0--untarred/omni_manifest.control&#39;</span><span class="w"> </span>-&gt;<span class="w"> </span><span class="s1">&#39;/usr/share/postgresql/16/extension/omni_manifest.control&#39;</span>
+</code></pre></div>
+<p>Add <code>omni</code> shared object library to <code>shared_preload_libraries</code> and increase <code>max_worker_processes</code> in <code>postgresql.conf</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-26-1" name="__codelineno-26-1" href="#__codelineno-26-1"></a># add omni shared object library
+<a id="__codelineno-26-2" name="__codelineno-26-2" href="#__codelineno-26-2"></a>shared_preload_libraries = &#39;omni--0.1.0.so&#39;
+<a id="__codelineno-26-3" name="__codelineno-26-3" href="#__codelineno-26-3"></a>
+<a id="__codelineno-26-4" name="__codelineno-26-4" href="#__codelineno-26-4"></a># some omnigres extensions use postgres background workers, set it to high enough value
+<a id="__codelineno-26-5" name="__codelineno-26-5" href="#__codelineno-26-5"></a>max_worker_processes = 64
+</code></pre></div>
+<p>Restart the postgres server after making changes to <code>postgresql.conf</code>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-27-1" name="__codelineno-27-1" href="#__codelineno-27-1"></a><span class="c1"># postgres restart required after changing the above settings </span>
+<a id="__codelineno-27-2" name="__codelineno-27-2" href="#__codelineno-27-2"></a>pg_ctl<span class="w"> </span>-D<span class="w"> </span>&lt;PGDATA&gt;<span class="w"> </span>restart
+</code></pre></div>
+<p>Create <code>omni_manifest</code> extension in postgres to create and update other extensions:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-28-1" name="__codelineno-28-1" href="#__codelineno-28-1"></a><span class="k">create</span><span class="w"> </span><span class="k">extension</span><span class="w"> </span><span class="n">omni_manifest</span><span class="w"> </span><span class="k">version</span><span class="w"> </span><span class="s1">&#39;0.1.0&#39;</span><span class="p">;</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-29-1" name="__codelineno-29-1" href="#__codelineno-29-1"></a>postgres=# \dx
+<a id="__codelineno-29-2" name="__codelineno-29-2" href="#__codelineno-29-2"></a>                      List of installed extensions
+<a id="__codelineno-29-3" name="__codelineno-29-3" href="#__codelineno-29-3"></a>     Name      | Version |    Schema     |         Description          
+<a id="__codelineno-29-4" name="__codelineno-29-4" href="#__codelineno-29-4"></a>---------------+---------+---------------+------------------------------
+<a id="__codelineno-29-5" name="__codelineno-29-5" href="#__codelineno-29-5"></a> omni_manifest | 0.1.0   | omni_manifest | 
+<a id="__codelineno-29-6" name="__codelineno-29-6" href="#__codelineno-29-6"></a> plpgsql       | 1.0     | pg_catalog    | PL/pgSQL procedural language
+<a id="__codelineno-29-7" name="__codelineno-29-7" href="#__codelineno-29-7"></a>(2 rows)
+</code></pre></div>
+<h3 id="download-and-install-an-extension">Download and install an extension<a class="headerlink" href="#download-and-install-an-extension" title="Permanent link">&para;</a></h3>
+<p>To download an omnigres extension call
+the <code>&lt;pg_major_version&gt;/&lt;build_type&gt;/&lt;os-arch&gt;/&lt;ext-name&gt;/&lt;ext-version&gt;</code>
+endpoint. A compressed tarball containing extension files will be sent in response.
+The list of extensions and its released versions is available at <a href="#index-endpoint"><code>index.json</code></a> endpoint.</p>
+<div class="admonition tip">
+<p class="admonition-title">Downloading extension with its dependencies</p>
+<p><code>&lt;pg_major_version&gt;/&lt;build_type&gt;/&lt;os-arch&gt;/&lt;ext-name&gt;/&lt;ext-version&gt;?with-dependencies</code>
+ endpoint will download an extension along with all it's dependency files.</p>
+<p><code>with-dependencies</code> query parameter is optional, drop it only if extension files 
+ without its dependencies files is required. It is highly recommended to use it
+ because dependencies of an extension may change between versions.</p>
+</div>
+<h4 id="download-extension-files">Download extension files<a class="headerlink" href="#download-extension-files" title="Permanent link">&para;</a></h4>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-30-1" name="__codelineno-30-1" href="#__codelineno-30-1"></a><span class="c1"># download omni_httpd 0.1.0 along with its dependencies</span>
+<a id="__codelineno-30-2" name="__codelineno-30-2" href="#__codelineno-30-2"></a>$<span class="w"> </span>curl<span class="w"> </span>-s<span class="w"> </span>https://raw.githubusercontent.com/omnigres/omnigres/master/download-omnigres-extension.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>bash<span class="w"> </span>-s<span class="w"> </span>install<span class="w"> </span>omni_httpd<span class="w"> </span><span class="s2">&quot;0.1.0&quot;</span>
+<a id="__codelineno-30-3" name="__codelineno-30-3" href="#__codelineno-30-3"></a><span class="s1">&#39;/tmp/omni_httpd--0.1.0--untarred/omni_http--0.1.0.sql&#39;</span><span class="w"> </span>-&gt;<span class="w"> </span><span class="s1">&#39;/usr/share/postgresql/16/extension/omni_http--0.1.0.sql&#39;</span>
+<a id="__codelineno-30-4" name="__codelineno-30-4" href="#__codelineno-30-4"></a><span class="s1">&#39;/tmp/omni_httpd--0.1.0--untarred/omni_httpd--0.1.0.sql&#39;</span><span class="w"> </span>-&gt;<span class="w"> </span><span class="s1">&#39;/usr/share/postgresql/16/extension/omni_httpd--0.1.0.sql&#39;</span>
+<a id="__codelineno-30-5" name="__codelineno-30-5" href="#__codelineno-30-5"></a><span class="s1">&#39;/tmp/omni_httpd--0.1.0--untarred/omni_types--0.1.0.sql&#39;</span><span class="w"> </span>-&gt;<span class="w"> </span><span class="s1">&#39;/usr/share/postgresql/16/extension/omni_types--0.1.0.sql&#39;</span>
+<a id="__codelineno-30-6" name="__codelineno-30-6" href="#__codelineno-30-6"></a><span class="s1">&#39;/tmp/omni_httpd--0.1.0--untarred/omni_http--0.1.0.control&#39;</span><span class="w"> </span>-&gt;<span class="w"> </span><span class="s1">&#39;/usr/share/postgresql/16/extension/omni_http--0.1.0.control&#39;</span>
+<a id="__codelineno-30-7" name="__codelineno-30-7" href="#__codelineno-30-7"></a><span class="s1">&#39;/tmp/omni_httpd--0.1.0--untarred/omni_http.control&#39;</span><span class="w"> </span>-&gt;<span class="w"> </span><span class="s1">&#39;/usr/share/postgresql/16/extension/omni_http.control&#39;</span>
+<a id="__codelineno-30-8" name="__codelineno-30-8" href="#__codelineno-30-8"></a><span class="s1">&#39;/tmp/omni_httpd--0.1.0--untarred/omni_httpd--0.1.0.control&#39;</span><span class="w"> </span>-&gt;<span class="w"> </span><span class="s1">&#39;/usr/share/postgresql/16/extension/omni_httpd--0.1.0.control&#39;</span>
+<a id="__codelineno-30-9" name="__codelineno-30-9" href="#__codelineno-30-9"></a><span class="s1">&#39;/tmp/omni_httpd--0.1.0--untarred/omni_httpd.control&#39;</span><span class="w"> </span>-&gt;<span class="w"> </span><span class="s1">&#39;/usr/share/postgresql/16/extension/omni_httpd.control&#39;</span>
+<a id="__codelineno-30-10" name="__codelineno-30-10" href="#__codelineno-30-10"></a><span class="s1">&#39;/tmp/omni_httpd--0.1.0--untarred/omni_types--0.1.0.control&#39;</span><span class="w"> </span>-&gt;<span class="w"> </span><span class="s1">&#39;/usr/share/postgresql/16/extension/omni_types--0.1.0.control&#39;</span>
+<a id="__codelineno-30-11" name="__codelineno-30-11" href="#__codelineno-30-11"></a><span class="s1">&#39;/tmp/omni_httpd--0.1.0--untarred/omni_types.control&#39;</span><span class="w"> </span>-&gt;<span class="w"> </span><span class="s1">&#39;/usr/share/postgresql/16/extension/omni_types.control&#39;</span>
+<a id="__codelineno-30-12" name="__codelineno-30-12" href="#__codelineno-30-12"></a><span class="s1">&#39;/tmp/omni_httpd--0.1.0--untarred/lib/omni_httpd--0.1.0.so&#39;</span><span class="w"> </span>-&gt;<span class="w"> </span><span class="s1">&#39;/usr/lib/postgresql/16/lib/omni_httpd--0.1.0.so&#39;</span>
+<a id="__codelineno-30-13" name="__codelineno-30-13" href="#__codelineno-30-13"></a><span class="s1">&#39;/tmp/omni_httpd--0.1.0--untarred/lib/omni_types--0.1.0.so&#39;</span><span class="w"> </span>-&gt;<span class="w"> </span><span class="s1">&#39;/usr/lib/postgresql/16/lib/omni_types--0.1.0.so&#39;</span>
+<a id="__codelineno-30-14" name="__codelineno-30-14" href="#__codelineno-30-14"></a>
+<a id="__codelineno-30-15" name="__codelineno-30-15" href="#__codelineno-30-15"></a>The<span class="w"> </span>omni_manifest<span class="w"> </span>query<span class="w"> </span>to<span class="w"> </span>create<span class="w"> </span>the<span class="w"> </span>extension:
+<a id="__codelineno-30-16" name="__codelineno-30-16" href="#__codelineno-30-16"></a><span class="w">      </span><span class="k">select</span><span class="w"> </span>*
+<a id="__codelineno-30-17" name="__codelineno-30-17" href="#__codelineno-30-17"></a><span class="w">      </span>from
+<a id="__codelineno-30-18" name="__codelineno-30-18" href="#__codelineno-30-18"></a><span class="w">          </span>omni_manifest.install<span class="o">(</span><span class="s1">&#39;omni_httpd=0.1.0#omni_types=0.1.0,omni_http=0.1.0&#39;</span>::text::omni_manifest.artifact<span class="o">[])</span>
+</code></pre></div>
+<h4 id="install-extension">Install extension<a class="headerlink" href="#install-extension" title="Permanent link">&para;</a></h4>
+<p>Use the <code>omni_manifest.install</code> query of the extension from the script output above.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-31-1" name="__codelineno-31-1" href="#__codelineno-31-1"></a><span class="k">select</span><span class="w"> </span><span class="o">*</span>
+<a id="__codelineno-31-2" name="__codelineno-31-2" href="#__codelineno-31-2"></a><span class="k">from</span>
+<a id="__codelineno-31-3" name="__codelineno-31-3" href="#__codelineno-31-3"></a><span class="w">    </span><span class="n">omni_manifest</span><span class="mf">.</span><span class="n">install</span><span class="p">(</span><span class="s1">&#39;omni_httpd=0.1.0#omni_types=0.1.0,omni_http=0.1.0&#39;</span><span class="o">::</span><span class="nb">text</span><span class="o">::</span><span class="n">omni_manifest</span><span class="mf">.</span><span class="n">artifact</span><span class="p">[]);</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-32-1" name="__codelineno-32-1" href="#__codelineno-32-1"></a>    requirement     |  status   
+<a id="__codelineno-32-2" name="__codelineno-32-2" href="#__codelineno-32-2"></a>--------------------+-----------
+<a id="__codelineno-32-3" name="__codelineno-32-3" href="#__codelineno-32-3"></a> (omni_http,0.1.0)  | installed
+<a id="__codelineno-32-4" name="__codelineno-32-4" href="#__codelineno-32-4"></a> (omni_types,0.1.0) | installed
+<a id="__codelineno-32-5" name="__codelineno-32-5" href="#__codelineno-32-5"></a> (omni_httpd,0.1.0) | installed
+<a id="__codelineno-32-6" name="__codelineno-32-6" href="#__codelineno-32-6"></a>(3 rows)
+</code></pre></div>
+<p>List of installed extensions:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-33-1" name="__codelineno-33-1" href="#__codelineno-33-1"></a>postgres=# \dx
+<a id="__codelineno-33-2" name="__codelineno-33-2" href="#__codelineno-33-2"></a>                      List of installed extensions
+<a id="__codelineno-33-3" name="__codelineno-33-3" href="#__codelineno-33-3"></a>     Name      | Version |    Schema     |         Description          
+<a id="__codelineno-33-4" name="__codelineno-33-4" href="#__codelineno-33-4"></a>---------------+---------+---------------+------------------------------
+<a id="__codelineno-33-5" name="__codelineno-33-5" href="#__codelineno-33-5"></a> omni_http     | 0.1.0   | omni_http     | 
+<a id="__codelineno-33-6" name="__codelineno-33-6" href="#__codelineno-33-6"></a> omni_httpd    | 0.1.0   | omni_httpd    | 
+<a id="__codelineno-33-7" name="__codelineno-33-7" href="#__codelineno-33-7"></a> omni_manifest | 0.1.0   | omni_manifest | 
+<a id="__codelineno-33-8" name="__codelineno-33-8" href="#__codelineno-33-8"></a> omni_types    | 0.1.0   | omni_types    | 
+<a id="__codelineno-33-9" name="__codelineno-33-9" href="#__codelineno-33-9"></a> plpgsql       | 1.0     | pg_catalog    | PL/pgSQL procedural language
+<a id="__codelineno-33-10" name="__codelineno-33-10" href="#__codelineno-33-10"></a>(5 rows)
+</code></pre></div>
+<h2 id="update-omnigres-extensions">Update omnigres extensions<a class="headerlink" href="#update-omnigres-extensions" title="Permanent link">&para;</a></h2>
+<p>To update extensions using <code>omni_manifest.install</code>
+please download newer version of the extension.</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-34-1" name="__codelineno-34-1" href="#__codelineno-34-1"></a><span class="c1"># download omni_httpd 0.2.0 along with its dependencies for update</span>
+<a id="__codelineno-34-2" name="__codelineno-34-2" href="#__codelineno-34-2"></a>$<span class="w"> </span>curl<span class="w"> </span>-s<span class="w"> </span>https://raw.githubusercontent.com/omnigres/omnigres/master/download-omnigres-extension.sh<span class="w"> </span><span class="p">|</span><span class="w"> </span>bash<span class="w"> </span>-s<span class="w"> </span>install<span class="w"> </span>omni_httpd<span class="w"> </span><span class="s2">&quot;0.2.0&quot;</span>
+<a id="__codelineno-34-3" name="__codelineno-34-3" href="#__codelineno-34-3"></a><span class="s1">&#39;/tmp/omni_httpd--0.2.0--untarred/omni_httpd--0.2.0.sql&#39;</span><span class="w"> </span>-&gt;<span class="w"> </span><span class="s1">&#39;/usr/share/postgresql/16/extension/omni_httpd--0.2.0.sql&#39;</span>
+<a id="__codelineno-34-4" name="__codelineno-34-4" href="#__codelineno-34-4"></a><span class="s1">&#39;/tmp/omni_httpd--0.2.0--untarred/omni_httpd--0.1.0--0.2.0.sql&#39;</span><span class="w"> </span>-&gt;<span class="w"> </span><span class="s1">&#39;/usr/share/postgresql/16/extension/omni_httpd--0.1.0--0.2.0.sql&#39;</span>
+<a id="__codelineno-34-5" name="__codelineno-34-5" href="#__codelineno-34-5"></a><span class="s1">&#39;/tmp/omni_httpd--0.2.0--untarred/omni_httpd--0.2.0.control&#39;</span><span class="w"> </span>-&gt;<span class="w"> </span><span class="s1">&#39;/usr/share/postgresql/16/extension/omni_httpd--0.2.0.control&#39;</span>
+<a id="__codelineno-34-6" name="__codelineno-34-6" href="#__codelineno-34-6"></a><span class="s1">&#39;/tmp/omni_httpd--0.2.0--untarred/lib/omni_httpd--0.2.0.so&#39;</span><span class="w"> </span>-&gt;<span class="w"> </span><span class="s1">&#39;/usr/lib/postgresql/16/lib/omni_httpd--0.2.0.so&#39;</span>
+<a id="__codelineno-34-7" name="__codelineno-34-7" href="#__codelineno-34-7"></a>
+<a id="__codelineno-34-8" name="__codelineno-34-8" href="#__codelineno-34-8"></a>The<span class="w"> </span>omni_manifest<span class="w"> </span>query<span class="w"> </span>to<span class="w"> </span>create<span class="w"> </span>the<span class="w"> </span>extension:
+<a id="__codelineno-34-9" name="__codelineno-34-9" href="#__codelineno-34-9"></a><span class="w">      </span><span class="k">select</span><span class="w"> </span>*
+<a id="__codelineno-34-10" name="__codelineno-34-10" href="#__codelineno-34-10"></a><span class="w">      </span>from
+<a id="__codelineno-34-11" name="__codelineno-34-11" href="#__codelineno-34-11"></a><span class="w">          </span>omni_manifest.install<span class="o">(</span><span class="s1">&#39;omni_httpd=0.2.0#omni_types=0.1.0,omni_http=0.1.0&#39;</span>::text::omni_manifest.artifact<span class="o">[])</span>
+</code></pre></div>
+<p>After the download of newer version, verify it's available:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-35-1" name="__codelineno-35-1" href="#__codelineno-35-1"></a><span class="c1">-- check the available omni_httpd versions</span>
+<a id="__codelineno-35-2" name="__codelineno-35-2" href="#__codelineno-35-2"></a><span class="k">select</span><span class="w"> </span><span class="o">*</span>
+<a id="__codelineno-35-3" name="__codelineno-35-3" href="#__codelineno-35-3"></a><span class="k">from</span>
+<a id="__codelineno-35-4" name="__codelineno-35-4" href="#__codelineno-35-4"></a><span class="w">    </span><span class="n">pg_available_extension_versions</span>
+<a id="__codelineno-35-5" name="__codelineno-35-5" href="#__codelineno-35-5"></a><span class="k">where</span>
+<a id="__codelineno-35-6" name="__codelineno-35-6" href="#__codelineno-35-6"></a><span class="w">    </span><span class="k">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;omni_httpd&#39;</span><span class="p">;</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-36-1" name="__codelineno-36-1" href="#__codelineno-36-1"></a>    name    | version | installed | superuser | trusted | relocatable |   schema   |        requires        | comment 
+<a id="__codelineno-36-2" name="__codelineno-36-2" href="#__codelineno-36-2"></a>------------+---------+-----------+-----------+---------+-------------+------------+------------------------+---------
+<a id="__codelineno-36-3" name="__codelineno-36-3" href="#__codelineno-36-3"></a> omni_httpd | 0.1.0   | t         | t         | f       | f           | omni_httpd | {omni_types,omni_http} | 
+<a id="__codelineno-36-4" name="__codelineno-36-4" href="#__codelineno-36-4"></a> omni_httpd | 0.2.0   | f         | t         | f       | f           | omni_httpd | {omni_types,omni_http} | 
+<a id="__codelineno-36-5" name="__codelineno-36-5" href="#__codelineno-36-5"></a>(2 rows)
+</code></pre></div>
+<p>Install the newer version of the extension using the <code>omni_manifest.install</code> query of the extension from the script output</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-37-1" name="__codelineno-37-1" href="#__codelineno-37-1"></a><span class="k">select</span><span class="w"> </span><span class="o">*</span>
+<a id="__codelineno-37-2" name="__codelineno-37-2" href="#__codelineno-37-2"></a><span class="k">from</span>
+<a id="__codelineno-37-3" name="__codelineno-37-3" href="#__codelineno-37-3"></a><span class="w">    </span><span class="n">omni_manifest</span><span class="mf">.</span><span class="n">install</span><span class="p">(</span><span class="s1">&#39;omni_httpd=0.2.0#omni_types=0.1.0,omni_http=0.1.0&#39;</span><span class="o">::</span><span class="nb">text</span><span class="o">::</span><span class="n">omni_manifest</span><span class="mf">.</span><span class="n">artifact</span><span class="p">[])</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-38-1" name="__codelineno-38-1" href="#__codelineno-38-1"></a>    requirement     |  status   
+<a id="__codelineno-38-2" name="__codelineno-38-2" href="#__codelineno-38-2"></a>--------------------+-----------
+<a id="__codelineno-38-3" name="__codelineno-38-3" href="#__codelineno-38-3"></a> (omni_http,0.1.0)  | kept
+<a id="__codelineno-38-4" name="__codelineno-38-4" href="#__codelineno-38-4"></a> (omni_types,0.1.0) | kept
+<a id="__codelineno-38-5" name="__codelineno-38-5" href="#__codelineno-38-5"></a> (omni_httpd,0.2.0) | updated
+<a id="__codelineno-38-6" name="__codelineno-38-6" href="#__codelineno-38-6"></a>(3 rows)
+</code></pre></div>
+<p>Verify omni_httpd is updated:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-39-1" name="__codelineno-39-1" href="#__codelineno-39-1"></a>postgres=# \dx
+<a id="__codelineno-39-2" name="__codelineno-39-2" href="#__codelineno-39-2"></a>                      List of installed extensions
+<a id="__codelineno-39-3" name="__codelineno-39-3" href="#__codelineno-39-3"></a>     Name      | Version |    Schema     |         Description          
+<a id="__codelineno-39-4" name="__codelineno-39-4" href="#__codelineno-39-4"></a>---------------+---------+---------------+------------------------------
+<a id="__codelineno-39-5" name="__codelineno-39-5" href="#__codelineno-39-5"></a> omni_http     | 0.1.0   | omni_http     | 
+<a id="__codelineno-39-6" name="__codelineno-39-6" href="#__codelineno-39-6"></a> omni_httpd    | 0.2.0   | omni_httpd    | 
+<a id="__codelineno-39-7" name="__codelineno-39-7" href="#__codelineno-39-7"></a> omni_manifest | 0.1.0   | omni_manifest | 
+<a id="__codelineno-39-8" name="__codelineno-39-8" href="#__codelineno-39-8"></a> omni_types    | 0.1.0   | omni_types    | 
+<a id="__codelineno-39-9" name="__codelineno-39-9" href="#__codelineno-39-9"></a> plpgsql       | 1.0     | pg_catalog    | PL/pgSQL procedural language
+<a id="__codelineno-39-10" name="__codelineno-39-10" href="#__codelineno-39-10"></a>(5 rows)
+</code></pre></div>
+<div class="admonition tip">
+<p class="admonition-title">Artifact format of extensions</p>
+<p>The artifact format of an extension can be copied from script output</p>
+</div>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+            Back to top
+          </button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["content.code.copy", "navigation.instant", "navigation.tracking", "navigation.expand", "navigation.top", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.208ed371.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.407015b8.min.js"></script>
+      
+    
+  <script>document$.subscribe(() => {const lightbox = GLightbox({"touchNavigation": true, "loop": false, "zoomable": true, "draggable": true, "openEffect": "zoom", "closeEffect": "zoom", "slideEffect": "slide"});})</script></body>
+</html>
