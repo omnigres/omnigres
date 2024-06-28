@@ -14,6 +14,13 @@ tests:
   results:
   - is_backend_initialized: true
 
+- name: omni is loaded once
+  query: select count(*)
+         from omni.modules
+         where path like '%/omni--%'
+  results:
+  - count: 1
+
 - name: module is automatically registered
   query: select
              count(*)
