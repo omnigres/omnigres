@@ -18,4 +18,4 @@ omni_var=0.1.0
 omni_vfs_types_v1=0.1.0
 omni_vfs=0.1.1
 omni_web=0.1.0
-omni_xml=0.1.0
+omni_xml=0.1.1
