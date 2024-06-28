@@ -143,6 +143,13 @@ bool omni_sql_is_valid(List *stmts, char **error) {
   ListCell *lc = NULL;
   bool valid = true;
   MemoryContext memory_context = CurrentMemoryContext;
+  // Don't call this hook during `parse_analyze_fixedparams`/`parse_analyze_varparams`
+  // We currently presume this to be non-critical to deciding on the validity of the query.
+  // Furthermore, currently, leaving this hook running makes `pg_stat_statements`'s hook
+  // fail an assertion.
+  post_parse_analyze_hook_type hook = post_parse_analyze_hook;
+  post_parse_analyze_hook = NULL;
+
   foreach (lc, stmts) {
     RawStmt *stmt = lfirst_node(RawStmt, lc);
     PG_TRY();
@@ -174,5 +181,6 @@ bool omni_sql_is_valid(List *stmts, char **error) {
     PG_END_TRY();
   }
 done:
+  post_parse_analyze_hook = hook;
   return valid;
 }

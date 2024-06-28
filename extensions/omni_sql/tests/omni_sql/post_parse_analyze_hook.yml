@@ -1,0 +1,18 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    # This introduces a post_parse_analyze hook
+    shared_preload_libraries: pg_stat_statements
+  init:
+  # For reproducing the bug
+  - create extension omni_httpd cascade
+
+tests:
+
+- name: try induce the bug
+  query: |
+    update omni_httpd.handlers
+    set query = $sql$
+    WITH plaintext AS (SELECT omni_httpd.http_response('Hello, World!', headers := ARRAY[omni_http.http_header('date', to_char(now(), 'Dy, DD Mon YYYY HH24:MI:SS OF'))]) FROM request WHERE request.path = '/plaintext') SELECT * FROM plaintext
+    $sql$
+  commit: true
