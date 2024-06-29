@@ -34,6 +34,8 @@ void procoid_syscache_callback(Datum arg, int cacheid, uint32 hashvalue) {
 
 extern void deinitialize_backend(int code, Datum arg);
 
+MODULE_VARIABLE(int ServerVersionNum);
+
 /**
  * Shared preload initialization.
  */
@@ -156,6 +158,14 @@ void _PG_init() {
 
   xact_oneshot_callbacks = NIL;
   after_xact_oneshot_callbacks = NIL;
+
+  ServerVersionNum = pg_strtoint32(GetConfigOption("server_version_num", false, false));
+
+  if (ServerVersionNum != PG_VERSION_NUM) {
+    ereport(WARNING, errmsg("omni has been compiled against %d.%d, but running on %d.%d",
+                            PG_VERSION_NUM / 10000, PG_VERSION_NUM % 100, ServerVersionNum / 10000,
+                            ServerVersionNum % 100));
+  }
 }
 
 /**

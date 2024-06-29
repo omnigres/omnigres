@@ -348,6 +348,21 @@ static omni_handle_private *load_module(const char *path,
           dsa_area *dsa = dsa_handle_to_area(shared_info->dsa);
           dsa_pointer ptr = dsa_allocate(dsa, sizeof(*handle));
           handle = (omni_handle_private *)dsa_get_address(dsa, ptr);
+          if (module_info->name != NULL) {
+            strncpy(NameStr(handle->module_info_name), module_info->name, NAMEDATALEN - 1);
+          } else {
+            NameStr(handle->module_info_name)[0] = 0;
+          }
+          if (module_info->version != NULL) {
+            strncpy(NameStr(handle->module_info_version), module_info->version, NAMEDATALEN - 1);
+          } else {
+            NameStr(handle->module_info_version)[0] = 0;
+          }
+          if (module_info->identity != NULL) {
+            strncpy(NameStr(handle->module_info_identity), module_info->identity, NAMEDATALEN - 1);
+          } else {
+            NameStr(handle->module_info_identity)[0] = 0;
+          }
           handle->magic = *magic;
           pg_atomic_init_u32(&handle->refcount, 0);
           pg_atomic_init_u64(&handle->switchboard, 0);
@@ -533,6 +548,14 @@ MODULE_FUNCTION void load_pending_modules() {
                   load_fn(&handle->handle);
                 }
               }
+            }
+
+            // Check the target Postgres version
+            if (handle->magic.revision >= 7 && handle->magic.pg_version != ServerVersionNum) {
+              ereport(WARNING,
+                      errmsg("omni has been compiled against %d.%d, but running on %d.%d",
+                             handle->magic.pg_version / 10000, handle->magic.pg_version % 100,
+                             ServerVersionNum / 10000, ServerVersionNum % 100));
             }
 
             void (*init_fn)(const omni_handle *) = dlsym(dlhandle, "_Omni_init");
