@@ -24,6 +24,8 @@
 
 #include "omni_common.h"
 
+#include "dshash_extras.h"
+
 PG_MODULE_MAGIC;
 OMNI_MAGIC;
 
@@ -81,8 +83,8 @@ MODULE_FUNCTION dsa_area *dsa_handle_to_area(dsa_handle handle) {
 static inline void initialize_omni_modules() {
   const dshash_parameters module_params = {.key_size = PATH_MAX,
                                            .entry_size = sizeof(ModuleEntry),
-                                           .hash_function = dshash_memhash,
-                                           .compare_function = dshash_memcmp,
+                                           .hash_function = dshash_string_hash,
+                                           .compare_function = dshash_strcmp,
                                            .tranche_id = OMNI_DSA_TRANCHE};
   const dshash_parameters allocation_params = {.key_size = sizeof(ModuleAllocationKey),
                                                .entry_size = sizeof(ModuleAllocation),
@@ -99,7 +101,6 @@ static inline void initialize_omni_modules() {
     shared_info->modules_tab = dshash_get_hash_table_handle(omni_modules);
     omni_allocations = dshash_create(dsa, &allocation_params, NULL);
     shared_info->allocations_tab = dshash_get_hash_table_handle(omni_allocations);
-    shared_info->dsa = dsa_get_handle(dsa);
   } else {
     // Otherwise, attach to it
     dsa_area *dsa_area = dsa_handle_to_area(shared_info->dsa);
@@ -201,9 +202,6 @@ static void register_lwlock(const omni_handle *handle, LWLock *lock, const char 
   // TODO: unused tranche id reuse
   int tranche_id = initialize ? LWLockNewTrancheId() : lock->tranche;
   LWLockRegisterTranche(tranche_id, name);
-  system(psprintf("syslog -s -k Facility com.apple.console -k Level notice -k Message 'omnigres "
-                  "register %d %p %d %s'",
-                  initialize, lock, tranche_id, name));
 
   if (initialize) {
     LWLockInitialize(lock, tranche_id);
@@ -340,6 +338,7 @@ static omni_handle_private *load_module(const char *path,
         LWLockAcquire(&(locks + OMNI_LOCK_MODULE)->lock, LW_EXCLUSIVE);
         bool found = false;
         ModuleEntry *entry = dshash_find_or_insert(omni_modules, path, &found);
+        //
         omni_handle_private *handle;
 
         if (!found) {

@@ -127,6 +127,7 @@ typedef struct {
   char name[NAMEDATALEN];
 } ModuleAllocationKey;
 
+// TODO/FIXME: use a better hash function
 StaticAssertDecl(sizeof(ModuleAllocationKey) == sizeof(int) + sizeof(char[NAMEDATALEN]),
                  "no padding for ease of hashing");
 
@@ -173,6 +174,9 @@ MODULE_FUNCTION void omni_check_password_hook(const char *username, const char *
 
 MODULE_FUNCTION void omni_executor_start_hook(QueryDesc *queryDesc, int eflags);
 
+MODULE_FUNCTION PlannedStmt *omni_planner_hook(Query *parse, const char *query_string,
+                                               int cursorOptions, ParamListInfo boundParams);
+
 MODULE_FUNCTION void omni_executor_run_hook(QueryDesc *queryDesc, ScanDirection direction,
                                             uint64 count, bool execute_once);
 
@@ -205,6 +209,10 @@ MODULE_FUNCTION void default_check_password_hook(omni_hook_handle *handle, const
                                                  bool validuntil_null);
 
 MODULE_FUNCTION void default_needs_fmgr(omni_hook_handle *handle, Oid fn_oid);
+
+MODULE_FUNCTION void default_planner(omni_hook_handle *handle, Query *parse,
+                                     const char *query_string, int cursorOptions,
+                                     ParamListInfo boundParams);
 
 MODULE_FUNCTION void default_executor_start(omni_hook_handle *handle, QueryDesc *queryDesc,
                                             int eflags);

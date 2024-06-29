@@ -1,0 +1,1 @@
+/*{% include "../src/assemble_schema.sql" %}*/

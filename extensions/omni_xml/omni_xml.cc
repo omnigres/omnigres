@@ -84,6 +84,6 @@ extern "C" {
 
 void _PG_init() { init(); }
 
-PG_FUNCTION_INFO_V1(xpath);
-Datum xpath(PG_FUNCTION_ARGS) { return xpath_impl(fcinfo); }
+PG_FUNCTION_INFO_V1(xpath_fn);
+Datum xpath_fn(PG_FUNCTION_ARGS) { return xpath_impl(fcinfo); }
 }

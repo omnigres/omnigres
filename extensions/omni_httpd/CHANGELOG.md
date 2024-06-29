@@ -12,20 +12,20 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * omni_httpd may crash under certain circumstances during early
   startup [#551](https://github.com/omnigres/omnigres/pull/551), [#556](https://github.com/omnigres/omnigres/pull/556)
 
-## [0.1.2] - 2023-04-07
+## [0.1.2] - 2024-04-07
 
 ### Fixed
 
 * When multiple listeners are present, some listeners may have become
   unresponsive. [#545](https://github.com/omnigres/omnigres/pull/545)
 
-## [0.1.1] - 2023-03-22
+## [0.1.1] - 2024-03-22
 
 ### Changed
 
 * Minimum required Omni interface version is 0G (implemented in omni 0.1.1)
 
-## [0.1.0] - 2023-03-05
+## [0.1.0] - 2024-03-05
 
 Initial release following a few months of iterative development.
 

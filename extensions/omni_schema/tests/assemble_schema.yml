@@ -1,0 +1,282 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_schema cascade
+    - create database test
+
+tests:
+  - name: schema ordering with sql and py files in a directory
+    tests:
+      - name: prepare schema directory
+        commit: true
+        query: |
+          do
+          $$
+              declare
+                  rec      record;
+                  local_fs omni_vfs.local_fs = omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/omni_python');
+                  table_fs omni_vfs.table_fs = omni_vfs.table_fs('python_and_sql_files');
+              begin
+                  -- insert all python files to a table_fs
+                  for rec in select *,
+                                    omni_vfs.read(local_fs, name) as contents
+                             from
+                                 omni_vfs.list_recursively(local_fs, '')
+                             where
+                                 kind = 'file'
+                      loop
+                          insert
+                          into
+                              omni_vfs.table_fs_files(filesystem_id, filename, kind)
+                          values (table_fs.id, rec.name, 'file');
+                          insert
+                          into
+                              omni_vfs.table_fs_file_data (file_id, data)
+                          values (omni_vfs.table_fs_file_id(table_fs, rec.name), rec.contents);
+                      end loop;
+                  -- create omni_python extension in sql script
+                  insert
+                  into
+                      omni_vfs.table_fs_files(filesystem_id, filename, kind)
+                  values (table_fs.id, 'extensions.sql', 'file');
+                  insert
+                  into
+                      omni_vfs.table_fs_file_data (file_id, data)
+                  values
+                      (omni_vfs.table_fs_file_id(table_fs, 'extensions.sql'), $text$
+                  create extension omni_python cascade;
+          
+                  insert
+                  into
+                  omni_python.config (name, value)
+                  values
+                  ('pip_find_links', '../../../python-wheels'),
+                  ('site_packages', 'omni_schema_test');
+                  
+                  select omni_python.install_requirements('omni_python');
+                  $text$::bytea);
+              end;
+          $$ language plpgsql
+      - name: schema ordering
+        query: with
+                   conn(port) as (select setting from pg_settings where name = 'port'),
+                   results as (select
+                                   (omni_schema.assemble_schema(
+                                           'dbname=test user=yregress host=localhost port=' || port,
+                                           omni_vfs.table_fs('python_and_sql_files')
+                                    )).*
+                               from
+                                   conn)
+               select
+                   migration_filename,
+                   execution_position,
+                   execution_error
+               from
+                   results
+               order by
+                   execution_position
+        results:
+          - migration_filename: /extensions.sql
+            execution_position: 1
+            execution_error: null
+          - migration_filename: /extensions.sql
+            execution_position: 2
+            execution_error: null
+          - migration_filename: /extensions.sql
+            execution_position: 3
+            execution_error: null
+          - migration_filename: /foo.py
+            execution_position: 4
+            execution_error: null
+          - migration_filename: /module1/__init__.py
+            execution_position: 5
+            execution_error: null
+          - migration_filename: /module1/submod.py
+            execution_position: 6
+            execution_error: null
+          - migration_filename: /requirements.txt
+            execution_position: 7
+            execution_error: null
+          - migration_filename: /test.py
+            execution_position: 8
+            execution_error: null
+          - migration_filename: /a_load_time_test.py
+            execution_position: 9
+            execution_error: null
+          - migration_filename: /another_module.py
+            execution_position: 10
+            execution_error: null
+
+      - name: dblink connections is cleaned up
+        query: select dblink_get_connections() is null as no_connections
+        results:
+          - no_connections: true
+
+      # omni_python integration
+      - query: select fun1('test')
+        database: test
+        results:
+          - fun1: 4
+      - query: select fun2('test')
+        database: test
+        results:
+          - fun2: tset
+      - name: loaded `another_module`
+        database: test
+        query: select fun3()
+        results:
+          - fun3: another module
+      - name: loaded `module1`
+        database: test
+        query: select fun4()
+        results:
+          - fun4: module1
+      - name: loaded `module1.submod`
+        database: test
+        query: select fun5()
+        results:
+          - fun5: submod
+      # requirements.txt-dependant code
+      - query: |
+          select
+              add(
+                      '-539980584635519517644606174820023097370977572779217236866897631496501.40991196066825563084376519821275241099',
+                      '539980584635519517644606174820023097370977572779217236866897631496501.40991196066825563084376519821275241099')
+        database: test
+        results:
+          - add: 0
+      # Generic language support
+      - query: select foo(3)
+        database: test
+        results:
+          - foo: true
+
+      - name: call a function that uses an imported module
+        database: test
+        query: select fun5()
+        results:
+          - fun5: submod
+
+      - name: call a function that uses an imported module on a reset connection
+        database: test
+        reset: true
+        query: select fun5()
+        results:
+          - fun5: submod
+
+  - name: schema ordering with sql files in a directory
+    tests:
+      - name: prepare schema directory
+        commit: true
+        query: |
+          do
+          $$
+              declare
+                  table_fs omni_vfs.table_fs = omni_vfs.table_fs('sql_files');
+              begin
+                  -- create couple of sql files
+                  insert
+                  into
+                      omni_vfs.table_fs_files(filesystem_id, filename, kind)
+                  values
+                      (table_fs.id, 'product.sql', 'file'),
+                      (table_fs.id, 'order.sql', 'file');
+                  insert
+                  into
+                      omni_vfs.table_fs_file_data (file_id, data)
+                  values
+                      (omni_vfs.table_fs_file_id(table_fs, 'product.sql'),
+                       $text$
+                    create table products
+                    (
+                    id   int primary key,
+                    name text
+                    );
+                    
+                    insert
+                    into
+                    products
+                    values
+                    (1, 'bat');
+                    
+                    insert
+                    into
+                    products
+                    values
+                    (2, 'ball');
+                  $text$::bytea),
+                      (omni_vfs.table_fs_file_id(table_fs, 'order.sql'),
+                       $text$
+                    create table orders
+                    (
+                    id         int primary key,
+                    product_id int references products (id)
+                    );
+                    
+                    insert
+                    into
+                    orders
+                    values
+                    (1, 1);
+                  $text$::bytea);
+              
+              end;
+          $$ language plpgsql
+      - name: schema ordering
+        query: with
+                   conn(port) as (select setting from pg_settings where name = 'port'),
+                   results as (select
+                                   (omni_schema.assemble_schema(
+                                           'dbname=test user=yregress host=localhost port=' || port,
+                                           omni_vfs.table_fs('sql_files')
+                                    )).*
+                               from
+                                   conn)
+               select
+                   migration_filename,
+                   execution_position,
+                   execution_error
+               from
+                   results
+               order by
+                   execution_position
+        results:
+          - migration_filename: /product.sql
+            execution_position: 1
+            execution_error: null
+          - migration_filename: /product.sql
+            execution_position: 2
+            execution_error: null
+          - migration_filename: /product.sql
+            execution_position: 3
+            execution_error: null
+          - migration_filename: /order.sql
+            execution_position: 4
+            execution_error: null
+          - migration_filename: /order.sql
+            execution_position: 5
+            execution_error: null
+
+      - name: test product data
+        database: test
+        query: select *
+               from
+                   products
+               order by
+                   id
+        results:
+          - id: 1
+            name: bat
+          - id: 2
+            name: ball
+
+      - name: test order data
+        database: test
+        query: select *
+               from
+                   orders
+               order by
+                   id
+        results:
+          - id: 1
+            product_id: 1
