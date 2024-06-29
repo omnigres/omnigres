@@ -10,6 +10,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 * Additional metadata information in `omni.modules`  [#574](https://github.com/omnigres/omnigres/pull/574)
+* Warn if omni-enabled module has been built against a different major/minor version of Postgres.
+  Differences between minor versions may present subtle
+  incompatibilities. [#573](https://github.com/omnigres/omnigres/pull/573)
 
 ## [0.1.4] - 2023-06-28
 
