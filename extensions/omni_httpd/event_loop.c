@@ -222,8 +222,11 @@ void *event_loop(void *arg) {
   while (running) {
     if (event_loop_suspended) {
       pthread_mutex_lock(&event_loop_mutex);
-      while (event_loop_suspended) {
+      while (event_loop_suspended && atomic_load(&worker_running)) {
         pthread_cond_wait(&event_loop_resume_cond, &event_loop_mutex);
+      }
+      if (!atomic_load(&worker_running)) {
+        return NULL;
       }
       event_loop_resumed = true;
       pthread_cond_signal(&event_loop_resume_cond_ack);

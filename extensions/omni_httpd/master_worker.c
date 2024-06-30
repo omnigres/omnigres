@@ -540,9 +540,9 @@ terminate:
     pg_atomic_write_u32(semaphore, 0);
     c_FOREACH(i, cvec_bgwhandle, http_workers) {
       pid_t pid;
-      if (GetBackgroundWorkerPid(*i.ref, &pid) == BGWH_STARTED) {
-        kill(pid, SIGTERM);
-      }
+      GetBackgroundWorkerPid(*i.ref, &pid);
+      TerminateBackgroundWorker(*i.ref);
+      WaitForBackgroundWorkerShutdown(*i.ref);
     }
   }
   ereport(LOG, errmsg("Terminated omni_httpd"));
