@@ -4,6 +4,7 @@
 // clang-format on
 #include <access/heapam.h>
 #include <access/table.h>
+#include <catalog/pg_extension.h>
 #include <catalog/pg_language.h>
 #include <catalog/pg_proc.h>
 #include <commands/user.h>
@@ -43,6 +44,7 @@ MODULE_VARIABLE(omni_handle_private *module_handles);
 MODULE_VARIABLE(LWLockPadded *locks);
 
 static TupleDesc pg_proc_tuple_desc;
+static TupleDesc pg_extension_tuple_desc;
 MODULE_VARIABLE(List *initialized_modules);
 
 MODULE_VARIABLE(int OMNI_DSA_TRANCHE);
@@ -172,6 +174,13 @@ static bool ensure_backend_initialized(void) {
     // Get `pg_proc` TupleDesc
     Relation rel = table_open(ProcedureRelationId, AccessShareLock);
     pg_proc_tuple_desc = RelationGetDescr(rel);
+    table_close(rel, AccessShareLock);
+  }
+
+  {
+    // Get `pg_extension` TupleDesc
+    Relation rel = table_open(ExtensionRelationId, AccessShareLock);
+    pg_extension_tuple_desc = RelationGetDescr(rel);
     table_close(rel, AccessShareLock);
   }
 
@@ -447,35 +456,37 @@ static omni_handle_private *load_module(const char *path,
   return result;
 }
 
-static List *consider_probin(HeapTuple tp) {
-  Form_pg_proc proc = (Form_pg_proc)GETSTRUCT(tp);
+static List *consider_ext(HeapTuple tp) {
+  Form_pg_extension ext = (Form_pg_extension)GETSTRUCT(tp);
   List *loaded = NIL;
-  if (proc->prolang == ClanguageId) {
-    // If it is a module implemented in C, we can start looking into whether this is an Omni module
-    bool isnull;
-    Datum probin = heap_getattr(tp, Anum_pg_proc_probin, pg_proc_tuple_desc, &isnull);
-    if (!isnull) {
-      char *path = substitute_libpath_macro(text_to_cstring(DatumGetTextPP(probin)));
-      char key[PATH_MAX] = {0};
-      strcpy(key, path);
-      pfree(path);
+  bool isnull;
+  Datum extver_datum =
+      heap_getattr(tp, Anum_pg_extension_extversion, pg_extension_tuple_desc, &isnull);
+  if (!isnull) {
+    char *extver = text_to_cstring(DatumGetTextPP(extver_datum));
+    char *pathname = get_extension_module_pathname(NameStr(ext->extname), extver);
+    if (pathname == NULL) {
+      return loaded;
+    }
+    char *path = substitute_libpath_macro(pathname);
+    char key[PATH_MAX] = {0};
+    strcpy(key, path);
+    pfree(path);
 
-      bool warning_on_omni_mismatch = true;
+    bool warning_on_omni_mismatch = true;
+    // If the tuple is added in current transaction, if the version is mismatched, it should
+    // be an error, otherwise, a warning.
+    //
+    // Otherwise, it is impossible to successfully load previously-installed version to proceed
+    // further to upgrade to the correct version.
+    if (TransactionIdIsValid(GetCurrentTransactionIdIfAny()) &&
+        TransactionIdEquals(HeapTupleHeaderGetXmin(tp->t_data), GetCurrentTransactionIdIfAny())) {
+      warning_on_omni_mismatch = false;
+    }
 
-      // If the tuple is added in current transaction, if the version is mismatched, it should
-      // be an error, otherwise, a warning.
-      //
-      // Otherwise, it is impossible to successfully load previously-installed version to proceed
-      // further to upgrade to the correct version.
-      if (TransactionIdIsValid(GetCurrentTransactionIdIfAny()) &&
-          TransactionIdEquals(HeapTupleHeaderGetXmin(tp->t_data), GetCurrentTransactionIdIfAny())) {
-        warning_on_omni_mismatch = false;
-      }
-
-      omni_handle_private *handle = load_module(key, warning_on_omni_mismatch);
-      if (handle != NULL) {
-        loaded = list_append_unique_ptr(loaded, handle);
-      }
+    omni_handle_private *handle = load_module(key, warning_on_omni_mismatch);
+    if (handle != NULL) {
+      loaded = list_append_unique_ptr(loaded, handle);
     }
   }
   return loaded;
@@ -485,22 +496,25 @@ MODULE_FUNCTION void load_pending_modules() {
   if (!ensure_backend_initialized()) {
     return;
   }
-
   if (IsTransactionState() && backend_force_reload) {
     backend_force_reload = false;
-    Relation rel = table_open(ProcedureRelationId, RowExclusiveLock);
-    TableScanDesc scan = table_beginscan_catalog(rel, 0, NULL);
     List *loaded_modules = NIL;
-    for (;;) {
-      HeapTuple tup = heap_getnext(scan, ForwardScanDirection);
-      if (tup == NULL)
-        break;
-      loaded_modules = list_concat_unique_ptr(loaded_modules, consider_probin(tup));
+
+    {
+      // Consider pg_extension
+      Relation rel = table_open(ExtensionRelationId, RowExclusiveLock);
+      TableScanDesc scan = table_beginscan_catalog(rel, 0, NULL);
+      for (;;) {
+        HeapTuple tup = heap_getnext(scan, ForwardScanDirection);
+        if (tup == NULL)
+          break;
+        loaded_modules = list_concat_unique_ptr(loaded_modules, consider_ext(tup));
+      }
+      if (scan->rs_rd->rd_tableam->scan_end) {
+        scan->rs_rd->rd_tableam->scan_end(scan);
+      }
+      table_close(rel, RowExclusiveLock);
     }
-    if (scan->rs_rd->rd_tableam->scan_end) {
-      scan->rs_rd->rd_tableam->scan_end(scan);
-    }
-    table_close(rel, RowExclusiveLock);
 
     static omni_handle_private *self = NULL;
     {

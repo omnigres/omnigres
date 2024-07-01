@@ -13,6 +13,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Warn if omni-enabled module has been built against a different major/minor version of Postgres.
   Differences between minor versions may present subtle
   incompatibilities. [#573](https://github.com/omnigres/omnigres/pull/573)
+* Support for function-less native extensions [#586](https://github.com/omnigres/omnigres/pull/586)
 
 ## [0.1.5] - 2024-09-27
 

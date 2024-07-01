@@ -28,10 +28,6 @@ static shmem_startup_hook_type saved_shmem_startup_hook;
 static void shmem_request();
 static void shmem_hook();
 
-void procoid_syscache_callback(Datum arg, int cacheid, uint32 hashvalue) {
-  backend_force_reload = true;
-}
-
 extern void deinitialize_backend(int code, Datum arg);
 
 MODULE_VARIABLE(int ServerVersionNum);
@@ -146,10 +142,6 @@ void _PG_init() {
     RegisterBackgroundWorker(&master_worker);
   }
 
-  // This function may result in a FATAL error if we hit the limit of
-  // syscache callbacks (`MAX_SYSCACHE_CALLBACKS`, 64). However, since we're in
-  // postmaster: 1) it is okay to crash here 2) it is much less likely to happen at this time.
-  CacheRegisterSyscacheCallback(PROCOID, procoid_syscache_callback, Int8GetDatum(0));
   backend_force_reload = true;
 
   OmniGUCContext = AllocSetContextCreate(TopMemoryContext, "omni:guc", ALLOCSET_DEFAULT_SIZES);
