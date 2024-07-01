@@ -1,0 +1,14 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+  init:
+  # We create the extension here
+  - create extension no_fun
+
+tests:
+
+- name: _Omni_init() gets called
+  query: select *
+         from no_fun
+  results: [ ]
