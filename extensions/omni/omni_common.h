@@ -273,4 +273,5 @@ DECLARE_MODULE_VARIABLE(List *after_xact_oneshot_callbacks);
 
 DECLARE_MODULE_VARIABLE(int32 ServerVersionNum);
 
+MODULE_FUNCTION char *get_extension_module_pathname(const char *name, const char *version);
 #endif // OMNI_COMMON_H
