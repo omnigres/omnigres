@@ -1,0 +1,89 @@
+$schema: "../policy-schema.json"
+name: Simple policy
+version: !!str 1.0
+
+description: |
+  Schema as follows:
+  
+  ```sql
+  create table users (
+      id integer primary key generated always as identity,
+      name text not null,
+      email text not null unique,
+      locked bool not null default false
+  );
+  
+  create table products (
+      id integer primary key generated always as identity,
+      name text not null,
+      listed boolean not null default false
+  );
+  
+  create table products_owners (
+     product_id integer not null references products (id),
+     user_id integer not null references users (id)
+  );
+  
+  create or replace function current_user_role() returns text language 'sql' as $$ select 'registered_user'$$;
+  create or replace function current_user_privileged() returns boolean language 'sql' as $$ select false $$;
+  ```
+  
+  Some test data:
+  
+  ```sql
+  with new_users as (insert into users (name,email) values ('Alice', 'alice@foobar.com'), ('Bob', 'bob@foobar.com') returning id, name),
+       new_products as (insert into products (name, listed) values ('Quantum computer', false), ('Bar of soap', false), ('Car', true) returning id, name)
+    insert into products_owners (product_id, user_id) values ((select id from new_products where name = 'Quantum computer'), (select id from new_users where name = 'Alice'));   
+  ```
+  
+  Note user ID and create a function:
+  
+  ```
+  create or replace function current_user_id() returns integer language 'sql' as $$ select 1$$;
+  ```
+
+roles:
+  api: API role
+ 
+attributes:
+  current_user_role: current_user_role()
+  current_user_priviliged: current_user_priviliged()
+
+relations:
+  users:
+    columns: [email, name]
+  products:
+    joins:
+      products_owners:
+        "on": products_owners.product_id = products.id
+    columns: [name]
+  
+scopes:
+  Registered users:
+    roles: api
+    attributes:
+      current_user_role: registered_user
+    relations:
+      users:
+        operations: [select]
+        where: id = current_user_id()
+        rules:
+          Can only see their own records:
+            when: true
+          Can update their own records:
+            operations: [update]
+            when: true
+            except:
+              when profile is locked:
+                when: locked
+      products:
+        operations: [select]
+        rules:
+          Can see listed products:
+            when: listed
+          Can see products they own:
+            joins: [products_owners]
+            when: products_owners.user_id = current_user_id()
+    scopes:
+      Privileged users:
+        current_user_priviliged: true
