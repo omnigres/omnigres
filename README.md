@@ -209,7 +209,7 @@ To build and run Omnigres, you would need:
 ```shell
 cmake -S . -B build
 cmake --build build --parallel
-make psql_<COMPONENT_NAME> # for example, `psql_omni_containers`
+make -j psql_<COMPONENT_NAME> # for example, `psql_omni_containers`
 ```
 
 ### Troubleshooting
