@@ -511,15 +511,34 @@ void master_worker(Datum db_oid) {
       strncpy(worker.bgw_library_name, MyBgworkerEntry->bgw_library_name, BGW_MAXLEN - 1);
       for (int i = 0; i < *num_http_workers; i++) {
         BackgroundWorkerHandle *handle;
-        RegisterDynamicBackgroundWorker(&worker, &handle);
-        pid_t worker_pid;
-        if (WaitForBackgroundWorkerStartup(handle, &worker_pid) == BGWH_POSTMASTER_DIED) {
-          goto terminate;
+        if (RegisterDynamicBackgroundWorker(&worker, &handle)) {
+          pid_t worker_pid;
+          BgwHandleStatus status = WaitForBackgroundWorkerStartup(handle, &worker_pid);
+
+          switch (status) {
+          case BGWH_POSTMASTER_DIED:
+            goto terminate;
+          case BGWH_STARTED: {
+            cvec_bgwhandle_push(&http_workers, handle);
+            break;
+          }
+          default:
+            ereport(ERROR, (errcode(ERRCODE_INSUFFICIENT_RESOURCES),
+                            errmsg("Could not start %s", worker.bgw_name)));
+          }
+        } else {
+          ereport(WARNING, errcode(ERRCODE_INSUFFICIENT_RESOURCES),
+                  errmsg("Could not start %s", worker.bgw_name),
+                  errdetail("omni_httpd.http_workers = %d is higher than max_worker_processes = %d",
+                            *num_http_workers, max_worker_processes),
+                  errhint("Consider increasing max_worker_processes"));
         }
-        cvec_bgwhandle_push(&http_workers, handle);
       }
+
       // Ensure all workers have indeed started their loops
       uint32 expected = cvec_bgwhandle_size(&http_workers);
+      ereport(LOG, errmsg("Started %d omni_httpd workers", expected));
+
       while (!pg_atomic_compare_exchange_u32(semaphore, &expected, 0)) {
         expected = cvec_bgwhandle_size(&http_workers);
         HandleMainLoopInterrupts();

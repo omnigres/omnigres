@@ -166,6 +166,11 @@ void _Omni_init(const omni_handle *handle) {
 #ifdef _SC_NPROCESSORS_ONLN
   default_num_http_workers = sysconf(_SC_NPROCESSORS_ONLN);
 #endif
+  // considering the omni_httpd master worker and the "omni startup" worker used by omni TODO:
+  // revisit once omni_workers is set.
+  int threshold = max_worker_processes - 2;
+  if (default_num_http_workers > threshold)
+    default_num_http_workers = threshold;
 
   omni_guc_variable guc_num_http_workers = {
       .name = "omni_httpd.http_workers",
