@@ -1,0 +1,24 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_sql cascade
+
+tests:
+
+- query: select omni_sql.execute_statement($$SELECT 1;$$, 'ERROR') as results;
+  error: "Invalid statement return type ERROR. Expecting one of {command, query}"
+
+- query: select omni_sql.execute_statement($$SELECT 1 as "number";$$, 'query') as results;
+  results:
+    - results : [{"number": 1}]
+
+- query: select omni_sql.execute_statement($$CREATE TEMPORARY TABLE tbl_test AS SELECT i FROM generate_series(1, 10) i; $$, 'command') as results;
+  results:
+    - results: 0 rows affected.
+
+- query: select omni_sql.execute_statement($$SELECT 1 as "number";$$, 'command') as results;
+  results:
+    - results: 0 rows affected.
+
+- query: select omni_sql.execute_statement($$CREATE TEMPORARY TABLE tbl_test AS SELECT i FROM generate_series(1, 10) i; $$, 'query') as results;
+  error: Statement return type should have been 'command' instead of 'query'.
