@@ -80,16 +80,27 @@ static void on_message(h2o_multithread_receiver_t *receiver, h2o_linklist_t *mes
   }
 }
 
-static void sigusr2() {
-  atomic_store(&worker_reload, true);
+volatile static bool sig_message_handlers_ready = false;
+
+static inline void notify_handler_receivers() {
   h2o_multithread_send_message(&event_loop_receiver, NULL);
   h2o_multithread_send_message(&handler_receiver, NULL);
+}
+static void sigusr2() {
+  atomic_store(&worker_reload, true);
+  if (sig_message_handlers_ready) {
+    notify_handler_receivers();
+  }
 }
 
 static void sigterm() {
   atomic_store(&worker_running, false);
-  h2o_multithread_send_message(&event_loop_receiver, NULL);
-  h2o_multithread_send_message(&handler_receiver, NULL);
+  if (atomic_is_lock_free(&worker_running)) {
+    __atomic_signal_fence(memory_order_seq_cst);
+  }
+  if (sig_message_handlers_ready) {
+    notify_handler_receivers();
+  }
 }
 
 /**
@@ -116,12 +127,13 @@ void http_worker(Datum db_oid) {
   atomic_store(&worker_running, true);
   atomic_store(&worker_reload, true);
 
-  // We call this before we unblock the signals as necessitated by the implementation
-  setup_server();
-
+  // Let's do this as early as possible
   // Block signals except for SIGUSR2 and SIGTERM
   pqsignal(SIGUSR2, sigusr2); // used to reload configuration
   pqsignal(SIGTERM, sigterm); // used to terminate the worker
+  BackgroundWorkerUnblockSignals();
+
+  setup_server();
 
   // Start thread that will be servicing `worker_event_loop` and handling all
   // communication with the outside world. Current thread will be responsible for
@@ -130,11 +142,14 @@ void http_worker(Datum db_oid) {
   event_loop_suspended = true;
 
   // This MUST happen before starting event_loop
-  // AND before unblocking signals as signals use this receiver
   event_loop_register_receiver();
   pthread_create(&event_loop_thread, NULL, event_loop, NULL);
-
-  BackgroundWorkerUnblockSignals();
+  sig_message_handlers_ready = true;
+  // In case we were already asked to terminate, notify the receivers
+  // for them to catch up
+  if (!atomic_load(&worker_running)) {
+    notify_handler_receivers();
+  }
 
   // Connect worker to the database
   BackgroundWorkerInitializeConnectionByOid(db_oid, InvalidOid, 0);
@@ -565,7 +580,6 @@ static h2o_pathconf_t *register_handler(h2o_hostconf_t *hostconf, const char *pa
   return pathconf;
 }
 
-// This must happen BEFORE signals are unblocked because of handler_receiver setup
 static void setup_server() {
   h2o_hostconf_t *hostconf;
 
@@ -581,7 +595,6 @@ static void setup_server() {
   handler_event_loop = h2o_evloop_create();
   handler_queue = h2o_multithread_create_queue(handler_event_loop);
 
-  // This must happen BEFORE signals are unblocked
   h2o_multithread_register_receiver(handler_queue, &handler_receiver, on_message);
 
   h2o_pathconf_t *pathconf = register_handler(hostconf, "/", event_loop_req_handler);
