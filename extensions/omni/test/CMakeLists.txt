@@ -35,7 +35,18 @@ add_postgresql_extension(
         TESTS OFF)
 
 
+add_postgresql_extension(
+        no_fun
+        SCHEMA omni_test
+        PRIVATE ON
+        RELOCATABLE false
+        SOURCES no_fun.c
+        TESTS_REQUIRE omni
+        VERSION 1)
+
+
 target_link_libraries(omni_test libomni)
 target_link_libraries(omni_test_v2 libomni)
+target_link_libraries(no_fun libomni)
 
 #add_dependencies(omni_test omni)
