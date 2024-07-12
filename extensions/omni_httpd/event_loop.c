@@ -210,6 +210,13 @@ void event_loop_register_receiver() {
 }
 
 void *event_loop(void *arg) {
+  {
+    sigset_t BlockSig;
+    sigemptyset(&BlockSig);
+    sigfillset(&BlockSig);
+    pthread_sigmask(SIG_SETMASK, &BlockSig, NULL);
+  }
+
   assert(worker_event_loop != NULL);
   assert(handler_queue != NULL);
   assert(event_loop_queue != NULL);

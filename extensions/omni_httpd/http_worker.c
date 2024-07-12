@@ -80,16 +80,27 @@ static void on_message(h2o_multithread_receiver_t *receiver, h2o_linklist_t *mes
   }
 }
 
-static void sigusr2() {
-  atomic_store(&worker_reload, true);
+volatile static bool sig_message_handlers_ready = false;
+
+static inline void notify_handler_receivers() {
   h2o_multithread_send_message(&event_loop_receiver, NULL);
   h2o_multithread_send_message(&handler_receiver, NULL);
+}
+static void sigusr2() {
+  atomic_store(&worker_reload, true);
+  if (sig_message_handlers_ready) {
+    notify_handler_receivers();
+  }
 }
 
 static void sigterm() {
   atomic_store(&worker_running, false);
-  h2o_multithread_send_message(&event_loop_receiver, NULL);
-  h2o_multithread_send_message(&handler_receiver, NULL);
+  if (atomic_is_lock_free(&worker_running)) {
+    __atomic_signal_fence(memory_order_seq_cst);
+  }
+  if (sig_message_handlers_ready) {
+    notify_handler_receivers();
+  }
 }
 
 /**
@@ -116,12 +127,13 @@ void http_worker(Datum db_oid) {
   atomic_store(&worker_running, true);
   atomic_store(&worker_reload, true);
 
-  setup_server();
-
+  // Let's do this as early as possible
   // Block signals except for SIGUSR2 and SIGTERM
   pqsignal(SIGUSR2, sigusr2); // used to reload configuration
   pqsignal(SIGTERM, sigterm); // used to terminate the worker
   BackgroundWorkerUnblockSignals();
+
+  setup_server();
 
   // Start thread that will be servicing `worker_event_loop` and handling all
   // communication with the outside world. Current thread will be responsible for
@@ -129,8 +141,15 @@ void http_worker(Datum db_oid) {
   pthread_t event_loop_thread;
   event_loop_suspended = true;
 
-  event_loop_register_receiver(); // This MUST happen before starting event_loop
+  // This MUST happen before starting event_loop
+  event_loop_register_receiver();
   pthread_create(&event_loop_thread, NULL, event_loop, NULL);
+  sig_message_handlers_ready = true;
+  // In case we were already asked to terminate, notify the receivers
+  // for them to catch up
+  if (!atomic_load(&worker_running)) {
+    notify_handler_receivers();
+  }
 
   // Connect worker to the database
   BackgroundWorkerInitializeConnectionByOid(db_oid, InvalidOid, 0);
@@ -351,8 +370,8 @@ void http_worker(Datum db_oid) {
               Form_pg_authid rform = (Form_pg_authid)GETSTRUCT(roleTup);
               role_id = rform->oid;
               role_superuser = rform->rolsuper;
+              ReleaseSysCache(roleTup);
             }
-            ReleaseSysCache(roleTup);
           }
 
           const cvec_fd_fd_value *fd = cvec_fd_fd_at(&fds, index);
@@ -575,6 +594,7 @@ static void setup_server() {
   // Set up event loop for request handler loop
   handler_event_loop = h2o_evloop_create();
   handler_queue = h2o_multithread_create_queue(handler_event_loop);
+
   h2o_multithread_register_receiver(handler_queue, &handler_receiver, on_message);
 
   h2o_pathconf_t *pathconf = register_handler(hostconf, "/", event_loop_req_handler);
