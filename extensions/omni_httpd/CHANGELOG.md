@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.3] - TBD
+
+### Fixed
+
+* omni_httpd may crash under certain circumstances during early
+  startup [#551](https://github.com/omnigres/omnigres/pull/551), [#556](https://github.com/omnigres/omnigres/pull/556)
+
+* omni_httpd master and its workers loop infinitely when postgres `max_worker_processes` is less than `omni_httpd.http_workers`.
+  [#587](https://github.com/omnigres/omnigres/pull/587).
+
 ## [0.1.2] - 2024-04-07
 
 ### Fixed
@@ -29,3 +39,5 @@ Initial release following a few months of iterative development.
 [0.1.1]: [https://github.com/omnigres/omnigres/pull/522]
 
 [0.1.2]: [https://github.com/omnigres/omnigres/pull/544]
+
+[0.1.3]: [https://github.com/omnigres/omnigres/pull/550]
