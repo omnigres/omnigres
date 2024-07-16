@@ -238,9 +238,21 @@ rm -rf .pg build
 
 ### Running tests
 
+To run all the tests:
+
 ```shell
 # in the build directory
 CTEST_PARALLEL_LEVEL=$(nproc) make -j $(nproc) all test
 ```
+
+While developing, it is useful to be able to run the tests for the
+extension you are working on. To do this and output the failures, do
+this (omni_sql is used here as an example of an extension):
+
+```shell
+# in the build directory
+CTEST_PARALLEL_LEVEL=$(nproc) ctest --output-on-failure -R omni_sql
+```
+
 
 [Discord]: https://discord.omnigr.es

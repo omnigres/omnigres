@@ -14,11 +14,11 @@ tests:
 
 - query: select omni_sql.execute_statement($$CREATE TEMPORARY TABLE tbl_test AS SELECT i FROM generate_series(1, 10) i; $$, 'command') as results;
   results:
-    - results: 0 rows affected.
+    - results: 10 rows affected.
 
 - query: select omni_sql.execute_statement($$SELECT 1 as "number";$$, 'command') as results;
   results:
-    - results: 0 rows affected.
+    - results: 1 rows affected.
 
 - query: select omni_sql.execute_statement($$CREATE TEMPORARY TABLE tbl_test AS SELECT i FROM generate_series(1, 10) i; $$, 'query') as results;
   error: Statement return type should have been 'command' instead of 'query'.
