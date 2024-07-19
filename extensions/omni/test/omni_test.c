@@ -18,6 +18,7 @@
 #endif
 
 #include <omni/omni_v0.h>
+#include <sys/mman.h>
 
 #include "hooks.h"
 
@@ -41,6 +42,7 @@ void run_hook_fn(omni_hook_handle *handle, QueryDesc *queryDesc, ScanDirection d
 
 #define GLOBAL_WORKER_STARTED 1 << 0
 #define LOCK_REGISTRATION 1 << 1
+#define MEMORY_RESERVATION 1 << 2
 
 void test_worker(Datum id) {
   pqsignal(SIGTERM, die);
@@ -202,6 +204,8 @@ void _Omni_init(const omni_handle *handle) {
       .context = PGC_USERSET};
   handle->declare_guc_variable(handle, &guc_enum);
   GUC_enum = guc_enum.typed.enum_val.value;
+
+  handle->omni_memory(handle)->reserve_chunk("test", 1024);
 
   saved_handle = handle; // not always the best idea, but...
 }

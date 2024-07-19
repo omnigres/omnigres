@@ -34,26 +34,13 @@
 
 #if PG_MAJORVERSION_NUM < 15
 
+#include "dshash.h"
+
 #include "common/hashfn.h"
-#include "lib/dshash.h"
 #include "storage/ipc.h"
 #include "storage/lwlock.h"
 #include "utils/dsa.h"
 #include "utils/memutils.h"
-
-/*
- * An item in the hash table.  This wraps the user's entry object in an
- * envelop that holds a pointer back to the bucket and a pointer to the next
- * item in the bucket.
- */
-struct dshash_table_item
-{
-	/* The next item in the same bucket. */
-	dsa_pointer next;
-	/* The hashed key, to avoid having to recompute it. */
-	dshash_hash hash;
-	/* The user's entry object follows here.  See ENTRY_FROM_ITEM(item). */
-};
 
 /*
  * The number of partitions for locking purposes.  This is set to match
