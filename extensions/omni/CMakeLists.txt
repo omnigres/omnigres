@@ -17,7 +17,7 @@ add_postgresql_extension(
         omni
         SCHEMA omni
         RELOCATABLE false
-        SOURCES init.c omni.c hook_harness.c module.c extension.c workers.c utils.c dshash.c
+        SOURCES init.c omni.c omni_memory.c hook_harness.c module.c extension.c workers.c utils.c dshash.c
         DEPENDS_ON libomni
         SHARED_PRELOAD ON)
 

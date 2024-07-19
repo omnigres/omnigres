@@ -133,3 +133,30 @@ Datum shmem_allocations(PG_FUNCTION_ARGS) {
   MemoryContextSwitchTo(oldcontext);
   PG_RETURN_NULL();
 }
+
+PG_FUNCTION_INFO_V1(memory_segments);
+Datum memory_segments(PG_FUNCTION_ARGS) {
+  ReturnSetInfo *rsinfo = (ReturnSetInfo *)fcinfo->resultinfo;
+  rsinfo->returnMode = SFRM_Materialize;
+
+  MemoryContext per_query_ctx = rsinfo->econtext->ecxt_per_query_memory;
+  MemoryContext oldcontext = MemoryContextSwitchTo(per_query_ctx);
+
+  Tuplestorestate *tupstore = tuplestore_begin_heap(false, false, work_mem);
+  rsinfo->setResult = tupstore;
+
+  void *chunk = NULL;
+
+  while ((chunk = omni_memory_handle.iterate_chunk(chunk))) {
+    Datum values[3] = {CStringGetDatum(omni_memory_handle.chunk_name(chunk)),
+                       Int64GetDatum((uintptr_t)chunk),
+                       Int64GetDatum(omni_memory_handle.chunk_size(chunk))};
+    bool isnull[3] = {false};
+    tuplestore_putvalues(tupstore, rsinfo->expectedDesc, values, isnull);
+  }
+
+  tuplestore_donestoring(tupstore);
+
+  MemoryContextSwitchTo(oldcontext);
+  PG_RETURN_NULL();
+}

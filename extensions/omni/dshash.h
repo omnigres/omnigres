@@ -13,7 +13,25 @@
  *-------------------------------------------------------------------------
  */
 
+#if PG_MAJORVERSION_NUM < 15
+
 #include "utils/dsa.h"
+
+#include <lib/dshash.h>
+
+/*
+ * An item in the hash table.  This wraps the user's entry object in an
+ * envelop that holds a pointer back to the bucket and a pointer to the next
+ * item in the bucket.
+ */
+struct dshash_table_item
+{
+	/* The next item in the same bucket. */
+	dsa_pointer next;
+	/* The hashed key, to avoid having to recompute it. */
+	dshash_hash hash;
+	/* The user's entry object follows here.  See ENTRY_FROM_ITEM(item). */
+};
 
 
 /*
@@ -39,3 +57,4 @@ extern void dshash_seq_term(dshash_seq_status *status);
 extern void dshash_delete_current(dshash_seq_status *status);
 
 // clang-format on
+#endif

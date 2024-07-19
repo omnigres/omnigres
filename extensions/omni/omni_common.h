@@ -274,4 +274,11 @@ DECLARE_MODULE_VARIABLE(List *after_xact_oneshot_callbacks);
 DECLARE_MODULE_VARIABLE(int32 ServerVersionNum);
 
 MODULE_FUNCTION char *get_extension_module_pathname(const char *name, const char *version);
+
+DECLARE_MODULE_VARIABLE(omni_memory_t omni_memory_handle);
+
+MODULE_FUNCTION omni_memory_t *omni_memory(const omni_handle *handle);
+
+MODULE_FUNCTION void initialize_omni_memory();
+
 #endif // OMNI_COMMON_H

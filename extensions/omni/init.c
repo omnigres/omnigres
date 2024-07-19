@@ -17,6 +17,16 @@
 
 #include "omni_common.h"
 
+#include <sys/mman.h>
+#ifdef __APPLE__
+#include <sys/sysctl.h>
+#endif
+#include <unistd.h>
+
+#ifdef __linux__
+#include <sys/sysinfo.h>
+#endif
+
 #if PG_MAJORVERSION_NUM >= 15
 // Previous shmem_request hook
 static shmem_request_hook_type saved_shmem_request_hook;
@@ -61,6 +71,8 @@ void _PG_init() {
 #else
   shmem_request();
 #endif
+
+  initialize_omni_memory();
 
   saved_shmem_startup_hook = shmem_startup_hook;
   shmem_startup_hook = shmem_hook;

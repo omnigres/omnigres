@@ -418,6 +418,9 @@ static omni_handle_private *load_module(const char *path,
             set_function_implementations((&handle->handle));
           }
 #undef set_function_implementations
+          if (magic->revision >= 8) {
+            handle->handle.omni_memory = omni_memory;
+          }
           entry->dsa = handle->dsa = dsa_get_handle(dsa);
           entry->pointer = ptr;
           handle->id = entry->id = id;

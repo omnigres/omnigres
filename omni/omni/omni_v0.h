@@ -61,7 +61,7 @@ typedef struct {
 StaticAssertDecl(sizeof(omni_magic) <= UINT16_MAX, "omni_magic should fit into 16 bits");
 
 #define OMNI_INTERFACE_VERSION 0
-#define OMNI_INTERFACE_REVISION 7
+#define OMNI_INTERFACE_REVISION 8
 
 typedef struct omni_handle omni_handle;
 
@@ -432,6 +432,36 @@ typedef enum { omni_switch_off = 0, omni_switch_on = 1 } omni_switch_operation;
 typedef uint64 (*omni_atomic_switch_function)(const omni_handle *handle, omni_switch_operation op,
                                               uint32 switchboard, uint64 mask);
 
+typedef void *(*omni_memory_reserve_chunk_function)(const char *name, size_t size);
+typedef void *(*omni_memory_iterate_chunk_function)(void *ptr);
+typedef void (*omni_memory_release_chunk_function)(void *ptr);
+typedef size_t (*omni_memory_chunk_size_function)(void *ptr);
+typedef const char *(*omni_memory_chunk_name_function)(void *ptr);
+
+/**
+ * @brief Omni memory – memory present in all backends
+ *
+ * This is a contiguous (potentially over-allocated) segment of memory that can be shared between
+ * all backends without a risk of it being mmap-ped to different addresses.
+ */
+typedef struct {
+  /**
+   * Reserve a chunk of memory
+   */
+  omni_memory_reserve_chunk_function reserve_chunk;
+  omni_memory_iterate_chunk_function iterate_chunk;
+  omni_memory_release_chunk_function release_chunk;
+  omni_memory_chunk_name_function chunk_name;
+  omni_memory_chunk_size_function chunk_size;
+} omni_memory_t;
+
+/**
+ * @brief Returns the instance of the "omni memory"
+ *
+ * @param handle
+ */
+typedef omni_memory_t *(*omni_memory_function)(const omni_handle *handle);
+
 /**
  * @brief Handle provided by the loader
  *
@@ -460,6 +490,8 @@ typedef struct omni_handle {
   omni_unregister_lwlock_function unregister_lwlock;
 
   omni_atomic_switch_function atomic_switch;
+
+  omni_memory_function omni_memory;
 
 } omni_handle;
 
