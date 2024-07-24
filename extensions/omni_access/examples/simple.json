@@ -17,7 +17,11 @@
         },
         "products": {
             "joins": {
-                "products_owners": {"on": "products_owners.product_id = products.id"}
+                "products_owners": {"on": "products_owners.product_id = products.id"},
+                "products_owners_current_user": {
+                    "target": "products_owners",
+                    "on": "products_owners_current_user.product_id = products.id and products_owners_current_user.user_id = current_user_id()"
+                }
             },
             "columns": ["name"]
         }
@@ -46,8 +50,8 @@
                     "rules": {
                         "Can see listed products": {"when": "listed"},
                         "Can see products they own": {
-                            "joins": ["products_owners"],
-                            "when": "products_owners.user_id = current_user_id()"
+                            "joins": ["products_owners_current_user"],
+                            "when": "products_owners_current_user.ctid is not null"
                         }
                     }
                 }

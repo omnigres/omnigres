@@ -64,7 +64,7 @@ begin
                                   where scope_id = subrec.id
                         loop
 
-                            filter := 'true';
+                            filter := '';
                             -- For every attribute expression
                             for expr in select scope_attribute_expressions.*,
                                                     attributes.expression as attribute_expression
@@ -72,11 +72,14 @@ begin
                                                       inner join omni_access.attributes on attributes.id = attribute_id
                                              where scope_id = subrec.id
                                 loop
+                                    if filter != '' then
+                                        filter := filter || ' and ';
+                                    end if;
                                     -- Add it to the filter
                                     case
                                         -- Handle `=` (equality)
                                         when expr.operator = '='
-                                            then filter := filter || ' and ' || format('%L = %s', expr.expression,
+                                            then filter := filter || format('%L = %s', expr.expression,
                                                                                        expr.attribute_expression);
                                         -- TODO: handle the rest
                                         else raise exception 'TODO';
@@ -90,7 +93,7 @@ begin
                                 filter := filter || ' and ' || target."where";
                             end if;
 
-                            subfilter := '(false';
+                            subfilter := '(';
 
                             -- Joins.
                             joins := '';
@@ -102,14 +105,20 @@ begin
                                           and exception_for_rule_id is null
                                           and operations @> '{select}'
                                 loop
-                                    subfilter := subfilter || ' or ' || '/* ' || expr.name || ' */ ' ||
+                                    if subfilter != '(' then
+                                        subfilter := subfilter || ' or ';
+                                    end if;
+                                    subfilter := subfilter || '/* ' || expr.name || ' */ ' ||
                                                  coalesce(expr."when", 'false');
 
                                     -- Add per-rule joins
                                     joins := joins ||
                                              concat_ws(' ', variadic
-                                                       array(select 'left outer join ' || relation_joins.target ||
-                                                                    ' on ' || relation_joins."on"
+                                                       array(select 'left join public.' ||
+                                                                    relation_joins.target || ' ' ||
+                                                                    relation_joins.name ||
+                                                                    ' on ' ||
+                                                                    relation_joins."on"
                                                              from omni_access.scope_relation_rule_joins
                                                                       inner join omni_access.relation_joins
                                                                                  on relation_joins.id = scope_relation_rule_joins.relation_join_id
