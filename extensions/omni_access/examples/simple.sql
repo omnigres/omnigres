@@ -23,12 +23,12 @@ create or replace function current_user_role() returns text
     language 'sql' as
 $$
 select 'registered_user'
-$$;
+$$ stable;
 create or replace function current_user_privileged() returns boolean
     language 'sql' as
 $$
 select false
-$$;
+$$ stable;
 
 -- Data
 with new_users
@@ -48,4 +48,4 @@ $$
 select id
 from public.users
 where name = 'Alice'
-$$;
+$$ stable;
