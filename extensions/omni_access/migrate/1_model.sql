@@ -1,7 +1,5 @@
 --- Supporting types
 
--- Literal value
-create domain literal as text;
 -- SQL expression (domain over text)
 create domain sql_expression as text;
 
@@ -79,17 +77,26 @@ create table relation_joins
     "on"   sql_expression not null
 );
 
--- Attributes are very important to policies. They are allowing for scoping based on
--- "attributes" (name-value pairs) in the context of every query
-create table attributes
+-- Predicates are critical to policies as they effectively allow to filter on
+-- the context in a terms of business domain logic.
+--
+-- A predicate is a generalized qualifying statement effectively expressed as
+-- a join.
+--
+-- Does this mean that predicates are just relations?
+create table predicates
 (
-    id         integer primary key generated always as identity,
+    id        integer primary key generated always as identity,
     -- Reference to the policy
-    policy_id  integer        not null references policies (id),
-    -- Name of the attribute
-    name text not null,
+    policy_id integer        not null references policies (id),
+    -- Name of the predicate.
+    name      text           not null,
+    -- Joining on a relation
+    --
+    -- If null, will be joining on `(select)`
+    target    text,
     -- SQL expression to compute the policy
-    expression sql_expression not null
+    "on"      sql_expression not null
 );
 
 -- Compartmentalizing and sectioning policies into manageable scopes
@@ -105,25 +112,19 @@ create table scopes
     parent_id   integer references scopes (id)
 );
 
--- Comparison operators (used in scope attributes)
-create type comparison_operator as enum ('=', '>=', '<=', '>', '<', 'in', 'not in');
-
--- Scopes are further limited by attributes
-create table scope_attribute_expressions
+-- Scopes are limited by applicable predicates
+create table scope_predicates
 (
     id           integer primary key generated always as identity,
     -- Reference to a scope
-    scope_id     integer             not null references scopes (id),
-    -- Reference to an attribute
-    attribute_id integer             not null references attributes (id),
-    -- Attributie comparison operator
-    operator     comparison_operator not null,
-    -- Attribute comparison expression
-    expression   literal
+    scope_id     integer not null references scopes (id),
+    -- Reference to an predicate
+    predicate_id integer not null references predicates (id)
 );
 
 -- Scopes are further limited by Postgres roles that they apply to.
--- They could have been attributes, but they kind of have a special meaning
+-- They could have been implemented using predicates, but they kind of have a special meaning
+-- because we use these to give grants to the roles.
 create table scope_roles
 (
     -- Reference to a scope

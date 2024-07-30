@@ -25,7 +25,6 @@ description: |
   );
   
   create or replace function current_user_role() returns text language 'sql' as $$ select 'registered_user'$$;
-  create or replace function current_user_privileged() returns boolean language 'sql' as $$ select false $$;
   ```
   
   Some test data:
@@ -44,28 +43,29 @@ description: |
 
 roles:
   api: API role
- 
-attributes:
-  current_user_role: current_user_role()
-  current_user_priviliged: current_user_priviliged()
+
+predicates:
+  registered_user: current_user_role() = 'registered_user'
+  # effectively, `join (select) as registered_user on current_user_role() = 'registered_user'`
+  product_owner:
+    target: products_owners
+    "on": product_owner.user_id = current_user_id()
+  # effectively, `join products_owners as product_owner on product_owners.user_id = current_user_id()`
 
 relations:
   users:
     columns: [email, name]
   products:
     joins:
-      products_owners:
-        "on": products_owners.product_id = products.id
-      products_owners_current_user:
+      owned_products:
         target: products_owners
-        "on": products_owners_current_user.product_id = products.id and products_owners_current_user.user_id = current_user_id()
+        "on": owned_products.user_id = current_user_id() and products.id = owned_products.product_id
     columns: [name]
-  
+
 scopes:
   Registered users:
     roles: api
-    attributes:
-      current_user_role: registered_user
+    predicates: [ registered_user ]
     relations:
       users:
         operations: [select]
@@ -84,9 +84,12 @@ scopes:
         rules:
           Can see listed products:
             when: listed
-          Can see products they own:
-            joins: [ products_owners_current_user ]
-            when: products_owners_current_user.ctid is not null
     scopes:
-      Privileged users:
-        current_user_priviliged: true
+      Product owners:
+        predicates: [ product_owner ]
+        relations:
+          products:
+            joins: [ owned_products ]
+            rules:
+              Can see products they own:
+                when: owned_products.ctid is not null
