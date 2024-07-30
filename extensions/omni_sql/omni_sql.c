@@ -561,3 +561,38 @@ Datum statement_type(PG_FUNCTION_ARGS) {
 
   PG_RETURN_NULL();
 }
+
+PG_FUNCTION_INFO_V1(is_returning_statement);
+
+Datum is_returning_statement(PG_FUNCTION_ARGS) {
+  if (PG_ARGISNULL(0)) {
+    ereport(ERROR, errmsg("statement should not be NULL"));
+  }
+
+  text *statement = PG_GETARG_TEXT_PP(0);
+  char *cstatement = text_to_cstring(statement);
+  List *stmts = omni_sql_parse_statement(cstatement);
+
+  if (list_length(stmts) != 1) {
+    PG_RETURN_BOOL(false);
+  }
+
+  ListCell *lc;
+  foreach (lc, stmts) {
+    Node *stmt = lfirst_node(RawStmt, lc)->stmt;
+    switch (nodeTag(stmt)) {
+    case T_SelectStmt:
+      PG_RETURN_BOOL(true);
+    case T_UpdateStmt:
+      PG_RETURN_BOOL(list_length(castNode(UpdateStmt, stmt)->returningList) > 0);
+    case T_InsertStmt:
+      PG_RETURN_BOOL(list_length(castNode(InsertStmt, stmt)->returningList) > 0);
+    case T_DeleteStmt:
+      PG_RETURN_BOOL(list_length(castNode(DeleteStmt, stmt)->returningList) > 0);
+    default:
+      PG_RETURN_BOOL(false);
+    }
+  }
+
+  PG_RETURN_BOOL(false);
+}
