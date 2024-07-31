@@ -1,4 +1,4 @@
-create or replace function execute(stmt text, parameters jsonb default '[]',
+create function execute(stmt text, parameters jsonb default '[]',
                                    types regtype[] default '{}'::regtype[])
     returns table
             (
