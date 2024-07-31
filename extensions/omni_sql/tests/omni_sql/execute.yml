@@ -24,6 +24,11 @@ tests:
       first: 1
       second: hello
 
+- name: non-array parameters
+  query: select *
+         from omni_sql.execute('select $1', parameters => jsonb_build_object('a', 1))
+  error: parameters must be a JSON array
+
 - name: optionality of types
   query: select *
          from omni_sql.execute('select $1 as first, $2 as second', parameters => jsonb_build_array(1, 'hello'),
@@ -33,13 +38,18 @@ tests:
       first: "1"
       second: hello
 
+- name: invalid numeric conversion
+  query: select *
+         from omni_sql.execute('select $1 as first, $2 as second', parameters => jsonb_build_array(1, 'hello'),
+                               types => '{text}');
+  error: can't convert numeric to type text
+
 - name: syntax error
   query: select *
          from omni_sql.execute('slect')
   error: syntax error at or near "slect"
 
 - name: insert stmt
-  todo: pending resolution of a potential bug in SPI
   steps:
   - |
     create table tab
@@ -66,7 +76,6 @@ tests:
         i: 1
 
 - name: update stmt
-  todo: pending resolution of a potential bug in SPI
   steps:
   - |
     create table tab
@@ -81,7 +90,7 @@ tests:
   - query: select *
            from omni_sql.execute('update tab set i = i + 1')
     results:
-    - stmt_rows:
+    - stmt_row:
         rows: 3
 
 - name: update returning stmt
@@ -101,7 +110,6 @@ tests:
         i: 2
 
 - name: delete stmt
-  todo: pending resolution of a potential bug in SPI
   steps:
   - |
     create table tab
@@ -116,7 +124,7 @@ tests:
   - query: select *
            from omni_sql.execute('delete from tab')
     results:
-    - stmt_rows:
+    - stmt_row:
         rows: 3
 
 - name: delete returning stmt
