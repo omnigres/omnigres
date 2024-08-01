@@ -1,0 +1,5 @@
+INHERIT: ../../mkdocs.base.yml
+site_name: omni
+nav:
+  - Reference: omni__v0_8h.md
+  - Intro: intro.md
