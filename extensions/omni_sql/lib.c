@@ -185,6 +185,10 @@ done:
   return valid;
 }
 
+/*
+ * Is the statement capable of returning rows? Similar to
+ * https://www.postgresql.org/docs/current/spi-spi-is-cursor-plan.html
+ */
 bool omni_sql_is_returning_statement(List *stmts) {
 
   if (list_length(stmts) != 1) {

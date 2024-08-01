@@ -28,3 +28,6 @@ begin
 end;
 $pgsql$
     language plpgsql;
+
+
+comment on function omni_sql.execute is 'Runs an arbitrary SQL statement. If the statement is a parameterized statement, one can define more precise types for the statement using the "types" parameter.'
