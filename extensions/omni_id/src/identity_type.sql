@@ -4,7 +4,9 @@ create function identity_type(name name, type regtype default 'int8',
                               minvalue bigint default null,
                               maxvalue bigint default null,
                               cache bigint default null,
-                              cycle boolean default null
+                              cycle boolean default null,
+                              constructor text default null,
+                              create_constructor bool default true
 ) returns regtype
     language plpgsql
 as
@@ -161,6 +163,17 @@ begin
         if cycle is not null then
             execute format('alter sequence %I cycle %s', sequence, cycle);
         end if;
+
+    end if;
+
+    if create_constructor then
+        if constructor is null then
+            constructor := name;
+        end if;
+
+        execute format(
+                'create function %1$I(value %2$I) returns %3$I language sql as $sql$ select value::%3$I $sql$ immutable strict',
+                constructor, type_name, name);
 
     end if;
 
