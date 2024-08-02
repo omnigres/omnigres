@@ -64,16 +64,26 @@ select identity_type('user_id');
 
 You can also select a different backing integer type (`smallint`, `int`) and a few sequence-related options.
 
-|         Parameter | Type    | Description                                                                                                    |
-|------------------:|---------|----------------------------------------------------------------------------------------------------------------|
-|            *type* | regtype | Backing type. `bigint` by default. `int` and `smallint` permitted, as well as their aliases                    |
-|        *sequence* | text    | Sequence name. Equal to `<type>_seq` by default                                                                |
-| *create_sequence* | boolean | Should sequence be created? True by default                                                                    |
-|       *increment* | bigint  | Sequence increment. Default set to 1                                                                           |
-|        *minvalue* | bigint  | Minimum value a sequence can generate. Default set to 1                                                        |
-|        *maxvalue* | bigint  | Maximum value a sequence can generate. Default set to the maximum of the underlying type                       |
-|           *cache* | bigint  | Enables sequence numbers to be preallocated and stored in memory for faster access                             |
-|           *cycle* | boolean | Wrap around when the maxvalue or minvalue has been reached by an ascending or descending sequence respectively |
+|            Parameter | Type    | Description                                                                                                    |
+|---------------------:|---------|----------------------------------------------------------------------------------------------------------------|
+|               *type* | regtype | Backing type. `bigint` by default. `int` and `smallint` permitted, as well as their aliases                    |
+|           *sequence* | text    | Sequence name. Equal to `<type>_seq` by default                                                                |
+|    *create_sequence* | boolean | Should sequence be created? True by default                                                                    |
+|          *increment* | bigint  | Sequence increment. Default set to 1                                                                           |
+|           *minvalue* | bigint  | Minimum value a sequence can generate. Default set to 1                                                        |
+|           *maxvalue* | bigint  | Maximum value a sequence can generate. Default set to the maximum of the underlying type                       |
+|              *cache* | bigint  | Enables sequence numbers to be preallocated and stored in memory for faster access                             |
+|              *cycle* | boolean | Wrap around when the maxvalue or minvalue has been reached by an ascending or descending sequence respectively |
+|        *constructor* | text    | Name of the constructor function                                                                               |
+| *create_constructor* | boolean | Should constructor be created? True by default                                                                 |
 
 `identity_type` will also create helper functions for the sequence: `<type>_nextval()`, `<type>_currval()`
 and `<type>_setval(<type>, bool)`
+
+## Constructor
+
+When it is necessary to construct an identity type value, one can use a _constructor_ function like this:
+
+```postgresql
+select user_id(1);
+```

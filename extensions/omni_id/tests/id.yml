@@ -31,10 +31,10 @@ tests:
 
 - name: comparison failures
   tests:
-  - query: select 1::bigint::my_id = 1
+  - query: select my_id(1) = 1
     name: can't juse use integer
     error: "operator does not exist: my_id = integer"
-  - query: select 1::bigint::my_id = 1::bigint::my_id1
+  - query: select my_id(1) = my_id1(1)
     error: "operator does not exist: my_id = my_id1"
 
 - name: nextval
@@ -49,7 +49,7 @@ tests:
 
 - name: setval
   steps:
-  - select my_id_setval(3::bigint::my_id)
+  - select my_id_setval(my_id(3))
   - query: select my_id_currval()
     results:
     - my_id_currval: 3
