@@ -32,7 +32,7 @@ tests:
 - name: comparison failures
   tests:
   - query: select my_id(1) = 1
-    name: can't juse use integer
+    name: can't just use integer
     error: "operator does not exist: my_id = integer"
   - query: select my_id(1) = my_id1(1)
     error: "operator does not exist: my_id = my_id1"
