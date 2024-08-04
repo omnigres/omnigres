@@ -14,7 +14,11 @@ $$
 declare
     rec record;
     type_name text;
+    ns name;
 begin
+    -- Remember current namespace
+    select current_schema() into ns;
+
     type_name := type::text;
     -- Ensure we only allow supported types
     case type_name
@@ -129,19 +133,21 @@ begin
         -- Define `name`_nextval() function to return next value in the given sequence
         --
         -- We are doing double-casting because nextval() itself always returns bigint
-        execute format('create function %I() returns %I language sql as $sql$ select nextval(%L)::%4$I::%2$I $sql$',
-                       name || '_nextval', name, sequence, type_name);
+        execute format(
+                'create function %I() returns %I language sql as $sql$ select nextval(%L)::%4$I::%5$I.%2$I $sql$',
+                name || '_nextval', name, ns || '.' || sequence, type_name, ns);
 
         -- Define `name`_currval() to return current value in the given sequence
         -- (same double-casting)
-        execute format('create function %I() returns %I language sql as $sql$ select currval(%L)::%4$I::%2$I $sql$',
-                       name || '_currval', name, sequence, type_name);
+        execute format(
+                'create function %I() returns %I language sql as $sql$ select currval(%L)::%4$I::%5$I.%2$I $sql$',
+                name || '_currval', name, ns || '.' || sequence, type_name, ns);
 
         -- Define `name`_setval() to return current value in the given sequence
         -- (same double-casting)
         execute format(
-                'create function %I(value %I, is_called boolean default true) returns %I language sql as $sql$ select setval(%L, value::%2$I::bigint, is_called)::%5$I::%3$I $sql$',
-                name || '_setval', name, name, sequence, type_name);
+                'create function %1$I(value %2I, is_called boolean default true) returns %2$I language sql as $sql$ select setval(%3$L, value::%5$I.%2$I::bigint, is_called)::%5$I.%2$I $sql$',
+                name || '_setval', name, ns || '.' || sequence, type_name, ns);
 
         -- Process options
         if increment is not null then
@@ -172,8 +178,8 @@ begin
         end if;
 
         execute format(
-                'create function %1$I(value %2$I) returns %3$I language sql as $sql$ select value::%3$I $sql$ immutable strict',
-                constructor, type_name, name);
+                'create function %1$I(value %2$I) returns %3$I language sql as $sql$ select value::%4$I.%3$I $sql$ immutable strict',
+                constructor, type_name, name, ns);
 
     end if;
 

@@ -1,0 +1,30 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_id
+  - create schema test;
+  - set search_path to test, '$user', public;
+  - select identity_type('my_id')
+  - set search_path to '$user', public;
+
+tests:
+
+- name: constructor should work
+  query: select test.my_id(1)
+  results:
+  - my_id: 1
+
+- name: nextval should work
+  query: select test.my_id_nextval()
+  results:
+  - my_id_nextval: 1
+
+- name: currval should work
+  query: select test.my_id_currval()
+  results:
+  - my_id_currval: 1
+
+- name: setval should work
+  query: select test.my_id_setval(test.my_id(2))
+  results:
+  - my_id_setval: 2
