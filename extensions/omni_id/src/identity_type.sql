@@ -6,7 +6,8 @@ create function identity_type(name name, type regtype default 'int8',
                               cache bigint default null,
                               cycle boolean default null,
                               constructor text default null,
-                              create_constructor bool default true
+                              create_constructor bool default true,
+                              operator_schema name default 'public'
 ) returns regtype
     language plpgsql
 as
@@ -102,10 +103,11 @@ begin
                            name || '_' || rec.name, name, type_name || rec.name);
 
             -- Define the actual operator
-            execute format('create operator %s (
+            execute format('create operator %4$I.%1$s (
                                          leftarg = %2$I,
                                          rightarg = %2$I,
-                                         procedure = %I)', rec.op, name, name || '_' || rec.name);
+                                         procedure = %3$I)', rec.op, name, name || '_' || rec.name,
+                           coalesce(operator_schema, 'public'));
 
         end loop;
 

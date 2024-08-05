@@ -76,6 +76,7 @@ You can also select a different backing integer type (`smallint`, `int`) and a f
 |              *cycle* | boolean | Wrap around when the maxvalue or minvalue has been reached by an ascending or descending sequence respectively |
 |        *constructor* | text    | Name of the constructor function                                                                               |
 | *create_constructor* | boolean | Should constructor be created? True by default                                                                 |
+|    *operator_schema* | boolean | Schema to create operators in. `public` by default                                                             |
 
 `identity_type` will also create helper functions for the sequence: `<type>_nextval()`, `<type>_currval()`
 and `<type>_setval(<type>, bool)`

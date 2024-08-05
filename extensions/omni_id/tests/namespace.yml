@@ -28,3 +28,8 @@ tests:
   query: select test.my_id_setval(test.my_id(2))
   results:
   - my_id_setval: 2
+
+- name: operators should work
+  query: select test.my_id(1) = test.my_id(2) as comparison
+  results:
+  - comparison: false
