@@ -27,12 +27,14 @@ add_postgresql_extension(
 # Raw string literal in ca-bundle.cc
 set_property(TARGET omni_httpc PROPERTY CXX_STANDARD 11)
 
-target_link_libraries(omni_httpc libh2o-evloop libpgaug libomnisql libomnitypes ${OPENSSL_LIBRARIES})
+target_link_libraries(omni_httpc ${H2O_LIBRARIES} libpgaug libomnisql libomnitypes ${OPENSSL_LIBRARIES})
 
 target_compile_definitions(omni_httpc PRIVATE H2O_USE_LIBUV=0)
 
-get_target_property(_h2o_deps libh2o INCLUDE_DIRECTORIES)
-target_include_directories(omni_httpc PUBLIC $<TARGET_PROPERTY:libh2o,INCLUDE_DIRECTORIES>)
+if (TARGET libh2o-evloop)
+  get_target_property(_h2o_deps libh2o-evloop INCLUDE_DIRECTORIES)
+  target_include_directories(omni_httpc PUBLIC $<TARGET_PROPERTY:libh2o-evloop,INCLUDE_DIRECTORIES>)
+endif()
 
 if(BROTLI_DEC_FOUND AND BROTLI_ENC_FOUND)
         target_link_directories(omni_httpc PUBLIC ${BROTLI_DEC_LIBRARY_DIRS} ${BROTLI_ENC_LIBRARY_DIRS})
