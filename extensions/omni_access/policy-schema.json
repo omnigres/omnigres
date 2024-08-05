@@ -1,0 +1,59 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema#",
+    "type": "object",
+    "properties": {
+        "name": {"type": "string"},
+        "version": {"type": "string"},
+        "relations": {
+            "type": "object",
+            "$ref": "#/$defs/relation",
+            "patternProperties": {
+                ".*": {"$ref": "#/$defs/relation"}
+            }
+        },
+        "policies": {
+            "type": "object",
+            "patternProperties": {
+                ".*": {"$ref": "#/$defs/policy"}
+            }
+        },
+        "attributes": {
+            "type": "object",
+            "patternProperties": {
+                ".*": {"$ref": "#/$defs/attribute"}
+            }
+        }
+    },
+    "$defs": {
+        "relation": {
+            "type": "object",
+            "properties": {
+                "columns": {
+                    "type": "array",
+                    "items": {"type": "string"}
+                }
+            }
+        },
+        "policy": {
+            "type": "object",
+            "properties": {
+                "property": {}
+            }
+        },
+        "attribute": {
+            "oneOf": [
+                {
+                    "type": "string",
+                    "description": "Expression to retrieve the attribute"
+                },
+                {
+                    "type": "object",
+                    "properties": {
+                        "expression": {"type": "string"}
+                    },
+                    "additionalProperties": false
+                }
+            ]
+        }
+    }
+}

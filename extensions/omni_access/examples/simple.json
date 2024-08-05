@@ -1,0 +1,72 @@
+{
+    "$schema": "../policy-schema.json",
+    "name": "Simple policy",
+    "version": "1.0",
+    "description": "Schema as follows:\n\n```sql\ncreate table users (\n    id integer primary key generated always as identity,\n    name text not null,\n    email text not null unique,\n    locked bool not null default false\n);\n\ncreate table products (\n    id integer primary key generated always as identity,\n    name text not null,\n    listed boolean not null default false\n);\n\ncreate table products_owners (\n   product_id integer not null references products (id),\n   user_id integer not null references users (id)\n);\n\ncreate or replace function current_user_role() returns text language 'sql' as $$ select 'registered_user'$$;\n```\n\nSome test data:\n\n```sql\nwith new_users as (insert into users (name,email) values ('Alice', 'alice@foobar.com'), ('Bob', 'bob@foobar.com') returning id, name),\n     new_products as (insert into products (name, listed) values ('Quantum computer', false), ('Bar of soap', false), ('Car', true) returning id, name)\n  insert into products_owners (product_id, user_id) values ((select id from new_products where name = 'Quantum computer'), (select id from new_users where name = 'Alice'));   \n```\n\nNote user ID and create a function:\n\n```\ncreate or replace function current_user_id() returns integer language 'sql' as $$ select 1$$;\n```\n",
+    "roles": {"api": "API role"},
+    "predicates": {
+        "registered_user": "current_user_role() = 'registered_user'",
+        "product_owner": {
+            "target": "products_owners",
+            "on": "product_owner.user_id = current_user_id()"
+        }
+    },
+    "relations": {
+        "users": {
+            "columns": [
+                "email",
+                "name"
+            ]
+        },
+        "products": {
+            "joins": {
+                "owned_products": {
+                    "target": "products_owners",
+                    "on": "owned_products.user_id = current_user_id() and products.id = owned_products.product_id"
+                }
+            },
+            "columns": ["name"]
+        }
+    },
+    "scopes": {
+        "Registered users": {
+            "roles": "api",
+            "predicates": ["registered_user"],
+            "relations": {
+                "users": {
+                    "operations": ["select"],
+                    "where": "id = current_user_id()",
+                    "rules": {
+                        "Can only see their own records": {"when": true},
+                        "Can update their own records": {
+                            "operations": ["update"],
+                            "when": true,
+                            "except": {
+                                "when profile is locked": {"when": "locked"}
+                            }
+                        }
+                    }
+                },
+                "products": {
+                    "operations": ["select"],
+                    "rules": {
+                        "Can see listed products": {"when": "listed"}
+                    }
+                }
+            },
+            "scopes": {
+                "Product owners": {
+                    "predicates": ["product_owner"],
+                    "relations": {
+                        "products": {
+                            "joins": ["owned_products"],
+                            "rules": {
+                                "Can see products they own": {"when": "owned_products.ctid is not null"}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
