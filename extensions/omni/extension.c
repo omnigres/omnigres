@@ -56,7 +56,7 @@ static char *get_extension_control_filename(const char *name) {
   return result;
 }
 
-static char *get_extension_module_pathname(const char *name, const char *version) {
+MODULE_FUNCTION char *get_extension_module_pathname(const char *name, const char *version) {
   char *filename;
   char *result = NULL;
 
@@ -129,6 +129,18 @@ MODULE_FUNCTION void extension_upgrade_hook(omni_hook_handle *handle, PlannedStm
                                             ProcessUtilityContext context, ParamListInfo params,
                                             QueryEnvironment *queryEnv, DestReceiver *dest,
                                             QueryCompletion *qc) {
+  switch (nodeTag(pstmt->utilityStmt)) {
+  case T_CreateExtensionStmt:
+  case T_AlterExtensionStmt:
+    backend_force_reload = true;
+    break;
+  case T_DropStmt:
+    if (castNode(DropStmt, pstmt->utilityStmt)->removeType == OBJECT_EXTENSION) {
+      backend_force_reload = true;
+    }
+  default:
+    break;
+  }
   if (nodeTag(pstmt->utilityStmt) == T_AlterExtensionStmt) {
     static Oid extoid = InvalidOid;
     char *extname = castNode(AlterExtensionStmt, pstmt->utilityStmt)->extname;
