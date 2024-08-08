@@ -108,3 +108,8 @@ create function was_hook_called(text) returns boolean
     language c
     volatile as
 'MODULE_PATHNAME';
+
+create function omni_present_test() returns boolean
+    language c
+    volatile as
+'MODULE_PATHNAME';

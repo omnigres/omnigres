@@ -48,3 +48,8 @@ tests:
   - query: select current_setting('doesnotexist')
     error: unrecognized configuration parameter "doesnotexist"
   - select 1
+
+- name: omni_is_present
+  query: select omni_test.omni_present_test() as loaded
+  results:
+  - loaded: true

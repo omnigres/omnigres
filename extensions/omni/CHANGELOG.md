@@ -14,6 +14,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   Differences between minor versions may present subtle
   incompatibilities. [#573](https://github.com/omnigres/omnigres/pull/573)
 * Support for function-less native extensions [#586](https://github.com/omnigres/omnigres/pull/586)
+* `omni_is_present()` to detect if omni has been preloaded [#605](https://github.com/omnigres/omnigres/pull/605)
 
 ## [0.1.4] - 2023-06-28
 
