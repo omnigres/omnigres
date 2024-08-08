@@ -463,4 +463,36 @@ typedef struct omni_handle {
 
 } omni_handle;
 
+/**
+ * @brief Semi-private rendezvous / informational type for omni loader
+ */
+struct _omni_rendezvous_var_t {
+  // Magic header
+  char magic[4];
+  // Version of omni
+  const char *version;
+  // Omni's dynamic shared Library file
+  const char *library_path;
+};
+
+/**
+ * @brief Detect if omni has been loaded
+ *
+ * Prior to version 0.2.0, omni's presence will not be detected this way and this function will
+ * always return false.
+ */
+static inline bool omni_is_present() {
+  void **omni = find_rendezvous_variable("omni(loaded)");
+  // If not set, it hasn't been loaded (or it is older than 0.2.0)
+  if (*omni == NULL) {
+    return false;
+  }
+  struct _omni_rendezvous_var_t *value = (struct _omni_rendezvous_var_t *)*omni;
+  // Magic has to match
+  if (strncmp(value->magic, "0MNI", sizeof(value->magic)) != 0) {
+    return false;
+  }
+  return true;
+}
+
 #endif // OMNI_H

@@ -36,6 +36,14 @@ MODULE_VARIABLE(int ServerVersionNum);
  * Shared preload initialization.
  */
 void _PG_init() {
+  {
+    // Establish the presence marker
+    void **rendezvous = find_rendezvous_variable("omni(loaded)");
+    static struct _omni_rendezvous_var_t rendezvous_var = {.magic = "0MNI", .version = EXT_VERSION};
+    rendezvous_var.library_path = get_omni_library_name();
+    *rendezvous = &rendezvous_var;
+  }
+
   memset(saved_hooks, 0, sizeof(saved_hooks));
   // This signifies if this library has indeed been preloaded
   static bool preloaded = false;

@@ -27,6 +27,14 @@ OMNI_MAGIC;
 OMNI_MODULE_INFO(.name = "omni_test", .version = EXT_VERSION,
                  .identity = "ed0aaa35-54c6-426e-a69d-2c74a836053b");
 
+static bool omni_loaded = false;
+
+void _PG_init() { omni_loaded = omni_is_present(); }
+
+PG_FUNCTION_INFO_V1(omni_present_test);
+
+Datum omni_present_test(PG_FUNCTION_ARGS) { PG_RETURN_BOOL(omni_loaded); }
+
 static bool initialized = false;
 
 static char *hello_message;
