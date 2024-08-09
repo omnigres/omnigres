@@ -1,0 +1,33 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_edbg
+  - create table log
+    (
+        entry text,
+        ts    timestamp not null default clock_timestamp()
+    );
+
+tests:
+
+- name: execute
+  steps:
+  - call spi_exec('insert into log (entry) values ($$execute$$)')
+  - query: select entry
+           from log
+    results:
+    - entry: execute
+
+- name: execute transaction
+  transaction: false
+  tests:
+  - query: call spi_exec('begin; insert into log (entry) values ($$execute$$); commit')
+    transaction: false
+    error: "SPI error: SPI_ERROR_TRANSACTION"
+
+- name: execute transaction non-atomic
+  transaction: false
+  tests:
+  - query: call spi_exec('begin; insert into log (entry) values ($$execute$$); commit', atomic => false)
+    transaction: false
+    error: "SPI error: SPI_ERROR_TRANSACTION"

@@ -3,6 +3,7 @@ instance:
   init:
   - create extension omni_txn cascade
   - create extension dblink
+  - create extension omni_edbg
   - select dblink_connect('another_session', 'hostaddr=127.0.0.1 dbname=yregress user=yregress port=' || (select setting
                                                                                                           from pg_settings
                                                                                                           where name = 'port'))
@@ -79,6 +80,19 @@ tests:
     end;
     $$
   - query: select try()
+    error: can't be used inside of a transaction block
+
+- name: can't be used inside of a function (SPI)
+  steps:
+  - |
+    create function try() returns void
+        language plpgsql as
+    $$
+    begin
+        call omni_txn.retry('select');
+    end;
+    $$
+  - query: call spi_exec('select try()')
     error: can't be used inside of a transaction block
 
 - name: smoke test for retry

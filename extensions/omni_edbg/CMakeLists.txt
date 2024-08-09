@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25.1)
-project(omni_txn)
+project(omni_edbg)
 
 list(PREPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/../../cmake)
 
@@ -11,11 +11,9 @@ enable_testing()
 find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
-        omni_txn
-        SCHEMA omni_txn
-        RELOCATABLE false
-        SOURCES omni_txn.c
-        REQUIRES omni_var
-        TESTS_REQUIRE omni_edbg
+        omni_edbg
+        SOURCES omni_edbg.c
+        PRIVATE true
+        VERSION 1
 )
 
