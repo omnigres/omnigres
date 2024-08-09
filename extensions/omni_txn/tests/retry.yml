@@ -45,6 +45,42 @@ tests:
     transaction: false
     error: can't be used inside of a transaction block
 
+- name: can't be used inside of a do block
+  query: |
+    do
+    $$
+        begin
+            call omni_txn.retry('select');
+        end;
+    $$
+  error: can't be used inside of a transaction block
+
+- name: can't be used inside of a procedure
+  steps:
+  - |
+    create procedure try()
+        language plpgsql as
+    $$
+    begin
+        call omni_txn.retry('select');
+    end;
+    $$
+  - query: call try()
+    error: can't be used inside of a transaction block
+
+- name: can't be used inside of a function
+  steps:
+  - |
+    create function try() returns void
+        language plpgsql as
+    $$
+    begin
+        call omni_txn.retry('select');
+    end;
+    $$
+  - query: select try()
+    error: can't be used inside of a transaction block
+
 - name: smoke test for retry
   transaction: false
   tests:
