@@ -21,7 +21,7 @@ instance:
     $$
     begin
         perform dblink_exec('another_session',
-                            'call omni_txn.retry($other$update inventory set quantity = quantity - 10$other$, repeatable_read => true)');
+                            'call omni_txn.retry($other$update inventory set quantity = quantity - 10$other$, repeatable_read => true, gather_backoff_values => false)');
         return;
     end;
     $$
@@ -41,7 +41,7 @@ tests:
       select call_other_session() where omni_txn.current_retry_attempt() = 0;
       update inventory set quantity = quantity + 20 where product_name = 'Widget';
       insert into retries (count, iso_level) select omni_txn.current_retry_attempt(), current_setting('transaction_isolation');
-      $$, repeatable_read => true);
+      $$, repeatable_read => true, gather_backoff_values => false);
     transaction: false
   - query: select quantity
            from inventory
