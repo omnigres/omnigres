@@ -173,7 +173,7 @@ Below is the current list of components being worked on, experimented with and d
 
 | Name                                                                                        | Status                                       | Description                                           |
 |---------------------------------------------------------------------------------------------|----------------------------------------------|-------------------------------------------------------|
-| [omni](extensions/omni/README.md)                                                           | :white_check_mark: First release candidate   | Advanced extension adapter                            |
+| [omni](extensions/omni/README.md) and [Omni interface](omni/README.md)                      | :white_check_mark: First release candidate   | Advanced adapter for Postgres extensions              |
 | [omni_schema](extensions/omni_schema/README.md)                                             | :white_check_mark: First release candidate   | Application schema management                         |
 | [omni_id](extensions/omni_id/README.md)                                                     | :white_check_mark: First release candidate   | Identity types                                        |
 | [omni_aws](extensions/omni_aws/README.md)                                                   | :white_check_mark: First release candidate   | AWS APIs                                              |
@@ -186,7 +186,6 @@ Below is the current list of components being worked on, experimented with and d
 | [omni_sql](extensions/omni_sql/README.md)                                                   | :construction: Extremely limited API surface | Programmatic SQL manipulation                         |
 | [omni_vfs](extensions/omni_vfs/README.md)                                                   | :ballot_box_with_check: Initial prototype    | Virtual File System interface                         |
 | [omni_containers](extensions/omni_containers/README.md)                                     | :ballot_box_with_check: Initial prototype    | Managing containers                                   |
-| [omni](extensions/omni/README.md) and [Omni interface](omni/README.md)                      | :white_check_mark: First release candidate   | Advanced adapter for Postgres extensions              |
 | [omni_manifest](extensions/omni_manifest/README.md)                                         | :ballot_box_with_check: Initial prototype    | Improved extension installation                       |
 | [omni_types](extensions/omni_types/README.md)                                               | :white_check_mark: First release candidate   | Advanced Postgres typing techniques (sum types, etc.) |
 | [omni_seq](extensions/omni_seq/README.md)                                                   | :white_check_mark: First release candidate   | Extended Postgres sequence tooling                    |
