@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.5
 
 # Version of PostgreSQL
-ARG PG=16.3
+ARG PG=16.4
 # Build type
 ARG BUILD_TYPE=RelWithDebInfo
 # User name to be used for builder
