@@ -75,6 +75,7 @@ OMNI_MODULE_INFO(.name = "omni_httpd", .version = EXT_VERSION,
 CACHED_OID(omni_http, http_header);
 CACHED_OID(omni_http, http_method);
 CACHED_OID(http_response);
+CACHED_OID(http_request);
 CACHED_OID(http_outcome);
 
 bool IsOmniHttpdWorker;

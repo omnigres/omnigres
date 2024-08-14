@@ -5,7 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.3] - TBD
+## [0.2.0] - TBD
+
+### Added
+
+* Multi-transactional handlers [#609](https://github.com/omnigres/omnigres/pull/556)
+
+### Changed
+
+* Handler queries are being deprecated in favor of functions [#609](https://github.com/omnigres/omnigres/pull/556)
 
 ### Fixed
 
@@ -40,4 +48,4 @@ Initial release following a few months of iterative development.
 
 [0.1.2]: [https://github.com/omnigres/omnigres/pull/544]
 
-[0.1.3]: [https://github.com/omnigres/omnigres/pull/550]
+[0.2.0]: [https://github.com/omnigres/omnigres/pull/550]
