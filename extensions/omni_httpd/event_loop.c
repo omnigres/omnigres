@@ -286,8 +286,19 @@ void req_dispose(void *ptr) {
   request_message_t *message = *message_ptr;
   pthread_mutex_lock(&message->mutex);
 
+  // NULL generator signals completion:
+  // https://github.com/h2o/h2o/blob/c54c63285b52421da2782f028022647fc2ea3dd1/lib/core/request.c#L529-L530
+  bool dispose_req_message = message->req && message->req->_generator == NULL;
+
   message->req = NULL;
-  pthread_mutex_unlock(&message->mutex);
+
+  if (dispose_req_message) {
+    pthread_mutex_unlock(&message->mutex);
+    pthread_mutex_destroy(&message->mutex);
+    free(message);
+  } else {
+    pthread_mutex_unlock(&message->mutex);
+  }
 }
 
 int event_loop_req_handler(h2o_handler_t *self, h2o_req_t *req) {

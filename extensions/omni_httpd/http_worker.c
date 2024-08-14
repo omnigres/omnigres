@@ -107,10 +107,12 @@ static void on_message(h2o_multithread_receiver_t *receiver, h2o_linklist_t *mes
         H2O_STRUCT_FROM_MEMBER(h2o_multithread_message_t, link, messages->next);
 
     request_message_t *request_msg = (request_message_t *)messages->next;
-
-    handler(request_msg);
-
     h2o_linklist_unlink(&message->link);
+
+    pthread_mutex_t *mutex = &request_msg->mutex;
+    pthread_mutex_lock(mutex);
+    handler(request_msg);
+    pthread_mutex_unlock(mutex);
   }
 }
 
@@ -619,7 +621,6 @@ try_connect:
 
 static int handler(request_message_t *msg) {
   MemoryContext memory_context = CurrentMemoryContext;
-  pthread_mutex_lock(&msg->mutex);
   h2o_req_t *req = msg->req;
   if (req == NULL) {
     // The connection is gone
@@ -880,7 +881,6 @@ cleanup:
 
   MemoryContextReset(HandlerContext);
 release:
-  pthread_mutex_unlock(&msg->mutex);
 
   return 0;
 }
