@@ -18,24 +18,14 @@
  */
 typedef struct st_listener_ctx {
   /**
-   * @brief Query plan
-   *
+   * @brief Listener ID
    */
-  SPIPlanPtr plan;
+  int32 listener_id;
   /**
    * @brief Listener's MemoryContext
    *
    */
   MemoryContext memory_context;
-  /**
-   * @brief Role ID
-   *
-   */
-  Oid role_id;
-  /**
-   * @brief Is role a superuser?
-   */
-  bool role_is_superuser;
   /**
    * @brief Associated socket
    *

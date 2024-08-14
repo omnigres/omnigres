@@ -46,6 +46,8 @@
 #if PG_MAJORVERSION_NUM >= 13
 #include <postmaster/interrupt.h>
 #endif
+#include <parser/parse_func.h>
+#include <tcop/pquery.h>
 
 #include <metalang99.h>
 
@@ -66,6 +68,38 @@ h2o_multithread_receiver_t handler_receiver;
 h2o_multithread_queue_t *handler_queue;
 
 static clist_listener_contexts listener_contexts = {NULL};
+
+static Oid handler_oid = InvalidOid;
+static TupleDesc request_tupdesc;
+enum http_method {
+  http_method_GET,
+  http_method_HEAD,
+  http_method_POST,
+  http_method_PUT,
+  http_method_DELETE,
+  http_method_CONNECT,
+  http_method_OPTIONS,
+  http_method_TRACE,
+  http_method_PATCH,
+  http_method_last
+};
+static Oid http_method_oids[http_method_last] = {InvalidOid};
+static char *http_method_names[http_method_last] = {"GET",     "HEAD",    "POST",  "PUT",  "DELETE",
+                                                    "CONNECT", "OPTIONS", "TRACE", "PATCH"};
+
+/**
+ * Portal that we re-use in the handler
+ */
+static Portal execution_portal;
+/**
+ * Call context for all handler calls
+ */
+static CallContext *non_atomic_call_context;
+
+/**
+ * Handler context
+ */
+static MemoryContext HandlerContext;
 
 static void on_message(h2o_multithread_receiver_t *receiver, h2o_linklist_t *messages) {
   while (!h2o_linklist_is_empty(messages)) {
@@ -145,6 +179,60 @@ void http_worker(Datum db_oid) {
     return;
   }
 
+  // Get necessary OIDs and tuple descriptors
+  {
+    SetCurrentStatementStartTimestamp();
+    StartTransactionCommand();
+    PushActiveSnapshot(GetTransactionSnapshot());
+
+    // omni_httpd.handler(int,http_request)
+    List *funcname_list = list_make2(makeString("omni_httpd"), makeString("handler"));
+    handler_oid = LookupFuncName(funcname_list, -1, (Oid[2]){InvalidOid, InvalidOid}, false);
+    list_free(funcname_list);
+
+    // Save omni_httpd.http_request's tupdesc in TopMemoryContext
+    // to persist it
+    MemoryContext old_context = MemoryContextSwitchTo(TopMemoryContext);
+    request_tupdesc = TypeGetTupleDesc(http_request_oid(), NULL);
+    MemoryContextSwitchTo(old_context);
+
+    // Populate HTTP method IDs
+    for (int i = 0; i < http_method_last; i++) {
+      http_method_oids[i] = DirectFunctionCall2(enum_in, PointerGetDatum(http_method_names[i]),
+                                                ObjectIdGetDatum(http_method_oid()));
+    }
+
+    // Cache these. These calls require a transaction, so we don't want to do this on demand in
+    // non-atomic executions in the handler
+    http_request_oid();
+    http_header_oid();
+    http_response_oid();
+    http_outcome_oid();
+
+    PopActiveSnapshot();
+    AbortCurrentTransaction();
+  }
+
+  {
+    // Prepare the persistent portal
+    execution_portal = CreatePortal("omni_httpd", true, true);
+    execution_portal->resowner = NULL;
+    execution_portal->visible = false;
+    PortalDefineQuery(execution_portal, NULL, "(no query)", CMDTAG_UNKNOWN, false, NULL);
+    PortalStart(execution_portal, NULL, 0, InvalidSnapshot);
+  }
+
+  {
+    // All call contexts are non-atomic
+    MemoryContext old_context = MemoryContextSwitchTo(TopMemoryContext);
+    non_atomic_call_context = makeNode(CallContext);
+    non_atomic_call_context->atomic = false;
+    MemoryContextSwitchTo(old_context);
+  }
+
+  HandlerContext =
+      AllocSetContextCreate(TopMemoryContext, "omni_httpd handler context", ALLOCSET_DEFAULT_SIZES);
+
   while (atomic_load(&worker_running)) {
     bool worker_reload_test = true;
     if (atomic_compare_exchange_strong(&worker_reload, &worker_reload_test, false)) {
@@ -170,14 +258,10 @@ void http_worker(Datum db_oid) {
         continue;
       }
 
-      int handlers_query_rc = SPI_execute(
-          "select listeners.id, handlers.query, handlers.role_name "
-          "from omni_httpd.listeners "
-          "left join omni_httpd.listeners_handlers on listeners.id = "
-          "listeners_handlers.listener_id "
-          "left join omni_httpd.handlers handlers on handlers.id = listeners_handlers.handler_id "
-          "order by listeners.id asc",
-          false, 0);
+      int handlers_query_rc = SPI_execute("select listeners.id "
+                                          "from omni_httpd.listeners "
+                                          "order by listeners.id asc",
+                                          false, 0);
 
       UnlockRelationOid(listenersoid, AccessShareLock);
 
@@ -191,9 +275,7 @@ void http_worker(Datum db_oid) {
       List *handlers = NIL;
       // (which are described using this struct)
       struct pending_handler {
-        char *query;
         int id;
-        Name role_name;
       };
 
       if (handlers_query_rc == SPI_OK_SELECT) {
@@ -204,21 +286,8 @@ void http_worker(Datum db_oid) {
           bool id_is_null = false;
           Datum id = SPI_getbinval(tuple, tupdesc, 1, &id_is_null);
 
-          bool query_is_null = false;
-          Datum query = SPI_getbinval(tuple, tupdesc, 2, &query_is_null);
-
-          bool role_name_is_null = false;
-          Datum role_name = SPI_getbinval(tuple, tupdesc, 3, &role_name_is_null);
-
           struct pending_handler *handler = palloc(sizeof(*handler));
           handler->id = DatumGetInt32(id);
-          handler->query = query_is_null ? NULL : text_to_cstring(DatumGetTextPP(query));
-          handler->role_name = NULL;
-          if (!role_name_is_null) {
-            Name name = (Name)palloc(sizeof(NameData));
-            memcpy(name, DatumGetName(role_name), sizeof(*name));
-            handler->role_name = name;
-          }
           handlers = lappend(handlers, handler);
         }
 
@@ -270,10 +339,6 @@ void http_worker(Datum db_oid) {
             }
           }
           // Otherwise, dispose of the listener
-          if (iter.ref->plan != NULL) {
-            SPI_freeplan(iter.ref->plan);
-            iter.ref->plan = NULL;
-          }
 
           if (iter.ref->socket != NULL) {
             h2o_socket_t *socket = iter.ref->socket;
@@ -295,7 +360,6 @@ void http_worker(Datum db_oid) {
         listener_ctx c = {.fd = fd,
                           .master_fd = (i.ref)->master_fd,
                           .socket = NULL,
-                          .plan = NULL,
                           .memory_context =
                               AllocSetContextCreate(TopMemoryContext, "omni_httpd_listener_context",
                                                     ALLOCSET_DEFAULT_SIZES),
@@ -339,26 +403,6 @@ void http_worker(Datum db_oid) {
             index++;
           }
 
-          // If no handler has matched, continue to the next row
-          if (handler->query == NULL) {
-            continue;
-          }
-
-          Oid role_id = InvalidOid;
-          bool role_superuser = false;
-          {
-
-            HeapTuple roleTup = SearchSysCache1(AUTHNAME, NameGetDatum(handler->role_name));
-            if (!HeapTupleIsValid(roleTup)) {
-              ereport(WARNING, errmsg("role \"%s\" does not exist", NameStr(*handler->role_name)));
-            } else {
-              Form_pg_authid rform = (Form_pg_authid)GETSTRUCT(roleTup);
-              role_id = rform->oid;
-              role_superuser = rform->rolsuper;
-              ReleaseSysCache(roleTup);
-            }
-          }
-
           const cvec_fd_fd_value *fd = cvec_fd_fd_at(&fds, index);
           Assert(fd != NULL);
           listener_ctx *listener_ctx = NULL;
@@ -370,73 +414,8 @@ void http_worker(Datum db_oid) {
           }
           Assert(listener_ctx != NULL);
 
-          char *query_string = handler->query;
-          MemoryContext memory_context = CurrentMemoryContext;
-          char *request_cte = psprintf(
-              // clang-format off
-              "select " "$" REQUEST_PLAN_PARAM(
-                      REQUEST_PLAN_METHOD) "::text::omni_http.http_method AS method, "
-              "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_PATH) " as path, "
-              "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_QUERY_STRING) " as query_string, "
-              "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_BODY) " as body, "
-              "$" REQUEST_PLAN_PARAM(REQUEST_PLAN_HEADERS) " as headers "
-              // clang-format on
-          );
-
-          List *query_stmt = omni_sql_parse_statement(query_string);
-          if (omni_sql_is_parameterized(query_stmt)) {
-            ereport(WARNING,
-                    errmsg("Listener query is parameterized and is rejected:\n %s", query_string));
-          } else {
-            List *request_cte_stmt = omni_sql_parse_statement(request_cte);
-            query_stmt = omni_sql_add_cte(query_stmt, "request", request_cte_stmt, false, true);
-
-            char *query = omni_sql_deparse_statement(query_stmt);
-            list_free_deep(request_cte_stmt);
-            list_free_deep(query_stmt);
-            PG_TRY();
-            {
-              SPIPlanPtr plan = SPI_prepare(query, REQUEST_PLAN_PARAMS,
-                                            (Oid[REQUEST_PLAN_PARAMS]){
-                                                [REQUEST_PLAN_METHOD] = TEXTOID,
-                                                [REQUEST_PLAN_PATH] = TEXTOID,
-                                                [REQUEST_PLAN_QUERY_STRING] = TEXTOID,
-                                                [REQUEST_PLAN_BODY] = BYTEAOID,
-                                                [REQUEST_PLAN_HEADERS] = http_header_array_oid(),
-                                            });
-
-              if (plan == NULL) {
-                const char *err = SPI_result_code_string(SPI_result);
-                ereport(WARNING, errmsg("Error preparing the query: %s", err));
-              }
-              Assert(plan != NULL);
-              // Get role
-              listener_ctx->role_id = role_id;
-              listener_ctx->role_is_superuser = role_superuser;
-
-              // We have to keep the plan as we're going to disconnect from SPI
-              int keepret = SPI_keepplan(plan);
-              if (keepret != 0) {
-                ereport(WARNING, errmsg("Can't save plan: %s", SPI_result_code_string(keepret)));
-                listener_ctx->plan = NULL;
-              } else {
-                listener_ctx->plan = plan;
-              }
-            }
-            PG_CATCH();
-            {
-              MemoryContextSwitchTo(memory_context);
-              WITH_TEMP_MEMCXT {
-                ErrorData *error = CopyErrorData();
-                ereport(WARNING, errmsg("Error preparing query %s", query),
-                        errdetail("%s: %s", error->message, error->detail));
-              }
-
-              FlushErrorState();
-            }
-            PG_END_TRY();
-            pfree(query);
-          }
+          // Set listener ID
+          listener_ctx->listener_id = handler->id;
         }
         // Free everything in handlers context
         MemoryContextDelete(handlers_ctx);
@@ -473,10 +452,11 @@ void http_worker(Datum db_oid) {
   }
 
   clist_listener_contexts_drop(&listener_contexts);
+  PortalDrop(execution_portal, false);
 }
 
 static inline int listener_ctx_cmp(const listener_ctx *l, const listener_ctx *r) {
-  return (l->plan == r->plan && l->socket == r->socket && l->fd == r->fd) ? 0 : -1;
+  return (l->listener_id == r->listener_id && l->socket == r->socket && l->fd == r->fd) ? 0 : -1;
 }
 
 h2o_accept_ctx_t *listener_accept_ctx(h2o_socket_t *listener) {
@@ -638,6 +618,7 @@ try_connect:
 }
 
 static int handler(request_message_t *msg) {
+  MemoryContext memory_context = CurrentMemoryContext;
   pthread_mutex_lock(&msg->mutex);
   h2o_req_t *req = msg->req;
   if (req == NULL) {
@@ -648,91 +629,101 @@ static int handler(request_message_t *msg) {
   }
   listener_ctx *lctx = H2O_STRUCT_FROM_MEMBER(listener_ctx, context, req->conn->ctx);
 
-  SPIPlanPtr plan = lctx->plan;
-
-  if (plan == NULL) {
-    req->res.status = 500;
-    h2o_queue_send_inline(msg, H2O_STRLIT("Internal server error!!"));
-    goto release;
-  }
-
   SetCurrentStatementStartTimestamp();
   StartTransactionCommand();
-  PushActiveSnapshot(GetTransactionSnapshot());
-  SPI_connect();
+
+  ActivePortal = execution_portal;
 
   bool succeeded = false;
 
-  int ret;
+  // Execute handler
+  CurrentMemoryContext = HandlerContext;
 
-  // If the current handler user is not the requested one,
-  // set it to the requested one.
-  if (CurrentHandlerUser != lctx->role_id) {
-    CurrentHandlerUser = lctx->role_id;
-    SetUserIdAndSecContext(CurrentHandlerUser,
-                           lctx->role_is_superuser ? 0 : SECURITY_LOCAL_USERID_CHANGE);
-  }
+  bool nulls[REQUEST_PLAN_PARAMS] = {[REQUEST_PLAN_METHOD] = false,
+                                     [REQUEST_PLAN_PATH] = false,
+                                     [REQUEST_PLAN_QUERY_STRING] = req->query_at == SIZE_MAX,
+                                     [REQUEST_PLAN_BODY] = false,
+                                     [REQUEST_PLAN_HEADERS] = false};
+  Datum values[REQUEST_PLAN_PARAMS] = {
+      [REQUEST_PLAN_METHOD] = ({
+        PointerGetDatum(cstring_to_text_with_len(req->method.base, req->method.len));
+        Datum result = InvalidOid;
+        for (int i = 0; i < http_method_last; i++) {
+          if (strncmp(req->method.base, http_method_names[i], req->method.len) == 0) {
+            result = ObjectIdGetDatum(http_method_oids[i]);
+            goto found;
+          }
+        }
+        Assert(false);
+      found:
+        result;
+      }),
+      [REQUEST_PLAN_PATH] = PointerGetDatum(
+          cstring_to_text_with_len(req->path_normalized.base, req->path_normalized.len)),
+      [REQUEST_PLAN_QUERY_STRING] =
+          req->query_at == SIZE_MAX
+              ? PointerGetDatum(NULL)
+              : PointerGetDatum(cstring_to_text_with_len(req->path.base + req->query_at + 1,
+                                                         req->path.len - req->query_at - 1)),
+      [REQUEST_PLAN_BODY] = ({
+        while (req->proceed_req != NULL) {
+          req->proceed_req(req, NULL);
+        }
+        bytea *result = (bytea *)palloc(req->entity.len + VARHDRSZ);
+        SET_VARSIZE(result, req->entity.len + VARHDRSZ);
+        memcpy(VARDATA(result), req->entity.base, req->entity.len);
+        PointerGetDatum(result);
+      }),
+      [REQUEST_PLAN_HEADERS] = ({
+        TupleDesc header_tupledesc = TypeGetTupleDesc(http_header_oid(), NULL);
+        BlessTupleDesc(header_tupledesc);
 
-  // Execute listener's query
-  MemoryContext memory_context = CurrentMemoryContext;
+        Datum *elems = (Datum *)palloc(sizeof(Datum) * req->headers.size);
+        bool *header_nulls = (bool *)palloc(sizeof(bool) * req->headers.size);
+        for (int i = 0; i < req->headers.size; i++) {
+          h2o_header_t header = req->headers.entries[i];
+          header_nulls[i] = 0;
+          HeapTuple header_tuple = heap_form_tuple(
+              header_tupledesc,
+              (Datum[2]){
+                  PointerGetDatum(cstring_to_text_with_len(header.name->base, header.name->len)),
+                  PointerGetDatum(cstring_to_text_with_len(header.value.base, header.value.len)),
+              },
+              (bool[2]){false, false});
+          elems[i] = HeapTupleGetDatum(header_tuple);
+        }
+        ArrayType *result =
+            construct_md_array(elems, header_nulls, 1, (int[1]){req->headers.size}, (int[1]){1},
+                               http_header_oid(), -1, false, TYPALIGN_DOUBLE);
+        PointerGetDatum(result);
+      })};
+
+  HeapTuple request_tuple = heap_form_tuple(request_tupdesc, values, nulls);
+
+  Datum outcome;
+  bool isnull = false;
   PG_TRY();
   {
-    char nulls[REQUEST_PLAN_PARAMS] = {[REQUEST_PLAN_METHOD] = ' ',
-                                       [REQUEST_PLAN_PATH] = ' ',
-                                       [REQUEST_PLAN_QUERY_STRING] =
-                                           req->query_at == SIZE_MAX ? 'n' : ' ',
-                                       [REQUEST_PLAN_BODY] = ' ',
-                                       [REQUEST_PLAN_HEADERS] = ' '};
-    ret = SPI_execute_plan(
-        plan,
-        (Datum[REQUEST_PLAN_PARAMS]){
-            [REQUEST_PLAN_METHOD] =
-                PointerGetDatum(cstring_to_text_with_len(req->method.base, req->method.len)),
-            [REQUEST_PLAN_PATH] = PointerGetDatum(
-                cstring_to_text_with_len(req->path_normalized.base, req->path_normalized.len)),
-            [REQUEST_PLAN_QUERY_STRING] =
-                req->query_at == SIZE_MAX
-                    ? PointerGetDatum(NULL)
-                    : PointerGetDatum(cstring_to_text_with_len(req->path.base + req->query_at + 1,
-                                                               req->path.len - req->query_at - 1)),
-            [REQUEST_PLAN_BODY] = ({
-              while (req->proceed_req != NULL) {
-                req->proceed_req(req, NULL);
-              }
-              bytea *result = (bytea *)palloc(req->entity.len + VARHDRSZ);
-              SET_VARSIZE(result, req->entity.len + VARHDRSZ);
-              memcpy(VARDATA(result), req->entity.base, req->entity.len);
-              PointerGetDatum(result);
-            }),
-            [REQUEST_PLAN_HEADERS] = ({
-              TupleDesc header_tupledesc = TypeGetTupleDesc(http_header_oid(), NULL);
-              BlessTupleDesc(header_tupledesc);
+    FmgrInfo flinfo;
 
-              Datum *elems = (Datum *)palloc(sizeof(Datum) * req->headers.size);
-              bool *header_nulls = (bool *)palloc(sizeof(bool) * req->headers.size);
-              for (int i = 0; i < req->headers.size; i++) {
-                h2o_header_t header = req->headers.entries[i];
-                header_nulls[i] = 0;
-                HeapTuple header_tuple =
-                    heap_form_tuple(header_tupledesc,
-                                    (Datum[2]){
-                                        PointerGetDatum(cstring_to_text_with_len(header.name->base,
-                                                                                 header.name->len)),
-                                        PointerGetDatum(cstring_to_text_with_len(header.value.base,
-                                                                                 header.value.len)),
-                                    },
-                                    (bool[2]){false, false});
-                elems[i] = HeapTupleGetDatum(header_tuple);
-              }
-              ArrayType *result =
-                  construct_md_array(elems, header_nulls, 1, (int[1]){req->headers.size},
-                                     (int[1]){1}, http_header_oid(), -1, false, TYPALIGN_DOUBLE);
-              PointerGetDatum(result);
-            })},
-        nulls, false, 1);
+    fmgr_info(handler_oid, &flinfo);
+    LOCAL_FCINFO(fcinfo, 2);
+    InitFunctionCallInfoData(*fcinfo, &flinfo, 2, InvalidOid /* collation */, NULL, NULL);
+
+    fcinfo->args[0].value = Int32GetDatum(lctx->listener_id);
+    fcinfo->args[0].isnull = false;
+    fcinfo->args[1].value = HeapTupleGetDatum(request_tuple);
+    fcinfo->args[1].isnull = false;
+    fcinfo->context = (fmNodePtr)non_atomic_call_context;
+
+    outcome = FunctionCallInvoke(fcinfo);
+    heap_freetuple(request_tuple);
+
+    isnull = fcinfo->isnull;
   }
   PG_CATCH();
   {
+    heap_freetuple(request_tuple);
     MemoryContextSwitchTo(memory_context);
     WITH_TEMP_MEMCXT {
       ErrorData *error = CopyErrorData();
@@ -747,22 +738,7 @@ static int handler(request_message_t *msg) {
     goto cleanup;
   }
   PG_END_TRY();
-  int proc = SPI_processed;
-  if (ret == SPI_OK_SELECT && proc > 0) {
-    TupleDesc tupdesc = SPI_tuptable->tupdesc;
-    SPITupleTable *tuptable = SPI_tuptable;
-    HeapTuple tuple = tuptable->vals[0];
-
-    int c = 1;
-    for (int i = 0; i < tupdesc->natts; i++) {
-      if (http_outcome_oid() == tupdesc->attrs[i].atttypid) {
-        c = i + 1;
-        break; // TODO: continue but issue a warning if another response is found?
-      }
-    }
-
-    bool isnull = false;
-    Datum outcome = SPI_getbinval(tuple, tupdesc, c, &isnull);
+  {
     if (!isnull) {
       // We know that the outcome is a variable-length type
       struct varlena *outcome_value = (struct varlena *)PG_DETOAST_DATUM_PACKED(outcome);
@@ -883,34 +859,26 @@ static int handler(request_message_t *msg) {
       }
       }
     } else {
+      req->res.status = 204;
       h2o_queue_send_inline(msg, "", 0);
     }
     succeeded = true;
-  } else {
-    if (ret == SPI_OK_SELECT) {
-      // No result
-      req->res.status = 204;
-      h2o_queue_send_inline(msg, H2O_STRLIT(""));
-      succeeded = true;
-    } else {
-      req->res.status = 500;
-      ereport(WARNING, errmsg("Error executing query: %s", SPI_result_code_string(ret)));
-      h2o_queue_send_inline(msg, H2O_STRLIT("Internal server error"));
-    }
   }
 
 cleanup:
-  SPI_finish();
-  PopActiveSnapshot();
+
+  // Ensure portal is not attached to any snapshot
+  ForgetPortalSnapshots();
+  // Ensure we no longer have an active portal
+  ActivePortal = false;
+
   if (succeeded) {
     CommitTransactionCommand();
-    // Restore TopUser and save it in CurrentHandlerUser
-    SetUserIdAndSecContext(TopUser, 0);
-    int _sec;
-    GetUserIdAndSecContext(&CurrentHandlerUser, &_sec);
   } else {
     AbortCurrentTransaction();
   }
+
+  MemoryContextReset(HandlerContext);
 release:
   pthread_mutex_unlock(&msg->mutex);
 

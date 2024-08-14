@@ -1,0 +1,48 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+    max_worker_processes: 64
+  init:
+  - set session omni_httpd.no_init = true
+  - create extension omni_httpd cascade
+  - create extension omni_httpc cascade
+  - call omni_httpd.wait_for_configuration_reloads(1)
+  - insert into omni_httpd.listeners (address, port)
+    values ('127.0.0.1', 0)
+  - call omni_httpd.wait_for_configuration_reloads(1)
+  - |
+    create or replace function omni_httpd.handler(int, omni_httpd.http_request) returns omni_httpd.http_outcome
+        language plpgsql as
+    $$
+    begin
+        create table if not exists test
+        (
+            val int
+        );
+        commit;
+        insert into test (val) values (0);
+        rollback;
+        insert into test (val) values (1);
+        return omni_httpd.http_response((select val::text from test limit 1));
+    end;
+    $$
+
+tests:
+- name: smoke test
+  tests:
+  - query: |
+      with response as (select *
+                        from omni_httpc.http_execute(
+                                omni_httpc.http_request('http://127.0.0.1:' ||
+                                                        (select effective_port from omni_httpd.listeners where port = 0) ||
+                                                        '/')))
+      select response.status,
+             convert_from(response.body, 'utf-8') as body
+      from response
+    results:
+    - status: 200
+      body: 1
+  - query: select * from test
+    results:
+    - val: 1
