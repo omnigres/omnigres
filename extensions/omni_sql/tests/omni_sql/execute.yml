@@ -1,0 +1,144 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_sql cascade
+
+tests:
+
+- name: null
+  query: select *
+         from omni_sql.execute(null)
+  results: [ ]
+
+- name: empty
+  query: select *
+         from omni_sql.execute('')
+  results: [ ]
+
+- name: smoke test
+  query: select *
+         from omni_sql.execute('select $1 as first, $2 as second', parameters => jsonb_build_array(1, 'hello'),
+                               types => '{int,text}');
+  results:
+  - stmt_row:
+      first: 1
+      second: hello
+
+- name: non-array parameters
+  query: select *
+         from omni_sql.execute('select $1', parameters => jsonb_build_object('a', 1))
+  error: parameters must be a JSON array
+
+- name: optionality of types
+  query: select *
+         from omni_sql.execute('select $1 as first, $2 as second', parameters => jsonb_build_array(1, 'hello'),
+                               types => '{int}');
+  results:
+  - stmt_row:
+      first: "1"
+      second: hello
+
+- name: invalid numeric conversion
+  query: select *
+         from omni_sql.execute('select $1 as first, $2 as second', parameters => jsonb_build_array(1, 'hello'),
+                               types => '{text}');
+  error: can't convert numeric to type text
+
+- name: syntax error
+  query: select *
+         from omni_sql.execute('slect')
+  error: syntax error at or near "slect"
+
+- name: insert stmt
+  steps:
+  - |
+    create table tab
+    (
+        i int
+    )
+  - query: select *
+           from omni_sql.execute('insert into tab (i) values (1), (2), (3)')
+    results:
+    - stmt_row:
+        rows: 3
+
+- name: insert returning stmt
+  steps:
+  - |
+    create table tab
+    (
+        i int
+    )
+  - query: select *
+           from omni_sql.execute('insert into tab (i) values (1) returning i')
+    results:
+    - stmt_row:
+        i: 1
+
+- name: update stmt
+  steps:
+  - |
+    create table tab
+    (
+        i int
+    )
+  - |
+    insert into tab (i)
+    values (1),
+           (2),
+           (3)
+  - query: select *
+           from omni_sql.execute('update tab set i = i + 1')
+    results:
+    - stmt_row:
+        rows: 3
+
+- name: update returning stmt
+  steps:
+  - |
+    create table tab
+    (
+        i int
+    )
+  - |
+    insert into tab (i)
+    values (1)
+  - query: select *
+           from omni_sql.execute('update tab set i = i + 1 returning i')
+    results:
+    - stmt_row:
+        i: 2
+
+- name: delete stmt
+  steps:
+  - |
+    create table tab
+    (
+        i int
+    )
+  - |
+    insert into tab (i)
+    values (1),
+           (2),
+           (3)
+  - query: select *
+           from omni_sql.execute('delete from tab')
+    results:
+    - stmt_row:
+        rows: 3
+
+- name: delete returning stmt
+  steps:
+  - |
+    create table tab
+    (
+        i int
+    )
+  - |
+    insert into tab (i)
+    values (1)
+  - query: select *
+           from omni_sql.execute('delete from tab returning i')
+    results:
+    - stmt_row:
+        i: 1

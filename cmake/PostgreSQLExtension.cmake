@@ -583,7 +583,7 @@ ${PG_CTL} stop -D  \"$PSQLDB\" -m smart
         add_custom_target(psql_${_ext_TARGET}
                 WORKING_DIRECTORY "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/.."
                 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/psql_${_ext_TARGET})
-        add_dependencies(psql_${_ext_TARGET} ${_ext_TARGET} omni)
+        add_dependencies(psql_${_ext_TARGET} ${_ext_TARGET} prepare omni)
     endif()
 
     if(PG_REGRESS)

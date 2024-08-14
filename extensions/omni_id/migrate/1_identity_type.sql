@@ -1,0 +1,1 @@
+/*{% include "../src/identity_type.sql" %}*/

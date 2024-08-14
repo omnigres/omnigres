@@ -1,0 +1,55 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_id
+  - select identity_type('my_id')
+  - select identity_type('my_id1')
+
+tests:
+
+- name: smoke test (example)
+  steps:
+  - select identity_type('user_id');
+  - select identity_type('order_id');
+  - |
+    create table users
+    (
+        id user_id primary key default user_id_nextval()
+    )
+  - |
+    create table orders
+    (
+        id      order_id primary key default order_id_nextval(),
+        user_id user_id not null references users (id)
+    )
+  # (intentional) mistake
+  - query: select *
+           from users
+                    inner join orders
+                               on orders.id = users.id
+    error: "operator does not exist: order_id = user_id"
+
+- name: comparison failures
+  tests:
+  - query: select my_id(1) = 1
+    name: can't just use integer
+    error: "operator does not exist: my_id = integer"
+  - query: select my_id(1) = my_id1(1)
+    error: "operator does not exist: my_id = my_id1"
+
+- name: nextval
+  query: select my_id_nextval()
+  results:
+  - my_id_nextval: 1
+
+- name: currval
+  query: select my_id_currval()
+  results:
+  - my_id_currval: 1
+
+- name: setval
+  steps:
+  - select my_id_setval(my_id(3))
+  - query: select my_id_currval()
+    results:
+    - my_id_currval: 3
