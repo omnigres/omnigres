@@ -27,7 +27,8 @@ instance:
     $$
   - create table retries
     (
-        count int
+        count     int,
+        iso_level text
     )
 
 tests:
@@ -102,7 +103,7 @@ tests:
       call omni_txn.retry($$select quantity from inventory where product_name = 'Widget';
       select call_other_session() where omni_txn.current_retry_attempt() = 0;
       update inventory set quantity = quantity + 20 where product_name = 'Widget';
-      insert into retries (count) select omni_txn.current_retry_attempt();
+      insert into retries (count, iso_level) select omni_txn.current_retry_attempt(), current_setting('transaction_isolation');
       $$);
     transaction: false
   - query: select quantity
@@ -110,10 +111,11 @@ tests:
            where product_name = 'Widget'
     results:
     - quantity: 110
-  - query: select count
+  - query: select count, iso_level
            from retries
     results:
     - count: 1
+      iso_level: serializable
 
 - name: max attempts
   transaction: false

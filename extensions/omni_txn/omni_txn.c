@@ -34,7 +34,8 @@ Datum retry(PG_FUNCTION_ARGS) {
   bool retry = true;
   retry_attempts = 0;
   while (retry) {
-    XactIsoLevel = XACT_SERIALIZABLE;
+    XactIsoLevel =
+        (!PG_ARGISNULL(2) && PG_GETARG_BOOL(2)) ? XACT_REPEATABLE_READ : XACT_SERIALIZABLE;
     SPI_connect_ext(SPI_OPT_NONATOMIC);
 
     MemoryContext current_mcxt = CurrentMemoryContext;

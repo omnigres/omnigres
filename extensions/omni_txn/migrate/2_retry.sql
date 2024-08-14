@@ -1,4 +1,4 @@
-create procedure retry(stmts text, max_attempts int default 10)
+create procedure retry(stmts text, max_attempts int default 10, repeatable_read boolean default false)
     language c as
 'MODULE_PATHNAME';
 
