@@ -9,7 +9,9 @@
 #if PG_MAJORVERSION_NUM < 15
 #include <access/xact.h>
 #endif
+#if PG_MAJORVERSION_NUM > 14
 #include <common/pg_prng.h>
+#endif
 #include <nodes/pg_list.h>
 #include <utils/memutils.h>
 
@@ -34,7 +36,13 @@ static int64 get_backoff(int64 cap, int64 base, int32 attempt) {
  * Get the random jitter to avoid contention in the backoff. Uses the
  * process seed initialized in `InitProcessGlobals`.
  */
-static float8 get_jitter() { return pg_prng_double(&pg_global_prng_state); }
+static float8 get_jitter() {
+#if PG_MAJORVERSION_NUM > 14
+  return pg_prng_double(&pg_global_prng_state);
+#else
+  return random();
+#endif
+}
 
 /**
  * Implements the backoff + fitter approach

@@ -2,6 +2,7 @@
 #include <postgres.h>
 #include <fmgr.h>
 // clang-format on
+#include <access/xact.h>
 #include <executor/spi.h>
 #include <utils/builtins.h>
 #include <utils/snapmgr.h>
