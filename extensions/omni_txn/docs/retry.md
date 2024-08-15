@@ -5,11 +5,12 @@ The algorthms
 are fairly typical, so repeating them manually doesn't always make a lot of sense. `omni_txn` provides `retry` procedure
 to handle such typical cases.
 
-|           Parameter | Type    | Description                                                          |
-|--------------------:|---------|----------------------------------------------------------------------|
-|           **stmts** | text    | Statement(s) to execute. Multiple statements separated by semicolon. |
-|    **max_attempts** | int     | Max number of times to retry. 0 means no retries. 10 by default.     |
-| **repeatable_read** | boolean | Use `REPEATABLE READ` instead of `SERIALIZABLE`. False by default.   |
+|                  Parameter | Type    | Description                                                          |
+|---------------------------:|---------|----------------------------------------------------------------------|
+|                  **stmts** | text    | Statement(s) to execute. Multiple statements separated by semicolon. |
+|           **max_attempts** | int     | Max number of times to retry. 0 means no retries. 10 by default.     |
+|        **repeatable_read** | boolean | Use `REPEATABLE READ` instead of `SERIALIZABLE`. False by default.   |
+| **collect_backoff_values** | boolean | Collect actual backoff values for inspection. False by default.      |
 
 ## Retry attempt
 

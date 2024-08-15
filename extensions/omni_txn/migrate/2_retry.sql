@@ -1,9 +1,10 @@
-create procedure retry(stmts text, max_attempts int default 10, repeatable_read boolean default false, gather_backoff_values boolean default false)
+create procedure retry(stmts text, max_attempts int default 10, repeatable_read boolean default false,
+                       collect_backoff_values boolean default false)
     language c as
 'MODULE_PATHNAME';
 
 comment on procedure retry is $$
-Retry serializable transaction on statements `stmts`, `max_attempt` number of times (10 by default). `gather_backoff_values` controls if the backoff values used for sleeping will be recorded for debugging/testing purposes (false in orded to increase performance)
+Retry serializable transaction on statements `stmts`, `max_attempt` number of times (10 by default). `collect_backoff_values` controls if the backoff values used for sleeping will be recorded for debugging/testing purposes (false in orded to increase performance)
 $$;
 
 create function current_retry_attempt()

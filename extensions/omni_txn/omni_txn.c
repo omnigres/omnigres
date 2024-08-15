@@ -73,12 +73,12 @@ Datum retry(PG_FUNCTION_ARGS) {
   if (!PG_ARGISNULL(1)) {
     max_attempts = PG_GETARG_INT32(1);
   }
-  bool gather_backoff_values = false;
+  bool collect_backoff_values = false;
   if (!PG_ARGISNULL(2)) {
-    gather_backoff_values = PG_GETARG_BOOL(2);
+    collect_backoff_values = PG_GETARG_BOOL(2);
   }
 
-  if (gather_backoff_values) {
+  if (collect_backoff_values) {
     // make sure that we are not collecting backoff values from another
     // transaction. Frees up existing memory in order not to leak it from
     // existing calls.
@@ -111,7 +111,7 @@ Datum retry(PG_FUNCTION_ARGS) {
           int64 backoff_with_jitter_in_microsecs =
               backoff_jitter(cap_sleep_microsecs, base_sleep_microsecs, retry_attempts);
 
-          if (gather_backoff_values) {
+          if (collect_backoff_values) {
             // make sure to store the backoff values in a way that
             // survives the end of the transaction so that the user can
             // call `retry_backoff_values` to retrieve the values for
