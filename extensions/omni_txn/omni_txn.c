@@ -50,9 +50,7 @@ static int64 backoff_jitter(int64 cap, int64 base, int32 attempt) {
  * `pg_sleep`. The literal comes copied from there, to ensure the same
  * ratio.
  */
-static float8 to_secs(int64 secs) {
-  return (float8)secs/1000000.0;
-}
+static float8 to_secs(int64 secs) { return (float8)secs / 1000000.0; }
 
 PG_FUNCTION_INFO_V1(retry);
 
@@ -72,7 +70,7 @@ Datum retry(PG_FUNCTION_ARGS) {
     gather_backoff_values = PG_GETARG_BOOL(2);
   }
 
-  if (gather_backoff_values){
+  if (gather_backoff_values) {
     // make sure that we are not collecting backoff values from another
     // transaction. Frees up existing memory in order not to leak it from
     // existing calls.
@@ -149,7 +147,6 @@ PG_FUNCTION_INFO_V1(current_retry_attempt);
 
 Datum current_retry_attempt(PG_FUNCTION_ARGS) { PG_RETURN_INT32(retry_attempts); }
 
-
 PG_FUNCTION_INFO_V1(retry_backoff_values);
 
 /**
@@ -172,7 +169,6 @@ Datum retry_backoff_values(PG_FUNCTION_ARGS) {
     bool isnull[1] = {false};
     tuplestore_putvalues(tupstore, rsinfo->expectedDesc, values, isnull);
   }
-
 
   tuplestore_donestoring(tupstore);
 
