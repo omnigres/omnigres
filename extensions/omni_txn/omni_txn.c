@@ -40,7 +40,7 @@ static float8 get_jitter() {
 #if PG_MAJORVERSION_NUM > 14
   return pg_prng_double(&pg_global_prng_state);
 #else
-  return random();
+  return rand() / (RAND_MAX + 1.0);
 #endif
 }
 
