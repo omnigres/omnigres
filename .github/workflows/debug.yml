@@ -18,7 +18,7 @@ on:
         options:
         - ubuntu-latest
         - warp-ubuntu-latest-x64-4x
-        - flyci-macos-large-latest-m1
+        - warp-macos-14-arm64-6x
         - warp-ubuntu-latest-arm64-2x
         - warp-ubuntu-latest-arm64-4x
         - macos-13
