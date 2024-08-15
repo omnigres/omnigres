@@ -26,14 +26,14 @@ jobs:
     strategy:
       matrix:
         pgver: [ 16, 15, 14, 13 ]
-        os: [ { name: ubuntu, image: warp-ubuntu-latest-x64-4x, arch: x86-64 }, { name: macos, image: flyci-macos-large-latest-m1, arch: arm } ]
+        os: [ { name: ubuntu, image: warp-ubuntu-latest-x64-4x, arch: x86-64 }, { name: macos, image: warp-macos-14-arm64-6x, arch: arm } ]
         build_type: [ Release ]
         exclude:
-          - os: { name: macos, image: flyci-macos-large-latest-m1, arch: arm }
+        - os: { name: macos, image: warp-macos-14-arm64-6x, arch: arm }
             pgver: 15
-          - os: { name: macos, image: flyci-macos-large-latest-m1, arch: arm }
+        - os: { name: macos, image: warp-macos-14-arm64-6x, arch: arm }
             pgver: 14
-          - os: { name: macos, image: flyci-macos-large-latest-m1, arch: arm }
+        - os: { name: macos, image: warp-macos-14-arm64-6x, arch: arm }
             pgver: 13
       fail-fast: false
 
