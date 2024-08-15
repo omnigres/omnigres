@@ -129,19 +129,6 @@ static void sigterm() {
 }
 
 /**
- * HTTP worker starts with this user, and it's retrieved after initializing
- * the database.
- */
-static Oid TopUser = InvalidOid;
-/**
- * This is the current user used by the handler.
- *
- * Resets every time HTTP worker reloads configuration to allow for superuser
- * privileges during the reload.
- */
-static Oid CurrentHandlerUser = InvalidOid;
-
-/**
  * HTTP worker entry point
  *
  * This is where everything starts. The worker is responsible for accepting connections (when
@@ -174,7 +161,6 @@ void http_worker(Datum db_oid) {
 
   // Connect worker to the database
   BackgroundWorkerInitializeConnectionByOid(db_oid, InvalidOid, 0);
-  TopUser = GetAuthenticatedUserId();
 
   if (semaphore == NULL) {
     // omni_httpd is being shut down
