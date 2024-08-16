@@ -191,26 +191,22 @@ done:
  */
 bool omni_sql_is_returning_statement(List *stmts) {
 
-  if (list_length(stmts) != 1) {
+  int len = list_length(stmts);
+  if (len == 0) {
     return false;
   }
 
-  ListCell *lc;
-  foreach (lc, stmts) {
-    Node *stmt = lfirst_node(RawStmt, lc)->stmt;
-    switch (nodeTag(stmt)) {
-    case T_SelectStmt:
-      return true;
-    case T_UpdateStmt:
-      return list_length(castNode(UpdateStmt, stmt)->returningList) > 0;
-    case T_InsertStmt:
-      return list_length(castNode(InsertStmt, stmt)->returningList) > 0;
-    case T_DeleteStmt:
-      return list_length(castNode(DeleteStmt, stmt)->returningList) > 0;
-    default:
-      return false;
-    }
+  Node *stmt = (len == 1 ? (linitial_node(RawStmt, stmts)) : (llast_node(RawStmt, stmts)))->stmt;
+  switch (nodeTag(stmt)) {
+  case T_SelectStmt:
+    return true;
+  case T_UpdateStmt:
+    return list_length(castNode(UpdateStmt, stmt)->returningList) > 0;
+  case T_InsertStmt:
+    return list_length(castNode(InsertStmt, stmt)->returningList) > 0;
+  case T_DeleteStmt:
+    return list_length(castNode(DeleteStmt, stmt)->returningList) > 0;
+  default:
+    return false;
   }
-
-  return false;
 }

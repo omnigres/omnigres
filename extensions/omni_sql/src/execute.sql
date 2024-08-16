@@ -17,7 +17,7 @@ begin
             if not rec.last then
                 execute rec.stmt;
             else
-                for retrec in select omni_sql.execute_parameterized(stmt, parameters, types) val
+                for retrec in select omni_sql.execute_parameterized(rec.stmt, parameters, types) val
                     loop
                         stmt_row := to_jsonb(retrec.val);
                         return next;
