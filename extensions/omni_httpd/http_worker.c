@@ -89,6 +89,18 @@ static char *http_method_names[http_method_last] = {"GET",     "HEAD",    "POST"
 
 /**
  * Portal that we re-use in the handler
+ *
+ * It's kind of a "fake portal" in a sense that it only exists so that the check in
+ * `ForgetPortalSnapshots()` doesn't fail with this upon commit/rollback in SPI:
+ *
+ * ```
+ * portal snapshots (0) did not account for all active snapshots (1)
+ * ```
+ *
+ * This is happening because we do have an anticipated snapshot when we call in non-atomic
+ * fashion. In case when a languages is capable of handling no snapshot, that's all good –
+ * PL/pgSQL, for example, works. However, if we call, say, an SQL function, it does not expect
+ * to be non-atomic and hence needs a snapshot to operate in.
  */
 static Portal execution_portal;
 /**
@@ -703,7 +715,12 @@ static int handler(request_message_t *msg) {
     fcinfo->args[1].isnull = false;
     fcinfo->context = (fmNodePtr)non_atomic_call_context;
 
+    Snapshot snapshot = GetTransactionSnapshot();
+    PushActiveSnapshot(snapshot);
+    execution_portal->portalSnapshot = snapshot;
     outcome = FunctionCallInvoke(fcinfo);
+    PopActiveSnapshot();
+    execution_portal->portalSnapshot = NULL;
     heap_freetuple(request_tuple);
 
     isnull = fcinfo->isnull;
@@ -853,12 +870,6 @@ static int handler(request_message_t *msg) {
   }
 
 cleanup:
-
-  // Ensure portal is not attached to any snapshot
-  while (ActiveSnapshotSet()) {
-    PopActiveSnapshot();
-  }
-  execution_portal->portalSnapshot = NULL;
   // Ensure we no longer have an active portal
   ActivePortal = false;
 
