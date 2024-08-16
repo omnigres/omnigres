@@ -855,7 +855,10 @@ static int handler(request_message_t *msg) {
 cleanup:
 
   // Ensure portal is not attached to any snapshot
-  ForgetPortalSnapshots();
+  while (ActiveSnapshotSet()) {
+    PopActiveSnapshot();
+  }
+  execution_portal->portalSnapshot = NULL;
   // Ensure we no longer have an active portal
   ActivePortal = false;
 

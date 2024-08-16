@@ -1,0 +1,36 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+    max_worker_processes: 64
+  init:
+  - set session omni_httpd.no_init = true
+  - create extension omni_httpd cascade
+  - create extension omni_httpc cascade
+  - create extension omni_sql
+  - call omni_httpd.wait_for_configuration_reloads(1)
+  - insert into omni_httpd.listeners (address, port)
+    values ('127.0.0.1', 0)
+  - call omni_httpd.wait_for_configuration_reloads(1)
+  - |
+    create or replace function omni_httpd.handler(int, omni_httpd.http_request) returns omni_httpd.http_outcome
+        language plpgsql as
+    $$
+    begin
+        perform omni_sql.execute(' 2');
+        return null;
+    end;
+    $$
+
+tests:
+- name: ensure it doesn't crash
+  query: |
+    with response as (select *
+                      from omni_httpc.http_execute(
+                              omni_httpc.http_request('http://127.0.0.1:' ||
+                                                      (select effective_port from omni_httpd.listeners where port = 0) ||
+                                                      '/')))
+    select response.status
+    from response
+  results:
+  - status: 500
