@@ -9,11 +9,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-* Ensure proper SPI disconnection [#601](https://github.com/omnigres/omnigres/pull/1)
+* Ensure proper SPI disconnection [#601](https://github.com/omnigres/omnigres/pull/601)
 
 ### Changed
 
-* Improved internal documentation [#601](https://github.com/omnigres/omnigres/pull/1)
+* Improved internal documentation [#601](https://github.com/omnigres/omnigres/pull/601)
 
 ## [0.3.0] - 2024-07-31
 
