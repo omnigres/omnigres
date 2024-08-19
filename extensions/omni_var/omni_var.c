@@ -140,6 +140,7 @@ Datum set(PG_FUNCTION_ARGS) {
     ereport(ERROR, errmsg("value type can't be inferred"));
   }
   bool byval = get_typbyval(value_type);
+  int16 typlen = get_typlen(value_type);
 
   TransactionId txnid = GetTopTransactionId();
   SubTransactionId subtxnid = GetCurrentSubTransactionId();
@@ -196,7 +197,13 @@ Datum set(PG_FUNCTION_ARGS) {
     // Otherwise it may be a shorter-lifetime context and then we may end
     // up with something unexpected here
     MemoryContext old_context = MemoryContextSwitchTo(TopTransactionContext);
-    vvar->value = PointerGetDatum(PG_DETOAST_DATUM_COPY(PG_GETARG_DATUM(1)));
+    if (typlen == -1) {
+      vvar->value = PointerGetDatum(PG_DETOAST_DATUM_COPY(PG_GETARG_DATUM(1)));
+    } else {
+      void *ptr = palloc(typlen);
+      memcpy(ptr, DatumGetPointer(PG_GETARG_DATUM(1)), typlen);
+      vvar->value = PointerGetDatum(ptr);
+    }
     MemoryContextSwitchTo(old_context);
   }
   vvar->oid = value_type;
@@ -218,6 +225,7 @@ Datum get(PG_FUNCTION_ARGS) {
   if (value_type == InvalidOid) {
     ereport(ERROR, errmsg("default value type can't be inferred"));
   }
+  int16 typlen = get_typlen(value_type);
   TransactionId txnid = GetTopTransactionIdIfAny();
   if (txnid == InvalidTransactionId || last_used_txnid != txnid) {
     // No variables as we haven't set anything in the current session
@@ -260,6 +268,7 @@ Datum set_session(PG_FUNCTION_ARGS) {
     ereport(ERROR, errmsg("value type can't be inferred"));
   }
   bool byval = get_typbyval(value_type);
+  int16 typlen = get_typlen(value_type);
 
   if (session_tab == NULL) {
     const HASHCTL info = {
@@ -290,12 +299,18 @@ Datum set_session(PG_FUNCTION_ARGS) {
   if (byval) {
     vvar->value = PG_GETARG_DATUM(1);
   } else if (!PG_ARGISNULL(1)) {
-    // Ensure we copy the value into the top transaction context
+    // Ensure we copy the value into the top memory context
     // (matching the context of the hash table)
     // Otherwise it may be a shorter-lifetime context and then we may end
     // up with something unexpected here
     MemoryContext old_context = MemoryContextSwitchTo(TopMemoryContext);
-    vvar->value = PointerGetDatum(PG_DETOAST_DATUM_COPY(PG_GETARG_DATUM(1)));
+    if (typlen == -1) {
+      vvar->value = PointerGetDatum(PG_DETOAST_DATUM_COPY(PG_GETARG_DATUM(1)));
+    } else {
+      void *ptr = palloc(typlen);
+      memcpy(ptr, DatumGetPointer(PG_GETARG_DATUM(1)), typlen);
+      vvar->value = PointerGetDatum(ptr);
+    }
     MemoryContextSwitchTo(old_context);
   }
   vvar->oid = value_type;
