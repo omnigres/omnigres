@@ -280,10 +280,7 @@ if(PostgreSQL_FOUND)
         "${_pg_pkglibdir}"
         CACHE STRING "PostgreSQL package library directory")
 
-    find_program(
-            PG_BINARY postgres
-            HINTS ${_pg_bindir}
-            PATH_SUFFIXES bin)
+    set(PG_BINARY ${_pg_bindir}/postgres)
 
     if(NOT PG_BINARY)
         message(FATAL_ERROR "Could not find postgres binary")
