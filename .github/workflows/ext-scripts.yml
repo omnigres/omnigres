@@ -30,11 +30,11 @@ jobs:
         build_type: [ Release ]
         exclude:
         - os: { name: macos, image: warp-macos-14-arm64-6x, arch: arm }
-            pgver: 15
+          pgver: 15
         - os: { name: macos, image: warp-macos-14-arm64-6x, arch: arm }
-            pgver: 14
+          pgver: 14
         - os: { name: macos, image: warp-macos-14-arm64-6x, arch: arm }
-            pgver: 13
+          pgver: 13
       fail-fast: false
 
     env:
