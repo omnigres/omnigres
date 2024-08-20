@@ -145,7 +145,9 @@ static Datum make_variant(int16 sum_type_len, Discriminant discriminant, int16 v
     PG_RETURN_POINTER(fixed_size);
   } else {
     // If sum type is variable size,
-    size_t sz = variant_type_len == -1 ? VARSIZE(variant_value) : variant_type_len;
+    struct varlena *variant_varlena =
+        variant_type_len == -1 ? PG_DETOAST_DATUM_PACKED(variant_value) : NULL;
+    size_t sz = variant_type_len == -1 ? VARSIZE_ANY(variant_varlena) : variant_type_len;
     struct varlena *varsize = palloc(VARHDRSZ + sizeof(VarSizeVariant) + sz);
     SET_VARSIZE(varsize, VARHDRSZ + sizeof(VarSizeVariant) + sz);
     VarSizeVariant *var_size_variant = (VarSizeVariant *)VARDATA_ANY(varsize);
@@ -159,7 +161,8 @@ static Datum make_variant(int16 sum_type_len, Discriminant discriminant, int16 v
       // Copy the variant from behind the pointer
       // If the variant itself is a variable size, it'll copy the `varlena`
       // which is intentional
-      memcpy(&var_size_variant->data, DatumGetPointer(variant_value), sz);
+      memcpy(&var_size_variant->data,
+             variant_varlena ? (void *)variant_varlena : DatumGetPointer(variant_value), sz);
     }
     PG_RETURN_POINTER(varsize);
   }
