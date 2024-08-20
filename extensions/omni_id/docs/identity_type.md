@@ -62,13 +62,13 @@ select identity_type('user_id');
 -- user_id
 ```
 
-You can also select a different backing integer type (`smallint`, `int`) and a few sequence-related options.
+You can also select a different base integer type (`smallint`, `int`) and a few sequence-related options.
 
 |            Parameter | Type    | Description                                                                                                    |
 |---------------------:|---------|----------------------------------------------------------------------------------------------------------------|
-|               *type* | regtype | Backing type. `bigint` by default. `int` and `smallint` permitted, as well as their aliases                    |
+|               *type* | regtype | Base type. `bigint` by default. `int` and `smallint` permitted, as well as their aliases, and `uuid`           |
 |           *sequence* | text    | Sequence name. Equal to `<type>_seq` by default                                                                |
-|    *create_sequence* | boolean | Should sequence be created? True by default                                                                    |
+|    *create_sequence* | boolean | Should sequence be created? True by default. Meaningless for `uuid` base type.                                 |
 |          *increment* | bigint  | Sequence increment. Default set to 1                                                                           |
 |           *minvalue* | bigint  | Minimum value a sequence can generate. Default set to 1                                                        |
 |           *maxvalue* | bigint  | Maximum value a sequence can generate. Default set to the maximum of the underlying type                       |
@@ -77,6 +77,7 @@ You can also select a different backing integer type (`smallint`, `int`) and a f
 |        *constructor* | text    | Name of the constructor function                                                                               |
 | *create_constructor* | boolean | Should constructor be created? True by default                                                                 |
 |    *operator_schema* | boolean | Schema to create operators in. `public` by default                                                             |
+|            *nextval* | regproc | If not null, use this function (no arguments, returning base type) to make `<type>_nextval()`                  |
 
 `identity_type` will also create helper functions for the sequence: `<type>_nextval()`, `<type>_currval()`
 and `<type>_setval(<type>, bool)`

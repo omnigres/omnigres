@@ -7,7 +7,8 @@ create function identity_type(name name, type regtype default 'int8',
                               cycle boolean default null,
                               constructor text default null,
                               create_constructor bool default true,
-                              operator_schema name default 'public'
+                              operator_schema name default 'public',
+                              nextval regproc default null
 ) returns regtype
     language plpgsql
 as
@@ -28,11 +29,11 @@ begin
         when 'smallint' then type_name := 'int2';
         else
         end case;
-    if not type_name = any ('{int2,int4,int8}'::text[]) then
-        raise exception 'type must be smallint, int or bigint';
+    if not type_name = any ('{int2,int4,int8,uuid}'::text[]) then
+        raise exception 'type must be smallint, int, bigint or uuid';
     end if;
     -- Ensure this type hasn't been declared already
-    for rec in select *, 'int' || typlen as base_type
+    for rec in select *, (case when type_name = 'uuid' then 'uuid' else 'int' || typlen end) as base_type
                from pg_type
                         inner join pg_namespace on nspname = current_schema and typnamespace = pg_namespace.oid
                where typname = name
@@ -64,16 +65,16 @@ begin
     -- (piggying back on the underlying type)
     execute format('create function %I(cstring) returns %I language internal as %L immutable', name || '_in',
                    name,
-                   type_name || 'in');
+                   (case when type_name = 'uuid' then 'uuid_in' else type_name || 'in' end));
     execute format('create function %I(%I) returns cstring language internal as %L immutable',
                    name || '_out', name,
-                   type_name || 'out');
+                   (case when type_name = 'uuid' then 'uuid_out' else type_name || 'out' end));
     execute format('create function %I(%I) returns bytea language internal as %L immutable',
                    name || '_send', name,
-                   type_name || 'send');
+                   (case when type_name = 'uuid' then 'uuid_send' else type_name || 'send' end));
     execute format('create function %I(internal) returns %I language internal as %L immutable',
                    name || '_recv', name,
-                   type_name || 'recv');
+                   (case when type_name = 'uuid' then 'uuid_recv' else type_name || 'recv' end));
 
     -- Resume notices disabled above
     reset client_min_messages;
@@ -100,7 +101,8 @@ begin
         loop
             -- Define the function, again piggying back on the underlying type
             execute format('create function %I(%2$I, %2$I) returns boolean language internal as %L immutable',
-                           name || '_' || rec.name, name, type_name || rec.name);
+                           name || '_' || rec.name, name,
+                           (case when type_name = 'uuid' then 'uuid_' else type_name end) || rec.name);
 
             -- Define the actual operator
             execute format('create operator %4$I.%1$s (
@@ -114,7 +116,7 @@ begin
     -- Define a `cmp` function (again, piggy back on the underlying type)
     execute format('create function %I(%I,%2$I) returns int language internal as %3$L immutable',
                    name || '_cmp', name,
-                   'bt' || type_name || 'cmp');
+                   (case when type_name = 'uuid' then 'uuid_cmp' else 'bt' || type_name || 'cmp' end));
 
     -- Define btree operator class
     execute format('create operator class %I
@@ -125,6 +127,10 @@ begin
         operator 4 >=,
         operator 5 >,
        function 1 %I', name || '_ops', name, name || '_cmp');
+
+    if type_name = 'uuid' then
+        create_sequence := false;
+    end if;
 
     if create_sequence then
         -- If requested, create a sequence
@@ -173,6 +179,14 @@ begin
         end if;
 
     end if;
+
+    -- If sequence API is desired for UUID, supply it as `_nextval`
+    if not create_sequence and nextval is not null then
+        execute format(
+                'create function %I() returns %I language sql as $sql$ select %I()::%4$I.%2$I $sql$',
+                name || '_nextval', name, nextval, ns);
+    end if;
+
 
     if create_constructor then
         if constructor is null then
