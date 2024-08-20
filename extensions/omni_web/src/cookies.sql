@@ -4,12 +4,19 @@ create function cookies(cookies text)
                 name  text,
                 value text
             )
-    language sql
+    immutable
+    language plpgsql
 as
 $$
-select
-    split_part(cookie, '=', 1),
-    split_part(cookie, '=', 2)
-from
-    unnest(string_to_array(cookies, '; ')) cookies_arr(cookie);
+declare
+    cookie text;
+begin
+    foreach cookie in array string_to_array(cookies, '; ')
+        loop
+            name := split_part(cookie, '=', 1);
+            value := split_part(cookie, '=', 2);
+            return next;
+        end loop;
+    return;
+end;
 $$;
