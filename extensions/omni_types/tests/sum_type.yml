@@ -1,3 +1,4 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
 instance:
   init:
   - create extension omni_types cascade
@@ -411,10 +412,28 @@ tests:
     results:
     - typname: sum_type
       variants: '{text,integer}'
-      
+
+  # TODO: test compressed (this tests out-of-line)
   - query: create table test (val sum_type)
-  - query: alter table test alter val set storage external
-  - query: insert into test values (repeat('a', 100000)::text::sum_type),(1000)
+  - query: alter table test
+      alter val set storage extended
+  - query: insert into test
+           values (repeat('a', 10000000)::text::sum_type),
+                  (1000)
+  - query: select oid::regclass::text                 as tab,
+                  pg_relation_size(reltoastrelid) > 0 as toasted
+           from pg_class
+           where relkind = 'r'
+             and reltoastrelid <> 0
+             and oid::regclass = 'test'::regclass
+    results:
+    - tab: test
+      toasted: true
+  - query: select repeat('a', 10000000)::text::sum_type::text = val::text::sum_type::text val
+           from test
+           where val::text is not null
+    results:
+    - val: true
   - query: select omni_types.variant(val) from test
     results:
     - variant: text
@@ -425,7 +444,7 @@ tests:
              when omni_types.variant(val) = 'integer'::regtype then val::integer
              else null end) from test;
     results:
-    - case: 100000
+    - case: 10000000
     - case: 1000
 
 - name: Pseudo-types can't be used
