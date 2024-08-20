@@ -25,7 +25,7 @@ from users
 In a simple case, it is usually easy to spot the problem. However, real operational queries tend to get a lot more
 complicated, with a lot of visual noise in them, and spotting subtle errors is hard.
 
-`omni_id` solves exacly this problem by introduce custom integer-backed types that are comparable to themselves but not
+`omni_id` solves exacly this problem by introduce custom types that are comparable to themselves but not
 other types (at least, not without explicit casting).
 
 ```postgresql
