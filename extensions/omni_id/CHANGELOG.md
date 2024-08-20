@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.3.0] - TBD
 
+### Added
+
+* Support for UUID-based IDs [#625](https://github.com/omnigres/omnigres/pull/625)
+
 ## [0.2.0] - 2024-08-04
 
 ### Changed
