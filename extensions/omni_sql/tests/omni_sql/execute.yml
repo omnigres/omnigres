@@ -142,3 +142,11 @@ tests:
     results:
     - stmt_row:
         i: 1
+
+- name: multiple statements
+  query: select *
+         from omni_sql.execute('select 1 ; select 2 as b')
+  results:
+  - stmt_row:
+      b: 2
+

@@ -32,3 +32,11 @@ tests:
 - query: select omni_sql.is_returning_statement('delete from tab returning i')
   results:
   - is_returning_statement: true
+
+- query: select omni_sql.is_returning_statement('select 1 ; select 2')
+  results:
+  - is_returning_statement: true
+
+- query: select omni_sql.is_returning_statement('select 1 ; update tab set a = 1')
+  results:
+  - is_returning_statement: false
