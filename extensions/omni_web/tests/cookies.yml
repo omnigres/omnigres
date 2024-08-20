@@ -14,3 +14,15 @@ tests:
     value: u32t4o3tb3gg43
   - name: _gat
     value: 1
+
+- name: getting a cookie by name
+  query: select omni_web.cookie_get('PHPSESSID=298zf09hf012fh2; csrftoken=u32t4o3tb3gg43; _gat=1'::text,
+                                    'csrftoken') as value;
+  results:
+  - value: u32t4o3tb3gg43
+
+- name: getting a cookie by name (null)
+  query: select omni_web.cookie_get('PHPSESSID=298zf09hf012fh2; csrftoken=u32t4o3tb3gg43; _gat=1'::text,
+                                    'crftoken') as value;
+  results:
+  - value: null
