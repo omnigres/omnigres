@@ -8,9 +8,9 @@
  * Should the new version of this patch appear, we can merged it. Once merged in all supported
  * versions of Postgres, we can remove it.
  *
- * It is licensed under the terms of PostgreSQL license and the original implementation is by
+ * It is licensed under the terms of PostgreSQL license and the original implementation is by:
  *
- * * Andrey * M. Borodin
+ * * Andrey M. Borodin
  *
  */
 // clang-format off
