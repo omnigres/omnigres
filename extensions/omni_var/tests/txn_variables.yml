@@ -115,6 +115,10 @@ tests:
     results:
     - get: (1,2)
 
+- name: storing and retrieving non-datum-sized variable
+  query: select omni_var.set('omni_session.session', gen_random_uuid())
+         from generate_series(1, 100)
+
 - name: subtransactions are respected
   steps:
   - select omni_var.set('test', 1)
