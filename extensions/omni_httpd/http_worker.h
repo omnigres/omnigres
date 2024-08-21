@@ -132,7 +132,7 @@ static cvec_fd_fd accept_fds(char *socket_name);
  */
 #define REQUEST_PLAN_HEADERS 4
 
-static int handler(request_message_t *msg);
+static int handler(handler_message_t *msg);
 
 static h2o_evloop_t *handler_event_loop;
 

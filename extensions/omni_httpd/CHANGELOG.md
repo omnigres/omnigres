@@ -10,6 +10,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 * Multi-transactional handlers [#609](https://github.com/omnigres/omnigres/pull/556)
+* Experimental WebSocket support [#628](https://github.com/omnigres/omnigres/pull/628)
 
 ### Changed
 
