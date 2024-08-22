@@ -25,6 +25,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * omni_httpd workers leaking memory on every request [#610](https://github.com/omnigres/omnigres/pull/610)
 
+* omni_httpd underallocated memory when proxying, can lead to undefined
+  behavior [#630](https://github.com/omnigres/omnigres/pull/630)
+
 ## [0.1.2] - 2024-04-07
 
 ### Fixed

@@ -185,8 +185,7 @@ static void on_message(h2o_multithread_receiver_t *receiver, h2o_linklist_t *mes
       overrides->use_proxy_protocol = false;
       overrides->proxy_preserve_host = proxy.preserve_host;
       overrides->forward_close_connection = true;
-      overrides->upstream =
-          (h2o_url_t *)h2o_mem_alloc_pool(&req->pool, sizeof(*overrides->upstream), 1);
+      overrides->upstream = (h2o_url_t *)h2o_mem_alloc_pool(&req->pool, h2o_url_t, 1);
 
       h2o_url_parse(&req->pool, proxy.url, strlen(proxy.url), overrides->upstream);
 
