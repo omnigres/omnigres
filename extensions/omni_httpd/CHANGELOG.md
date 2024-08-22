@@ -19,12 +19,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * omni_httpd may crash under certain circumstances during early
   startup [#551](https://github.com/omnigres/omnigres/pull/551), [#556](https://github.com/omnigres/omnigres/pull/556)
-
 * omni_httpd master and its workers loop infinitely when postgres `max_worker_processes` is less than `omni_httpd.http_workers`.
   [#587](https://github.com/omnigres/omnigres/pull/587)
-
 * omni_httpd workers leaking memory on every request [#610](https://github.com/omnigres/omnigres/pull/610)
-
 * omni_httpd underallocated memory when proxying, can lead to undefined
   behavior [#630](https://github.com/omnigres/omnigres/pull/630)
 
