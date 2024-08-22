@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.1.1] - TBD
 
+### Fixed
+
+* Avoid failing to build in some setups [#637](https://github.com/omnigres/omnigres/pull/637])
+
 ## [0.1.0] - 2024-03-05
 
 Initial release following a few months of iterative development.
