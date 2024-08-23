@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.2.0] - TBD
 
+### Fixed
+
+* Sum types will be now included into `pg_dump`-produced dumps [#636](https://github.com/omnigres/omnigres/pull/636])
+
 ## [0.1.1] - 2024-08-19
 
 ### Fixed
