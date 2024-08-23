@@ -10,7 +10,7 @@ instance:
   - create extension omni_test version '1' cascade
   - create extension omni
   # We use omni_types to test how dependencies are upgraded
-  - create extension omni_types
+  - create extension omni_types cascade
 
 tests:
 
