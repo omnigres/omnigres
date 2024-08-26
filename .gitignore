@@ -22,3 +22,6 @@ devenv.local.nix
 
 # python
 __pycache__
+
+# pkgs
+*.rpm
