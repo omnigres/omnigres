@@ -26,7 +26,7 @@ Omnigres makes Postgres a developer-first application platform. You can deploy a
 
 ## Blogs and Publications
 
-* [Omnigres maintainer's blog](https://yrashk.com/blog/category/omnigres/)
+* [Omnigres blog](https://blog.omnigres.com)
 
 ## :runner: Quick start
 
