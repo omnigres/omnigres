@@ -149,7 +149,7 @@ jobs:
           if [ ${{ github.event_name }} = push ]; then
             # last commit before the push
             git show ${{ github.event.before }}:../versions.txt > old_versions.txt
-          elif  [ ${{ github.event_name }} = workflow_dispath ]; then
+          elif  [ ${{ github.event_name }} = workflow_dispatch ]; then
             git show ${{ github.event.inputs.revision }}:../versions.txt > old_versions.txt
           else
             # last commit of target branch of PR
