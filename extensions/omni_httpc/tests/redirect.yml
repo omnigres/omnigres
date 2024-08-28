@@ -72,7 +72,6 @@ instance:
           end
         ) from request
       $$
-    - call omni_httpd.wait_for_configuration_reloads(1)
 
 tests:
   - name: redirect should not be followed if follow_redirects is false

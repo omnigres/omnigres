@@ -13,7 +13,7 @@ instance:
     update omni_httpd.handlers
     set
         query = $$
-      select pg_sleep(2), omni_httpd.http_response(json_build_object(
+      select omni_httpd.http_response(json_build_object(
       'method', request.method,
       'path', request.path,
       'qs', request.query_string,
@@ -23,9 +23,8 @@ instance:
                           where h.name not in ('user-agent')
                           ),
       'body', convert_from(request.body, 'utf-8')
-      )) from request
+      )) from request where pg_sleep(2) is not null
     $$
-  - call omni_httpd.wait_for_configuration_reloads(1)
 
 tests:
 

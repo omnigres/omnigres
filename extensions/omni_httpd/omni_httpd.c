@@ -28,6 +28,7 @@
 #include <postmaster/interrupt.h>
 #endif
 #include <commands/async.h>
+#include <common/hashfn.h>
 #include <storage/latch.h>
 #include <tcop/utility.h>
 #include <utils/builtins.h>
@@ -37,6 +38,7 @@
 #include <utils/jsonb.h>
 #include <utils/memutils.h>
 #include <utils/snapmgr.h>
+#include <utils/uuid.h>
 
 #if PG_MAJORVERSION_NUM >= 14
 
@@ -57,6 +59,7 @@
 
 #include <omni_sql.h>
 
+#include "event_loop.h"
 #include "fd.h"
 #include "omni_httpd.h"
 
@@ -75,6 +78,7 @@ OMNI_MODULE_INFO(.name = "omni_httpd", .version = EXT_VERSION,
 CACHED_OID(omni_http, http_header);
 CACHED_OID(omni_http, http_method);
 CACHED_OID(http_response);
+CACHED_OID(http_request);
 CACHED_OID(http_outcome);
 
 bool IsOmniHttpdWorker;
@@ -166,6 +170,11 @@ void _Omni_init(const omni_handle *handle) {
 #ifdef _SC_NPROCESSORS_ONLN
   default_num_http_workers = sysconf(_SC_NPROCESSORS_ONLN);
 #endif
+  // considering the omni_httpd master worker and the "omni startup" worker used by omni TODO:
+  // revisit once omni_workers is set.
+  int threshold = max_worker_processes - 2;
+  if (default_num_http_workers > threshold)
+    default_num_http_workers = threshold;
 
   omni_guc_variable guc_num_http_workers = {
       .name = "omni_httpd.http_workers",
@@ -420,3 +429,81 @@ Datum unload(PG_FUNCTION_ARGS) {
   ereport(WARNING, errmsg("unload has been deprecated and is a no-op now"));
   PG_RETURN_VOID();
 }
+
+typedef struct {
+  pg_uuid_t uuid;
+  int fd;
+  uint32 hash;
+  uint32 status;
+} SocketHashEntry;
+
+static inline uint32 sh_uuid_hash(struct sockethash_hash *tb, const pg_uuid_t uuid) {
+  return hash_bytes(uuid.data, sizeof(uuid.data));
+}
+
+static inline bool sh_uuid_eq(struct sockethash_hash *tb, const pg_uuid_t a, const pg_uuid_t b) {
+  return memcmp(a.data, b.data, UUID_LEN) == 0;
+}
+
+#define SH_PREFIX sockethash
+#define SH_ELEMENT_TYPE SocketHashEntry
+#define SH_KEY_TYPE pg_uuid_t
+#define SH_KEY uuid
+#define SH_HASH_KEY(tb, key) sh_uuid_hash(tb, key)
+#define SH_EQUAL(tb, a, b) sh_uuid_eq(tb, a, b)
+#define SH_SCOPE static
+#define SH_STORE_HASH
+#define SH_GET_HASH(tb, a) a->hash
+#define SH_DECLARE
+#define SH_DEFINE
+#include <lib/simplehash.h>
+
+Datum websocket_send(PG_FUNCTION_ARGS, int8 kind) {
+  if (PG_ARGISNULL(0)) {
+    ereport(ERROR, errmsg("socket can't be null"));
+  }
+  if (PG_ARGISNULL(1)) {
+    ereport(ERROR, errmsg("data can't be null"));
+  }
+
+  static sockethash_hash *sockethash = NULL;
+  if (sockethash == NULL) {
+    sockethash = sockethash_create(TopMemoryContext, 8192, NULL);
+  }
+  pg_uuid_t *uuid = PG_GETARG_UUID_P(0);
+  struct varlena *payload = PG_GETARG_VARLENA_PP(1);
+
+  bool found;
+  SocketHashEntry *entry = sockethash_insert(sockethash, *uuid, &found);
+  if (!found) {
+    struct sockaddr_un server_addr;
+    entry->fd = websocket_unix_domain_socket(&uuid->data, &server_addr, false);
+
+    // Connect to the server
+    if (connect(entry->fd, (struct sockaddr *)&server_addr, sizeof(struct sockaddr_un)) < 0) {
+      char *s = strerror(errno);
+      ereport(ERROR, errmsg("connect %s", s));
+    }
+  }
+  int client_fd = entry->fd;
+
+  // Send a message to the server
+  struct {
+    int8_t kind;
+    size_t length;
+  } __attribute__((packed)) msg = {.kind = kind, .length = VARSIZE_ANY_EXHDR(payload)};
+  if (send(client_fd, &msg, sizeof(msg), 0) < 0) {
+    ereport(ERROR, errmsg("send"));
+  }
+  if (send(client_fd, VARDATA_ANY(payload), msg.length, 0) < 0) {
+    ereport(ERROR, errmsg("send"));
+  }
+
+  PG_RETURN_VOID();
+}
+
+PG_FUNCTION_INFO_V1(websocket_send_text);
+Datum websocket_send_text(PG_FUNCTION_ARGS) { return websocket_send(fcinfo, 0); }
+
+PG_FUNCTION_INFO_V1(websocket_send_bytea);
+Datum websocket_send_bytea(PG_FUNCTION_ARGS) { return websocket_send(fcinfo, 1); }

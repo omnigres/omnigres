@@ -12,7 +12,9 @@ find_package(PostgreSQL REQUIRED)
 find_program(PG_CONFIG pg_config REQUIRED)
 
 include(CPM)
-CPMAddPackage(GITHUB_REPOSITORY "yrashk/libfyaml" GIT_TAG "4f1a4b1" VERSION "v0.8-4f1a4b1" EXCLUDE_FROM_ALL YES OPTIONS "BUILD_SHARED_LIBS OFF")
+include(../cmake/dependencies/versions.cmake)
+CPMAddPackage(NAME libfyaml GITHUB_REPOSITORY "yrashk/libfyaml" GIT_TAG ${GIT_TAG_libfyaml} VERSION ${VERSION_libfyaml}
+        EXCLUDE_FROM_ALL YES OPTIONS "BUILD_SHARED_LIBS OFF")
 
 include(CTest)
 

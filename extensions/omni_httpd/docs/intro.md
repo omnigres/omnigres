@@ -154,6 +154,6 @@ from
 
 `omni_httpd` can be configured with the following PostgreSQL configuration variables:
 
-* `omni_httpd.http_workers` to configure the number of http workers, defaults to number of cpus
+* `omni_httpd.http_workers` to configure the number of http workers. It defaults to the number of cpus and adjusts if this is higher than what [max_worker_processes](https://www.postgresql.org/docs/current/runtime-config-resource.html#GUC-MAX-WORKER-PROCESSES) allows.
 * `omni_httpd.temp_dir` to set the temporary directory for `omni_httpd` files like unix domain sockets, defaults
   to `/tmp`

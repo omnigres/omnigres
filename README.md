@@ -26,7 +26,7 @@ Omnigres makes Postgres a developer-first application platform. You can deploy a
 
 ## Blogs and Publications
 
-* [Omnigres maintainer's blog](https://yrashk.com/blog/category/omnigres/)
+* [Omnigres blog](https://blog.omnigres.com)
 
 ## :runner: Quick start
 
@@ -193,6 +193,7 @@ Below is the current list of components being worked on, experimented with and d
 | [omni_txn](extensions/omni_txn/README.md)                                                   | :white_check_mark: First release candidate   | Transaction management                                |
 | [omni_python](extensions/omni_python/README.md)                                             | :ballot_box_with_check: Initial prototype    | First-class Python Development Experience             |
 | [omni_os](extensions/omni_os/README.md)                                                     | :ballot_box_with_check: Initial prototype    | Access to the operating system                        |
+| [omni_polyfill](extensions/omni_polyfill/README.md)                                         | :white_check_mark: First release             | Provides polyfills for older versions of Postgres     |
 | omni_git                                                                                    | :lab_coat: Early experiments (unpublished)   | Postgres Git client                                   |
 | omni_reactive                                                                               | :spiral_calendar: Haven't started yet        | Reactive queries                                      |
 
