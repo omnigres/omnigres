@@ -4,6 +4,8 @@ instance:
   - create extension omni_id
   - select identity_type('my_id')
   - select identity_type('my_id1')
+  - select identity_type('my_uuid', type => 'uuid', nextval => 'uuidv7')
+  - select identity_type('my_uuid1', type => 'uuid')
 
 tests:
 
@@ -53,3 +55,13 @@ tests:
   - query: select my_id_currval()
     results:
     - my_id_currval: 3
+
+- name: uuid typing
+  query: select my_uuid(gen_random_uuid()) = my_uuid1(gen_random_uuid())
+  error: "operator does not exist: my_uuid = my_uuid1"
+
+- name: uuid nextval
+  query: select my_uuid_nextval() is not null not_null, pg_typeof(my_uuid_nextval()) as typ
+  results:
+  - not_null: true
+    typ: my_uuid

@@ -1,0 +1,30 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_id
+
+tests:
+
+- name: smoke test
+  steps:
+  - query: |
+      create table test as
+      select uuidv7() uuid, i
+      from generate_series(1, 100000) i
+  - query: |
+      create table test_non_seq as
+      select gen_random_uuid() uuid, i
+      from generate_series(1, 100000) i
+  - query: select distinct row_number() over (order by uuid) != i as res
+           from test
+    results:
+    - res: false
+  # Whereas in non-sequential UUIDs, this no longer holds
+  - query: with query as (select distinct row_number() over (order by uuid) != i as res
+           from test_non_seq
+                          order by res)
+           select true as res
+           from query
+           where res = true
+    results:
+    - res: true
