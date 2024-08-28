@@ -9,7 +9,8 @@ include(CPM)
 
 enable_testing()
 
-CPMAddPackage(NAME pugixml GIT_REPOSITORY https://github.com/zeux/pugixml VERSION 1.14 OPTIONS "PUGIXML_NO_EXCEPTIONS ON")
+include(../../cmake/dependencies/versions.cmake)
+CPMAddPackage(NAME pugixml GIT_REPOSITORY https://github.com/zeux/pugixml VERSION ${VERSION_pugixml} OPTIONS "PUGIXML_NO_EXCEPTIONS ON")
 
 find_package(PostgreSQL REQUIRED)
 
