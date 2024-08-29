@@ -31,6 +31,18 @@ tests:
                                on orders.id = users.id
     error: "operator does not exist: order_id = user_id"
 
+- name: conversion test
+  steps:
+  - select identity_type('user_id')
+  - select user_id(1)
+  - select user_id(null)
+
+- name: conversion test (uuid)
+  steps:
+  - select identity_type('user_id', type => 'uuid')
+  - select user_id(uuidv7())
+  - select user_id(null)
+
 - name: comparison failures
   tests:
   - query: select my_id(1) = 1
