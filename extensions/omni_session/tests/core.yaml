@@ -10,10 +10,10 @@ tests:
   - query: select count(*) from omni_session.sessions
     results:
     - count: 0
-  - select omni_session.session_handler(null::uuid)
+  - select omni_session.session_handler(omni_session.session_id(null))
   - name: ensure session var is set
     query: |
-      select true as success from omni_session.sessions where sessions.uuid = omni_var.get('omni_session.session', null::uuid)
+      select true as success from omni_session.sessions where sessions.id = omni_var.get('omni_session.session', omni_session.session_id(null))
     results:
     - success: true
 
@@ -22,20 +22,20 @@ tests:
   - query: select count(*) from omni_session.sessions
     results:
     - count: 0
-  - select omni_session.session_handler(null::uuid)
+  - select omni_session.session_handler(omni_session.session_id(null))
   - query: select count(*) from omni_session.sessions
     results:
     - count: 1
-  - select omni_var.set('omni_session.session', null::uuid)
+  - select omni_var.set('omni_session.session', omni_session.session_id(null))
   - query: |
-      select omni_session.session_handler(uuid)
+      select omni_session.session_handler(id)
       from omni_session.sessions
   - query: select count(*) from omni_session.sessions
     results:
     - count: 1
   - name: ensure session var is set
     query: |
-      select true as success from omni_session.sessions where sessions.uuid = omni_var.get('omni_session.session', null::uuid)
+      select true as success from omni_session.sessions where sessions.id = omni_var.get('omni_session.session', omni_session.session_id(null))
     results:
     - success: true
 
@@ -44,18 +44,18 @@ tests:
   - query: select count(*) from omni_session.sessions
     results:
     - count: 0
-  - select omni_session.session_handler(null::uuid)
+  - select omni_session.session_handler(omni_session.session_id(null))
   - query: select count(*) from omni_session.sessions
     results:
     - count: 1
-  - select omni_var.set('omni_session.session', null::uuid)
+  - select omni_var.set('omni_session.session', omni_session.session_id(null))
   - query: |
-      select omni_session.session_handler('d8f39ae9-3575-4a08-ae75-f55471587301'::uuid)
+      select omni_session.session_handler(omni_session.session_id('d8f39ae9-3575-4a08-ae75-f55471587301'))
   - query: select count(*) from omni_session.sessions
     results:
     - count: 2
   - name: ensure session var is set
     query: |
-      select true as success from omni_session.sessions where sessions.uuid = omni_var.get('omni_session.session', null::uuid)
+      select true as success from omni_session.sessions where sessions.id = omni_var.get('omni_session.session', omni_session.session_id(null))
     results:
     - success: true

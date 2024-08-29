@@ -9,21 +9,25 @@ This extensions creates an unlogged `omni_session.sessions` table that contains 
 
 Function `omni_session.session_handler` is designed to handle session application to differently typed objects:
 
-### UUID
+### Session ID
 
-`omni_session.session_handler(uuid)` returns `uuid` and represents the core of session functionality.
+`omni_session.session_handler(omni_session.session_id)` returns `omni_session.session_id` and represents the core of
+session functionality.
 
-* Given a null `uuid`, it creates a new session and sets `omni_session.session` transaction variable to it. Returns a
-  new session UUID.
-* Given a non-null `uuid` that is a valid existing session, it sets `omni_session.session` transaction variable to it.
-  Returns the same UUID.
-* Given a non-null `uuid` that is not a valid existing session, it creates a new session and sets `omni_session.session`
-  transaction variable to it. Returns a new session UUID.
+* Given a null session ID, it creates a new session and sets `omni_session.session` transaction variable to it. Returns
+  a
+  new session ID.
+* Given a non-null session ID that is a valid existing session, it sets `omni_session.session` transaction variable to
+  it.
+  Returns the same session ID.
+* Given a non-null session ID that is not a valid existing session, it creates a new session and sets
+  `omni_session.session`
+  transaction variable to it. Returns a new session ID.
 
 ### HTTP Request
 
 `omni_session.session_handler(omni_httpd.http_request)` returns unmodified `omni_httpd.http_request` and retrieves the
-UUID from request's cookie called `_session`. Its behavior mirrors that of UUID behavior above.
+UUID from request's cookie called `_session`. Its behavior mirrors that of ID behavior above.
 
 Accepts an optional `cookie_name` parameter to specify a different name for the cookie.
 

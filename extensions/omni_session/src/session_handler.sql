@@ -1,4 +1,4 @@
-create function session_handler(session_id uuid) returns uuid
+create function session_handler(session_id session_id) returns uuid
     language plpgsql as
 $$
 declare
@@ -7,13 +7,13 @@ declare
     _upd     uuid;
 begin
     with touch
-             as (update omni_session.sessions set touched_at = clock_timestamp() where uuid = session_id returning uuid),
+             as (update omni_session.sessions set touched_at = clock_timestamp() where id = session_id returning id),
          insertion as (
              insert
-                 into omni_session.sessions (uuid)
-                         (select gen_random_uuid() where not exists(select from touch))
-                     returning uuid)
-    select omni_var.set('omni_session.session', coalesce(insertion.uuid, touch.uuid)), insertion.uuid, touch.uuid
+                 into omni_session.sessions (id)
+                     (select omni_session.session_id_nextval() where not exists(select from touch))
+                     returning id)
+    select omni_var.set('omni_session.session', coalesce(insertion.id, touch.id)), insertion.id, touch.id
     into _session, _ins, _upd
     from (values (null::uuid)) t (c)
              left join insertion on true
@@ -26,8 +26,9 @@ create function session_handler(request omni_httpd.http_request, cookie_name tex
     language plpgsql as
 $$
 begin
-    perform omni_session.session_handler(omni_web.cookie_get(omni_http.http_header_get(request.headers, 'cookie'),
-                                                             cookie_name)::uuid);
+    perform omni_session.session_handler(omni_session.session_id(omni_web.cookie_get(
+            omni_http.http_header_get(request.headers, 'cookie'),
+            cookie_name)::uuid));
     return request;
 end;
 $$;
@@ -40,7 +41,7 @@ declare
     _response omni_httpd.http_response;
     _session  uuid;
 begin
-    _session := omni_var.get('omni_session.session', null::uuid);
+    _session := omni_var.get('omni_session.session', null::omni_session.session_id);
     if _session is null then
         return response;
     end if;
