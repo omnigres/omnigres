@@ -63,16 +63,16 @@ begin
 
     -- Define in/out send/recv before we actually define the type
     -- (piggying back on the underlying type)
-    execute format('create function %I(cstring) returns %I language internal as %L immutable', name || '_in',
+    execute format('create function %I(cstring) returns %I language internal as %L immutable strict', name || '_in',
                    name,
                    (case when type_name = 'uuid' then 'uuid_in' else type_name || 'in' end));
-    execute format('create function %I(%I) returns cstring language internal as %L immutable',
+    execute format('create function %I(%I) returns cstring language internal as %L immutable strict',
                    name || '_out', name,
                    (case when type_name = 'uuid' then 'uuid_out' else type_name || 'out' end));
-    execute format('create function %I(%I) returns bytea language internal as %L immutable',
+    execute format('create function %I(%I) returns bytea language internal as %L immutable strict',
                    name || '_send', name,
                    (case when type_name = 'uuid' then 'uuid_send' else type_name || 'send' end));
-    execute format('create function %I(internal) returns %I language internal as %L immutable',
+    execute format('create function %I(internal) returns %I language internal as %L immutable strict',
                    name || '_recv', name,
                    (case when type_name = 'uuid' then 'uuid_recv' else type_name || 'recv' end));
 
@@ -100,7 +100,7 @@ begin
                             ('<>', 'ne')) operators(op, name)
         loop
             -- Define the function, again piggying back on the underlying type
-            execute format('create function %I(%2$I, %2$I) returns boolean language internal as %L immutable',
+            execute format('create function %I(%2$I, %2$I) returns boolean language internal as %L immutable strict',
                            name || '_' || rec.name, name,
                            (case when type_name = 'uuid' then 'uuid_' else type_name end) || rec.name);
 
@@ -114,7 +114,7 @@ begin
         end loop;
 
     -- Define a `cmp` function (again, piggy back on the underlying type)
-    execute format('create function %I(%I,%2$I) returns int language internal as %3$L immutable',
+    execute format('create function %I(%I,%2$I) returns int language internal as %3$L immutable strict',
                    name || '_cmp', name,
                    (case when type_name = 'uuid' then 'uuid_cmp' else 'bt' || type_name || 'cmp' end));
 
@@ -154,7 +154,7 @@ begin
         -- Define `name`_setval() to return current value in the given sequence
         -- (same double-casting)
         execute format(
-                'create function %1$I(value %2I, is_called boolean default true) returns %2$I language sql as $sql$ select setval(%3$L, value::%5$I.%2$I::bigint, is_called)::%5$I.%2$I $sql$',
+                'create function %1$I(value %2I, is_called boolean default true) returns %2$I language sql as $sql$ select setval(%3$L, value::%5$I.%2$I::bigint, is_called)::%5$I.%2$I $sql$ strict',
                 name || '_setval', name, ns || '.' || sequence, type_name, ns);
 
         -- Process options
