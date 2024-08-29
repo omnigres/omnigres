@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.3.1] - TBD
 
+### Fixed
+
+* Identity type functions made strict to avoid crashes on NULLs [#645](https://github.com/omnigres/omnigres/pull/645)
+
 ## [0.3.0] - 2024-08-28
 
 ### Added
