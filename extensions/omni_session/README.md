@@ -1,3 +1,3 @@
 # omni_session
 
-HTTP session management
+Basic session management.
