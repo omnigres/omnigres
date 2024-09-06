@@ -34,7 +34,7 @@
 #include <utils/builtins.h>
 #if PG_MAJORVERSION_NUM >= 16
 #include "port/pg_bswap.h"
-#include "server/varatt.h"
+#include <varatt.h>
 #endif
 
 #define make_name__(name, prefix_len, val_len, suffix) name##_##prefix_len##_##val_len##suffix

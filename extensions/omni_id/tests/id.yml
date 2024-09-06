@@ -4,6 +4,8 @@ instance:
   - create extension omni_id
   - select identity_type('my_id')
   - select identity_type('my_id1')
+  - select identity_type('my_uuid', type => 'uuid', nextval => 'uuidv7')
+  - select identity_type('my_uuid1', type => 'uuid')
 
 tests:
 
@@ -29,6 +31,18 @@ tests:
                                on orders.id = users.id
     error: "operator does not exist: order_id = user_id"
 
+- name: conversion test
+  steps:
+  - select identity_type('user_id')
+  - select user_id(1)
+  - select user_id(null)
+
+- name: conversion test (uuid)
+  steps:
+  - select identity_type('user_id', type => 'uuid')
+  - select user_id(uuidv7())
+  - select user_id(null)
+
 - name: comparison failures
   tests:
   - query: select my_id(1) = 1
@@ -53,3 +67,13 @@ tests:
   - query: select my_id_currval()
     results:
     - my_id_currval: 3
+
+- name: uuid typing
+  query: select my_uuid(gen_random_uuid()) = my_uuid1(gen_random_uuid())
+  error: "operator does not exist: my_uuid = my_uuid1"
+
+- name: uuid nextval
+  query: select my_uuid_nextval() is not null not_null, pg_typeof(my_uuid_nextval()) as typ
+  results:
+  - not_null: true
+    typ: my_uuid

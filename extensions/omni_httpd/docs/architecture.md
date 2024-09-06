@@ -7,12 +7,12 @@ There's a master worker that handles starting HTTP workers
 and handling configuration change requests [^1]
 
 [^1]:
-Triggered by changes to `omni_httpd.listeners` or `omni_httpd.handlers` or manually
+Triggered by changes to `omni_httpd.listeners` or manually
 using `omni_httpd.reload_configuration()`)
 
 There are multiple HTTP workers [^2]. Each HTTP worker is an instance of Postgres and
-can therefore handle incoming requests. This is done by running handlers defined in
-the `omni_httpd.handlers` table on the main thread, and handling network I/O of
+can therefore handle incoming requests. This is done by running handler defined in
+by the `omni_httpd.handler` function on the main thread, and handling network I/O of
 HTTP requests and responses on a secondary thread [^3].
 
 [^2]:

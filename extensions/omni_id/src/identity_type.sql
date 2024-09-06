@@ -7,7 +7,8 @@ create function identity_type(name name, type regtype default 'int8',
                               cycle boolean default null,
                               constructor text default null,
                               create_constructor bool default true,
-                              operator_schema name default 'public'
+                              operator_schema name default 'public',
+                              nextval regproc default null
 ) returns regtype
     language plpgsql
 as
@@ -28,11 +29,11 @@ begin
         when 'smallint' then type_name := 'int2';
         else
         end case;
-    if not type_name = any ('{int2,int4,int8}'::text[]) then
-        raise exception 'type must be smallint, int or bigint';
+    if not type_name = any ('{int2,int4,int8,uuid}'::text[]) then
+        raise exception 'type must be smallint, int, bigint or uuid';
     end if;
     -- Ensure this type hasn't been declared already
-    for rec in select *, 'int' || typlen as base_type
+    for rec in select *, (case when type_name = 'uuid' then 'uuid' else 'int' || typlen end) as base_type
                from pg_type
                         inner join pg_namespace on nspname = current_schema and typnamespace = pg_namespace.oid
                where typname = name
@@ -62,18 +63,19 @@ begin
 
     -- Define in/out send/recv before we actually define the type
     -- (piggying back on the underlying type)
-    execute format('create function %I(cstring) returns %I language internal as %L immutable', name || '_in',
+    execute format('create function %I(cstring) returns %I language internal as %L immutable strict parallel safe',
+                   name || '_in',
                    name,
-                   type_name || 'in');
-    execute format('create function %I(%I) returns cstring language internal as %L immutable',
+                   (case when type_name = 'uuid' then 'uuid_in' else type_name || 'in' end));
+    execute format('create function %I(%I) returns cstring language internal as %L immutable strict parallel safe',
                    name || '_out', name,
-                   type_name || 'out');
-    execute format('create function %I(%I) returns bytea language internal as %L immutable',
+                   (case when type_name = 'uuid' then 'uuid_out' else type_name || 'out' end));
+    execute format('create function %I(%I) returns bytea language internal as %L immutable strict parallel safe',
                    name || '_send', name,
-                   type_name || 'send');
-    execute format('create function %I(internal) returns %I language internal as %L immutable',
+                   (case when type_name = 'uuid' then 'uuid_send' else type_name || 'send' end));
+    execute format('create function %I(internal) returns %I language internal as %L immutable strict parallel safe',
                    name || '_recv', name,
-                   type_name || 'recv');
+                   (case when type_name = 'uuid' then 'uuid_recv' else type_name || 'recv' end));
 
     -- Resume notices disabled above
     reset client_min_messages;
@@ -99,8 +101,10 @@ begin
                             ('<>', 'ne')) operators(op, name)
         loop
             -- Define the function, again piggying back on the underlying type
-            execute format('create function %I(%2$I, %2$I) returns boolean language internal as %L immutable',
-                           name || '_' || rec.name, name, type_name || rec.name);
+            execute format(
+                    'create function %I(%2$I, %2$I) returns boolean language internal as %L immutable strict parallel safe',
+                           name || '_' || rec.name, name,
+                           (case when type_name = 'uuid' then 'uuid_' else type_name end) || rec.name);
 
             -- Define the actual operator
             execute format('create operator %4$I.%1$s (
@@ -112,9 +116,9 @@ begin
         end loop;
 
     -- Define a `cmp` function (again, piggy back on the underlying type)
-    execute format('create function %I(%I,%2$I) returns int language internal as %3$L immutable',
+    execute format('create function %I(%I,%2$I) returns int language internal as %3$L immutable strict parallel safe',
                    name || '_cmp', name,
-                   'bt' || type_name || 'cmp');
+                   (case when type_name = 'uuid' then 'uuid_cmp' else 'bt' || type_name || 'cmp' end));
 
     -- Define btree operator class
     execute format('create operator class %I
@@ -125,6 +129,10 @@ begin
         operator 4 >=,
         operator 5 >,
        function 1 %I', name || '_ops', name, name || '_cmp');
+
+    if type_name = 'uuid' then
+        create_sequence := false;
+    end if;
 
     if create_sequence then
         -- If requested, create a sequence
@@ -148,7 +156,7 @@ begin
         -- Define `name`_setval() to return current value in the given sequence
         -- (same double-casting)
         execute format(
-                'create function %1$I(value %2I, is_called boolean default true) returns %2$I language sql as $sql$ select setval(%3$L, value::%5$I.%2$I::bigint, is_called)::%5$I.%2$I $sql$',
+                'create function %1$I(value %2I, is_called boolean default true) returns %2$I language sql as $sql$ select setval(%3$L, value::%5$I.%2$I::bigint, is_called)::%5$I.%2$I $sql$ strict',
                 name || '_setval', name, ns || '.' || sequence, type_name, ns);
 
         -- Process options
@@ -174,13 +182,21 @@ begin
 
     end if;
 
+    -- If sequence API is desired for UUID, supply it as `_nextval`
+    if not create_sequence and nextval is not null then
+        execute format(
+                'create function %I() returns %I language sql as $sql$ select %I()::%4$I.%2$I $sql$',
+                name || '_nextval', name, nextval, ns);
+    end if;
+
+
     if create_constructor then
         if constructor is null then
             constructor := name;
         end if;
 
         execute format(
-                'create function %1$I(value %2$I) returns %3$I language sql as $sql$ select value::%4$I.%3$I $sql$ immutable strict',
+                'create function %1$I(value %2$I) returns %3$I language sql as $sql$ select value::%4$I.%3$I $sql$ immutable strict parallel safe',
                 constructor, type_name, name, ns);
 
     end if;

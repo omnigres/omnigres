@@ -1,3 +1,3 @@
 include(CPM)
-
-CPMAddPackage("gh:Hirrolot/metalang99@1.13.2")
+include(${CMAKE_CURRENT_LIST_DIR}/dependencies/versions.cmake)
+CPMAddPackage(NAME metalang99 GIT_REPOSITORY https://github.com/Hirrolot/metalang99 VERSION ${VERSION_metalang})

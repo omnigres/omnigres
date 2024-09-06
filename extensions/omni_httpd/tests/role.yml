@@ -117,9 +117,6 @@ tests:
   query: update omni_httpd.handlers set role_name = 'test_user1' where role_name = 'test_user'
   commit: true
 
-- query: call omni_httpd.wait_for_configuration_reloads(1)
-  commit: true
-
 - name: Can't update it to a name that is not a current user if it is not accessible
   steps:
   - set role anotherrole1
@@ -147,9 +144,6 @@ tests:
   - update omni_httpd.handlers set role_name = 'anotherrole' where role_name = 'test_user1'
   - delete from omni_httpd.configuration_reloads
   commit: true
-
-- name: wait for reload
-  query: call omni_httpd.wait_for_configuration_reloads(1)
 
 - name: Check current role
   query: |
@@ -194,12 +188,7 @@ tests:
 - name: Make `anotherrole` a superuser
   steps:
   - alter role anotherrole superuser
-  - delete from omni_httpd.configuration_reloads
-  - select omni_httpd.reload_configuration()
   commit: true
-
-- name: wait for reload
-  query: call omni_httpd.wait_for_configuration_reloads(1)
 
 - name: Check current role
   query: |
@@ -212,6 +201,7 @@ tests:
     body: anotherrole
 
 - name: Ensure it's possible to reset session to superuser
+  todo: this is no longer possible with `security definer` functions; but may be a different way to elevate?
   query: |
     with response as (select * from omni_httpc.http_execute(
       omni_httpc.http_request('http://127.0.0.1:' ||
@@ -222,6 +212,7 @@ tests:
     body: ok
 
 - name: Ensure it's possible to set session to superuser
+  todo: this is no longer possible with `security definer` functions; but may be a different way to elevate?
   query: |
     with response as (select * from omni_httpc.http_execute(
       omni_httpc.http_request('http://127.0.0.1:' ||
@@ -232,6 +223,7 @@ tests:
     body: ok
 
 - name: Ensure it's possible to set session to none
+  todo: this is no longer possible with `security definer` functions; but may be a different way to elevate?
   query: |
     with response as (select * from omni_httpc.http_execute(
       omni_httpc.http_request('http://127.0.0.1:' ||
