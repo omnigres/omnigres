@@ -29,7 +29,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Support for unmanaged (external) instances
 
-## [0.1.0] - 2023-08-25
+## [0.1.0] - 2024-08-25
 
 Initial release following a few months of iterative development.
 

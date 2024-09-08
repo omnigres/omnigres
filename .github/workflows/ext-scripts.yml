@@ -7,6 +7,11 @@ on:
       - versions.txt
   pull_request_target:
     branches: [ "master" ]
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: 'Revision to release against'
+        required: true
 
 env:
   CPM_SOURCE_CACHE: ${{ github.workspace }}/cpm_modules
@@ -26,15 +31,15 @@ jobs:
     strategy:
       matrix:
         pgver: [ 16, 15, 14, 13 ]
-        os: [ { name: ubuntu, image: warp-ubuntu-latest-x64-4x, arch: x86-64 }, { name: macos, image: flyci-macos-large-latest-m1, arch: arm } ]
+        os: [ { name: ubuntu, image: warp-ubuntu-latest-x64-4x, arch: x86-64 }, { name: macos, image: warp-macos-14-arm64-6x, arch: arm } ]
         build_type: [ Release ]
         exclude:
-          - os: { name: macos, image: flyci-macos-large-latest-m1, arch: arm }
-            pgver: 15
-          - os: { name: macos, image: flyci-macos-large-latest-m1, arch: arm }
-            pgver: 14
-          - os: { name: macos, image: flyci-macos-large-latest-m1, arch: arm }
-            pgver: 13
+        - os: { name: macos, image: warp-macos-14-arm64-6x, arch: arm }
+          pgver: 15
+        - os: { name: macos, image: warp-macos-14-arm64-6x, arch: arm }
+          pgver: 14
+        - os: { name: macos, image: warp-macos-14-arm64-6x, arch: arm }
+          pgver: 13
       fail-fast: false
 
     env:
@@ -144,6 +149,8 @@ jobs:
           if [ ${{ github.event_name }} = push ]; then
             # last commit before the push
             git show ${{ github.event.before }}:../versions.txt > old_versions.txt
+          elif  [ ${{ github.event_name }} = workflow_dispatch ]; then
+            git show ${{ github.event.inputs.revision }}:../versions.txt > old_versions.txt
           else
             # last commit of target branch of PR
             git show ${{ github.event.pull_request.base.sha }}:../versions.txt > old_versions.txt
@@ -258,7 +265,7 @@ jobs:
 
       - name: Sync back to S3
         working-directory: ${{ github.workspace }}/build
-        if: github.event_name == 'push'
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         run: |
           POST_BODY="${{ steps.new_ext_releases.outputs.POST_BODY }}"
           

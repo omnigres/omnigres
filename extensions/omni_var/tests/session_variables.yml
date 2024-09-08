@@ -1,0 +1,161 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_var
+
+
+tests:
+
+- name: null as a name
+  reset: true
+  tests:
+  - query: select omni_var.set_session(null, null::int8)
+    error: variable name must not be a null
+  - query: select omni_var.get_session(null, 1::int8)
+    error: variable name must not be a null
+
+- name: storing and retrieving a null
+  reset: true
+  steps:
+  - query: select omni_var.set_session('test', null::int8)
+    results:
+    - set_session: null
+  - query: select omni_var.get_session('test', 1::int8)
+    results:
+    - get_session: null
+
+- name: storing and retrieving a null varlen
+  reset: true
+  steps:
+  - query: select omni_var.set_session('test', null::text)
+    results:
+    - set_session: null
+  - query: select omni_var.get_session('test', null::text)
+    results:
+    - get_session: null
+
+- name: storing and retrieving a byval variable
+  reset: true
+  steps:
+  - query: select omni_var.set_session('test', 1::int8)
+    results:
+    - set_session: 1
+  - query: select omni_var.get_session('test', null::int8)
+    results:
+    - get_session: 1
+
+- name: storing and retrieving a byval variable with a wrong type
+  reset: true
+  steps:
+  - query: select omni_var.set_session('test', 1::int8)
+    results:
+    - set_session: 1
+  - query: select omni_var.get_session('test', null::int4)
+    error:
+      severity: ERROR
+      message: type mismatch
+      detail: expected bigint, got integer
+
+- name: storing, updating and retrieving a byval variable
+  reset: true
+  steps:
+  - query: select omni_var.set_session('test', 1::int8)
+    results:
+    - set_session: 1
+  - query: select omni_var.set_session('test', 2::int4)
+    results:
+    - set_session: 2
+  - query: select omni_var.get_session('test', null::int4)
+    results:
+    - get_session: 2
+
+- name: retrieving a byval variable (default value)
+  reset: true
+  steps:
+  - query: select omni_var.get_session('test', 1::int8)
+    results:
+    - get_session: 1
+
+- name: byval variable is accessible after rolled back transaction
+  reset: true
+  tests:
+  - steps:
+    - query: select omni_var.set_session('test', 1::int8)
+      results:
+      - set_session: 1
+    - query: select omni_var.get_session('test', null::int8)
+      results:
+      - get_session: 1
+  - query: select omni_var.get_session('test', null::int8)
+    results:
+    - get_session: 1
+
+- name: byval variable is accessible after committed transaction
+  reset: true
+  tests:
+  - steps:
+    - query: select omni_var.set_session('test', 1::int8)
+      results:
+      - set_session: 1
+    - query: select omni_var.get_session('test', null::int8)
+      results:
+      - get_session: 1
+    commit: true
+  - query: select omni_var.get_session('test', null::int8)
+    results:
+    - get_session: 1
+
+- name: storing and retrieving a varsize variable
+  reset: true
+  steps:
+  - query: select omni_var.set_session('test', 'test'::text)
+    results:
+    - set_session: test
+  - query: select omni_var.get_session('test', null::text)
+    results:
+    - get_session: test
+
+- name: storing and retrieving a composite type variable
+  reset: true
+  steps:
+  -
+    create type test as
+    (
+        a int,
+        b int
+    )
+  - query: select omni_var.set_session('test', row (1,2)::test)
+    results:
+    - set_session: (1,2)
+  - query: select omni_var.get_session('test', null::test)
+    results:
+    - get_session: (1,2)
+
+- name: storing and retrieving non-datum-sized variable
+  query: select omni_var.set_session('omni_session.session', gen_random_uuid())
+         from generate_series(1, 100)
+
+- name: subtransactions are not respected
+  reset: true
+  steps:
+  - select omni_var.set_session('test', 1)
+  - savepoint a
+  - select omni_var.set_session('test', 2)
+  - savepoint b
+  - select omni_var.set_session('test', true)
+  - query: select omni_var.get_session('test', null::bool)
+    results:
+    - get_session: true
+  - rollback to savepoint b
+  - query: select omni_var.get_session('test', null::bool)
+    results:
+    - get_session: true
+
+- name: setting a value in a session
+  reset: true
+  query: select omni_var.set_session('test', '123'::text)
+
+- name: getting a value in the same session
+  query: select omni_var.get_session('test', null::text)
+  results:
+  - get_session: 123

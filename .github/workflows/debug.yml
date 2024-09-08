@@ -17,6 +17,10 @@ on:
         type: choice
         options:
         - ubuntu-latest
+        - warp-ubuntu-latest-x64-4x
+        - warp-macos-14-arm64-6x
+        - warp-ubuntu-latest-arm64-2x
+        - warp-ubuntu-latest-arm64-4x
         - macos-13
         default: ubuntu-latest
       build:

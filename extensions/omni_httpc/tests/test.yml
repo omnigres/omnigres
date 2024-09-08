@@ -24,7 +24,6 @@ instance:
       'body', convert_from(request.body, 'utf-8')
       )) from request
     $$
-  - call omni_httpd.wait_for_configuration_reloads(1)
 
 tests:
 

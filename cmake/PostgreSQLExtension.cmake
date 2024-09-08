@@ -165,7 +165,7 @@ function(add_postgresql_extension NAME)
         add_library(${_ext_TARGET} MODULE ${_ext_SOURCES})
     endif()
 
-    # inja ia a default target dependency for all extensions    
+    # inja ia a default target dependency for all extensions
     if(NOT TARGET inja)
         add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../../misc/inja" "${CMAKE_CURRENT_BINARY_DIR}/inja")
     endif()
@@ -375,10 +375,17 @@ $command $@
     if(_ext_SOURCES)
         add_custom_target(package_${_ext_TARGET}_extension
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                DEPENDS omni_check_symbol_conflict_${_ext_TARGET}
                 COMMAND
                 ${CMAKE_COMMAND} -E copy_if_different
                 "${CMAKE_CURRENT_BINARY_DIR}/$<TARGET_FILE_NAME:${_ext_TARGET}>"
                 ${_pkg_dir})
+        # Check that the extension has no conflicting symbols with the Postgres binary
+        # otherwise the linker might use the symbols from Postgres
+        find_package(Python COMPONENTS Interpreter REQUIRED)
+        add_custom_target(omni_check_symbol_conflict_${_ext_TARGET}
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                COMMAND ${Python_EXECUTABLE} ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/check_symbol_conflict.py ${PG_BINARY} "$<TARGET_FILE:${_ext_TARGET}>")
     endif()
 
     add_custom_target(package_${_ext_TARGET}_migrations
@@ -576,7 +583,7 @@ ${PG_CTL} stop -D  \"$PSQLDB\" -m smart
         add_custom_target(psql_${_ext_TARGET}
                 WORKING_DIRECTORY "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/.."
                 COMMAND ${CMAKE_CURRENT_BINARY_DIR}/psql_${_ext_TARGET})
-        add_dependencies(psql_${_ext_TARGET} ${_ext_TARGET} omni)
+        add_dependencies(psql_${_ext_TARGET} ${_ext_TARGET} prepare omni)
     endif()
 
     if(PG_REGRESS)

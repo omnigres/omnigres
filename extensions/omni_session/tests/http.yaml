@@ -1,0 +1,79 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_session cascade
+
+tests:
+
+- name: create a new session if none exists
+  steps:
+  - query: select count(*) from omni_session.sessions
+    results:
+    - count: 0
+  - select omni_session.session_handler(omni_httpd.http_request('/'))
+  - name: ensure session var is set
+    query: |
+      select true as success from omni_session.sessions where sessions.id = omni_var.get('omni_session.session', null::omni_session.session_id)
+    results:
+    - success: true
+
+- name: get a session if correct one exists
+  steps:
+  - query: select count(*) from omni_session.sessions
+    results:
+    - count: 0
+  - select omni_session.session_handler(omni_httpd.http_request('/'))
+  - query: select count(*) from omni_session.sessions
+    results:
+    - count: 1
+  - select omni_var.set('omni_session.session', null::omni_session.session_id)
+  - query: |
+      select omni_session.session_handler(omni_httpd.http_request('/',
+              headers => array[omni_http.http_header('cookie', '_session=' || id) ]::omni_http.http_headers))
+      from omni_session.sessions
+  - query: select count(*) from omni_session.sessions
+    results:
+    - count: 1
+  - name: ensure session var is set
+    query: |
+      select true as success from omni_session.sessions where sessions.id = omni_var.get('omni_session.session', null::omni_session.session_id)
+    results:
+    - success: true
+
+- name: get a new session if specified one exists
+  steps:
+  - query: select count(*) from omni_session.sessions
+    results:
+    - count: 0
+  - select omni_session.session_handler(omni_httpd.http_request('/'))
+  - query: select count(*) from omni_session.sessions
+    results:
+    - count: 1
+  - select omni_var.set('omni_session.session', null::omni_session.session_id)
+  - query: |
+      select omni_session.session_handler(omni_httpd.http_request('/',
+              headers => array[omni_http.http_header('cookie', '_session=d8f39ae9-3575-4a08-ae75-f55471587301') ]::omni_http.http_headers))
+  - query: select count(*) from omni_session.sessions
+    results:
+    - count: 2
+  - name: ensure session var is set
+    query: |
+      select true as success from omni_session.sessions where sessions.id = omni_var.get('omni_session.session', null::omni_session.session_id)
+    results:
+    - success: true
+
+- name: response cookie is being set
+  steps:
+  - query: select count(*) from omni_session.sessions
+    results:
+    - count: 0
+  - select omni_session.session_handler(omni_httpd.http_request('/'))
+  - name: ensure session var is set
+    query: |
+      select true as success from omni_session.sessions where sessions.id = omni_var.get('omni_session.session', null::omni_session.session_id)
+    results:
+    - success: true
+  - query: select value = '_session=' || sessions.id as result from unnest((omni_session.session_handler(omni_httpd.http_response(''))::omni_httpd.http_response).headers)
+      inner join omni_session.sessions on true where name = 'set-cookie'
+    results:
+    - result: true

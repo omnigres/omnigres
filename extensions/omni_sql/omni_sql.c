@@ -7,7 +7,12 @@
 #include <postgres.h>
 #include <fmgr.h>
 // clang-format on
+#include <catalog/pg_type.h>
+#include <executor/spi.h>
 #include <miscadmin.h>
+#include <utils/jsonb.h>
+#include <utils/lsyscache.h>
+#include <utils/syscache.h>
 
 #include "omni_sql.h"
 
@@ -560,4 +565,265 @@ Datum statement_type(PG_FUNCTION_ARGS) {
   }
 
   PG_RETURN_NULL();
+}
+
+PG_FUNCTION_INFO_V1(is_returning_statement);
+
+Datum is_returning_statement(PG_FUNCTION_ARGS) {
+  if (PG_ARGISNULL(0)) {
+    ereport(ERROR, errmsg("statement should not be NULL"));
+  }
+
+  text *statement = PG_GETARG_TEXT_PP(0);
+  char *cstatement = text_to_cstring(statement);
+  List *stmts = omni_sql_parse_statement(cstatement);
+
+  PG_RETURN_BOOL(omni_sql_is_returning_statement(stmts));
+}
+
+PG_FUNCTION_INFO_V1(execute_parameterized);
+
+/**
+ * Holds information between multiple calls to the SRF
+ * execute_parameterized function. Most of the fields are used to deal
+ * with parameters of a prepared statement.
+ */
+typedef struct ExecCtx {
+  // the actual statement to be executed.
+  char *stmt;
+  // returning is important to see if a given statement returns tuples
+  // to the caller. This controls the flow of the main function
+  bool returning;
+  // needed to finish the SRF properly (by calling SRF_RETURN_DONE)
+  bool done;
+  // used to fetch rows when the statement actually support such (see `returning`)
+  Portal portal;
+  // the number of parameters for a prepared statement
+  int nargs;
+  // the (optional) types of the parameters of the prepared statement
+  Oid *types;
+  // is any parameter null?
+  char *nulls;
+  // the arguments to replace the parameters of the prepared statement
+  Datum *values;
+} ExecCtx;
+
+/**
+ * Extract a prepared statement's parameter values (possibly NULL) and
+ * their types from the parameters array.
+ */
+static inline void extract_information_json_parameters(ExecCtx *call_ctx, FuncCallContext *funcctx,
+                                                       Jsonb *parameters) {
+  if (!JB_ROOT_IS_ARRAY(parameters)) {
+    ereport(ERROR, errmsg("parameters must be a JSON array"));
+  }
+  JsonbIterator *iter = JsonbIteratorInit(&parameters->root);
+  JsonbValue val;
+  JsonbIteratorToken tok;
+  uint32 cardinality = JsonContainerSize(&parameters->root);
+  call_ctx->types =
+      (Oid *)MemoryContextAlloc(funcctx->multi_call_memory_ctx, sizeof(Oid) * cardinality);
+  call_ctx->nulls =
+      (char *)MemoryContextAlloc(funcctx->multi_call_memory_ctx, sizeof(bool) * cardinality);
+  call_ctx->values =
+      (Datum *)MemoryContextAlloc(funcctx->multi_call_memory_ctx, sizeof(Datum) * cardinality);
+  call_ctx->nargs = cardinality;
+  int i = 0;
+  while ((tok = JsonbIteratorNext(&iter, &val, true)) != WJB_DONE) {
+    if (tok == WJB_ELEM) {
+      call_ctx->nulls[i] = (val.type == jbvNull) ? 'n' : ' ';
+      switch (val.type) {
+      case jbvBool:
+        call_ctx->types[i] = BOOLOID;
+        call_ctx->values[i] = val.val.boolean;
+        break;
+      case jbvNumeric:
+        call_ctx->types[i] = NUMERICOID;
+        call_ctx->values[i] = NumericGetDatum(val.val.numeric);
+        break;
+      case jbvString:
+        call_ctx->types[i] = TEXTOID;
+        call_ctx->values[i] =
+            PointerGetDatum(cstring_to_text_with_len(val.val.string.val, val.val.string.len));
+        break;
+      case jbvNull:
+        break;
+      default:
+        ereport(ERROR, errmsg("unsupported parameter type at index %i", i));
+      }
+      i++;
+    }
+  }
+}
+
+/**
+ * Use or override the prepared statement's argument types based on the
+ * optional type array.
+ */
+static inline void extract_information_json_types(ExecCtx *call_ctx, ArrayType *types) {
+  ArrayIterator iter = array_create_iterator(types, 0, NULL);
+  int i = 0;
+  Datum type_val;
+  bool isnull;
+  while (array_iterate(iter, &type_val, &isnull)) {
+    if (isnull) {
+      continue;
+    }
+    Oid id = DatumGetObjectId(type_val);
+    // Handle numeric type specialization
+    if (call_ctx->types[i] == NUMERICOID) {
+      switch (id) {
+      case INT2OID:
+        call_ctx->values[i] =
+            Int16GetDatum(numeric_int4_opt_error(DatumGetNumeric(call_ctx->values[i]), NULL));
+        break;
+      case INT4OID:
+        call_ctx->values[i] =
+            Int32GetDatum(numeric_int4_opt_error(DatumGetNumeric(call_ctx->values[i]), NULL));
+        break;
+      case INT8OID:
+#if PG_MAJORVERSION_NUM >= 17
+        call_ctx->values[i] =
+            Int64GetDatum(numeric_int8_opt_error(DatumGetNumeric(call_ctx->values[i]), NULL));
+#else
+        call_ctx->values[i] = DirectFunctionCall1(numeric_int8, call_ctx->values[i]);
+#endif
+        break;
+      case FLOAT4OID:
+        call_ctx->values[i] = DirectFunctionCall1(numeric_float4, call_ctx->values[i]);
+        break;
+      case FLOAT8OID:
+        call_ctx->values[i] = DirectFunctionCall1(numeric_float8, call_ctx->values[i]);
+        break;
+      default: {
+        HeapTuple typeTuple = SearchSysCache1(TYPEOID, ObjectIdGetDatum(id));
+        if (!HeapTupleIsValid(typeTuple)) {
+          ereport(ERROR, (errmsg("cache lookup failed for type %u", id)));
+        }
+
+        char *typename = pstrdup(NameStr(((Form_pg_type)GETSTRUCT(typeTuple))->typname));
+
+        ReleaseSysCache(typeTuple);
+
+        ereport(ERROR, errmsg("can't convert numeric to type %s", typename));
+        break;
+      }
+      }
+    }
+    call_ctx->types[i] = id;
+    i++;
+  }
+  array_free_iterator(iter);
+}
+
+Datum execute_parameterized(PG_FUNCTION_ARGS) {
+  FuncCallContext *funcctx;
+  if (SRF_IS_FIRSTCALL()) {
+    if (PG_ARGISNULL(0)) {
+      ereport(ERROR, errmsg("statement should not be NULL"));
+    }
+
+    funcctx = SRF_FIRSTCALL_INIT();
+    MemoryContext oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
+
+    text *statement = PG_GETARG_TEXT_PP(0);
+    char *cstatement = text_to_cstring(statement);
+
+    ExecCtx *call_ctx = palloc(sizeof(*call_ctx));
+    call_ctx->stmt = cstatement;
+    call_ctx->done = false;
+    call_ctx->portal = NULL;
+
+    // Check parameters
+    if (PG_ARGISNULL(1)) {
+      call_ctx->nargs = 0;
+    } else {
+      extract_information_json_parameters(call_ctx, funcctx, PG_GETARG_JSONB_P(1));
+      if (!PG_ARGISNULL(2)) {
+        extract_information_json_types(call_ctx, PG_GETARG_ARRAYTYPE_P(2));
+      }
+    }
+    SPI_connect();
+    // Prepare the cursor
+    SPIPlanPtr plan = SPI_prepare(call_ctx->stmt, call_ctx->nargs, call_ctx->types);
+    // is this a plan that could return rows?
+    call_ctx->returning = SPI_is_cursor_plan(plan);
+    if (call_ctx->returning) {
+      if (plan == NULL) {
+        ereport(ERROR, errmsg("%s", SPI_result_code_string(SPI_result)));
+      }
+      call_ctx->portal =
+          SPI_cursor_open("_omni_sql_execute", plan, call_ctx->values, call_ctx->nulls, false);
+      // Fetch zero records just to get the tupdesc
+      SPI_cursor_fetch(call_ctx->portal, true, 0);
+      // Switch to multi-call memory instead of SPI
+      MemoryContext oldcontext1 = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
+      // Copy tupdesc
+      funcctx->tuple_desc = CreateTupleDescCopyConstr(SPI_tuptable->tupdesc);
+      BlessTupleDesc(funcctx->tuple_desc);
+      funcctx->attinmeta = TupleDescGetAttInMetadata(funcctx->tuple_desc);
+      MemoryContextSwitchTo(oldcontext1);
+      SPI_finish();
+    } else {
+      SPI_finish();
+      TupleDesc tupdesc = CreateTemplateTupleDesc(1);
+      TupleDescInitEntry(tupdesc, (AttrNumber)1, "rows", INT8OID, -1, 0);
+      BlessTupleDesc(tupdesc);
+
+      funcctx->attinmeta = TupleDescGetAttInMetadata(tupdesc);
+      funcctx->tuple_desc = tupdesc;
+    }
+
+    funcctx->user_fctx = call_ctx;
+
+    MemoryContextSwitchTo(oldcontext);
+  }
+
+  funcctx = SRF_PERCALL_SETUP();
+  ExecCtx *call_ctx = (ExecCtx *)funcctx->user_fctx;
+  if (call_ctx->done) {
+    SRF_RETURN_DONE(funcctx);
+  }
+
+  if (call_ctx->returning) {
+    SPI_connect();
+    SPI_cursor_fetch(call_ctx->portal, true, 1);
+    switch (SPI_tuptable->numvals) {
+    case 1: {
+      MemoryContext o = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
+      Datum result = heap_copy_tuple_as_datum(*SPI_tuptable->vals, funcctx->tuple_desc);
+      MemoryContextSwitchTo(o);
+      SPI_finish();
+      SRF_RETURN_NEXT(funcctx, result);
+    }
+    case 0:
+      SPI_cursor_close(call_ctx->portal);
+      SPI_finish();
+      SRF_RETURN_DONE(funcctx);
+    default:
+      SPI_finish();
+      Assert(false);
+    }
+  } else {
+    int64 processed = 0;
+
+    SPI_connect();
+
+    int rc = SPI_execute_with_args(call_ctx->stmt, call_ctx->nargs, call_ctx->types,
+                                   call_ctx->values, call_ctx->nulls, false, 0);
+    if (rc < 0) {
+      ereport(ERROR, errmsg("%s", SPI_result_code_string(rc)));
+    }
+    processed = (int64)SPI_processed;
+    SPI_finish();
+
+    Datum values[1] = {Int64GetDatum(processed)};
+    bool nulls[1] = {false};
+
+    HeapTuple tuple = heap_form_tuple(funcctx->tuple_desc, values, nulls);
+    Datum result = HeapTupleGetDatum(tuple);
+
+    call_ctx->done = true;
+    SRF_RETURN_NEXT(funcctx, result);
+  }
 }

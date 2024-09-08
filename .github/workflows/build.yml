@@ -28,18 +28,18 @@ jobs:
     strategy:
       matrix:
         pgver: [ 16, 15, 14, 13 ]
-        os: [ warp-ubuntu-latest-x64-4x, flyci-macos-large-latest-m1 ]
+        os: [ warp-ubuntu-latest-x64-4x, warp-macos-14-arm64-6x ]
         build_type: [Debug, Release]
         exclude:
-        - os: flyci-macos-large-latest-m1
+        - os: warp-macos-14-arm64-6x
           pgver: 15
-        - os: flyci-macos-large-latest-m1
+        - os: warp-macos-14-arm64-6x
           pgver: 14
-        - os: flyci-macos-large-latest-m1
+        - os: warp-macos-14-arm64-6x
           pgver: 13
-        - os: flyci-macos-large-latest-m1
+        - os: warp-macos-14-arm64-6x
           pgver: 12
-        - os: flyci-macos-large-latest-m1
+        - os: warp-macos-14-arm64-6x
           pgver: 11
       fail-fast: false
 
@@ -103,7 +103,7 @@ jobs:
 
     - name: Test
       working-directory: ${{github.workspace}}/build
-      run: TMPDIR=$RUNNER_TEMP DOCKER_HOST_IP=$(tailscale ip -4) ctest -timeout 1000 --force-new-ctest-process  --repeat until-pass:10 --output-on-failure -j $(nproc) -C ${{matrix.build_type}}
+      run: TMPDIR=$RUNNER_TEMP DOCKER_HOST_IP=$(tailscale ip -4) ctest --timeout 1000 --force-new-ctest-process  --repeat until-pass:10 --output-on-failure -j $(nproc) -C ${{matrix.build_type}}
 
     - uses: actions/upload-artifact@v3
       if: failure()

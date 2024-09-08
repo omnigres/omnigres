@@ -26,7 +26,6 @@ instance:
                        union (values
                       ('test',
                        $$ select omni_httpd.http_response('passed') from request where request.path = '/test'$$, 1))) routes)
-  - call omni_httpd.wait_for_configuration_reloads(1)
 
 tests:
 
