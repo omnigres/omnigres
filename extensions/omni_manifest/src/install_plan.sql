@@ -16,7 +16,7 @@ begin
     (
         id                       integer primary key generated always as identity,
         requirement              omni_manifest.requirement unique,
-        outstanding_dependencies int
+        outstanding_dependencies int not null
     ) on
           commit drop;
 
@@ -32,12 +32,11 @@ begin
             insert
             into
                 omni_manifest__deps__ (requirement, outstanding_dependencies)
-            values ((artifact).self, coalesce(array_length((artifact).requirements, 1), 0))
-            on conflict (requirement) do update set
-                outstanding_dependencies = array_length((artifact).requirements, 1)
+            values ((artifact).self, coalesce(cardinality((artifact).requirements), 0))
+            on conflict (requirement) do update set outstanding_dependencies = coalesce(cardinality((artifact).requirements), 0)
             returning id into _id;
 
-            if array_length((artifact).requirements, 1) > 0 then
+            if cardinality((artifact).requirements) > 0 then
                 foreach req in array (artifact).requirements
                     loop
                         insert
