@@ -21,3 +21,18 @@ tests:
   - step: b=2
   - step: test=1
   - step: x=1
+
+- name: dependencies
+  query: |
+    select *
+    from
+        unnest(omni_manifest.install_plan(
+                'omni_httpd=0.2.0#omni_types=0.1.1,omni_http=0.1.0;omni_types=0.1.1;omni_http=0.1.0'
+                    ::text))
+  results:
+  - name: omni_http
+    version: 0.1.0
+  - name: omni_types
+    version: 0.1.1
+  - name: omni_httpd
+    version: 0.2.0
