@@ -47,6 +47,15 @@ With the type defined, one can cast a function name into it. It will return a `s
 select 'length'::sig
 ```
 
+If no function is matching the signature captured by the type, this will fail with an error. If this is undesirable,
+`<TYPE>_conforming_function(text)` can be used instead:
+
+```postgresql
+with funcs as (select sig_confirming_function(name::text) as f from names)
+select funcs
+where f is not null;
+```
+
 ## Calling a function
 
 Function signature types can be called (and it is one of its primary benefits!) by using an auto-generated `call_<NAME>`
@@ -56,4 +65,3 @@ function:
 select call_sig('length', 'hello')
 -- returns 5 as this is what `length(text)` would return
 ```
-
