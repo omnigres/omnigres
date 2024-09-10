@@ -16,7 +16,6 @@ begin
                 existing_sig regtype[];
             begin
                 existing_sig := trim_array(array_append(rec.arguments, rec.return), 0);
-                raise notice '%', array_eq(existing_sig, signature);
                 if not array_eq(existing_sig, signature) then
                     raise exception 'cannot redefine % as its signature % does not match %', name, existing_sig, signature;
                 else
