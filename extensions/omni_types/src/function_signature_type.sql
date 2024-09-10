@@ -80,6 +80,11 @@ begin
     execute format('create cast (%I as regprocedure) without function', name);
     execute format('create cast (%I as oid) without function', name);
 
+    -- Define conformance test function
+    execute format('create function %3$I(text) returns %1$I language c as %2$L, ''conforming_function''',
+                   name,
+                   omni_types_library, name || '_conforming_function');
+
     -- Define caller function
     execute format('create function %I(%I %s) returns %s language c as %L, %L', 'call_' || name, name,
                    case

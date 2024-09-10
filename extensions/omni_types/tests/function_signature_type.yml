@@ -90,3 +90,24 @@ tests:
   - select omni_types.function_signature_type('sig', 'text', 'int')
   - query: select omni_types.function_signature_type('sig', 'int', 'text')
     error: cannot redefine sig as its signature {text,integer} does not match {integer,text}
+
+- name: converting schema-qualified type
+  steps:
+  - query: select omni_types.function_signature_type('sig', 'text', 'int')
+    results:
+    - function_signature_type: sig
+  - query: select 'pg_catalog.length'::sig
+    results:
+    - sig: length(text)
+
+- name: conforming function
+  steps:
+  - query: select omni_types.function_signature_type('sig', 'text', 'int')
+    results:
+    - function_signature_type: sig
+  - query: select sig_conforming_function('pg_catalog.length') as f
+    results:
+    - f: length(text)
+  - query: select sig_conforming_function('pg_catalog.no_such_function') as f
+    results:
+    - f: null
