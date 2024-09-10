@@ -59,7 +59,12 @@ Datum function_signature_in(PG_FUNCTION_ARGS) {
       // If argument lengths are not matching, move on
       int nargs = ArrayGetNItems(AARR_NDIM(arguments), AARR_DIMS(arguments));
 
-      List *names = stringToQualifiedNameList(input, escontext);
+      List *names = stringToQualifiedNameList(input
+#if PG_MAJORVERSION_NUM > 15
+                                              ,
+                                              escontext
+#endif
+      );
 
       FuncCandidateList candidates = FuncnameGetCandidates(names, nargs, NIL, false, false,
 #if PG_MAJORVERSION_NUM > 13
@@ -82,6 +87,9 @@ Datum function_signature_in(PG_FUNCTION_ARGS) {
             goto done_iter;
           }
           i++;
+        }
+        if (i == 0) {
+          break;
         }
         // Get return types of the looked up function
         HeapTuple proc_tuple = SearchSysCache1(PROCOID, ObjectIdGetDatum(candidates->oid));
@@ -159,7 +167,12 @@ Datum conforming_function(PG_FUNCTION_ARGS) {
       // If argument lengths are not matching, move on
       int nargs = ArrayGetNItems(AARR_NDIM(arguments), AARR_DIMS(arguments));
 
-      List *names = stringToQualifiedNameList(input, escontext);
+      List *names = stringToQualifiedNameList(input
+#if PG_MAJORVERSION_NUM > 15
+                                              ,
+                                              escontext
+#endif
+      );
 
       FuncCandidateList candidates = FuncnameGetCandidates(names, nargs, NIL, false, false,
 #if PG_MAJORVERSION_NUM > 13
@@ -214,9 +227,7 @@ Datum conforming_function(PG_FUNCTION_ARGS) {
   if (!OidIsValid(matching_function)) {
     MemoryContext oldcontext = CurrentMemoryContext;
     PG_TRY();
-    {
-      DirectFunctionCall1(regprocin, CStringGetDatum(input));
-    }
+    { DirectFunctionCall1(regprocin, CStringGetDatum(input)); }
     PG_CATCH();
     {
       int errcode = geterrcode();
