@@ -10,11 +10,16 @@ enable_testing()
 
 find_package(PostgreSQL REQUIRED)
 
+if (${PostgreSQL_VERSION_STRING} MATCHES "PostgreSQL 13.*")
+    set(requirements omni_polyfill) # for trim_array
+endif ()
+
 add_postgresql_extension(
         omni_types
         SCHEMA omni_types
         RELOCATABLE false
-        SOURCES omni_types.c unit.c sum_type.c
+        SOURCES omni_types.c unit.c sum_type.c funsig_type.c
+        REQUIRES ${requirements}
 )
 
 add_library(libomnitypes INTERFACE)
