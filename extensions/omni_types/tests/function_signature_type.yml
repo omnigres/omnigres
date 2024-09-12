@@ -1,0 +1,113 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_types cascade
+
+tests:
+- name: smoke test
+  steps:
+  - query: select omni_types.function_signature_type('sig', 'text', 'int')
+    results:
+    - function_signature_type: sig
+  - query: select 'length'::sig::regprocedure = 'length(text)'::regprocedure as result
+    results:
+    - result: true
+  - name: converts to oid
+    query: select 'length'::sig::oid = 'length(text)'::regprocedure::oid as result
+    results:
+    - result: true
+  - name: converts to regproc
+    query: select 'length'::sig::regproc = 'length(text)'::regprocedure::regproc as result
+    results:
+    - result: true
+  - query: select call_sig('length', 'hello')
+    results:
+    - call_sig: 5
+  - name: ensure calling strict functions works
+    query: select call_sig('length', null)
+    results:
+    - call_sig: null
+
+- name: smoke test for zero-arity function
+  steps:
+  - query: select omni_types.function_signature_type('sig', 'int')
+    results:
+    - function_signature_type: sig
+  - query: select 'pg_backend_pid'::sig::regprocedure = 'pg_backend_pid()'::regprocedure as result
+    results:
+    - result: true
+  - query: select call_sig('pg_backend_pid') = pg_backend_pid() as result
+    results:
+    - result: true
+
+- name: can't convert something that doesn't match
+  steps:
+  - select omni_types.function_signature_type('sig', 'text', 'int')
+  - query: select 'pg_backend_pid'::sig
+    error: function "pg_backend_pid" does not match the signature of the type
+
+- name: can't convert something that doesn't match and has multiple candidates
+  steps:
+  - select omni_types.function_signature_type('sig', 'int', 'int')
+  - query: select 'length'::sig
+    error: function "length" does not match the signature of the type
+
+- name: can't convert something that doesn't exist
+  steps:
+  - select omni_types.function_signature_type('sig', 'text', 'int')
+  - query: select 'does_not_exist'::sig
+    error: function "does_not_exist" does not exist
+
+- name: convert NULL?
+  steps:
+  - select omni_types.function_signature_type('sig', 'text', 'int')
+  - query: select null::sig as result
+    results:
+    - result: null
+
+- name: call function that no longer exists
+  steps:
+  - |
+    create function f(int) returns int
+        language sql as
+    $$
+    select 1
+    $$
+  - select omni_types.function_signature_type_of('sig', 'f(int)')
+  - create table funs as (select 'f'::sig as f)
+  - drop function f(int)
+  - query: select call_sig(f, 0)
+           from funs
+    error: function does not exist
+
+- name: redefining the type without changing it
+  steps:
+  - select omni_types.function_signature_type('sig', 'text', 'int')
+  - select omni_types.function_signature_type('sig', 'text', 'int')
+
+- name: redefining the type and changing it
+  steps:
+  - select omni_types.function_signature_type('sig', 'text', 'int')
+  - query: select omni_types.function_signature_type('sig', 'int', 'text')
+    error: cannot redefine sig as its signature {text,integer} does not match {integer,text}
+
+- name: converting schema-qualified type
+  steps:
+  - query: select omni_types.function_signature_type('sig', 'text', 'int')
+    results:
+    - function_signature_type: sig
+  - query: select 'pg_catalog.length'::sig
+    results:
+    - sig: length(text)
+
+- name: conforming function
+  steps:
+  - query: select omni_types.function_signature_type('sig', 'text', 'int')
+    results:
+    - function_signature_type: sig
+  - query: select sig_conforming_function('pg_catalog.length') as f
+    results:
+    - f: length(text)
+  - query: select sig_conforming_function('pg_catalog.no_such_function') as f
+    results:
+    - f: null
