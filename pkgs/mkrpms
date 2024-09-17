@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+
+set -eux
+
+pgpkg="postgresql$POSTGRES_VER"
+
+cat </build/artifacts.txt | while IFS= read -r line; do
+    pkg="$(echo "$line"|awk -F'=' '{print $1}')"
+    vers="$(echo "$line"|cut -d'#' -f1|awk -F'=' '{print $2}')"
+    deps="--depends $pgpkg"
+    for d in $(echo "$line"|awk -F'#' '{print $2}'|tr ',' ' ') ; do
+        n="$(echo "$d"|awk -F'=' '{print $1}')"
+        v="$(echo "$d"|awk -F'=' '{print $2}')"
+        case $n in \
+            dblink|pgcrypto)
+                n="$pgpkg-contrib" ; v='*' ;;
+            plpy*)
+                n="$pgpkg-plpython3" ; v='*' ;;
+        esac
+        if [ "$v" = "*" ]; then
+            deps="$deps --depends '$n'"
+        else
+            deps="$deps --depends '$n >= $v'"
+        fi
+    done
+    tmp="$(mktemp -d)"
+    mkdir -p "$tmp/lib"
+    mkdir -p "$tmp/share/extension"
+    cp "/build/packaged/$pkg"--*.so        "$tmp/lib/" && arch=native || arch=all
+    cp "/build/packaged/extension/$pkg".*  "$tmp/share/extension/" || true
+    cp "/build/packaged/extension/$pkg"--* "$tmp/share/extension/" || true
+    eval "${GEM_HOME}/bin/fpm" \
+         --input-type dir \
+         --output-type rpm \
+         --architecture "$arch" \
+         --name "$pkg" \
+         --version "$vers" \
+         --iteration "$ITERATION" \
+         --prefix "/usr/pgsql-$POSTGRES_VER/" \
+         --chdir "$tmp" \
+         "$deps" \
+         .
+done

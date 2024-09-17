@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+
+# NOTE: You'll possibly need to create a arm64 or amd64 buildx container first
+# if you are on another architecture.
+#
+# `docker buildx create --platform linux/arm64 --use`
+# `docker buildx inspect <name of container> --bootstrap`
+# `docker buildx ls` should show it running & ready for arm64
+
+set -eux
+
+ARCH=${ARCH:-linux/arm64,linux/amd64}
+POSTGRES_VER=${POSTGRES_VER:-16}
+
+# FIND THE ROOT GIT DIRECTORY
+DIR=$(git rev-parse --show-toplevel "$(dirname "$0")"|head -n 1)
+
+# ITERATION FOR THE PACKAGES
+ITERATION=${ITERATION:-1}
+
+# GIT REVISION OF SOURCE
+REVISION=${REVISION:-"$(git rev-parse --short HEAD)"}
+
+# BULID FOR REDHAT.
+for arch in ${ARCH/,/ }; do
+    # NOTE: I have this building architectures sequentially because I'm on a
+    # laptop. On a beefy CI machine, it might be better to do this in one pass
+    # maxing the machine with parallel builds like the following example:
+    # `docker buildx build --platform linux/amd64,linux/arm64 --push`
+    ROCKY_IMAGE_NAME="omnigres:rocky-9-pgdg${POSTGRES_VER}-${arch/linux\/}-$REVISION-$ITERATION"
+    ROCKY_CONTAINER_NAME="${ROCKY_IMAGE_NAME/:/-}-$(cut -c1-6 <(cat /proc/*/*/*/uuid||uuidgen))" ;# WORKS ON LINUX & MACOS
+    docker buildx build \
+           --progress plain \
+           --platform "$arch" \
+           --build-arg POSTGRES_VER="$POSTGRES_VER" \
+           --build-arg ITERATION="$ITERATION" \
+           --tag "$ROCKY_IMAGE_NAME" \
+           --file "${DIR}/pkgs/rocky.dockerfile" \
+           --load \
+           "$DIR"
+    trap '{
+        docker stop "$ROCKY_CONTAINER_NAME"  >/dev/null 2>&1 || true
+        docker rm   "$ROCKY_CONTAINER_NAME"  >/dev/null 2>&1 || true
+    }' EXIT
+    docker run --platform "$arch" -d --name "$ROCKY_CONTAINER_NAME" "$ROCKY_IMAGE_NAME" tail -f /dev/null
+    docker cp "$ROCKY_CONTAINER_NAME":/pkgs "$DIR/"
+done
