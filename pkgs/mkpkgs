@@ -9,7 +9,7 @@
 
 set -eux
 
-ARCH=${ARCH:-linux/arm64,linux/amd64}
+ARCH=${ARCH:-linux/amd64,linux/arm64}
 POSTGRES_VER=${POSTGRES_VER:-16}
 
 # FIND THE ROOT GIT DIRECTORY
@@ -29,6 +29,8 @@ for arch in ${ARCH/,/ }; do
     # `docker buildx build --platform linux/amd64,linux/arm64 --push`
     ROCKY_IMAGE_NAME="omnigres:rocky-9-pgdg${POSTGRES_VER}-${arch/linux\/}-$REVISION-$ITERATION"
     ROCKY_CONTAINER_NAME="${ROCKY_IMAGE_NAME/:/-}-$(cut -c1-6 <(cat /proc/*/*/*/uuid||uuidgen))" ;# WORKS ON LINUX & MACOS
+    UBUNTU_IMAGE_NAME="omnigres:ubuntu-noble-pgdg${POSTGRES_VER}-${arch/linux\/}-$REVISION-$ITERATION"
+    UBUNTU_CONTAINER_NAME="${UBUNTU_IMAGE_NAME/:/-}-$(cut -c1-6 <(cat /proc/*/*/*/uuid||uuidgen))"
     docker buildx build \
            --progress plain \
            --platform "$arch" \
@@ -38,10 +40,23 @@ for arch in ${ARCH/,/ }; do
            --file "${DIR}/pkgs/rocky.dockerfile" \
            --load \
            "$DIR"
+    docker buildx build \
+           --progress plain \
+           --platform "$arch" \
+           --build-arg POSTGRES_VER="$POSTGRES_VER" \
+           --build-arg ITERATION="$ITERATION" \
+           --tag "$UBUNTU_IMAGE_NAME" \
+           --file "${DIR}/pkgs/ubuntu.dockerfile" \
+           --load \
+           "$DIR"
     trap '{
-        docker stop "$ROCKY_CONTAINER_NAME"  >/dev/null 2>&1 || true
-        docker rm   "$ROCKY_CONTAINER_NAME"  >/dev/null 2>&1 || true
+        # docker stop "$ROCKY_CONTAINER_NAME" >/dev/null 2>&1 || true
+        # docker rm   "$ROCKY_CONTAINER_NAME" >/dev/null 2>&1 || true
+        docker stop "$UBUNTU_CONTAINER_NAME" >/dev/null 2>&1 || true
+        docker rm   "$UBUNTU_CONTAINER_NAME" >/dev/null 2>&1 || true
     }' EXIT
     docker run --platform "$arch" -d --name "$ROCKY_CONTAINER_NAME" "$ROCKY_IMAGE_NAME" tail -f /dev/null
     docker cp "$ROCKY_CONTAINER_NAME":/pkgs "$DIR/"
+    docker run --platform "$arch" -d --name "$UBUNTU_CONTAINER_NAME" "$UBUNTU_IMAGE_NAME" tail -f /dev/null
+    docker cp "$UBUNTU_CONTAINER_NAME":/pkgs "$DIR/"
 done
