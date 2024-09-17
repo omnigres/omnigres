@@ -44,6 +44,16 @@ markdown_extensions:
 
 plugins:
 - search
+- mkdoxy:
+    projects:
+      omni: # name of project must be alphanumeric + numbers (without spaces)
+        src-dirs:  omni/omni # path to source code (support multiple paths separated by space) => INPUT
+        full-doc: True # if you want to generate full documentation
+        doxy-cfg: # standard doxygen configuration (key: value)
+          FILE_PATTERNS: "*.h" # specify file patterns to filter out
+          RECURSIVE: True # recursive search in source directories
+          PREDEFINED: "DOXYGEN_SKIP_INCLUDES"
+          TYPEDEF_HIDES_STRUCT: NO
 - monorepo
 - include-markdown
 - glightbox
