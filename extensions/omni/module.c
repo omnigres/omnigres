@@ -11,6 +11,9 @@
 #include <storage/lwlock.h>
 
 #include "omni_common.h"
+#if PG_MAJORVERSION_NUM >= 17
+#include <utils/tuplestore.h>
+#endif
 
 void _Omni_init(const omni_handle *handle) {
   omni_hook alter_extension_hook = {.name = "extension upgrade",
@@ -49,7 +52,9 @@ Datum modules(PG_FUNCTION_ARGS) {
   dshash_seq_term(&status);
   LWLockRelease(&(locks + OMNI_LOCK_MODULE)->lock);
 
+#if PG_MAJORVERSION_NUM < 17
   tuplestore_donestoring(tupstore);
+#endif
 
   MemoryContextSwitchTo(oldcontext);
   PG_RETURN_NULL();
@@ -82,7 +87,9 @@ Datum hooks(PG_FUNCTION_ARGS) {
     }
   }
 
+#if PG_MAJORVERSION_NUM < 17
   tuplestore_donestoring(tupstore);
+#endif
 
   MemoryContextSwitchTo(oldcontext);
   PG_RETURN_NULL();
@@ -117,7 +124,9 @@ Datum shmem_allocations(PG_FUNCTION_ARGS) {
   dshash_seq_term(&status);
   LWLockRelease(&(locks + OMNI_LOCK_ALLOCATION)->lock);
 
+#if PG_MAJORVERSION_NUM < 17
   tuplestore_donestoring(tupstore);
+#endif
 
   MemoryContextSwitchTo(oldcontext);
   PG_RETURN_NULL();

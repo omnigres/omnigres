@@ -5,13 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.4] - 2023-06-28
+## [0.1.5] - 2024-09-27
+
+### Added
+
+* Support for Postgres 17 [#650](https://github.com/omnigres/omnigres/pull/650)
+
+## [0.1.4] - 2024-06-28
 
 ### Fixed
 
 * Remove redundant (and conflicting) dshash symbols [#566](https://github.com/omnigres/omnigres/pull/566)
 
-## [0.1.3] - 2023-04-16
+## [0.1.3] - 2024-04-16
 
 ### Added
 
@@ -58,3 +64,5 @@ Initial release following a few months of iterative development.
 [0.1.3]: [https://github.com/omnigres/omnigres/pull/540]
 
 [0.1.4]: [https://github.com/omnigres/omnigres/pull/566]
+
+[0.1.5]: [https://github.com/omnigres/omnigres/pull/650]

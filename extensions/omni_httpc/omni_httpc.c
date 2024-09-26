@@ -669,7 +669,9 @@ Datum http_execute(PG_FUNCTION_ARGS) {
   if (!any_requests) {
     Tuplestorestate *tupstore = tuplestore_begin_heap(false, false, work_mem);
     rsinfo->setResult = tupstore;
+#if PG_MAJORVERSION_NUM < 17
     tuplestore_donestoring(tupstore);
+#endif
     goto done;
   }
 
@@ -741,7 +743,9 @@ Datum http_execute(PG_FUNCTION_ARGS) {
     }
   }
 
+#if PG_MAJORVERSION_NUM < 17
   tuplestore_donestoring(tupstore);
+#endif
 
 done:
   MemoryContextSwitchTo(oldcontext);
@@ -786,7 +790,9 @@ Datum http_connections(PG_FUNCTION_ARGS) {
     tuplestore_putvalues(tupstore, rsinfo->expectedDesc, values, isnull);
   }
 
+#if PG_MAJORVERSION_NUM < 17
   tuplestore_donestoring(tupstore);
+#endif
 
   MemoryContextSwitchTo(oldcontext);
   PG_RETURN_NULL();
