@@ -239,7 +239,9 @@ Datum local_fs_list(PG_FUNCTION_ARGS) {
   }
 
 done:
+#if PG_MAJORVERSION_NUM < 17
   tuplestore_donestoring(tupstore);
+#endif
 
   MemoryContextSwitchTo(oldcontext);
 

@@ -176,7 +176,9 @@ Datum raw_statements(PG_FUNCTION_ARGS) {
     }
   };
 
+#if PG_MAJORVERSION_NUM < 17
   tuplestore_donestoring(tupstore);
+#endif
 
   MemoryContextSwitchTo(oldcontext);
   PG_RETURN_NULL();

@@ -15,7 +15,7 @@
 
 #include "utils/dsa.h"
 
-
+#if PG_MAJORVERSION_NUM < 15
 /*
  * Sequential scan state. The detail is exposed to let users know the storage
  * size but it should be considered as an opaque type by callers.
@@ -37,5 +37,7 @@ extern void dshash_seq_init(dshash_seq_status *status, dshash_table *hash_table,
 extern void *dshash_seq_next(dshash_seq_status *status);
 extern void dshash_seq_term(dshash_seq_status *status);
 extern void dshash_delete_current(dshash_seq_status *status);
+
+#endif
 
 // clang-format on
