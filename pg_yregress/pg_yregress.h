@@ -110,6 +110,8 @@ typedef struct {
   bool transaction;
   // connect to other database
   iovec_t database;
+  //  connect through specific connection
+  iovec_t connection;
 } ytest;
 
 bool ytest_run(ytest *test);

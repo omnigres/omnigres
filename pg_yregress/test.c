@@ -4,6 +4,8 @@
 
 #include "pg_yregress.h"
 
+#include "uthash.h"
+
 union fy_scalar_attributes {
   struct {
     bool definitely_not_a_bool : 1;
@@ -55,6 +57,65 @@ static void notice_receiver(struct fy_node *notices, const PGresult *result) {
   char *notice = strdup(PQresultErrorField(result, PG_DIAG_MESSAGE_PRIMARY));
   struct fy_document *doc = fy_node_document(notices);
   fy_node_sequence_append(notices, fy_node_create_scalar(doc, STRLIT(notice)));
+}
+
+struct connwrapper {
+  const char *conn_name; // key
+  PGconn *conn;
+
+  UT_hash_handle hh;
+};
+
+struct connwrapper *connections_ht = NULL;
+
+static struct connwrapper *find_connection(const char *conn_name) {
+  struct connwrapper *s = NULL;
+
+  HASH_FIND_STR(connections_ht, conn_name, s);
+  return s;
+}
+
+static void add_connections(const char *conn_name, PGconn *conn) {
+  struct connwrapper *s;
+  s = find_connection(conn_name); /* conn_name already in the hash? */
+  if (s == NULL) {
+    s = (struct connwrapper *)malloc(sizeof *s);
+    s->conn_name = strdup(conn_name);
+    s->conn = conn;
+    HASH_ADD_STR(connections_ht, conn_name, s); /* conn_name is the key field */
+  }
+}
+
+static void remove_connection(const char *conn_name) {
+  struct connwrapper *s;
+  s = find_connection(conn_name); /* conn_name already in the hash? */
+  if (s != NULL) {
+    HASH_DEL(connections_ht, s);
+  }
+}
+
+static void populate_connections_ht(ytest *test, struct fy_node *steps) {
+  void *iter = NULL;
+  struct fy_node *step;
+  while ((step = fy_node_sequence_iterate(steps, &iter))) {
+    ytest *y_test = (ytest *)fy_node_get_meta(step);
+    // does the step have an explicit connection?
+    if (y_test->connection.base != NULL) {
+      struct connwrapper *conn = find_connection(y_test->connection.base);
+      PGconn *newconn;
+      if (conn == NULL) {
+        char *conninfo;
+        const char *dbname = "yregress";
+        if (y_test->database.base != NULL) {
+          dbname = y_test->database.base;
+        }
+        asprintf(&conninfo, "host=127.0.0.1 port=%d dbname=%s user=yregress",
+                 test->instance->info.managed.port, dbname);
+        newconn = PQconnectdb(conninfo);
+        add_connections(y_test->connection.base, newconn);
+      }
+    }
+  }
 }
 
 bool ytest_run_internal(PGconn *default_conn, ytest *test, bool in_transaction, int sub_test,
@@ -434,12 +495,28 @@ proceed:
     sub_test++;
     taprintf("1..%d\n", fy_node_sequence_item_count(steps));
 
+    populate_connections_ht(test, steps);
+
     while ((step = fy_node_sequence_iterate(steps, &iter))) {
       ytest *y_test = (ytest *)fy_node_get_meta(step);
       // save notice receiver arg of parent test for multi-step tests
       y_test->prev_notices = notices;
       if (!step_failed) {
         bool errored = false;
+        const char *conn_name = y_test->connection.base;
+        if (conn_name != NULL) {
+          if (y_test->reset) {
+            remove_connection(conn_name);
+            populate_connections_ht(test, steps);
+          }
+          struct connwrapper *cwrap = find_connection(conn_name);
+          if (cwrap != NULL) {
+            conn = cwrap->conn;
+          } else {
+            printf("couldn't find connection for %s", conn_name);
+          }
+        }
+
         bool step_success = ytest_run_internal(
             conn, y_test, (test->kind == ytest_kind_tests && test->transaction) ? false : true,
             sub_test, &errored);

@@ -39,7 +39,6 @@ static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
   case FYNT_MAPPING:
     y_test->name.base =
         fy_node_mapping_lookup_scalar_by_simple_key(test, &y_test->name.len, STRLIT("name"));
-
     {
       // Should we commit after this test?
       struct fy_node *commit = fy_node_mapping_lookup_by_string(test, STRLIT("commit"));
@@ -85,6 +84,21 @@ static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
           return false;
         }
         y_test->database.base = fy_node_get_scalar(database, &y_test->database.len);
+      }
+    }
+
+    {
+      // Is the test meant to be ran on a custom connection?
+      struct fy_node *connection = fy_node_mapping_lookup_by_string(test, STRLIT("connection"));
+      y_test->connection.base = NULL;
+
+      if (connection != NULL) {
+        if (!fy_node_is_scalar(connection)) {
+          fprintf(stderr, "connection should be a string, got: %s",
+                  fy_emit_node_to_string(connection, FYECF_DEFAULT));
+          return false;
+        }
+        y_test->connection.base = fy_node_get_scalar(connection, &y_test->connection.len);
       }
     }
 
