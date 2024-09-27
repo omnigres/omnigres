@@ -1,0 +1,12 @@
+\i extensions/omni_access/examples/simple.sql
+
+create extension omni_access;
+
+select omni_access.import_policy(pg_read_file('../../../../../extensions/omni_access/examples/simple.json')::jsonb);
+
+\x
+\pset pager
+select *
+from omni_access.activate_policy(1);
+\x
+\pset pager
