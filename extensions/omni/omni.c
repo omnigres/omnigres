@@ -81,16 +81,26 @@ MODULE_FUNCTION dsa_area *dsa_handle_to_area(dsa_handle handle) {
 }
 
 static inline void initialize_omni_modules() {
-  const dshash_parameters module_params = {.key_size = PATH_MAX,
-                                           .entry_size = sizeof(ModuleEntry),
-                                           .hash_function = dshash_string_hash,
-                                           .compare_function = dshash_strcmp,
-                                           .tranche_id = OMNI_DSA_TRANCHE};
-  const dshash_parameters allocation_params = {.key_size = sizeof(ModuleAllocationKey),
-                                               .entry_size = sizeof(ModuleAllocation),
-                                               .hash_function = dshash_memhash,
-                                               .compare_function = dshash_memcmp,
-                                               .tranche_id = OMNI_DSA_TRANCHE};
+  const dshash_parameters module_params = {
+    .key_size = PATH_MAX,
+    .entry_size = sizeof(ModuleEntry),
+    .hash_function = dshash_string_hash,
+    .compare_function = dshash_strcmp,
+#if PG_MAJORVERSION_NUM >= 17
+    .copy_function = dshash_string_copy,
+#endif
+    .tranche_id = OMNI_DSA_TRANCHE
+  };
+  const dshash_parameters allocation_params = {
+    .key_size = sizeof(ModuleAllocationKey),
+    .entry_size = sizeof(ModuleAllocation),
+    .hash_function = dshash_memhash,
+    .compare_function = dshash_memcmp,
+#if PG_MAJORVERSION_NUM >= 17
+    .copy_function = dshash_string_copy,
+#endif
+    .tranche_id = OMNI_DSA_TRANCHE
+  };
   MemoryContext oldcontext = MemoryContextSwitchTo(TopMemoryContext);
   LWLockAcquire(&(locks + OMNI_LOCK_MODULE)->lock, LW_EXCLUSIVE);
   if (pg_atomic_test_set_flag(&shared_info->tables_initialized)) {
@@ -208,7 +218,7 @@ static void register_lwlock(const omni_handle *handle, LWLock *lock, const char 
   }
 }
 
-#if PG_MAJORVERSION_NUM >= 13 && PG_MAJORVERSION_NUM <= 16
+#if PG_MAJORVERSION_NUM >= 13 && PG_MAJORVERSION_NUM <= 17
 #define LW_FLAG_HAS_WAITERS ((uint32)1 << 30)
 #define LW_FLAG_RELEASE_OK ((uint32)1 << 29)
 #define LW_FLAG_LOCKED ((uint32)1 << 28)
@@ -283,7 +293,11 @@ static omni_handle_private *load_module(const char *path,
       {
         // Omni compatibility check
 
+#if PG_MAJORVERSION_NUM >= 17
+        bool warn_on_mismatch = AmBackgroundWorkerProcess() || warning_on_omni_mismatch_preference;
+#else
         bool warn_on_mismatch = IsBackgroundWorker || warning_on_omni_mismatch_preference;
+#endif
 
         {
           // Special case for omni 0.1.0 (TODO: deprecate)

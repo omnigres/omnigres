@@ -33,7 +33,9 @@ Datum environment_variables(PG_FUNCTION_ARGS) {
     tuplestore_putvalues(tupstore, rsinfo->expectedDesc, values, isnull);
   }
 
+#if PG_MAJORVERSION_NUM < 17
   tuplestore_donestoring(tupstore);
+#endif
 
   MemoryContextSwitchTo(oldcontext);
   PG_RETURN_NULL();

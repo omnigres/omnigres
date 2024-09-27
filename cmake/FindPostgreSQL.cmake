@@ -57,10 +57,11 @@ if(NOT DEFINED PG_CONFIG)
 
     # Use latest known version if PGVER is not set
     if(NOT PGVER)
-        set(PGVER 16)
+        set(PGVER 17)
     endif()
 
     # If the version is not known, try resolving the alias
+    set(PGVER_ALIAS_17 17.0)
     set(PGVER_ALIAS_16 16.4)
     set(PGVER_ALIAS_15 15.8)
     set(PGVER_ALIAS_14 14.13)

@@ -16,7 +16,9 @@ begin
     if hashing_algorithm = 'bcrypt' then
         work_factor :=
                 coalesce(work_factor, coalesce(current_setting('omni_auth.bcrypt_work_factor', true), 12::text)::int);
-        _hashed_password := crypt(password, coalesce(hashed_password, gen_salt('bf'::text, work_factor)));
+        -- we call `crypt` and `gen_salt` through `public` because `hash_password` can be called from `refresh materialized view`
+        -- for `password_work_factor_timings` and the search_path will be restricted as of Postgres 17
+        _hashed_password := public.crypt(password, coalesce(hashed_password, public.gen_salt('bf'::text, work_factor)));
         if hashed_password is not null and _hashed_password != hashed_password then
             return null;
         end if;

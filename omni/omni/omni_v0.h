@@ -19,7 +19,7 @@
 #include <utils/guc.h>
 #include <utils/guc_tables.h>
 
-#if PG_MAJORVERSION_NUM >= 13 && PG_MAJORVERSION_NUM <= 16
+#if PG_MAJORVERSION_NUM >= 13 && PG_MAJORVERSION_NUM <= 17
 /**
  * Omni's copy of an otherwise private datatype of `BackgroundWorkerHnalde`
  * so that it can be copied between backends.
