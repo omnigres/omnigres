@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.5
 
 # Version of PostgreSQL
-ARG PG=16.4
+ARG PG=17.0
 # Build type
 ARG BUILD_TYPE=RelWithDebInfo
 # User name to be used for builder
@@ -22,7 +22,7 @@ ARG PLRUST_VERSION=1.2.8
 FROM debian:${DEBIAN_VER}-slim AS builder
 RUN echo "deb http://deb.debian.org/debian bookworm-backports main contrib non-free" >> /etc/apt/sources.list
 RUN apt-get update
-RUN apt-get install -y wget build-essential git clang lld flex libreadline-dev zlib1g-dev libssl-dev tmux lldb gdb make perl python3-dev python3-venv python3-pip netcat-traditional
+RUN apt-get install -y wget build-essential git clang lld flex libreadline-dev zlib1g-dev libssl-dev tmux lldb gdb make perl python3-dev python3-venv python3-pip netcat-traditional bison
 # current cmake is too old
 ARG DEBIAN_VER
 ENV DEBIAN_VER=${DEBIAN_VER}
