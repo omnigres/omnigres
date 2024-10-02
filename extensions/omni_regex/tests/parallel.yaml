@@ -1,0 +1,26 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_regex cascade
+  - set max_parallel_workers to 2
+  - |
+    create table data as
+    select 'datum_' || i as datum
+    from generate_series(1, 1000000) i
+
+tests:
+
+- name: ensure the plan is parallelized
+  query: |
+    explain (format json, costs off)
+    select count(*)
+    from data
+    where datum =~ '345'
+  results:
+  - QUERY PLAN: [ { "Plan": { "Node Type": "Aggregate", "Strategy": "Plain", "Partial Mode": "Finalize", "Parallel Aware": false, "Async Capable": false, "Plans": [ { "Node Type": "Gather", "Parent Relationship": "Outer", "Parallel Aware": false, "Async Capable": false, "Workers Planned": 2, "Single Copy": false, "Plans": [ { "Node Type": "Aggregate", "Strategy": "Plain", "Partial Mode": "Partial", "Parent Relationship": "Outer", "Parallel Aware": false, "Async Capable": false, "Plans": [ { "Node Type": "Seq Scan", "Parent Relationship": "Outer", "Parallel Aware": true, "Async Capable": false, "Relation Name": "data", "Alias": "data", "Filter": "(datum =~ '345'::regex)" } ] } ] } ] } } ]
+
+- name: ensure it doesn't crash
+  query: |
+    select
+    from data
+    where datum =~ '345'

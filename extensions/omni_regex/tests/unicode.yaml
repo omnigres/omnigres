@@ -1,0 +1,25 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_regex cascade
+
+tests:
+
+- name: check that it counts characters, not bytes
+  tests:
+  - query: select 'ätsch' =~ '^.....$' as match
+    results:
+    - match: true
+  - query: select 'ätsch' =~ '^......$' as match
+    results:
+    - match: false
+
+- name: check Unicode properties
+  query: select 'ätsch' =~ '^\w+$' as match
+  results:
+  - match: true
+
+- name: check Unicode in pattern
+  query: select 'ätsch' =~ '^ätsch$' as match
+  results:
+  - match: true

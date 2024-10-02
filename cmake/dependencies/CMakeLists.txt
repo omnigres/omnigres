@@ -11,6 +11,7 @@ CPMAddPackage(NAME stc GIT_REPOSITORY https://github.com/stclib/STC GIT_TAG ${GI
 CPMAddPackage(NAME uriparser GIT_REPOSITORY https://github.com/uriparser/uriparser GIT_TAG ${GIT_TAG_uriparser} VERSION ${VERSION_uriparser} DOWNLOAD_ONLY YES)
 CPMAddPackage(NAME wslay GIT_REPOSITORY https://github.com/tatsuhiro-t/wslay GIT_TAG ${GIT_TAG_wslay} VERSION ${VERSION_wslay} DOWNLOAD_ONLY YES)
 CPMAddPackage(NAME libfyaml GITHUB_REPOSITORY "yrashk/libfyaml" GIT_TAG ${GIT_TAG_libfyaml} VERSION ${VERSION_libfyaml} DOWNLOAD_ONLY YES)
+CPMAddPackage(NAME pcre2 GITHUB_REPOSITORY "PCRE2Project/pcre2" GIT_TAG ${GIT_TAG_pcre2} VERSION ${VERSION_pcre2} DOWNLOAD_ONLY YES)
 
 set(ENV{VIRTUAL_ENV} "${CMAKE_BINARY_DIR}/venv")
 
