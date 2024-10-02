@@ -35,17 +35,18 @@
 #include <postgres.h>
 #include <fmgr.h>
 // clang-format on
+#include <common/hashfn.h>
 #include <mb/pg_wchar.h>
 #include <miscadmin.h>
 #include <nodes/execnodes.h>
+#include <utils/array.h>
+#include <utils/builtins.h>
 #include <utils/memutils.h>
 #if PG_MAJORVERSION_NUM >= 16
 #include <varatt.h>
 #endif
 
 #define PCRE2_CODE_UNIT_WIDTH 8
-#include "utils/array.h"
-#include "utils/builtins.h"
 #include <pcre2.h>
 
 PG_FUNCTION_INFO_V1(regex_in);
@@ -67,6 +68,7 @@ typedef struct {
   int16 pcre_major; /* new version might invalidate compiled pattern */
   int16 pcre_minor;
   int32 pattern_strlen;             /* used to compute offset to compiled pattern */
+  uint32 hash;
   char data[FLEXIBLE_ARRAY_MEMBER]; /* original pattern string
                                      * (null-terminated), followed by
                                      * compiled pattern */
@@ -79,16 +81,48 @@ typedef struct {
 #define PG_GETARG_PCRE_P_COPY(n) DatumGetPcrePCopy(PG_GETARG_DATUM(n))
 #define PG_RETURN_PCRE_P(x) return PcrePGetDatum(x)
 
+typedef struct {
+  char *regex;
+  uint32 status;
+  pcre2_code *code;
+} RegexHashEntry;
+
+#define SH_PREFIX regexhash
+#define SH_ELEMENT_TYPE RegexHashEntry
+#define SH_KEY_TYPE char *
+#define SH_KEY regex
+#define SH_HASH_KEY(tb, key) string_hash(key, strlen(key))
+#define SH_EQUAL(tb, a, b) (strcmp(a, b) == 0)
+#define SH_SCOPE static inline
+#define SH_DECLARE
+#define SH_DEFINE
+#include <lib/simplehash.h>
+
 static inline pcre2_code *PCRE_CODE(pgpcre *pattern) {
-  pcre2_code *code[1];
-  int rc = pcre2_serialize_decode(code, 1, (uint8_t *)(pattern->data + pattern->pattern_strlen + 1),
-                                  ctx);
-  if (rc <= 0) {
-    // Recompile
-    code[0] = PCRE_CODE(
-        (pgpcre *)DatumGetPointer(DirectFunctionCall1(regex_in, CStringGetDatum(pattern->data))));
+  static regexhash_hash *regexhash = NULL;
+  if (regexhash == NULL) {
+    regexhash = regexhash_create(RegexMemoryContext, 8192, NULL);
   }
-  return code[0];
+
+  bool found;
+  RegexHashEntry *entry = regexhash_lookup_hash(regexhash, pattern->data, pattern->hash);
+  if (!entry) {
+    MemoryContext oldcontext = MemoryContextSwitchTo(RegexMemoryContext);
+    pcre2_code *code[1];
+    int rc = pcre2_serialize_decode(code, 1,
+                                    (uint8_t *)(pattern->data + pattern->pattern_strlen + 1), ctx);
+    if (rc <= 0) {
+      // Recompile
+      code[0] = PCRE_CODE(
+          (pgpcre *)DatumGetPointer(DirectFunctionCall1(regex_in, CStringGetDatum(pattern->data))));
+    }
+    entry = regexhash_insert_hash(regexhash, pattern->data, pattern->hash, &found);
+    entry->code = code[0];
+    MemoryContextSwitchTo(oldcontext);
+    return code[0];
+  } else {
+    return entry->code;
+  }
 }
 
 Datum regex_in(PG_FUNCTION_ARGS) {
@@ -131,6 +165,7 @@ Datum regex_in(PG_FUNCTION_ARGS) {
   result->pcre_major = PCRE2_MAJOR;
   result->pcre_minor = PCRE2_MINOR;
   result->pattern_strlen = length;
+  result->hash = string_hash(input, length);
   strcpy(result->data, input);
   memcpy(result->data + length + 1, bytes, sz);
 
