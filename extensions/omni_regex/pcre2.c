@@ -67,7 +67,7 @@ typedef struct {
   int32 vl_len_;
   int16 pcre_major; /* new version might invalidate compiled pattern */
   int16 pcre_minor;
-  int32 pattern_strlen;             /* used to compute offset to compiled pattern */
+  int32 pattern_strlen; /* used to compute offset to compiled pattern */
   uint32 hash;
   char data[FLEXIBLE_ARRAY_MEMBER]; /* original pattern string
                                      * (null-terminated), followed by
