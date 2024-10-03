@@ -113,4 +113,6 @@ void __with_temp_memcxt_cleanup(struct __with_temp_memcxt *s);
 
 #define GetAttributeByIndex(t, index, isnull) GetAttributeByNum(t, index + 1, isnull)
 
+bool IsPostmasterBeingShutdown();
+
 #endif // LIBPGAUG_H

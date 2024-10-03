@@ -48,7 +48,9 @@
 #include <postmaster/interrupt.h>
 #endif
 #include <parser/parse_func.h>
+#include <storage/ipc.h>
 #include <tcop/pquery.h>
+#include <utils/pidfile.h>
 #include <utils/uuid.h>
 
 #include <metalang99.h>
@@ -164,8 +166,12 @@ static void sigusr2() {
   h2o_multithread_send_message(&handler_receiver, NULL);
 }
 
+static int exit_code = 0;
+
 static void sigterm() {
   atomic_store(&worker_running, false);
+  // master_worker sets semaphore to INT32_MAX to signal normal termination
+  exit_code = pg_atomic_read_u32(semaphore) == INT32_MAX ? 0 : 1;
   h2o_multithread_send_message(&event_loop_receiver, NULL);
   h2o_multithread_send_message(&handler_receiver, NULL);
 }
@@ -203,6 +209,11 @@ void http_worker(Datum db_oid) {
 
   // Connect worker to the database
   BackgroundWorkerInitializeConnectionByOid(db_oid, InvalidOid, 0);
+
+  if (MyBgworkerEntry->bgw_notify_pid == 0) {
+    // We are being restarted when somebody crashed. We would otherwise have master's PID here
+    return;
+  }
 
   if (semaphore == NULL) {
     // omni_httpd is being shut down
@@ -528,6 +539,11 @@ void http_worker(Datum db_oid) {
 
   clist_listener_contexts_drop(&listener_contexts);
   PortalDrop(execution_portal, false);
+  // Exit with the designated exit code, unless we can see that postmaster is being shut down
+  if (IsPostmasterBeingShutdown()) {
+    exit_code = 0;
+  }
+  proc_exit(exit_code);
 }
 
 static inline int listener_ctx_cmp(const listener_ctx *l, const listener_ctx *r) {
