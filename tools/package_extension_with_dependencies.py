@@ -82,7 +82,14 @@ if __name__ == "__main__":
 
     with open(sys.argv[1], "r") as artifacts_file:
         original_artifacts = artifacts_file.read()
-        package_extension(original_artifacts, sys.argv[2], sys.argv[3])
+        try:
+            package_extension(original_artifacts, sys.argv[2], sys.argv[3])
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 404:
+                print(
+                    f"Can't find a build for {sys.argv[2]} {sys.argv[2]} ({os.getenv('MATRIX_COMBINATION')}), proceeding...")
+
+
 
     # the artifacts file may have been overwritten due to untarring of dependencies restore it
     with open(sys.argv[1], "w") as artifacts_file:
