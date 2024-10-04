@@ -246,7 +246,7 @@ jobs:
           echo "POST_BODY=$new_ext_releases" >> "$GITHUB_OUTPUT"
 
       - name: Tailscale
-        uses: omnigres/tailscale-github-action@acfb679296986fae0eba66aadc3a9b40edfb287b #tailscale/github-action@v2
+        uses: omnigres/tailscale-github-action@edd5af71746bf5fac8654fa4b41f30da57c5858a #tailscale/github-action@v2
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
