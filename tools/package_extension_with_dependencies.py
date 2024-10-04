@@ -87,9 +87,8 @@ if __name__ == "__main__":
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:
                 print(
-                    f"Can't find a build for {sys.argv[2]} {sys.argv[2]} ({os.getenv('MATRIX_COMBINATION')}), proceeding...")
-
-
+                    f"Can't find a build for {sys.argv[2]} {sys.argv[2]} ({os.getenv('MATRIX_COMBINATION')}), proceeding..."
+                )
 
     # the artifacts file may have been overwritten due to untarring of dependencies restore it
     with open(sys.argv[1], "w") as artifacts_file:
