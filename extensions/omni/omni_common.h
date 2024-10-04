@@ -97,6 +97,12 @@ typedef struct {
    *
    */
   pg_atomic_uint64 switchboard;
+  /**
+   * Module information
+   */
+  NameData module_info_name;
+  NameData module_info_version;
+  NameData module_info_identity;
 } omni_handle_private;
 
 DECLARE_MODULE_VARIABLE(omni_handle_private *module_handles);
@@ -265,4 +271,7 @@ struct xact_oneshot_callback {
 DECLARE_MODULE_VARIABLE(List *xact_oneshot_callbacks);
 DECLARE_MODULE_VARIABLE(List *after_xact_oneshot_callbacks);
 
+DECLARE_MODULE_VARIABLE(int32 ServerVersionNum);
+
+MODULE_FUNCTION char *get_extension_module_pathname(const char *name, const char *version);
 #endif // OMNI_COMMON_H

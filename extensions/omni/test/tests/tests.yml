@@ -31,9 +31,25 @@ tests:
   results:
   - count: 1
 
+- name: module metadata is shown
+  query: select name,
+                identity,
+                version
+         from omni.modules
+         where path like '%/omni_test--1.so'
+  results:
+  - name: omni_test
+    identity: ed0aaa35-54c6-426e-a69d-2c74a836053b
+    version: 1
+
 - name: handling errors
   tests:
   # An error
   - query: select current_setting('doesnotexist')
     error: unrecognized configuration parameter "doesnotexist"
   - select 1
+
+- name: omni_is_present
+  query: select omni_test.omni_present_test() as loaded
+  results:
+  - loaded: true

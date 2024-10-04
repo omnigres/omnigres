@@ -37,9 +37,9 @@ typedef struct BackgroundWorkerHandle {
  * @brief Module information
  */
 typedef struct {
-  char *name;
-  char *version;
-  char *identity;
+  char *name;     /*< name */
+  char *version;  /*< version */
+  char *identity; /*< unique module identity */
 } omni_module_information;
 
 #define OMNI_MODULE_INFO(...) omni_module_information _omni_module_information = {__VA_ARGS__}
@@ -55,12 +55,13 @@ typedef struct {
   uint16_t version; // interface version
   uint8_t revision; // version's backward compatible revision (number, but shown as letter 'A','B'
                     // to distinguish for Major.Minor. Version 0 allows for breaking revisions.
+  uint32_t pg_version; // Postgres version it is compiled against
 } omni_magic;
 
 StaticAssertDecl(sizeof(omni_magic) <= UINT16_MAX, "omni_magic should fit into 16 bits");
 
 #define OMNI_INTERFACE_VERSION 0
-#define OMNI_INTERFACE_REVISION 6
+#define OMNI_INTERFACE_REVISION 7
 
 typedef struct omni_handle omni_handle;
 
@@ -93,7 +94,8 @@ void _Omni_deinit(const omni_handle *handle);
 #define OMNI_MAGIC                                                                                 \
   static omni_magic __Omni_magic = {.size = sizeof(omni_magic),                                    \
                                     .version = OMNI_INTERFACE_VERSION,                             \
-                                    .revision = OMNI_INTERFACE_REVISION};                          \
+                                    .revision = OMNI_INTERFACE_REVISION,                           \
+                                    .pg_version = PG_VERSION_NUM};                                 \
   omni_magic *_Omni_magic() {                                                                      \
     if (_omni_module_information.name == NULL) {                                                   \
       ereport(WARNING, errmsg("missing module name"));                                             \
@@ -460,5 +462,37 @@ typedef struct omni_handle {
   omni_atomic_switch_function atomic_switch;
 
 } omni_handle;
+
+/**
+ * @brief Semi-private rendezvous / informational type for omni loader
+ */
+struct _omni_rendezvous_var_t {
+  // Magic header
+  char magic[4];
+  // Version of omni
+  const char *version;
+  // Omni's dynamic shared Library file
+  const char *library_path;
+};
+
+/**
+ * @brief Detect if omni has been loaded
+ *
+ * Prior to version 0.2.0, omni's presence will not be detected this way and this function will
+ * always return false.
+ */
+static inline bool omni_is_present() {
+  void **omni = find_rendezvous_variable("omni(loaded)");
+  // If not set, it hasn't been loaded (or it is older than 0.2.0)
+  if (*omni == NULL) {
+    return false;
+  }
+  struct _omni_rendezvous_var_t *value = (struct _omni_rendezvous_var_t *)*omni;
+  // Magic has to match
+  if (strncmp(value->magic, "0MNI", sizeof(value->magic)) != 0) {
+    return false;
+  }
+  return true;
+}
 
 #endif // OMNI_H

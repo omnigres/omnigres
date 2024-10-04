@@ -43,9 +43,20 @@ Datum modules(PG_FUNCTION_ARGS) {
   while ((entry = dshash_seq_next(&status)) != NULL) {
     dsa_area *entry_dsa = dsa_handle_to_area(entry->dsa);
     omni_handle_private *handle = dsa_get_address(entry_dsa, entry->pointer);
-    Datum values[4] = {Int64GetDatum(entry->id), CStringGetDatum(entry->path),
-                       Int16GetDatum(handle->magic.version), Int16GetDatum(handle->magic.revision)};
-    bool isnull[4] = {false, false, false, false};
+    Datum values[7] = {Int64GetDatum(entry->id),
+                       CStringGetDatum(entry->path),
+                       CStringGetDatum(NameStr(handle->module_info_name)),
+                       CStringGetDatum(NameStr(handle->module_info_identity)),
+                       CStringGetDatum(NameStr(handle->module_info_version)),
+                       Int16GetDatum(handle->magic.version),
+                       Int16GetDatum(handle->magic.revision)};
+    bool isnull[7] = {false,
+                      false,
+                      NameStr(handle->module_info_name)[0] == 0,
+                      NameStr(handle->module_info_identity)[0] == 0,
+                      NameStr(handle->module_info_version)[0] == 0,
+                      false,
+                      false};
     tuplestore_putvalues(tupstore, rsinfo->expectedDesc, values, isnull);
   }
 

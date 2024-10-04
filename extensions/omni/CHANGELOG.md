@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2024-10-04
+
+### Added
+
+* Additional metadata information in `omni.modules`  [#574](https://github.com/omnigres/omnigres/pull/574)
+* Warn if omni-enabled module has been built against a different major/minor version of Postgres.
+  Differences between minor versions may present subtle
+  incompatibilities. [#573](https://github.com/omnigres/omnigres/pull/573)
+* Support for function-less native extensions [#586](https://github.com/omnigres/omnigres/pull/586)
+* `omni_is_present()` to detect if omni has been preloaded [#605](https://github.com/omnigres/omnigres/pull/605)
+
 ## [0.1.5] - 2024-09-27
 
 ### Added
@@ -66,3 +77,5 @@ Initial release following a few months of iterative development.
 [0.1.4]: [https://github.com/omnigres/omnigres/pull/566]
 
 [0.1.5]: [https://github.com/omnigres/omnigres/pull/650]
+
+[0.2.0]: [https://github.com/omnigres/omnigres/pull/572]
