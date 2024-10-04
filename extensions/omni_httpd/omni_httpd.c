@@ -133,15 +133,18 @@ static void register_start_master_worker(const omni_handle *handle, void *ptr, v
   if ((handle->atomic_switch(handle, omni_switch_on, 0, MASTER_WORKER_START) &
        MASTER_WORKER_START) == MASTER_WORKER_START) {
     // Prepares and registers the main background worker
-    BackgroundWorker bgw = {.bgw_name = "omni_httpd",
-                            .bgw_type = "omni_httpd",
-                            .bgw_function_name = "master_worker",
-                            .bgw_restart_time = 0,
-                            .bgw_flags =
-                                BGWORKER_SHMEM_ACCESS | BGWORKER_BACKEND_DATABASE_CONNECTION,
-                            .bgw_main_arg = MyDatabaseId,
-                            .bgw_notify_pid = MyProcPid,
-                            .bgw_start_time = BgWorkerStart_RecoveryFinished};
+    BackgroundWorker bgw = {
+        .bgw_name = "omni_httpd",
+        .bgw_type = "omni_httpd",
+        .bgw_function_name = "master_worker",
+        // Never restart this one because if it is being terminated abnormally,
+        // postmaster will re-initialize shared memory and the module will receive
+        // a new handle, new switchboard and will start the master worker itself
+        .bgw_restart_time = BGW_NEVER_RESTART,
+        .bgw_flags = BGWORKER_SHMEM_ACCESS | BGWORKER_BACKEND_DATABASE_CONNECTION,
+        .bgw_main_arg = MyDatabaseId,
+        .bgw_notify_pid = MyProcPid,
+        .bgw_start_time = BgWorkerStart_RecoveryFinished};
     strncpy(bgw.bgw_library_name, handle->get_library_name(handle), BGW_MAXLEN);
 
     handle->request_bgworker_start(handle, &bgw, (omni_bgworker_handle *)ptr,

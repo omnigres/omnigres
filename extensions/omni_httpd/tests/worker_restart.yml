@@ -1,0 +1,67 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+    max_worker_processes: 64
+  init:
+  - create extension omni_httpd cascade
+  - create extension omni_httpc cascade
+  - call omni_httpd.wait_for_configuration_reloads(2)
+  - create table marker
+    (
+    )
+  - |
+    create or replace function omni_httpd.handler(int, omni_httpd.http_request) returns omni_httpd.http_outcome
+        language plpgsql as
+    $$
+    begin
+        perform from marker;
+        if not found then
+            insert into marker default values;
+            commit;
+            -- Randomly explore different ways to terminate backend
+            -- TODO: Once pg_yregress allows for tests to be specific to Postgres version(s),
+            -- we can make this deterministic.
+            -- TODO: formula below is a substitute for random(int,int) from Postgres 17, port it to omni_polyfill
+            if (1 + floor(random() *
+                          case when current_setting('server_version_num')::int >= 170000 then 2 else 1 end))::int =
+               1 then
+                -- Leads to SIGTERM handling
+                perform pg_terminate_backend(pg_backend_pid());
+            else
+                -- Leads to FATAL (v17+)
+                -- TODO: can we simulate FATAL prior to v17?
+                set transaction_timeout to '1s'; perform pg_sleep(10);
+            end if;
+        end if;
+        return omni_httpd.http_response('OK');
+    end;
+    $$;
+
+tests:
+- name: works through FATAL caused by transaction timeout
+  steps:
+  - name: will timeout and fail
+    query: |
+      with response as (select *
+                        from
+                            omni_httpc.http_execute(
+                                    omni_httpc.http_request('http://127.0.0.1:' ||
+                                                            (select effective_port from omni_httpd.listeners) || '/')))
+      select response.error
+      from response
+    results:
+    - error: I/O error
+  - name: pause to ensure master worker have cycled
+    query: select pg_sleep(1)
+  - name: should not timeout anymore
+    query: |
+      with response as (select *
+                        from
+                            omni_httpc.http_execute(
+                                    omni_httpc.http_request('http://127.0.0.1:' ||
+                                                            (select effective_port from omni_httpd.listeners) || '/')))
+      select convert_from(response.body, 'utf-8') as body
+      from response
+    results:
+    - body: OK

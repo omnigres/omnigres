@@ -28,6 +28,7 @@
 #include <postmaster/interrupt.h>
 #include <storage/latch.h>
 #include <storage/lmgr.h>
+#include <storage/proc.h>
 #include <tcop/utility.h>
 #include <utils/builtins.h>
 #include <utils/inet.h>
@@ -210,6 +211,65 @@ void master_worker(Datum db_oid) {
 
   BackgroundWorkerUnblockSignals();
   BackgroundWorkerInitializeConnectionByOid(db_oid, InvalidOid, 0);
+
+  // Ensure we don't exhaust max_worker_processes by waiting for any restarted omni_httpd workers to
+  // terminate due to their "inattachment" to the master worker. If we are waiting for longer than
+  // 10 seconds, proceed anyway.
+  //
+  // This functionality was manually tested by injecting a `sleep(1)` into http worker's startup
+  // routine just before the termination based on the "inattachement" discovery, reporting finding a
+  // matching "omni_httpd worker" worker through `ereport` and observing it.
+  // The report observation can be made possible by enabling DEBUG2 logging:
+  // ```sql
+  // alter system set log_min_messages = 'DEBUG2';
+  // select pg_reload_conf();
+  // ```
+  {
+    struct timespec start, end;
+    bool worker_present = true;
+    clock_gettime(CLOCK_MONOTONIC, &start);
+    bool *reported = palloc0(ProcGlobal->allProcCount * sizeof(bool));
+    while (!shutdown_worker) {
+      LWLockAcquire(ProcArrayLock, LW_SHARED);
+      // We do this by inspecting all processes
+      worker_present = false; // tentatively
+      for (int i = 0; i < ProcGlobal->allProcCount; i++) {
+        pid_t pid = ProcGlobal->allProcs[i].pid;
+        const char *worker_type = GetBackgroundWorkerTypeByPid(pid);
+        if (worker_type &&
+            strncmp(worker_type, "omni_httpd worker", sizeof("omni_httpd worker")) == 0) {
+          worker_present = true;
+          if (!reported[i]) {
+            ereport(DEBUG2,
+                    errmsg("found auto-restarted omni_httpd worker %d, waiting for it to terminate",
+                           pid));
+            reported[i] = true;
+          }
+        }
+      }
+      LWLockRelease(ProcArrayLock);
+
+      if (!worker_present) {
+        break;
+      }
+
+      clock_gettime(CLOCK_MONOTONIC, &end);
+      if (end.tv_sec - start.tv_sec > 10) {
+        ereport(
+            WARNING,
+            errmsg("10 seconds has passed waiting for the termination of omni_httpd workers, "
+                   "proceeding"),
+            errdetail("omni_httpd workers were restarted and were expended to be terminated soon"),
+            errhint("clean up older omni_httpd worker processes"));
+        break;
+      }
+
+      (void)WaitLatch(MyLatch, WL_LATCH_SET | WL_TIMEOUT | WL_EXIT_ON_PM_DEATH, 100L,
+                      PG_WAIT_EXTENSION);
+      ResetLatch(MyLatch);
+    }
+    pfree(reported);
+  }
 
   if (!BackendInitialized) {
     // Chances are, the extension was already dropped since this was not called.
@@ -498,15 +558,19 @@ void master_worker(Datum db_oid) {
 
     // Start HTTP workers if they aren't already
     if (!http_workers_started) {
-      BackgroundWorker worker = {.bgw_name = "omni_httpd worker",
-                                 .bgw_type = "omni_httpd worker",
-                                 .bgw_function_name = "http_worker",
-                                 .bgw_notify_pid = MyProcPid,
-                                 .bgw_main_arg = db_oid,
-                                 .bgw_restart_time = BGW_NEVER_RESTART,
-                                 .bgw_flags =
-                                     BGWORKER_SHMEM_ACCESS | BGWORKER_BACKEND_DATABASE_CONNECTION,
-                                 .bgw_start_time = BgWorkerStart_RecoveryFinished};
+      BackgroundWorker worker = {
+          .bgw_name = "omni_httpd worker",
+          .bgw_type = "omni_httpd worker",
+          .bgw_function_name = "http_worker",
+          .bgw_notify_pid = MyProcPid,
+          .bgw_main_arg = db_oid,
+          // Restart these automatically so that the master worker doesn't
+          // have to handle their restarts. If the workers are being restarted
+          // en masse due to a crash of any other worker, they will no longer
+          // receive bgw_notify_pid of this master worker and they will exit.
+          .bgw_restart_time = 0,
+          .bgw_flags = BGWORKER_SHMEM_ACCESS | BGWORKER_BACKEND_DATABASE_CONNECTION,
+          .bgw_start_time = BgWorkerStart_RecoveryFinished};
       strncpy(worker.bgw_extra, socket_path, BGW_EXTRALEN - 1);
       strncpy(worker.bgw_library_name, MyBgworkerEntry->bgw_library_name, BGW_MAXLEN - 1);
       for (int i = 0; i < *num_http_workers; i++) {
@@ -556,13 +620,18 @@ void master_worker(Datum db_oid) {
 terminate:
   if (http_workers_started) {
     ereport(LOG, errmsg("Shutting down HTTP workers"));
-    pg_atomic_write_u32(semaphore, 0);
+    // set set semaphore to INT32_MAX to signal normal termination
+    // http_worker uses to determine if it should terminate with exit code
+    // other than 0 (abnormal termination)
+    pg_atomic_write_u32(semaphore, INT32_MAX);
     c_FOREACH(i, cvec_bgwhandle, http_workers) {
       pid_t pid;
       if (GetBackgroundWorkerPid(*i.ref, &pid) == BGWH_STARTED) {
-        kill(pid, SIGTERM);
+        TerminateBackgroundWorker(*i.ref);
+        WaitForBackgroundWorkerShutdown(*i.ref);
       }
     }
   }
+  pg_atomic_write_u32(semaphore, 0);
   ereport(LOG, errmsg("Terminated omni_httpd"));
 }
