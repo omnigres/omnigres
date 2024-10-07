@@ -24,14 +24,16 @@ create function regex_named_groups(regex)
     returns table
             (
                 name   cstring,
-                number int
+                index int
             )
-    parallel safe
     immutable
+    parallel safe
     strict
     language c
 as
 'MODULE_PATHNAME';
+
+comment on function regex_named_groups(regex) is 'Returns a set of 1-indexed named groups';
 
 create function regex_match(text, regex)
     returns text[]
@@ -42,6 +44,9 @@ create function regex_match(text, regex)
 as
 'MODULE_PATHNAME';
 
+
+comment on function regex_match(text, regex) is 'Returns an array of group matches or (a single-element array with a match if no groups are present)';
+
 create function regex_matches(text, regex)
     returns setof text[]
     immutable
@@ -50,6 +55,9 @@ create function regex_matches(text, regex)
     language c
 as
 'MODULE_PATHNAME';
+
+
+comment on function regex_match(text, regex) is 'Returns a set of arrays of group matches (or single-element arrays with a match if no groups are present)';
 
 
 create function regex_text_matches(subject text, pattern regex) returns boolean

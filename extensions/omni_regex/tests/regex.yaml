@@ -68,4 +68,4 @@ tests:
          from regex_named_groups('(fo+|bar)(?<num>\d?)')
   results:
   - name: num
-    number: 2
+    index: 2
