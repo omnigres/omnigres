@@ -28,7 +28,7 @@ tests:
 
 - name: ensure the plan is parallelized
   query: select is_parallel_plan()
-  result:
+  results:
   - is_parallel_plan: true
 
 - name: ensure it doesn't crash
