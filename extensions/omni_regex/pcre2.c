@@ -63,16 +63,7 @@ static pcre2_general_context *ctx;
 static pcre2_compile_context *compile_ctx;
 static MemoryContext RegexMemoryContext;
 
-typedef struct {
-  int32 vl_len_;
-  int16 pcre_major; /* new version might invalidate compiled pattern */
-  int16 pcre_minor;
-  int32 pattern_strlen; /* used to compute offset to compiled pattern */
-  uint32 hash;
-  char data[FLEXIBLE_ARRAY_MEMBER]; /* original pattern string
-                                     * (null-terminated), followed by
-                                     * compiled pattern */
-} pgpcre;
+typedef text *pgpcre;
 
 #define DatumGetPcreP(X) ((pgpcre *)PG_DETOAST_DATUM(X))
 #define DatumGetPcrePCopy(X) ((pgpcre *)PG_DETOAST_DATUM_COPY(X))
@@ -80,9 +71,12 @@ typedef struct {
 #define PG_GETARG_PCRE_P(n) DatumGetPcreP(PG_GETARG_DATUM(n))
 #define PG_GETARG_PCRE_P_COPY(n) DatumGetPcrePCopy(PG_GETARG_DATUM(n))
 #define PG_RETURN_PCRE_P(x) return PcrePGetDatum(x)
+#define cstring_to_pcre(s) ((pgpcre *)cstring_to_text(s))
+#define pcre_to_cstring(p) (text_to_cstring((text *)p))
 
 typedef struct {
   char *regex;
+  size_t regex_length;
   uint32 status;
   pcre2_code *code;
 } RegexHashEntry;
@@ -91,47 +85,17 @@ typedef struct {
 #define SH_ELEMENT_TYPE RegexHashEntry
 #define SH_KEY_TYPE char *
 #define SH_KEY regex
-#define SH_HASH_KEY(tb, key) string_hash(key, strlen(key))
+#define SH_HASH_KEY(tb, key) string_hash(key, tb->data->regex_length)
 #define SH_EQUAL(tb, a, b) (strcmp(a, b) == 0)
 #define SH_SCOPE static inline
 #define SH_DECLARE
 #define SH_DEFINE
 #include <lib/simplehash.h>
 
-static inline pcre2_code *PCRE_CODE(pgpcre *pattern) {
-  static regexhash_hash *regexhash = NULL;
-  if (regexhash == NULL) {
-    regexhash = regexhash_create(RegexMemoryContext, 8192, NULL);
-  }
-
-  bool found;
-  RegexHashEntry *entry = regexhash_lookup_hash(regexhash, pattern->data, pattern->hash);
-  if (!entry) {
-    MemoryContext oldcontext = MemoryContextSwitchTo(RegexMemoryContext);
-    pcre2_code *code[1];
-    int rc = pcre2_serialize_decode(code, 1,
-                                    (uint8_t *)(pattern->data + pattern->pattern_strlen + 1), ctx);
-    if (rc <= 0) {
-      // Recompile
-      code[0] = PCRE_CODE(
-          (pgpcre *)DatumGetPointer(DirectFunctionCall1(regex_in, CStringGetDatum(pattern->data))));
-    }
-    entry = regexhash_insert_hash(regexhash, pattern->data, pattern->hash, &found);
-    entry->code = code[0];
-    MemoryContextSwitchTo(oldcontext);
-    return code[0];
-  } else {
-    return entry->code;
-  }
-}
-
-Datum regex_in(PG_FUNCTION_ARGS) {
-  char *input = PG_GETARG_CSTRING(0);
-  int length = strlen(input);
-  int rc;
-  int err;
+static inline pcre2_code *compile_expr(const char *input, size_t length) {
   PCRE2_SIZE erroffset;
-  const pcre2_code *pc;
+  pcre2_code *pc;
+  int err;
 
   if (GetDatabaseEncoding() == PG_UTF8) {
     pc = pcre2_compile((PCRE2_SPTR)input, length, PCRE2_UTF | PCRE2_UCP, &err, &erroffset,
@@ -155,27 +119,46 @@ Datum regex_in(PG_FUNCTION_ARGS) {
     ereport(ERROR, errmsg("regex compile error: %s", buf));
   }
 
-  PCRE2_SIZE sz;
-  uint8_t *bytes;
-  pcre2_serialize_encode((const pcre2_code *[]){pc}, 1, &bytes, &sz, ctx);
+  return pc;
+}
 
-  int total_len = offsetof(pgpcre, data) + length + 1 + sz;
-  pgpcre *result = (pgpcre *)palloc0(total_len);
-  SET_VARSIZE(result, total_len);
-  result->pcre_major = PCRE2_MAJOR;
-  result->pcre_minor = PCRE2_MINOR;
-  result->pattern_strlen = length;
-  result->hash = string_hash(input, length);
-  strcpy(result->data, input);
-  memcpy(result->data + length + 1, bytes, sz);
+static inline pcre2_code *PCRE_CODE(pgpcre *pattern) {
+  static regexhash_hash *regexhash = NULL;
+  if (regexhash == NULL) {
+    regexhash = regexhash_create(RegexMemoryContext, 8192, NULL);
+  }
 
-  PG_RETURN_PCRE_P(result);
+  bool found;
+  char *expr = VARDATA_ANY(pattern);
+  size_t length = VARSIZE_ANY_EXHDR(pattern);
+  uint32 hash = string_hash(expr, length);
+  RegexHashEntry *entry = regexhash_lookup_hash(regexhash, expr, hash);
+  if (!entry) {
+    MemoryContext oldcontext = MemoryContextSwitchTo(RegexMemoryContext);
+    pcre2_code *code;
+    code = compile_expr(expr, length);
+    entry = regexhash_insert_hash(regexhash, expr, hash, &found);
+    entry->code = code;
+    MemoryContextSwitchTo(oldcontext);
+    return code;
+  } else {
+    return entry->code;
+  }
+}
+
+Datum regex_in(PG_FUNCTION_ARGS) {
+  char *input = PG_GETARG_CSTRING(0);
+
+  pgpcre *expr = cstring_to_pcre(input);
+  PCRE_CODE(expr); // discard the result, we're only checking
+
+  PG_RETURN_PCRE_P(expr);
 }
 
 Datum regex_out(PG_FUNCTION_ARGS) {
   pgpcre *p = PG_GETARG_PCRE_P(0);
 
-  PG_RETURN_CSTRING(pstrdup(p->data));
+  PG_RETURN_CSTRING(pcre_to_cstring(p));
 }
 
 Datum regex_named_groups(PG_FUNCTION_ARGS) {
@@ -229,22 +212,6 @@ static inline bool matches_internal(text *subject, pgpcre *pattern, char ***retu
   PCRE2_SIZE *ovector;
   int ovecsize;
   char *utf8string;
-  static bool warned = false;
-
-  if (!warned && (pattern->pcre_major != PCRE2_MAJOR || pattern->pcre_minor != PCRE2_MINOR)) {
-    ereport(WARNING,
-            (errmsg("PCRE version mismatch"),
-             errdetail("The compiled pattern was created by PCRE version %d.%d, the current "
-                       "library is version %d.%d.  According to the PCRE documentation, "
-                       "\"compiling a regular expression with one version of PCRE for use with a "
-                       "different version is not guaranteed to work and may cause crashes.\"  This "
-                       "warning is shown only once per session.",
-                       pattern->pcre_major, pattern->pcre_minor, PCRE2_MAJOR, PCRE2_MINOR),
-             errhint("You might want to recompile the stored patterns by running something like "
-                     "UPDATE ... SET pcre_col = pcre_col::text::pcre.")));
-    warned = true;
-    // TODO: recompile
-  }
 
   pc = PCRE_CODE(pattern);
 
