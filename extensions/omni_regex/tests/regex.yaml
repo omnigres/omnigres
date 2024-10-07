@@ -1,0 +1,71 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_regex cascade
+
+tests:
+
+- name: regex conversion smoke test
+  query: select regex 'fo+'
+  results:
+  - regex: fo+
+
+- name: regex conversion error smoke test
+  query: select regex '+'
+  error: "regex compile error: quantifier does not follow a repeatable item"
+
+- name: match smoke test
+  tests:
+  - query: select 'foo' ~ regex 'fo+' as match
+    results:
+    - match: true
+  - query: select regex 'fo+' ~ 'foo' as match
+    results:
+    - match: true
+  - query: select 'foo' =~ regex 'fo+' as match
+    results:
+    - match: true
+  - query: select regex 'fo+' ~ 'bar' as match
+    results:
+    - match: false
+  - query: select 'foo' !~ regex 'fo+' as match
+    results:
+    - match: false
+  - query: select regex 'fo+' !~ 'foo' as match
+    results:
+    - match: false
+  - query: select regex 'fo+' ~ any (array ['foo','bar']) as match
+    results:
+    - match: true
+  - query: select regex '(?i)fo+' ~ 'FOO' as match
+    results:
+    - match: true
+
+- name: match retrieval
+  query: select regex_match('foobar', '(fo+)(bar)')
+  results:
+  - regex_match: "{foo,bar}"
+
+- name: match retrieval (no subexpressions)
+  query: select regex_match('foobar1', regex 'foobar')
+  results:
+  - regex_match: "{foobar}"
+
+- name: multiple match retrieval
+  query: select regex_matches('foo1bar', '(fo+|bar)(\d?)')
+  results:
+  - regex_matches: "{foo,1}"
+  - regex_matches: "{bar,\"\"}"
+
+- name: multiple match retrieval (no subexpression)
+  query: select regex_matches('foo1foo', 'foo\d?')
+  results:
+  - regex_matches: "{foo1}"
+  - regex_matches: "{foo}"
+
+- name: named capture groups
+  query: select *
+         from regex_named_groups('(fo+|bar)(?<num>\d?)')
+  results:
+  - name: num
+    index: 2

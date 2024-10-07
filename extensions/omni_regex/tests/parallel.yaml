@@ -1,0 +1,38 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_regex cascade
+  - set max_parallel_workers to 2
+  - |
+    create table data as
+    select 'datum_' || i as datum
+    from generate_series(1, 1000000) i
+  - |
+    create function is_parallel_plan()
+        returns boolean
+        language plpgsql as
+    $$
+    declare
+        parallel json;
+    begin
+        explain(format json, costs off)
+        select count(*)
+        from data
+        where datum =~ '345'
+        into parallel;
+        return (parallel -> 0 -> 'Plan' -> 'Plans' -> 0 ->> 'Workers Planned')::int = 2;
+    end;
+    $$
+
+tests:
+
+- name: ensure the plan is parallelized
+  query: select is_parallel_plan()
+  results:
+  - is_parallel_plan: true
+
+- name: ensure it doesn't crash
+  query: |
+    select
+    from data
+    where datum =~ '345'
