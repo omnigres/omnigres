@@ -199,6 +199,25 @@ tests:
                                                                                       from
                                                                                           minio)))
 
+- name: uploading to a pre-signed url
+  query: |
+    select error
+    from
+        omni_httpc.http_execute(omni_httpc.http_request((select omni_aws.s3_presigned_url(bucket => 'omnigres-dev-test',
+                                                                                          path => '/presigned-test',
+                                                                                          access_key_id => 'minioadmin',
+                                                                                          secret_access_key => 'minioadmin',
+                                                                                          method => 'PUT',
+                                                                                          endpoint => omni_aws.s3_endpoint(
+                                                                                                  'http://' ||
+                                                                                                  host_addr() ||
+                                                                                                  ':' ||
+                                                                                                  (select inspect -> 'NetworkSettings' -> 'Ports' -> '9000/tcp' -> 0 ->> 'HostPort'
+                                                                                                   from minio))
+                                                                )), method => 'PUT', body => 'Presigned'))
+  results:
+  - error: null
+
 - name: list objects
   query: |
     select
@@ -219,6 +238,9 @@ tests:
   results:
   - key: bin
     size: 2
+    storage_class: STANDARD
+  - key: presigned-test
+    size: 9
     storage_class: STANDARD
   - key: t est
     size: 4
