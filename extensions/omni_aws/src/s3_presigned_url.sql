@@ -5,7 +5,8 @@ create function
                      secret_access_key text,
                      expires int default 604800, -- 7 days
                      region text default 'us-east-1',
-                     endpoint s3_endpoint default omni_aws.aws_s3_endpoint()
+                     endpoint s3_endpoint default omni_aws.aws_s3_endpoint(),
+                     method omni_http.http_method default 'GET'
 ) returns text
     language plpgsql
     immutable
@@ -49,7 +50,7 @@ begin
             region,
             's3',
             omni_aws.hash_canonical_request(
-                    'GET',
+                    method::text,
                     path,
                     'X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=' || omni_web.url_encode(credential) ||
                     '&X-Amz-Date=' || amz_date || '&X-Amz-Expires=' || expires || '&X-Amz-SignedHeaders=host',
