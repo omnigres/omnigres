@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
+<base href="../" />
+
+<!-- oktavia -->
+<link rel="stylesheet" href="assets/searchstyle.css" type="text/css" />
+<script src="search/jquery-1.9.1.min.js"></script>
+<script src="search/oktavia-jquery-ui.js"></script>
+<script src="search/oktavia-english-search.js"></script>
+<!-- /oktavia -->
+
+<link rel="stylesheet" href="assets/style.css" type="text/css" />
+
+<title>Headers Directives - Configure - H2O - the optimized HTTP server</title>
+</head>
+<body>
+<div id="body">
+<div id="top">
+
+<h1>
+<a href="index.html">H2O</a>
+</h1>
+<p class="description">the optimized HTTP/1.x, HTTP/2, HTTP/3 server</p>
+
+<!-- oktavia -->
+<form id="searchform">
+<input class="search" type="search" name="search" id="search" results="5" value="" placeholder="Search" />
+<div id="searchresult_box">
+<div id="close_search_box">&times;</div>
+<div id="searchresult_summary"></div>
+<div id="searchresult"></div>
+<div id="searchresult_nav"></div>
+<span class="pr">Powered by <a href="https://github.com/shibukawa/oktavia">Oktavia</a></span>
+</div>
+</form>
+<!-- /oktavia -->
+
+</div>
+
+<table id="menu">
+<tr>
+<td><a href="index.html">Top</a></td>
+<td><a href="install.html">Install</a></td>
+<td class="selected"><a href="configure.html">Configure</a></td>
+<td><a href="faq.html">FAQ</a></td>
+<td><a href="http://blog.kazuhooku.com/search/label/H2O" target="_blank">Blog</a></td>
+<td><a href="http://github.com/h2o/h2o/" target="_blank">Source</a></td>
+</tr>
+</table>
+
+<div id="main">
+
+<h2>
+<a href="configure.html">Configure</a> &gt;
+Headers Directives
+</h2>
+
+
+<p>
+Headers directives can be used to manipulate response headers.
+</p>
+<p>
+This document describes the following configuration directives as well as <a href="configure/headers_directives.html#timing-of-application">when they are applied</a>.
+All the directives accept one header field (specified by a YAML scalar), or multiple header fields (specified by a YAML sequence).
+</p>
+
+<ul>
+<li><a href="configure/headers_directives.html#header.add">
+<code>header.add</code>
+</a></li>
+<li><a href="configure/headers_directives.html#header.append">
+<code>header.append</code>
+</a></li>
+<li><a href="configure/headers_directives.html#header.merge">
+<code>header.merge</code>
+</a></li>
+<li><a href="configure/headers_directives.html#header.set">
+<code>header.set</code>
+</a></li>
+<li><a href="configure/headers_directives.html#header.setifempty">
+<code>header.setifempty</code>
+</a></li>
+<li><a href="configure/headers_directives.html#header.unset">
+<code>header.unset</code>
+</a></li>
+<li><a href="configure/headers_directives.html#header.unsetunless">
+<code>header.unsetunless</code>
+</a></li>
+</ul>
+
+
+<div id="header.add" class="directive-head">
+<h3><a href="configure/headers_directives.html#header.add"><code>"header.add"</code></a></h3>
+</div>
+
+<dl class="directive-desc">
+<dt>Description:</dt>
+<dd>
+<p>
+Adds a new header line to the response headers, regardless if a header with the same name already exists.
+</p>
+
+<div class="example">
+<div class="caption">Example. Setting the <code>Set-Cookie</code> header</div>
+<pre><code>header.add: "Set-Cookie: test=1"</code></pre>
+</div>
+
+</dd>
+<dt><a href="configure/syntax_and_structure.html#config_levels">Level</a>:</dt>
+<dd>global, host, path, extension</dd>
+</dl>
+
+<div id="header.append" class="directive-head">
+<h3><a href="configure/headers_directives.html#header.append"><code>"header.append"</code></a></h3>
+</div>
+
+<dl class="directive-desc">
+<dt>Description:</dt>
+<dd>
+<p>
+Adds a new header line, or appends the value to the existing header with the same name, separated by <code>,</code>.
+
+</p>
+
+</dd>
+<dt><a href="configure/syntax_and_structure.html#config_levels">Level</a>:</dt>
+<dd>global, host, path, extension</dd>
+</dl>
+
+
+<div id="header.merge" class="directive-head">
+<h3><a href="configure/headers_directives.html#header.merge"><code>"header.merge"</code></a></h3>
+</div>
+
+<dl class="directive-desc">
+<dt>Description:</dt>
+<dd>
+<p>
+Adds a new header line, or merges the value to the existing header of comma-separated values.
+
+</p>
+
+<p>
+The following example sets the <code>must-revalidate</code> attribute of the <code>Cache-Control</code> header when and only when the attribute is not yet being set.
+</p>
+<div class="example">
+<div class="caption">Example. Setting the <code>must-revalidate</code> attribute</div>
+<pre><code>header.merge: &quot;Cache-Control: must-revalidate&quot;
+</code></pre>
+</div>
+
+
+</dd>
+<dt><a href="configure/syntax_and_structure.html#config_levels">Level</a>:</dt>
+<dd>global, host, path, extension</dd>
+</dl>
+
+<div id="header.set" class="directive-head">
+<h3><a href="configure/headers_directives.html#header.set"><code>"header.set"</code></a></h3>
+</div>
+
+<dl class="directive-desc">
+<dt>Description:</dt>
+<dd>
+<p>
+Sets a header line, removing headers with the same name if exists.
+</p>
+
+<div class="example">
+<div class="caption">Example. Setting the <code>X-Content-Type-Options: nosniff</code> header</div>
+<pre><code>header.set: &quot;X-Content-Type-Options: nosniff&quot;
+</code></pre>
+</div>
+
+
+</dd>
+<dt><a href="configure/syntax_and_structure.html#config_levels">Level</a>:</dt>
+<dd>global, host, path, extension</dd>
+</dl>
+
+<div id="header.setifempty" class="directive-head">
+<h3><a href="configure/headers_directives.html#header.setifempty"><code>"header.setifempty"</code></a></h3>
+</div>
+
+<dl class="directive-desc">
+<dt>Description:</dt>
+<dd>
+<p>
+Sets a header line when and only when a header with the same name does not already exist.
+
+</p>
+
+</dd>
+<dt><a href="configure/syntax_and_structure.html#config_levels">Level</a>:</dt>
+<dd>global, host, path, extension</dd>
+</dl>
+
+
+<div id="header.unset" class="directive-head">
+<h3><a href="configure/headers_directives.html#header.unset"><code>"header.unset"</code></a></h3>
+</div>
+
+<dl class="directive-desc">
+<dt>Description:</dt>
+<dd>
+<p>
+Removes headers with given name.
+</p>
+
+<div class="example">
+<div class="caption">Example. Removing the <code>X-Powered-By</code> header</div>
+<pre><code>header.unset: &quot;X-Powered-By&quot;
+</code></pre>
+</div>
+
+
+</dd>
+<dt><a href="configure/syntax_and_structure.html#config_levels">Level</a>:</dt>
+<dd>global, host, path, extension</dd>
+</dl>
+
+<div id="header.unsetunless" class="directive-head">
+<h3><a href="configure/headers_directives.html#header.unsetunless"><code>"header.unsetunless"</code></a></h3>
+</div>
+
+<dl class="directive-desc">
+<dt>Description:</dt>
+<dd>
+<p>
+Remove all headers but those listed.
+</p>
+
+<div class="example">
+<div class="caption">Example. Remove all headers but <code>If-Match</code> and <code>If-Modified-Since</code></div>
+<pre><code>header.unsetunless:
+- &quot;If-Match&quot;
+- &quot;If-Modified-Since&quot;
+</code></pre>
+</div>
+
+
+</dd>
+<dt><a href="configure/syntax_and_structure.html#config_levels">Level</a>:</dt>
+<dd>global, host, path, extension</dd>
+</dl>
+
+
+
+<h3 id="timing-of-application">Timing of Application</h3>
+
+<p>
+Starting from v2.3, it is possible to specify the timing when the headers directives is applied.
+All of the header directives can take either of the following two forms.
+</p>
+
+<div class="example">
+<div class="caption">Example. Scalar Form</div>
+<pre><code>header.add: &quot;X-Foo: FOO&quot;:
+</code></pre>
+</div>
+
+
+<div class="example">
+<div class="caption">Example. Mapping Form</div>
+<pre><code>header.add:
+  header: &quot;X-Foo: FOO&quot;:
+  when: final
+</code></pre>
+</div>
+
+
+<p>
+The above two are identical.
+</p>
+<p>
+<code>when</code> can be either of: <code>final</code>, <code>early</code>, <code>all</code>. Default is <code>final</code>.
+</p>
+<p>
+If the value is <code>final</code>, the header directive is only applied to final (i.e. non-1xx) response.
+If the value is <code>early</code>, it's only applied to 1xx informational responses.
+If <code>all</code> is set, it's applied to both of final and 1xx responses.
+</p>
+
+
+
+
+</div>
+<div id="footer">
+<p>
+Copyright &copy; 2015-2023 <a href="http://dena.com/intl/">DeNA Co., Ltd.</a> et al.
+</p>
+</div>
+</body>
+</html>

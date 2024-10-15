@@ -1,0 +1,55 @@
+#!/bin/bash
+
+count=0
+for dir in "${SRCDIR}"/test-errors/[A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9]/; do
+	count=`expr $count + 1`
+done
+
+# output plan
+echo 1..$count
+
+i=0
+for dir in "${SRCDIR}"/test-errors/[A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9]/; do
+
+	i=`expr $i + 1`
+	desctxt=`cat 2>/dev/null "$dir/==="`
+	tdir=`basename $dir`
+
+	t=`mktemp`
+
+	res="not ok"
+
+	pass_yaml=0
+	${TOP_BUILDDIR}/src/fy-tool --dump -r "$dir/in.yaml" >"$t" 2>&1
+	if [ $? -eq 0 ]; then
+		pass_yaml=1
+	fi
+
+	errmsg=`cat "$t" | head -n1 | sed -e 's/^[^:]*//'`
+	echo "errmsg: $errmsg"
+
+	# replace with error message
+	echo "$errmsg" >"$t"
+
+	# all errors test are expected to fail
+	if [ "$pass_yaml" == "0" ]; then
+		res="ok"
+
+		# diff is pointless under valgrind
+		if [ "x$USE_VALGRIND" == "x" ]; then
+			diff_err=0
+			diff -u "$dir/test.error" "$t"
+			if [ $? -eq 0 ]; then
+				res="ok"
+			else
+				res="not ok"
+			fi
+		fi
+	else
+		res="not ok"
+	fi
+
+	rm -f "$t"
+
+	echo "$res $i $tdir - $desctxt"
+done

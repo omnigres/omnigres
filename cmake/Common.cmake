@@ -11,3 +11,6 @@ macro(add_subdirectory_once)
         endif()
     endif()
 endmacro()
+
+set(ENV{PIP_NO_INDEX} true)
+set(ENV{PIP_FIND_LINKS} "${CMAKE_CURRENT_LIST_DIR}/../deps/python")

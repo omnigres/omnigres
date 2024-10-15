@@ -17,10 +17,5 @@ add_subdirectory_once(languages)
 add_subdirectory_once(tools)
 
 include(CPM)
-CPMAddPackage(
-    NAME Format.cmake
-    VERSION 1.7.3
-    GITHUB_REPOSITORY TheLartians/Format.cmake
-    OPTIONS
-    "FORMAT_SKIP_CMAKE YES"
-)
+CPMAddPackage(NAME Format.cmake VERSION 1.7.3 SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/deps/Format.cmake
+        OPTIONS "FORMAT_SKIP_CMAKE YES" "CLANG_FORMAT_IGNORED_PATHS deps")

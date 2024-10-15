@@ -1,0 +1,72 @@
+#!/bin/bash
+
+count=0
+
+# count expected to pass
+for f in json-test-suite-data/test_parsing/y_*.json; do
+	count=`expr $count + 1`
+done
+
+# add expected to fail
+for f in json-test-suite-data/test_parsing/n_*.json; do
+	count=`expr $count + 1`
+done
+
+# add implementation defined
+for f in json-test-suite-data/test_parsing/i_*.json; do
+	count=`expr $count + 1`
+done
+
+# output plan
+echo 1..$count
+
+i=0
+
+# expected to pass
+for f in json-test-suite-data/test_parsing/y_*.json; do
+
+	i=`expr $i + 1`
+	tf=`basename $f`
+
+	${TOP_BUILDDIR}/src/fy-tool --testsuite --streaming "$f" >/dev/null
+	if [ $? -eq 0 ]; then
+		res="ok"
+	else
+		res="not ok"
+	fi
+
+	echo "$res $i - $tf"
+done
+
+# expected to fail
+for f in json-test-suite-data/test_parsing/n_*.json; do
+
+	i=`expr $i + 1`
+	tf=`basename $f`
+
+	${TOP_BUILDDIR}/src/fy-tool --testsuite --streaming "$f" >/dev/null
+	if [ $? -eq 0 ]; then
+		res="not ok"
+	else
+		res="ok"
+	fi
+
+	echo "$res $i - $tf"
+done
+
+# implementation defined
+for f in json-test-suite-data/test_parsing/i_*.json; do
+
+	i=`expr $i + 1`
+	tf=`basename $f`
+
+	${TOP_BUILDDIR}/src/fy-tool --testsuite --streaming "$f" >/dev/null
+	if [ $? -eq 0 ]; then
+		ires="i-pass"
+	else
+		ires="i-fail"
+	fi
+	res="ok"
+
+	echo "$res $i - $ires $tf"
+done

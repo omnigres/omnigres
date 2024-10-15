@@ -1,0 +1,17 @@
+Language: Cpp
+BasedOnStyle: LLVM
+
+IndentWidth: 4
+ContinuationIndentWidth: 4
+ColumnLimit: 100
+
+AllowShortFunctionsOnASingleLine: Empty
+AllowAllArgumentsOnNextLine: false
+BinPackArguments: false
+AllowAllParametersOfDeclarationOnNextLine: true
+BinPackParameters: true
+
+AlignConsecutiveMacros: true
+AlignAfterOpenBracket: AlwaysBreak
+
+StatementMacros: ["ML99_EVAL", "ML99_CLANG_PRAGMA", "ML99_GCC_PRAGMA"]

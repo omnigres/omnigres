@@ -1,0 +1,12 @@
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=@_URIPARSER_PKGCONFIG_LIBDIR@
+includedir=@_URIPARSER_PKGCONFIG_INCLUDEDIR@
+
+Name: liburiparser
+Description: URI parsing and handling library
+
+Version: @PROJECT_VERSION@
+URL: https://uriparser.github.io/
+Libs: -L${libdir} -luriparser
+Cflags: -I${includedir}

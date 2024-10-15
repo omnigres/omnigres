@@ -1,0 +1,2 @@
+base: &base
+    name: this-is-a-name

@@ -1,0 +1,3846 @@
+- chars: ! "\U0001F600"
+  codes: 1F600
+  name: GRINNING FACE
+- chars: ! "\U0001F601"
+  codes: 1F601
+  name: GRINNING FACE WITH SMILING EYES
+- chars: ! "\U0001F602"
+  codes: 1F602
+  name: FACE WITH TEARS OF JOY
+- chars: ! "\U0001F603"
+  codes: 1F603
+  name: SMILING FACE WITH OPEN MOUTH
+- chars: ! "\U0001F604"
+  codes: 1F604
+  name: SMILING FACE WITH OPEN MOUTH AND SMILING EYES
+- chars: ! "\U0001F605"
+  codes: 1F605
+  name: SMILING FACE WITH OPEN MOUTH AND COLD SWEAT
+- chars: ! "\U0001F606"
+  codes: 1F606
+  name: SMILING FACE WITH OPEN MOUTH AND TIGHTLY-CLOSED EYES
+- chars: ! "\U0001F609"
+  codes: 1F609
+  name: WINKING FACE
+- chars: ! "\U0001F60A"
+  codes: 1F60A
+  name: SMILING FACE WITH SMILING EYES
+- chars: ! "\U0001F60B"
+  codes: 1F60B
+  name: FACE SAVOURING DELICIOUS FOOD
+- chars: ! "\U0001F60E"
+  codes: 1F60E
+  name: SMILING FACE WITH SUNGLASSES
+- chars: ! "\U0001F60D"
+  codes: 1F60D
+  name: SMILING FACE WITH HEART-SHAPED EYES
+- chars: ! "\U0001F618"
+  codes: 1F618
+  name: FACE THROWING A KISS
+- chars: ! "\U0001F617"
+  codes: 1F617
+  name: KISSING FACE
+- chars: ! "\U0001F619"
+  codes: 1F619
+  name: KISSING FACE WITH SMILING EYES
+- chars: ! "\U0001F61A"
+  codes: 1F61A
+  name: KISSING FACE WITH CLOSED EYES
+- chars: ☺️
+  codes: 263A
+  name: WHITE SMILING FACE
+- chars: ! "\U0001F642"
+  codes: 1F642
+  name: SLIGHTLY SMILING FACE
+- chars: ! "\U0001F917"
+  codes: 1F917
+  name: HUGGING FACE
+- chars: ! "\U0001F607"
+  codes: 1F607
+  name: SMILING FACE WITH HALO
+- chars: ! "\U0001F914"
+  codes: 1F914
+  name: THINKING FACE
+- chars: ! "\U0001F610"
+  codes: 1F610
+  name: NEUTRAL FACE
+- chars: ! "\U0001F611"
+  codes: 1F611
+  name: EXPRESSIONLESS FACE
+- chars: ! "\U0001F636"
+  codes: 1F636
+  name: FACE WITHOUT MOUTH
+- chars: ! "\U0001F644"
+  codes: 1F644
+  name: FACE WITH ROLLING EYES
+- chars: ! "\U0001F60F"
+  codes: 1F60F
+  name: SMIRKING FACE
+- chars: ! "\U0001F623"
+  codes: 1F623
+  name: PERSEVERING FACE
+- chars: ! "\U0001F625"
+  codes: 1F625
+  name: DISAPPOINTED BUT RELIEVED FACE
+- chars: ! "\U0001F62E"
+  codes: 1F62E
+  name: FACE WITH OPEN MOUTH
+- chars: ! "\U0001F910"
+  codes: 1F910
+  name: ZIPPER-MOUTH FACE
+- chars: ! "\U0001F62F"
+  codes: 1F62F
+  name: HUSHED FACE
+- chars: ! "\U0001F62A"
+  codes: 1F62A
+  name: SLEEPY FACE
+- chars: ! "\U0001F62B"
+  codes: 1F62B
+  name: TIRED FACE
+- chars: ! "\U0001F634"
+  codes: 1F634
+  name: SLEEPING FACE
+- chars: ! "\U0001F60C"
+  codes: 1F60C
+  name: RELIEVED FACE
+- chars: ! "\U0001F913"
+  codes: 1F913
+  name: NERD FACE
+- chars: ! "\U0001F61B"
+  codes: 1F61B
+  name: FACE WITH STUCK-OUT TONGUE
+- chars: ! "\U0001F61C"
+  codes: 1F61C
+  name: FACE WITH STUCK-OUT TONGUE AND WINKING EYE
+- chars: ! "\U0001F61D"
+  codes: 1F61D
+  name: FACE WITH STUCK-OUT TONGUE AND TIGHTLY-CLOSED EYES
+- chars: ☹
+  codes: '2639'
+  name: WHITE FROWNING FACE
+- chars: ! "\U0001F641"
+  codes: 1F641
+  name: SLIGHTLY FROWNING FACE
+- chars: ! "\U0001F612"
+  codes: 1F612
+  name: UNAMUSED FACE
+- chars: ! "\U0001F613"
+  codes: 1F613
+  name: FACE WITH COLD SWEAT
+- chars: ! "\U0001F614"
+  codes: 1F614
+  name: PENSIVE FACE
+- chars: ! "\U0001F615"
+  codes: 1F615
+  name: CONFUSED FACE
+- chars: ! "\U0001F616"
+  codes: 1F616
+  name: CONFOUNDED FACE
+- chars: ! "\U0001F643"
+  codes: 1F643
+  name: UPSIDE-DOWN FACE
+- chars: ! "\U0001F637"
+  codes: 1F637
+  name: FACE WITH MEDICAL MASK
+- chars: ! "\U0001F912"
+  codes: 1F912
+  name: FACE WITH THERMOMETER
+- chars: ! "\U0001F915"
+  codes: 1F915
+  name: FACE WITH HEAD-BANDAGE
+- chars: ! "\U0001F911"
+  codes: 1F911
+  name: MONEY-MOUTH FACE
+- chars: ! "\U0001F632"
+  codes: 1F632
+  name: ASTONISHED FACE
+- chars: ! "\U0001F61E"
+  codes: 1F61E
+  name: DISAPPOINTED FACE
+- chars: ! "\U0001F61F"
+  codes: 1F61F
+  name: WORRIED FACE
+- chars: ! "\U0001F624"
+  codes: 1F624
+  name: FACE WITH LOOK OF TRIUMPH
+- chars: ! "\U0001F622"
+  codes: 1F622
+  name: CRYING FACE
+- chars: ! "\U0001F62D"
+  codes: 1F62D
+  name: LOUDLY CRYING FACE
+- chars: ! "\U0001F626"
+  codes: 1F626
+  name: FROWNING FACE WITH OPEN MOUTH
+- chars: ! "\U0001F627"
+  codes: 1F627
+  name: ANGUISHED FACE
+- chars: ! "\U0001F628"
+  codes: 1F628
+  name: FEARFUL FACE
+- chars: ! "\U0001F629"
+  codes: 1F629
+  name: WEARY FACE
+- chars: ! "\U0001F62C"
+  codes: 1F62C
+  name: GRIMACING FACE
+- chars: ! "\U0001F630"
+  codes: 1F630
+  name: FACE WITH OPEN MOUTH AND COLD SWEAT
+- chars: ! "\U0001F631"
+  codes: 1F631
+  name: FACE SCREAMING IN FEAR
+- chars: ! "\U0001F633"
+  codes: 1F633
+  name: FLUSHED FACE
+- chars: ! "\U0001F635"
+  codes: 1F635
+  name: DIZZY FACE
+- chars: ! "\U0001F621"
+  codes: 1F621
+  name: POUTING FACE
+- chars: ! "\U0001F620"
+  codes: 1F620
+  name: ANGRY FACE
+- chars: ! "\U0001F608"
+  codes: 1F608
+  name: SMILING FACE WITH HORNS
+- chars: ! "\U0001F47F"
+  codes: 1F47F
+  name: IMP
+- chars: ! "\U0001F479"
+  codes: 1F479
+  name: JAPANESE OGRE
+- chars: ! "\U0001F47A"
+  codes: 1F47A
+  name: JAPANESE GOBLIN
+- chars: ! "\U0001F480"
+  codes: 1F480
+  name: SKULL
+- chars: ☠
+  codes: '2620'
+  name: SKULL AND CROSSBONES
+- chars: ! "\U0001F47B"
+  codes: 1F47B
+  name: GHOST
+- chars: ! "\U0001F47D"
+  codes: 1F47D
+  name: EXTRATERRESTRIAL ALIEN
+- chars: ! "\U0001F47E"
+  codes: 1F47E
+  name: ALIEN MONSTER
+- chars: ! "\U0001F916"
+  codes: 1F916
+  name: ROBOT FACE
+- chars: ! "\U0001F4A9"
+  codes: 1F4A9
+  name: PILE OF POO
+- chars: ! "\U0001F63A"
+  codes: 1F63A
+  name: SMILING CAT FACE WITH OPEN MOUTH
+- chars: ! "\U0001F638"
+  codes: 1F638
+  name: GRINNING CAT FACE WITH SMILING EYES
+- chars: ! "\U0001F639"
+  codes: 1F639
+  name: CAT FACE WITH TEARS OF JOY
+- chars: ! "\U0001F63B"
+  codes: 1F63B
+  name: SMILING CAT FACE WITH HEART-SHAPED EYES
+- chars: ! "\U0001F63C"
+  codes: 1F63C
+  name: CAT FACE WITH WRY SMILE
+- chars: ! "\U0001F63D"
+  codes: 1F63D
+  name: KISSING CAT FACE WITH CLOSED EYES
+- chars: ! "\U0001F640"
+  codes: 1F640
+  name: WEARY CAT FACE
+- chars: ! "\U0001F63F"
+  codes: 1F63F
+  name: CRYING CAT FACE
+- chars: ! "\U0001F63E"
+  codes: 1F63E
+  name: POUTING CAT FACE
+- chars: ! "\U0001F648"
+  codes: 1F648
+  name: SEE-NO-EVIL MONKEY
+- chars: ! "\U0001F649"
+  codes: 1F649
+  name: HEAR-NO-EVIL MONKEY
+- chars: ! "\U0001F64A"
+  codes: 1F64A
+  name: SPEAK-NO-EVIL MONKEY
+- chars: ! "\U0001F466"
+  codes: 1F466
+  name: BOY
+- chars: ! "\U0001F467"
+  codes: 1F467
+  name: GIRL
+- chars: ! "\U0001F468"
+  codes: 1F468
+  name: MAN
+- chars: ! "\U0001F469"
+  codes: 1F469
+  name: WOMAN
+- chars: ! "\U0001F474"
+  codes: 1F474
+  name: OLDER MAN
+- chars: ! "\U0001F475"
+  codes: 1F475
+  name: OLDER WOMAN
+- chars: ! "\U0001F476"
+  codes: 1F476
+  name: BABY
+- chars: ! "\U0001F471"
+  codes: 1F471
+  name: PERSON WITH BLOND HAIR
+- chars: ! "\U0001F46E"
+  codes: 1F46E
+  name: POLICE OFFICER
+- chars: ! "\U0001F472"
+  codes: 1F472
+  name: MAN WITH GUA PI MAO
+- chars: ! "\U0001F473"
+  codes: 1F473
+  name: MAN WITH TURBAN
+- chars: ! "\U0001F477"
+  codes: 1F477
+  name: CONSTRUCTION WORKER
+- chars: ⛑
+  codes: 26D1
+  name: HELMET WITH WHITE CROSS
+- chars: ! "\U0001F478"
+  codes: 1F478
+  name: PRINCESS
+- chars: ! "\U0001F482"
+  codes: 1F482
+  name: GUARDSMAN
+- chars: ! "\U0001F575"
+  codes: 1F575
+  name: SLEUTH OR SPY
+- chars: ! "\U0001F385"
+  codes: 1F385
+  name: FATHER CHRISTMAS
+- chars: ! "\U0001F47C"
+  codes: 1F47C
+  name: BABY ANGEL
+- chars: ! "\U0001F46F"
+  codes: 1F46F
+  name: WOMAN WITH BUNNY EARS
+- chars: ! "\U0001F486"
+  codes: 1F486
+  name: FACE MASSAGE
+- chars: ! "\U0001F487"
+  codes: 1F487
+  name: HAIRCUT
+- chars: ! "\U0001F470"
+  codes: 1F470
+  name: BRIDE WITH VEIL
+- chars: ! "\U0001F64D"
+  codes: 1F64D
+  name: PERSON FROWNING
+- chars: ! "\U0001F64E"
+  codes: 1F64E
+  name: PERSON WITH POUTING FACE
+- chars: ! "\U0001F645"
+  codes: 1F645
+  name: FACE WITH NO GOOD GESTURE
+- chars: ! "\U0001F646"
+  codes: 1F646
+  name: FACE WITH OK GESTURE
+- chars: ! "\U0001F481"
+  codes: 1F481
+  name: INFORMATION DESK PERSON
+- chars: ! "\U0001F64B"
+  codes: 1F64B
+  name: HAPPY PERSON RAISING ONE HAND
+- chars: ! "\U0001F647"
+  codes: 1F647
+  name: PERSON BOWING DEEPLY
+- chars: ! "\U0001F64C"
+  codes: 1F64C
+  name: PERSON RAISING BOTH HANDS IN CELEBRATION
+- chars: ! "\U0001F64F"
+  codes: 1F64F
+  name: PERSON WITH FOLDED HANDS
+- chars: ! "\U0001F5E3"
+  codes: 1F5E3
+  name: SPEAKING HEAD IN SILHOUETTE
+- chars: ! "\U0001F464"
+  codes: 1F464
+  name: BUST IN SILHOUETTE
+- chars: ! "\U0001F465"
+  codes: 1F465
+  name: BUSTS IN SILHOUETTE
+- chars: ! "\U0001F6B6"
+  codes: 1F6B6
+  name: PEDESTRIAN
+- chars: ! "\U0001F3C3"
+  codes: 1F3C3
+  name: RUNNER
+- chars: ! "\U0001F483"
+  codes: 1F483
+  name: DANCER
+- chars: ! "\U0001F574"
+  codes: 1F574
+  name: MAN IN BUSINESS SUIT LEVITATING
+- chars: ! "\U0001F48F"
+  codes: 1F48F
+  name: KISS
+- chars: ! "\U0001F491"
+  codes: 1F491
+  name: COUPLE WITH HEART
+- chars: ! "\U0001F46A"
+  codes: 1F46A
+  name: FAMILY
+- chars: ! "\U0001F46B"
+  codes: 1F46B
+  name: MAN AND WOMAN HOLDING HANDS
+- chars: ! "\U0001F46C"
+  codes: 1F46C
+  name: TWO MEN HOLDING HANDS
+- chars: ! "\U0001F46D"
+  codes: 1F46D
+  name: TWO WOMEN HOLDING HANDS
+- chars: ! "\U0001F3FB"
+  codes: 1F3FB
+  name: EMOJI MODIFIER FITZPATRICK TYPE-1-2
+- chars: ! "\U0001F3FC"
+  codes: 1F3FC
+  name: EMOJI MODIFIER FITZPATRICK TYPE-3
+- chars: ! "\U0001F3FD"
+  codes: 1F3FD
+  name: EMOJI MODIFIER FITZPATRICK TYPE-4
+- chars: ! "\U0001F3FE"
+  codes: 1F3FE
+  name: EMOJI MODIFIER FITZPATRICK TYPE-5
+- chars: ! "\U0001F3FF"
+  codes: 1F3FF
+  name: EMOJI MODIFIER FITZPATRICK TYPE-6
+- chars: ! "\U0001F4AA"
+  codes: 1F4AA
+  name: FLEXED BICEPS
+- chars: ! "\U0001F448"
+  codes: 1F448
+  name: WHITE LEFT POINTING BACKHAND INDEX
+- chars: ! "\U0001F449"
+  codes: 1F449
+  name: WHITE RIGHT POINTING BACKHAND INDEX
+- chars: ☝️
+  codes: 261D
+  name: WHITE UP POINTING INDEX
+- chars: ! "\U0001F446"
+  codes: 1F446
+  name: WHITE UP POINTING BACKHAND INDEX
+- chars: ! "\U0001F595"
+  codes: 1F595
+  name: REVERSED HAND WITH MIDDLE FINGER EXTENDED
+- chars: ! "\U0001F447"
+  codes: 1F447
+  name: WHITE DOWN POINTING BACKHAND INDEX
+- chars: ✌️
+  codes: 270C
+  name: VICTORY HAND
+- chars: ! "\U0001F596"
+  codes: 1F596
+  name: RAISED HAND WITH PART BETWEEN MIDDLE AND RING FINGERS
+- chars: ! "\U0001F918"
+  codes: 1F918
+  name: SIGN OF THE HORNS
+- chars: ! "\U0001F590"
+  codes: 1F590
+  name: RAISED HAND WITH FINGERS SPLAYED
+- chars: ✊
+  codes: 270A
+  name: RAISED FIST
+- chars: ✋
+  codes: 270B
+  name: RAISED HAND
+- chars: ! "\U0001F44A"
+  codes: 1F44A
+  name: FISTED HAND SIGN
+- chars: ! "\U0001F44C"
+  codes: 1F44C
+  name: OK HAND SIGN
+- chars: ! "\U0001F44D"
+  codes: 1F44D
+  name: THUMBS UP SIGN
+- chars: ! "\U0001F44E"
+  codes: 1F44E
+  name: THUMBS DOWN SIGN
+- chars: ! "\U0001F44B"
+  codes: 1F44B
+  name: WAVING HAND SIGN
+- chars: ! "\U0001F44F"
+  codes: 1F44F
+  name: CLAPPING HANDS SIGN
+- chars: ! "\U0001F450"
+  codes: 1F450
+  name: OPEN HANDS SIGN
+- chars: ✍
+  codes: 270D
+  name: WRITING HAND
+- chars: ! "\U0001F485"
+  codes: 1F485
+  name: NAIL POLISH
+- chars: ! "\U0001F442"
+  codes: 1F442
+  name: EAR
+- chars: ! "\U0001F443"
+  codes: 1F443
+  name: NOSE
+- chars: ! "\U0001F463"
+  codes: 1F463
+  name: FOOTPRINTS
+- chars: ! "\U0001F440"
+  codes: 1F440
+  name: EYES
+- chars: ! "\U0001F441"
+  codes: 1F441
+  name: EYE
+- chars: ! "\U0001F445"
+  codes: 1F445
+  name: TONGUE
+- chars: ! "\U0001F444"
+  codes: 1F444
+  name: MOUTH
+- chars: ! "\U0001F48B"
+  codes: 1F48B
+  name: KISS MARK
+- chars: ! "\U0001F498"
+  codes: 1F498
+  name: HEART WITH ARROW
+- chars: ❤️
+  codes: '2764'
+  name: HEAVY BLACK HEART
+- chars: ! "\U0001F493"
+  codes: 1F493
+  name: BEATING HEART
+- chars: ! "\U0001F494"
+  codes: 1F494
+  name: BROKEN HEART
+- chars: ! "\U0001F495"
+  codes: 1F495
+  name: TWO HEARTS
+- chars: ! "\U0001F496"
+  codes: 1F496
+  name: SPARKLING HEART
+- chars: ! "\U0001F497"
+  codes: 1F497
+  name: GROWING HEART
+- chars: ! "\U0001F499"
+  codes: 1F499
+  name: BLUE HEART
+- chars: ! "\U0001F49A"
+  codes: 1F49A
+  name: GREEN HEART
+- chars: ! "\U0001F49B"
+  codes: 1F49B
+  name: YELLOW HEART
+- chars: ! "\U0001F49C"
+  codes: 1F49C
+  name: PURPLE HEART
+- chars: ! "\U0001F49D"
+  codes: 1F49D
+  name: HEART WITH RIBBON
+- chars: ! "\U0001F49E"
+  codes: 1F49E
+  name: REVOLVING HEARTS
+- chars: ! "\U0001F49F"
+  codes: 1F49F
+  name: HEART DECORATION
+- chars: ❣
+  codes: '2763'
+  name: HEAVY HEART EXCLAMATION MARK ORNAMENT
+- chars: ! "\U0001F48C"
+  codes: 1F48C
+  name: LOVE LETTER
+- chars: ! "\U0001F4A4"
+  codes: 1F4A4
+  name: SLEEPING SYMBOL
+- chars: ! "\U0001F4A2"
+  codes: 1F4A2
+  name: ANGER SYMBOL
+- chars: ! "\U0001F4A3"
+  codes: 1F4A3
+  name: BOMB
+- chars: ! "\U0001F4A5"
+  codes: 1F4A5
+  name: COLLISION SYMBOL
+- chars: ! "\U0001F4A6"
+  codes: 1F4A6
+  name: SPLASHING SWEAT SYMBOL
+- chars: ! "\U0001F4A8"
+  codes: 1F4A8
+  name: DASH SYMBOL
+- chars: ! "\U0001F4AB"
+  codes: 1F4AB
+  name: DIZZY SYMBOL
+- chars: ! "\U0001F4AC"
+  codes: 1F4AC
+  name: SPEECH BALLOON
+- chars: ! "\U0001F5E8"
+  codes: 1F5E8
+  name: LEFT SPEECH BUBBLE
+- chars: ! "\U0001F5EF"
+  codes: 1F5EF
+  name: RIGHT ANGER BUBBLE
+- chars: ! "\U0001F4AD"
+  codes: 1F4AD
+  name: THOUGHT BALLOON
+- chars: ! "\U0001F573"
+  codes: 1F573
+  name: HOLE
+- chars: ! "\U0001F453"
+  codes: 1F453
+  name: EYEGLASSES
+- chars: ! "\U0001F576"
+  codes: 1F576
+  name: DARK SUNGLASSES
+- chars: ! "\U0001F454"
+  codes: 1F454
+  name: NECKTIE
+- chars: ! "\U0001F455"
+  codes: 1F455
+  name: T-SHIRT
+- chars: ! "\U0001F456"
+  codes: 1F456
+  name: JEANS
+- chars: ! "\U0001F457"
+  codes: 1F457
+  name: DRESS
+- chars: ! "\U0001F458"
+  codes: 1F458
+  name: KIMONO
+- chars: ! "\U0001F459"
+  codes: 1F459
+  name: BIKINI
+- chars: ! "\U0001F45A"
+  codes: 1F45A
+  name: WOMANS CLOTHES
+- chars: ! "\U0001F45B"
+  codes: 1F45B
+  name: PURSE
+- chars: ! "\U0001F45C"
+  codes: 1F45C
+  name: HANDBAG
+- chars: ! "\U0001F45D"
+  codes: 1F45D
+  name: POUCH
+- chars: ! "\U0001F6CD"
+  codes: 1F6CD
+  name: SHOPPING BAGS
+- chars: ! "\U0001F392"
+  codes: 1F392
+  name: SCHOOL SATCHEL
+- chars: ! "\U0001F45E"
+  codes: 1F45E
+  name: MANS SHOE
+- chars: ! "\U0001F45F"
+  codes: 1F45F
+  name: ATHLETIC SHOE
+- chars: ! "\U0001F460"
+  codes: 1F460
+  name: HIGH-HEELED SHOE
+- chars: ! "\U0001F461"
+  codes: 1F461
+  name: WOMANS SANDAL
+- chars: ! "\U0001F462"
+  codes: 1F462
+  name: WOMANS BOOTS
+- chars: ! "\U0001F451"
+  codes: 1F451
+  name: CROWN
+- chars: ! "\U0001F452"
+  codes: 1F452
+  name: WOMANS HAT
+- chars: ! "\U0001F3A9"
+  codes: 1F3A9
+  name: TOP HAT
+- chars: ! "\U0001F393"
+  codes: 1F393
+  name: GRADUATION CAP
+- chars: ! "\U0001F4FF"
+  codes: 1F4FF
+  name: PRAYER BEADS
+- chars: ! "\U0001F484"
+  codes: 1F484
+  name: LIPSTICK
+- chars: ! "\U0001F48D"
+  codes: 1F48D
+  name: RING
+- chars: ! "\U0001F48E"
+  codes: 1F48E
+  name: GEM STONE
+- chars: ! "\U0001F435"
+  codes: 1F435
+  name: MONKEY FACE
+- chars: ! "\U0001F412"
+  codes: 1F412
+  name: MONKEY
+- chars: ! "\U0001F436"
+  codes: 1F436
+  name: DOG FACE
+- chars: ! "\U0001F415"
+  codes: 1F415
+  name: DOG
+- chars: ! "\U0001F429"
+  codes: 1F429
+  name: POODLE
+- chars: ! "\U0001F43A"
+  codes: 1F43A
+  name: WOLF FACE
+- chars: ! "\U0001F431"
+  codes: 1F431
+  name: CAT FACE
+- chars: ! "\U0001F408"
+  codes: 1F408
+  name: CAT
+- chars: ! "\U0001F981"
+  codes: 1F981
+  name: LION FACE
+- chars: ! "\U0001F42F"
+  codes: 1F42F
+  name: TIGER FACE
+- chars: ! "\U0001F405"
+  codes: 1F405
+  name: TIGER
+- chars: ! "\U0001F406"
+  codes: 1F406
+  name: LEOPARD
+- chars: ! "\U0001F434"
+  codes: 1F434
+  name: HORSE FACE
+- chars: ! "\U0001F40E"
+  codes: 1F40E
+  name: HORSE
+- chars: ! "\U0001F984"
+  codes: 1F984
+  name: UNICORN FACE
+- chars: ! "\U0001F42E"
+  codes: 1F42E
+  name: COW FACE
+- chars: ! "\U0001F402"
+  codes: 1F402
+  name: OX
+- chars: ! "\U0001F403"
+  codes: 1F403
+  name: WATER BUFFALO
+- chars: ! "\U0001F404"
+  codes: 1F404
+  name: COW
+- chars: ! "\U0001F437"
+  codes: 1F437
+  name: PIG FACE
+- chars: ! "\U0001F416"
+  codes: 1F416
+  name: PIG
+- chars: ! "\U0001F417"
+  codes: 1F417
+  name: BOAR
+- chars: ! "\U0001F43D"
+  codes: 1F43D
+  name: PIG NOSE
+- chars: ! "\U0001F40F"
+  codes: 1F40F
+  name: RAM
+- chars: ! "\U0001F411"
+  codes: 1F411
+  name: SHEEP
+- chars: ! "\U0001F410"
+  codes: 1F410
+  name: GOAT
+- chars: ! "\U0001F42A"
+  codes: 1F42A
+  name: DROMEDARY CAMEL
+- chars: ! "\U0001F42B"
+  codes: 1F42B
+  name: BACTRIAN CAMEL
+- chars: ! "\U0001F418"
+  codes: 1F418
+  name: ELEPHANT
+- chars: ! "\U0001F42D"
+  codes: 1F42D
+  name: MOUSE FACE
+- chars: ! "\U0001F401"
+  codes: 1F401
+  name: MOUSE
+- chars: ! "\U0001F400"
+  codes: 1F400
+  name: RAT
+- chars: ! "\U0001F439"
+  codes: 1F439
+  name: HAMSTER FACE
+- chars: ! "\U0001F430"
+  codes: 1F430
+  name: RABBIT FACE
+- chars: ! "\U0001F407"
+  codes: 1F407
+  name: RABBIT
+- chars: ! "\U0001F43F"
+  codes: 1F43F
+  name: CHIPMUNK
+- chars: ! "\U0001F43B"
+  codes: 1F43B
+  name: BEAR FACE
+- chars: ! "\U0001F428"
+  codes: 1F428
+  name: KOALA
+- chars: ! "\U0001F43C"
+  codes: 1F43C
+  name: PANDA FACE
+- chars: ! "\U0001F43E"
+  codes: 1F43E
+  name: PAW PRINTS
+- chars: ! "\U0001F983"
+  codes: 1F983
+  name: TURKEY
+- chars: ! "\U0001F414"
+  codes: 1F414
+  name: CHICKEN
+- chars: ! "\U0001F413"
+  codes: 1F413
+  name: ROOSTER
+- chars: ! "\U0001F423"
+  codes: 1F423
+  name: HATCHING CHICK
+- chars: ! "\U0001F424"
+  codes: 1F424
+  name: BABY CHICK
+- chars: ! "\U0001F425"
+  codes: 1F425
+  name: FRONT-FACING BABY CHICK
+- chars: ! "\U0001F426"
+  codes: 1F426
+  name: BIRD
+- chars: ! "\U0001F427"
+  codes: 1F427
+  name: PENGUIN
+- chars: ! "\U0001F54A"
+  codes: 1F54A
+  name: DOVE OF PEACE
+- chars: ! "\U0001F438"
+  codes: 1F438
+  name: FROG FACE
+- chars: ! "\U0001F40A"
+  codes: 1F40A
+  name: CROCODILE
+- chars: ! "\U0001F422"
+  codes: 1F422
+  name: TURTLE
+- chars: ! "\U0001F40D"
+  codes: 1F40D
+  name: SNAKE
+- chars: ! "\U0001F432"
+  codes: 1F432
+  name: DRAGON FACE
+- chars: ! "\U0001F409"
+  codes: 1F409
+  name: DRAGON
+- chars: ! "\U0001F433"
+  codes: 1F433
+  name: SPOUTING WHALE
+- chars: ! "\U0001F40B"
+  codes: 1F40B
+  name: WHALE
+- chars: ! "\U0001F42C"
+  codes: 1F42C
+  name: DOLPHIN
+- chars: ! "\U0001F41F"
+  codes: 1F41F
+  name: FISH
+- chars: ! "\U0001F420"
+  codes: 1F420
+  name: TROPICAL FISH
+- chars: ! "\U0001F421"
+  codes: 1F421
+  name: BLOWFISH
+- chars: ! "\U0001F419"
+  codes: 1F419
+  name: OCTOPUS
+- chars: ! "\U0001F41A"
+  codes: 1F41A
+  name: SPIRAL SHELL
+- chars: ! "\U0001F980"
+  codes: 1F980
+  name: CRAB
+- chars: ! "\U0001F40C"
+  codes: 1F40C
+  name: SNAIL
+- chars: ! "\U0001F41B"
+  codes: 1F41B
+  name: BUG
+- chars: ! "\U0001F41C"
+  codes: 1F41C
+  name: ANT
+- chars: ! "\U0001F41D"
+  codes: 1F41D
+  name: HONEYBEE
+- chars: ! "\U0001F41E"
+  codes: 1F41E
+  name: LADY BEETLE
+- chars: ! "\U0001F577"
+  codes: 1F577
+  name: SPIDER
+- chars: ! "\U0001F578"
+  codes: 1F578
+  name: SPIDER WEB
+- chars: ! "\U0001F982"
+  codes: 1F982
+  name: SCORPION
+- chars: ! "\U0001F490"
+  codes: 1F490
+  name: BOUQUET
+- chars: ! "\U0001F338"
+  codes: 1F338
+  name: CHERRY BLOSSOM
+- chars: ! "\U0001F4AE"
+  codes: 1F4AE
+  name: WHITE FLOWER
+- chars: ! "\U0001F3F5"
+  codes: 1F3F5
+  name: ROSETTE
+- chars: ! "\U0001F339"
+  codes: 1F339
+  name: ROSE
+- chars: ! "\U0001F33A"
+  codes: 1F33A
+  name: HIBISCUS
+- chars: ! "\U0001F33B"
+  codes: 1F33B
+  name: SUNFLOWER
+- chars: ! "\U0001F33C"
+  codes: 1F33C
+  name: BLOSSOM
+- chars: ! "\U0001F337"
+  codes: 1F337
+  name: TULIP
+- chars: ☘
+  codes: '2618'
+  name: SHAMROCK
+- chars: ! "\U0001F331"
+  codes: 1F331
+  name: SEEDLING
+- chars: ! "\U0001F332"
+  codes: 1F332
+  name: EVERGREEN TREE
+- chars: ! "\U0001F333"
+  codes: 1F333
+  name: DECIDUOUS TREE
+- chars: ! "\U0001F334"
+  codes: 1F334
+  name: PALM TREE
+- chars: ! "\U0001F335"
+  codes: 1F335
+  name: CACTUS
+- chars: ! "\U0001F33E"
+  codes: 1F33E
+  name: EAR OF RICE
+- chars: ! "\U0001F33F"
+  codes: 1F33F
+  name: HERB
+- chars: ! "\U0001F340"
+  codes: 1F340
+  name: FOUR LEAF CLOVER
+- chars: ! "\U0001F341"
+  codes: 1F341
+  name: MAPLE LEAF
+- chars: ! "\U0001F342"
+  codes: 1F342
+  name: FALLEN LEAF
+- chars: ! "\U0001F343"
+  codes: 1F343
+  name: LEAF FLUTTERING IN WIND
+- chars: ! "\U0001F347"
+  codes: 1F347
+  name: GRAPES
+- chars: ! "\U0001F348"
+  codes: 1F348
+  name: MELON
+- chars: ! "\U0001F349"
+  codes: 1F349
+  name: WATERMELON
+- chars: ! "\U0001F34A"
+  codes: 1F34A
+  name: TANGERINE
+- chars: ! "\U0001F34B"
+  codes: 1F34B
+  name: LEMON
+- chars: ! "\U0001F34C"
+  codes: 1F34C
+  name: BANANA
+- chars: ! "\U0001F34D"
+  codes: 1F34D
+  name: PINEAPPLE
+- chars: ! "\U0001F34E"
+  codes: 1F34E
+  name: RED APPLE
+- chars: ! "\U0001F34F"
+  codes: 1F34F
+  name: GREEN APPLE
+- chars: ! "\U0001F350"
+  codes: 1F350
+  name: PEAR
+- chars: ! "\U0001F351"
+  codes: 1F351
+  name: PEACH
+- chars: ! "\U0001F352"
+  codes: 1F352
+  name: CHERRIES
+- chars: ! "\U0001F353"
+  codes: 1F353
+  name: STRAWBERRY
+- chars: ! "\U0001F345"
+  codes: 1F345
+  name: TOMATO
+- chars: ! "\U0001F346"
+  codes: 1F346
+  name: AUBERGINE
+- chars: ! "\U0001F33D"
+  codes: 1F33D
+  name: EAR OF MAIZE
+- chars: ! "\U0001F336"
+  codes: 1F336
+  name: HOT PEPPER
+- chars: ! "\U0001F344"
+  codes: 1F344
+  name: MUSHROOM
+- chars: ! "\U0001F330"
+  codes: 1F330
+  name: CHESTNUT
+- chars: ! "\U0001F35E"
+  codes: 1F35E
+  name: BREAD
+- chars: ! "\U0001F9C0"
+  codes: 1F9C0
+  name: CHEESE WEDGE
+- chars: ! "\U0001F356"
+  codes: 1F356
+  name: MEAT ON BONE
+- chars: ! "\U0001F357"
+  codes: 1F357
+  name: POULTRY LEG
+- chars: ! "\U0001F354"
+  codes: 1F354
+  name: HAMBURGER
+- chars: ! "\U0001F35F"
+  codes: 1F35F
+  name: FRENCH FRIES
+- chars: ! "\U0001F355"
+  codes: 1F355
+  name: SLICE OF PIZZA
+- chars: ! "\U0001F32D"
+  codes: 1F32D
+  name: HOT DOG
+- chars: ! "\U0001F32E"
+  codes: 1F32E
+  name: TACO
+- chars: ! "\U0001F32F"
+  codes: 1F32F
+  name: BURRITO
+- chars: ! "\U0001F37F"
+  codes: 1F37F
+  name: POPCORN
+- chars: ! "\U0001F372"
+  codes: 1F372
+  name: POT OF FOOD
+- chars: ! "\U0001F371"
+  codes: 1F371
+  name: BENTO BOX
+- chars: ! "\U0001F358"
+  codes: 1F358
+  name: RICE CRACKER
+- chars: ! "\U0001F359"
+  codes: 1F359
+  name: RICE BALL
+- chars: ! "\U0001F35A"
+  codes: 1F35A
+  name: COOKED RICE
+- chars: ! "\U0001F35B"
+  codes: 1F35B
+  name: CURRY AND RICE
+- chars: ! "\U0001F35C"
+  codes: 1F35C
+  name: STEAMING BOWL
+- chars: ! "\U0001F35D"
+  codes: 1F35D
+  name: SPAGHETTI
+- chars: ! "\U0001F360"
+  codes: 1F360
+  name: ROASTED SWEET POTATO
+- chars: ! "\U0001F362"
+  codes: 1F362
+  name: ODEN
+- chars: ! "\U0001F363"
+  codes: 1F363
+  name: SUSHI
+- chars: ! "\U0001F364"
+  codes: 1F364
+  name: FRIED SHRIMP
+- chars: ! "\U0001F365"
+  codes: 1F365
+  name: FISH CAKE WITH SWIRL DESIGN
+- chars: ! "\U0001F361"
+  codes: 1F361
+  name: DANGO
+- chars: ! "\U0001F366"
+  codes: 1F366
+  name: SOFT ICE CREAM
+- chars: ! "\U0001F367"
+  codes: 1F367
+  name: SHAVED ICE
+- chars: ! "\U0001F368"
+  codes: 1F368
+  name: ICE CREAM
+- chars: ! "\U0001F369"
+  codes: 1F369
+  name: DOUGHNUT
+- chars: ! "\U0001F36A"
+  codes: 1F36A
+  name: COOKIE
+- chars: ! "\U0001F382"
+  codes: 1F382
+  name: BIRTHDAY CAKE
+- chars: ! "\U0001F370"
+  codes: 1F370
+  name: SHORTCAKE
+- chars: ! "\U0001F36B"
+  codes: 1F36B
+  name: CHOCOLATE BAR
+- chars: ! "\U0001F36C"
+  codes: 1F36C
+  name: CANDY
+- chars: ! "\U0001F36D"
+  codes: 1F36D
+  name: LOLLIPOP
+- chars: ! "\U0001F36E"
+  codes: 1F36E
+  name: CUSTARD
+- chars: ! "\U0001F36F"
+  codes: 1F36F
+  name: HONEY POT
+- chars: ! "\U0001F37C"
+  codes: 1F37C
+  name: BABY BOTTLE
+- chars: ☕️
+  codes: '2615'
+  name: HOT BEVERAGE
+- chars: ! "\U0001F375"
+  codes: 1F375
+  name: TEACUP WITHOUT HANDLE
+- chars: ! "\U0001F376"
+  codes: 1F376
+  name: SAKE BOTTLE AND CUP
+- chars: ! "\U0001F37E"
+  codes: 1F37E
+  name: BOTTLE WITH POPPING CORK
+- chars: ! "\U0001F377"
+  codes: 1F377
+  name: WINE GLASS
+- chars: ! "\U0001F378"
+  codes: 1F378
+  name: COCKTAIL GLASS
+- chars: ! "\U0001F379"
+  codes: 1F379
+  name: TROPICAL DRINK
+- chars: ! "\U0001F37A"
+  codes: 1F37A
+  name: BEER MUG
+- chars: ! "\U0001F37B"
+  codes: 1F37B
+  name: CLINKING BEER MUGS
+- chars: ! "\U0001F37D"
+  codes: 1F37D
+  name: FORK AND KNIFE WITH PLATE
+- chars: ! "\U0001F374"
+  codes: 1F374
+  name: FORK AND KNIFE
+- chars: ! "\U0001F373"
+  codes: 1F373
+  name: COOKING
+- chars: ! "\U0001F3FA"
+  codes: 1F3FA
+  name: AMPHORA
+- chars: ! "\U0001F30D"
+  codes: 1F30D
+  name: EARTH GLOBE EUROPE-AFRICA
+- chars: ! "\U0001F30E"
+  codes: 1F30E
+  name: EARTH GLOBE AMERICAS
+- chars: ! "\U0001F30F"
+  codes: 1F30F
+  name: EARTH GLOBE ASIA-AUSTRALIA
+- chars: ! "\U0001F310"
+  codes: 1F310
+  name: GLOBE WITH MERIDIANS
+- chars: ! "\U0001F5FA"
+  codes: 1F5FA
+  name: WORLD MAP
+- chars: ! "\U0001F3D4"
+  codes: 1F3D4
+  name: SNOW CAPPED MOUNTAIN
+- chars: ⛰
+  codes: 26F0
+  name: MOUNTAIN
+- chars: ! "\U0001F30B"
+  codes: 1F30B
+  name: VOLCANO
+- chars: ! "\U0001F5FB"
+  codes: 1F5FB
+  name: MOUNT FUJI
+- chars: ! "\U0001F3D5"
+  codes: 1F3D5
+  name: CAMPING
+- chars: ! "\U0001F3D6"
+  codes: 1F3D6
+  name: BEACH WITH UMBRELLA
+- chars: ! "\U0001F3DC"
+  codes: 1F3DC
+  name: DESERT
+- chars: ! "\U0001F3DD"
+  codes: 1F3DD
+  name: DESERT ISLAND
+- chars: ! "\U0001F3DE"
+  codes: 1F3DE
+  name: NATIONAL PARK
+- chars: ! "\U0001F3DF"
+  codes: 1F3DF
+  name: STADIUM
+- chars: ! "\U0001F3DB"
+  codes: 1F3DB
+  name: CLASSICAL BUILDING
+- chars: ! "\U0001F3D7"
+  codes: 1F3D7
+  name: BUILDING CONSTRUCTION
+- chars: ! "\U0001F3D8"
+  codes: 1F3D8
+  name: HOUSE BUILDINGS
+- chars: ! "\U0001F3D9"
+  codes: 1F3D9
+  name: CITYSCAPE
+- chars: ! "\U0001F3DA"
+  codes: 1F3DA
+  name: DERELICT HOUSE BUILDING
+- chars: ! "\U0001F3E0"
+  codes: 1F3E0
+  name: HOUSE BUILDING
+- chars: ! "\U0001F3E1"
+  codes: 1F3E1
+  name: HOUSE WITH GARDEN
+- chars: ⛪️
+  codes: 26EA
+  name: CHURCH
+- chars: ! "\U0001F54B"
+  codes: 1F54B
+  name: KAABA
+- chars: ! "\U0001F54C"
+  codes: 1F54C
+  name: MOSQUE
+- chars: ! "\U0001F54D"
+  codes: 1F54D
+  name: SYNAGOGUE
+- chars: ⛩
+  codes: '26E9'
+  name: SHINTO SHRINE
+- chars: ! "\U0001F3E2"
+  codes: 1F3E2
+  name: OFFICE BUILDING
+- chars: ! "\U0001F3E3"
+  codes: 1F3E3
+  name: JAPANESE POST OFFICE
+- chars: ! "\U0001F3E4"
+  codes: 1F3E4
+  name: EUROPEAN POST OFFICE
+- chars: ! "\U0001F3E5"
+  codes: 1F3E5
+  name: HOSPITAL
+- chars: ! "\U0001F3E6"
+  codes: 1F3E6
+  name: BANK
+- chars: ! "\U0001F3E8"
+  codes: 1F3E8
+  name: HOTEL
+- chars: ! "\U0001F3E9"
+  codes: 1F3E9
+  name: LOVE HOTEL
+- chars: ! "\U0001F3EA"
+  codes: 1F3EA
+  name: CONVENIENCE STORE
+- chars: ! "\U0001F3EB"
+  codes: 1F3EB
+  name: SCHOOL
+- chars: ! "\U0001F3EC"
+  codes: 1F3EC
+  name: DEPARTMENT STORE
+- chars: ! "\U0001F3ED"
+  codes: 1F3ED
+  name: FACTORY
+- chars: ! "\U0001F3EF"
+  codes: 1F3EF
+  name: JAPANESE CASTLE
+- chars: ! "\U0001F3F0"
+  codes: 1F3F0
+  name: EUROPEAN CASTLE
+- chars: ! "\U0001F492"
+  codes: 1F492
+  name: WEDDING
+- chars: ! "\U0001F5FC"
+  codes: 1F5FC
+  name: TOKYO TOWER
+- chars: ! "\U0001F5FD"
+  codes: 1F5FD
+  name: STATUE OF LIBERTY
+- chars: ! "\U0001F5FE"
+  codes: 1F5FE
+  name: SILHOUETTE OF JAPAN
+- chars: ⛲️
+  codes: 26F2
+  name: FOUNTAIN
+- chars: ⛺️
+  codes: 26FA
+  name: TENT
+- chars: ! "\U0001F301"
+  codes: 1F301
+  name: FOGGY
+- chars: ! "\U0001F303"
+  codes: 1F303
+  name: NIGHT WITH STARS
+- chars: ! "\U0001F304"
+  codes: 1F304
+  name: SUNRISE OVER MOUNTAINS
+- chars: ! "\U0001F305"
+  codes: 1F305
+  name: SUNRISE
+- chars: ! "\U0001F306"
+  codes: 1F306
+  name: CITYSCAPE AT DUSK
+- chars: ! "\U0001F307"
+  codes: 1F307
+  name: SUNSET OVER BUILDINGS
+- chars: ! "\U0001F309"
+  codes: 1F309
+  name: BRIDGE AT NIGHT
+- chars: ♨️
+  codes: '2668'
+  name: HOT SPRINGS
+- chars: ! "\U0001F30C"
+  codes: 1F30C
+  name: MILKY WAY
+- chars: ! "\U0001F3A0"
+  codes: 1F3A0
+  name: CAROUSEL HORSE
+- chars: ! "\U0001F3A1"
+  codes: 1F3A1
+  name: FERRIS WHEEL
+- chars: ! "\U0001F3A2"
+  codes: 1F3A2
+  name: ROLLER COASTER
+- chars: ! "\U0001F488"
+  codes: 1F488
+  name: BARBER POLE
+- chars: ! "\U0001F3AA"
+  codes: 1F3AA
+  name: CIRCUS TENT
+- chars: ! "\U0001F3AD"
+  codes: 1F3AD
+  name: PERFORMING ARTS
+- chars: ! "\U0001F5BC"
+  codes: 1F5BC
+  name: FRAME WITH PICTURE
+- chars: ! "\U0001F3A8"
+  codes: 1F3A8
+  name: ARTIST PALETTE
+- chars: ! "\U0001F3B0"
+  codes: 1F3B0
+  name: SLOT MACHINE
+- chars: ! "\U0001F682"
+  codes: 1F682
+  name: STEAM LOCOMOTIVE
+- chars: ! "\U0001F683"
+  codes: 1F683
+  name: RAILWAY CAR
+- chars: ! "\U0001F684"
+  codes: 1F684
+  name: HIGH-SPEED TRAIN
+- chars: ! "\U0001F685"
+  codes: 1F685
+  name: HIGH-SPEED TRAIN WITH BULLET NOSE
+- chars: ! "\U0001F686"
+  codes: 1F686
+  name: TRAIN
+- chars: ! "\U0001F687"
+  codes: 1F687
+  name: METRO
+- chars: ! "\U0001F688"
+  codes: 1F688
+  name: LIGHT RAIL
+- chars: ! "\U0001F689"
+  codes: 1F689
+  name: STATION
+- chars: ! "\U0001F68A"
+  codes: 1F68A
+  name: TRAM
+- chars: ! "\U0001F69D"
+  codes: 1F69D
+  name: MONORAIL
+- chars: ! "\U0001F69E"
+  codes: 1F69E
+  name: MOUNTAIN RAILWAY
+- chars: ! "\U0001F68B"
+  codes: 1F68B
+  name: TRAM CAR
+- chars: ! "\U0001F68C"
+  codes: 1F68C
+  name: BUS
+- chars: ! "\U0001F68D"
+  codes: 1F68D
+  name: ONCOMING BUS
+- chars: ! "\U0001F68E"
+  codes: 1F68E
+  name: TROLLEYBUS
+- chars: ! "\U0001F68F"
+  codes: 1F68F
+  name: BUS STOP
+- chars: ! "\U0001F690"
+  codes: 1F690
+  name: MINIBUS
+- chars: ! "\U0001F691"
+  codes: 1F691
+  name: AMBULANCE
+- chars: ! "\U0001F692"
+  codes: 1F692
+  name: FIRE ENGINE
+- chars: ! "\U0001F693"
+  codes: 1F693
+  name: POLICE CAR
+- chars: ! "\U0001F694"
+  codes: 1F694
+  name: ONCOMING POLICE CAR
+- chars: ! "\U0001F695"
+  codes: 1F695
+  name: TAXI
+- chars: ! "\U0001F696"
+  codes: 1F696
+  name: ONCOMING TAXI
+- chars: ! "\U0001F697"
+  codes: 1F697
+  name: AUTOMOBILE
+- chars: ! "\U0001F698"
+  codes: 1F698
+  name: ONCOMING AUTOMOBILE
+- chars: ! "\U0001F699"
+  codes: 1F699
+  name: RECREATIONAL VEHICLE
+- chars: ! "\U0001F69A"
+  codes: 1F69A
+  name: DELIVERY TRUCK
+- chars: ! "\U0001F69B"
+  codes: 1F69B
+  name: ARTICULATED LORRY
+- chars: ! "\U0001F69C"
+  codes: 1F69C
+  name: TRACTOR
+- chars: ! "\U0001F6B2"
+  codes: 1F6B2
+  name: BICYCLE
+- chars: ⛽️
+  codes: 26FD
+  name: FUEL PUMP
+- chars: ! "\U0001F6E3"
+  codes: 1F6E3
+  name: MOTORWAY
+- chars: ! "\U0001F6E4"
+  codes: 1F6E4
+  name: RAILWAY TRACK
+- chars: ! "\U0001F6A8"
+  codes: 1F6A8
+  name: POLICE CARS REVOLVING LIGHT
+- chars: ! "\U0001F6A5"
+  codes: 1F6A5
+  name: HORIZONTAL TRAFFIC LIGHT
+- chars: ! "\U0001F6A6"
+  codes: 1F6A6
+  name: VERTICAL TRAFFIC LIGHT
+- chars: ! "\U0001F6A7"
+  codes: 1F6A7
+  name: CONSTRUCTION SIGN
+- chars: ⚓️
+  codes: '2693'
+  name: ANCHOR
+- chars: ⛵️
+  codes: 26F5
+  name: SAILBOAT
+- chars: ! "\U0001F6A3"
+  codes: 1F6A3
+  name: ROWBOAT
+- chars: ! "\U0001F6A4"
+  codes: 1F6A4
+  name: SPEEDBOAT
+- chars: ! "\U0001F6F3"
+  codes: 1F6F3
+  name: PASSENGER SHIP
+- chars: ⛴
+  codes: 26F4
+  name: FERRY
+- chars: ! "\U0001F6E5"
+  codes: 1F6E5
+  name: MOTOR BOAT
+- chars: ! "\U0001F6A2"
+  codes: 1F6A2
+  name: SHIP
+- chars: ✈️
+  codes: '2708'
+  name: AIRPLANE
+- chars: ! "\U0001F6E9"
+  codes: 1F6E9
+  name: SMALL AIRPLANE
+- chars: ! "\U0001F6EB"
+  codes: 1F6EB
+  name: AIRPLANE DEPARTURE
+- chars: ! "\U0001F6EC"
+  codes: 1F6EC
+  name: AIRPLANE ARRIVING
+- chars: ! "\U0001F4BA"
+  codes: 1F4BA
+  name: SEAT
+- chars: ! "\U0001F681"
+  codes: 1F681
+  name: HELICOPTER
+- chars: ! "\U0001F69F"
+  codes: 1F69F
+  name: SUSPENSION RAILWAY
+- chars: ! "\U0001F6A0"
+  codes: 1F6A0
+  name: MOUNTAIN CABLEWAY
+- chars: ! "\U0001F6A1"
+  codes: 1F6A1
+  name: AERIAL TRAMWAY
+- chars: ! "\U0001F680"
+  codes: 1F680
+  name: ROCKET
+- chars: ! "\U0001F6F0"
+  codes: 1F6F0
+  name: SATELLITE
+- chars: ! "\U0001F6CE"
+  codes: 1F6CE
+  name: BELLHOP BELL
+- chars: ! "\U0001F6AA"
+  codes: 1F6AA
+  name: DOOR
+- chars: ! "\U0001F6CC"
+  codes: 1F6CC
+  name: SLEEPING ACCOMMODATION
+- chars: ! "\U0001F6CF"
+  codes: 1F6CF
+  name: BED
+- chars: ! "\U0001F6CB"
+  codes: 1F6CB
+  name: COUCH AND LAMP
+- chars: ! "\U0001F6BD"
+  codes: 1F6BD
+  name: TOILET
+- chars: ! "\U0001F6BF"
+  codes: 1F6BF
+  name: SHOWER
+- chars: ! "\U0001F6C0"
+  codes: 1F6C0
+  name: BATH
+- chars: ! "\U0001F6C1"
+  codes: 1F6C1
+  name: BATHTUB
+- chars: ⌛️
+  codes: 231B
+  name: HOURGLASS
+- chars: ⏳
+  codes: 23F3
+  name: HOURGLASS WITH FLOWING SAND
+- chars: ⌚️
+  codes: 231A
+  name: WATCH
+- chars: ⏰
+  codes: 23F0
+  name: ALARM CLOCK
+- chars: ⏱
+  codes: 23F1
+  name: STOPWATCH
+- chars: ⏲
+  codes: 23F2
+  name: TIMER CLOCK
+- chars: ! "\U0001F570"
+  codes: 1F570
+  name: MANTELPIECE CLOCK
+- chars: ! "\U0001F55B"
+  codes: 1F55B
+  name: CLOCK FACE TWELVE OCLOCK
+- chars: ! "\U0001F567"
+  codes: 1F567
+  name: CLOCK FACE TWELVE-THIRTY
+- chars: ! "\U0001F550"
+  codes: 1F550
+  name: CLOCK FACE ONE OCLOCK
+- chars: ! "\U0001F55C"
+  codes: 1F55C
+  name: CLOCK FACE ONE-THIRTY
+- chars: ! "\U0001F551"
+  codes: 1F551
+  name: CLOCK FACE TWO OCLOCK
+- chars: ! "\U0001F55D"
+  codes: 1F55D
+  name: CLOCK FACE TWO-THIRTY
+- chars: ! "\U0001F552"
+  codes: 1F552
+  name: CLOCK FACE THREE OCLOCK
+- chars: ! "\U0001F55E"
+  codes: 1F55E
+  name: CLOCK FACE THREE-THIRTY
+- chars: ! "\U0001F553"
+  codes: 1F553
+  name: CLOCK FACE FOUR OCLOCK
+- chars: ! "\U0001F55F"
+  codes: 1F55F
+  name: CLOCK FACE FOUR-THIRTY
+- chars: ! "\U0001F554"
+  codes: 1F554
+  name: CLOCK FACE FIVE OCLOCK
+- chars: ! "\U0001F560"
+  codes: 1F560
+  name: CLOCK FACE FIVE-THIRTY
+- chars: ! "\U0001F555"
+  codes: 1F555
+  name: CLOCK FACE SIX OCLOCK
+- chars: ! "\U0001F561"
+  codes: 1F561
+  name: CLOCK FACE SIX-THIRTY
+- chars: ! "\U0001F556"
+  codes: 1F556
+  name: CLOCK FACE SEVEN OCLOCK
+- chars: ! "\U0001F562"
+  codes: 1F562
+  name: CLOCK FACE SEVEN-THIRTY
+- chars: ! "\U0001F557"
+  codes: 1F557
+  name: CLOCK FACE EIGHT OCLOCK
+- chars: ! "\U0001F563"
+  codes: 1F563
+  name: CLOCK FACE EIGHT-THIRTY
+- chars: ! "\U0001F558"
+  codes: 1F558
+  name: CLOCK FACE NINE OCLOCK
+- chars: ! "\U0001F564"
+  codes: 1F564
+  name: CLOCK FACE NINE-THIRTY
+- chars: ! "\U0001F559"
+  codes: 1F559
+  name: CLOCK FACE TEN OCLOCK
+- chars: ! "\U0001F565"
+  codes: 1F565
+  name: CLOCK FACE TEN-THIRTY
+- chars: ! "\U0001F55A"
+  codes: 1F55A
+  name: CLOCK FACE ELEVEN OCLOCK
+- chars: ! "\U0001F566"
+  codes: 1F566
+  name: CLOCK FACE ELEVEN-THIRTY
+- chars: ! "\U0001F311"
+  codes: 1F311
+  name: NEW MOON SYMBOL
+- chars: ! "\U0001F312"
+  codes: 1F312
+  name: WAXING CRESCENT MOON SYMBOL
+- chars: ! "\U0001F313"
+  codes: 1F313
+  name: FIRST QUARTER MOON SYMBOL
+- chars: ! "\U0001F314"
+  codes: 1F314
+  name: WAXING GIBBOUS MOON SYMBOL
+- chars: ! "\U0001F315"
+  codes: 1F315
+  name: FULL MOON SYMBOL
+- chars: ! "\U0001F316"
+  codes: 1F316
+  name: WANING GIBBOUS MOON SYMBOL
+- chars: ! "\U0001F317"
+  codes: 1F317
+  name: LAST QUARTER MOON SYMBOL
+- chars: ! "\U0001F318"
+  codes: 1F318
+  name: WANING CRESCENT MOON SYMBOL
+- chars: ! "\U0001F319"
+  codes: 1F319
+  name: CRESCENT MOON
+- chars: ! "\U0001F31A"
+  codes: 1F31A
+  name: NEW MOON WITH FACE
+- chars: ! "\U0001F31B"
+  codes: 1F31B
+  name: FIRST QUARTER MOON WITH FACE
+- chars: ! "\U0001F31C"
+  codes: 1F31C
+  name: LAST QUARTER MOON WITH FACE
+- chars: ! "\U0001F321"
+  codes: 1F321
+  name: THERMOMETER
+- chars: ☀️
+  codes: '2600'
+  name: BLACK SUN WITH RAYS
+- chars: ! "\U0001F31D"
+  codes: 1F31D
+  name: FULL MOON WITH FACE
+- chars: ! "\U0001F31E"
+  codes: 1F31E
+  name: SUN WITH FACE
+- chars: ⭐️
+  codes: 2B50
+  name: WHITE MEDIUM STAR
+- chars: ! "\U0001F31F"
+  codes: 1F31F
+  name: GLOWING STAR
+- chars: ! "\U0001F320"
+  codes: 1F320
+  name: SHOOTING STAR
+- chars: ☁️
+  codes: '2601'
+  name: CLOUD
+- chars: ⛅️
+  codes: 26C5
+  name: SUN BEHIND CLOUD
+- chars: ⛈
+  codes: 26C8
+  name: THUNDER CLOUD AND RAIN
+- chars: ! "\U0001F324"
+  codes: 1F324
+  name: WHITE SUN WITH SMALL CLOUD
+- chars: ! "\U0001F325"
+  codes: 1F325
+  name: WHITE SUN BEHIND CLOUD
+- chars: ! "\U0001F326"
+  codes: 1F326
+  name: WHITE SUN BEHIND CLOUD WITH RAIN
+- chars: ! "\U0001F327"
+  codes: 1F327
+  name: CLOUD WITH RAIN
+- chars: ! "\U0001F328"
+  codes: 1F328
+  name: CLOUD WITH SNOW
+- chars: ! "\U0001F329"
+  codes: 1F329
+  name: CLOUD WITH LIGHTNING
+- chars: ! "\U0001F32A"
+  codes: 1F32A
+  name: CLOUD WITH TORNADO
+- chars: ! "\U0001F32B"
+  codes: 1F32B
+  name: FOG
+- chars: ! "\U0001F32C"
+  codes: 1F32C
+  name: WIND BLOWING FACE
+- chars: ! "\U0001F300"
+  codes: 1F300
+  name: CYCLONE
+- chars: ! "\U0001F308"
+  codes: 1F308
+  name: RAINBOW
+- chars: ! "\U0001F302"
+  codes: 1F302
+  name: CLOSED UMBRELLA
+- chars: ☂
+  codes: '2602'
+  name: UMBRELLA
+- chars: ☔️
+  codes: '2614'
+  name: UMBRELLA WITH RAIN DROPS
+- chars: ⛱
+  codes: 26F1
+  name: UMBRELLA ON GROUND
+- chars: ⚡️
+  codes: 26A1
+  name: HIGH VOLTAGE SIGN
+- chars: ❄️
+  codes: '2744'
+  name: SNOWFLAKE
+- chars: ☃
+  codes: '2603'
+  name: SNOWMAN
+- chars: ⛄️
+  codes: 26C4
+  name: SNOWMAN WITHOUT SNOW
+- chars: ☄
+  codes: '2604'
+  name: COMET
+- chars: ! "\U0001F525"
+  codes: 1F525
+  name: FIRE
+- chars: ! "\U0001F4A7"
+  codes: 1F4A7
+  name: DROPLET
+- chars: ! "\U0001F30A"
+  codes: 1F30A
+  name: WATER WAVE
+- chars: ! "\U0001F383"
+  codes: 1F383
+  name: JACK-O-LANTERN
+- chars: ! "\U0001F384"
+  codes: 1F384
+  name: CHRISTMAS TREE
+- chars: ! "\U0001F386"
+  codes: 1F386
+  name: FIREWORKS
+- chars: ! "\U0001F387"
+  codes: 1F387
+  name: FIREWORK SPARKLER
+- chars: ✨
+  codes: '2728'
+  name: SPARKLES
+- chars: ! "\U0001F388"
+  codes: 1F388
+  name: BALLOON
+- chars: ! "\U0001F389"
+  codes: 1F389
+  name: PARTY POPPER
+- chars: ! "\U0001F38A"
+  codes: 1F38A
+  name: CONFETTI BALL
+- chars: ! "\U0001F38B"
+  codes: 1F38B
+  name: TANABATA TREE
+- chars: ! "\U0001F38C"
+  codes: 1F38C
+  name: CROSSED FLAGS
+- chars: ! "\U0001F38D"
+  codes: 1F38D
+  name: PINE DECORATION
+- chars: ! "\U0001F38E"
+  codes: 1F38E
+  name: JAPANESE DOLLS
+- chars: ! "\U0001F38F"
+  codes: 1F38F
+  name: CARP STREAMER
+- chars: ! "\U0001F390"
+  codes: 1F390
+  name: WIND CHIME
+- chars: ! "\U0001F391"
+  codes: 1F391
+  name: MOON VIEWING CEREMONY
+- chars: ! "\U0001F380"
+  codes: 1F380
+  name: RIBBON
+- chars: ! "\U0001F381"
+  codes: 1F381
+  name: WRAPPED PRESENT
+- chars: ! "\U0001F396"
+  codes: 1F396
+  name: MILITARY MEDAL
+- chars: ! "\U0001F397"
+  codes: 1F397
+  name: REMINDER RIBBON
+- chars: ! "\U0001F39E"
+  codes: 1F39E
+  name: FILM FRAMES
+- chars: ! "\U0001F39F"
+  codes: 1F39F
+  name: ADMISSION TICKETS
+- chars: ! "\U0001F3AB"
+  codes: 1F3AB
+  name: TICKET
+- chars: ! "\U0001F3F7"
+  codes: 1F3F7
+  name: LABEL
+- chars: ⚽️
+  codes: 26BD
+  name: SOCCER BALL
+- chars: ⚾️
+  codes: 26BE
+  name: BASEBALL
+- chars: ! "\U0001F3C0"
+  codes: 1F3C0
+  name: BASKETBALL AND HOOP
+- chars: ! "\U0001F3C8"
+  codes: 1F3C8
+  name: AMERICAN FOOTBALL
+- chars: ! "\U0001F3C9"
+  codes: 1F3C9
+  name: RUGBY FOOTBALL
+- chars: ! "\U0001F3BE"
+  codes: 1F3BE
+  name: TENNIS RACQUET AND BALL
+- chars: ! "\U0001F3B1"
+  codes: 1F3B1
+  name: BILLIARDS
+- chars: ! "\U0001F3B3"
+  codes: 1F3B3
+  name: BOWLING
+- chars: ⛳️
+  codes: 26F3
+  name: FLAG IN HOLE
+- chars: ! "\U0001F3CC"
+  codes: 1F3CC
+  name: GOLFER
+- chars: ⛸
+  codes: 26F8
+  name: ICE SKATE
+- chars: ! "\U0001F3A3"
+  codes: 1F3A3
+  name: FISHING POLE AND FISH
+- chars: ! "\U0001F3BD"
+  codes: 1F3BD
+  name: RUNNING SHIRT WITH SASH
+- chars: ! "\U0001F3BF"
+  codes: 1F3BF
+  name: SKI AND SKI BOOT
+- chars: ⛷
+  codes: 26F7
+  name: SKIER
+- chars: ! "\U0001F3C2"
+  codes: 1F3C2
+  name: SNOWBOARDER
+- chars: ! "\U0001F3C4"
+  codes: 1F3C4
+  name: SURFER
+- chars: ! "\U0001F3C7"
+  codes: 1F3C7
+  name: HORSE RACING
+- chars: ! "\U0001F3CA"
+  codes: 1F3CA
+  name: SWIMMER
+- chars: ⛹
+  codes: 26F9
+  name: PERSON WITH BALL
+- chars: ! "\U0001F3CB"
+  codes: 1F3CB
+  name: WEIGHT LIFTER
+- chars: ! "\U0001F6B4"
+  codes: 1F6B4
+  name: BICYCLIST
+- chars: ! "\U0001F6B5"
+  codes: 1F6B5
+  name: MOUNTAIN BICYCLIST
+- chars: ! "\U0001F3CE"
+  codes: 1F3CE
+  name: RACING CAR
+- chars: ! "\U0001F3CD"
+  codes: 1F3CD
+  name: RACING MOTORCYCLE
+- chars: ! "\U0001F3C5"
+  codes: 1F3C5
+  name: SPORTS MEDAL
+- chars: ! "\U0001F3C6"
+  codes: 1F3C6
+  name: TROPHY
+- chars: ! "\U0001F3CF"
+  codes: 1F3CF
+  name: CRICKET BAT AND BALL
+- chars: ! "\U0001F3D0"
+  codes: 1F3D0
+  name: VOLLEYBALL
+- chars: ! "\U0001F3D1"
+  codes: 1F3D1
+  name: FIELD HOCKEY STICK AND BALL
+- chars: ! "\U0001F3D2"
+  codes: 1F3D2
+  name: ICE HOCKEY STICK AND PUCK
+- chars: ! "\U0001F3D3"
+  codes: 1F3D3
+  name: TABLE TENNIS PADDLE AND BALL
+- chars: ! "\U0001F3F8"
+  codes: 1F3F8
+  name: BADMINTON RACQUET AND SHUTTLECOCK
+- chars: ! "\U0001F3AF"
+  codes: 1F3AF
+  name: DIRECT HIT
+- chars: ! "\U0001F3AE"
+  codes: 1F3AE
+  name: VIDEO GAME
+- chars: ! "\U0001F579"
+  codes: 1F579
+  name: JOYSTICK
+- chars: ! "\U0001F3B2"
+  codes: 1F3B2
+  name: GAME DIE
+- chars: ♠️
+  codes: '2660'
+  name: BLACK SPADE SUIT
+- chars: ♥️
+  codes: '2665'
+  name: BLACK HEART SUIT
+- chars: ♦️
+  codes: '2666'
+  name: BLACK DIAMOND SUIT
+- chars: ♣️
+  codes: '2663'
+  name: BLACK CLUB SUIT
+- chars: ! "\U0001F0CF"
+  codes: 1F0CF
+  name: PLAYING CARD BLACK JOKER
+- chars: ! "\U0001F004️"
+  codes: 1F004
+  name: MAHJONG TILE RED DRAGON
+- chars: ! "\U0001F3B4"
+  codes: 1F3B4
+  name: FLOWER PLAYING CARDS
+- chars: ! "\U0001F507"
+  codes: 1F507
+  name: SPEAKER WITH CANCELLATION STROKE
+- chars: ! "\U0001F508"
+  codes: 1F508
+  name: SPEAKER
+- chars: ! "\U0001F509"
+  codes: 1F509
+  name: SPEAKER WITH ONE SOUND WAVE
+- chars: ! "\U0001F50A"
+  codes: 1F50A
+  name: SPEAKER WITH THREE SOUND WAVES
+- chars: ! "\U0001F4E2"
+  codes: 1F4E2
+  name: PUBLIC ADDRESS LOUDSPEAKER
+- chars: ! "\U0001F4E3"
+  codes: 1F4E3
+  name: CHEERING MEGAPHONE
+- chars: ! "\U0001F4EF"
+  codes: 1F4EF
+  name: POSTAL HORN
+- chars: ! "\U0001F514"
+  codes: 1F514
+  name: BELL
+- chars: ! "\U0001F515"
+  codes: 1F515
+  name: BELL WITH CANCELLATION STROKE
+- chars: ! "\U0001F3BC"
+  codes: 1F3BC
+  name: MUSICAL SCORE
+- chars: ! "\U0001F3B5"
+  codes: 1F3B5
+  name: MUSICAL NOTE
+- chars: ! "\U0001F3B6"
+  codes: 1F3B6
+  name: MULTIPLE MUSICAL NOTES
+- chars: ! "\U0001F399"
+  codes: 1F399
+  name: STUDIO MICROPHONE
+- chars: ! "\U0001F39A"
+  codes: 1F39A
+  name: LEVEL SLIDER
+- chars: ! "\U0001F39B"
+  codes: 1F39B
+  name: CONTROL KNOBS
+- chars: ! "\U0001F3A4"
+  codes: 1F3A4
+  name: MICROPHONE
+- chars: ! "\U0001F3A7"
+  codes: 1F3A7
+  name: HEADPHONE
+- chars: ! "\U0001F3B7"
+  codes: 1F3B7
+  name: SAXOPHONE
+- chars: ! "\U0001F3B8"
+  codes: 1F3B8
+  name: GUITAR
+- chars: ! "\U0001F3B9"
+  codes: 1F3B9
+  name: MUSICAL KEYBOARD
+- chars: ! "\U0001F3BA"
+  codes: 1F3BA
+  name: TRUMPET
+- chars: ! "\U0001F3BB"
+  codes: 1F3BB
+  name: VIOLIN
+- chars: ! "\U0001F4FB"
+  codes: 1F4FB
+  name: RADIO
+- chars: ! "\U0001F4F1"
+  codes: 1F4F1
+  name: MOBILE PHONE
+- chars: ! "\U0001F4F2"
+  codes: 1F4F2
+  name: MOBILE PHONE WITH RIGHTWARDS ARROW AT LEFT
+- chars: ☎️
+  codes: '260E'
+  name: BLACK TELEPHONE
+- chars: ! "\U0001F4DE"
+  codes: 1F4DE
+  name: TELEPHONE RECEIVER
+- chars: ! "\U0001F4DF"
+  codes: 1F4DF
+  name: PAGER
+- chars: ! "\U0001F4E0"
+  codes: 1F4E0
+  name: FAX MACHINE
+- chars: ! "\U0001F50B"
+  codes: 1F50B
+  name: BATTERY
+- chars: ! "\U0001F50C"
+  codes: 1F50C
+  name: ELECTRIC PLUG
+- chars: ! "\U0001F4BB"
+  codes: 1F4BB
+  name: PERSONAL COMPUTER
+- chars: ! "\U0001F5A5"
+  codes: 1F5A5
+  name: DESKTOP COMPUTER
+- chars: ! "\U0001F5A8"
+  codes: 1F5A8
+  name: PRINTER
+- chars: ⌨
+  codes: '2328'
+  name: KEYBOARD
+- chars: ! "\U0001F5B1"
+  codes: 1F5B1
+  name: THREE BUTTON MOUSE
+- chars: ! "\U0001F5B2"
+  codes: 1F5B2
+  name: TRACKBALL
+- chars: ! "\U0001F4BD"
+  codes: 1F4BD
+  name: MINIDISC
+- chars: ! "\U0001F4BE"
+  codes: 1F4BE
+  name: FLOPPY DISK
+- chars: ! "\U0001F4BF"
+  codes: 1F4BF
+  name: OPTICAL DISC
+- chars: ! "\U0001F4C0"
+  codes: 1F4C0
+  name: DVD
+- chars: ! "\U0001F3A5"
+  codes: 1F3A5
+  name: MOVIE CAMERA
+- chars: ! "\U0001F3AC"
+  codes: 1F3AC
+  name: CLAPPER BOARD
+- chars: ! "\U0001F4FD"
+  codes: 1F4FD
+  name: FILM PROJECTOR
+- chars: ! "\U0001F4FA"
+  codes: 1F4FA
+  name: TELEVISION
+- chars: ! "\U0001F4F7"
+  codes: 1F4F7
+  name: CAMERA
+- chars: ! "\U0001F4F8"
+  codes: 1F4F8
+  name: CAMERA WITH FLASH
+- chars: ! "\U0001F4F9"
+  codes: 1F4F9
+  name: VIDEO CAMERA
+- chars: ! "\U0001F4FC"
+  codes: 1F4FC
+  name: VIDEOCASSETTE
+- chars: ! "\U0001F50D"
+  codes: 1F50D
+  name: LEFT-POINTING MAGNIFYING GLASS
+- chars: ! "\U0001F50E"
+  codes: 1F50E
+  name: RIGHT-POINTING MAGNIFYING GLASS
+- chars: ! "\U0001F52C"
+  codes: 1F52C
+  name: MICROSCOPE
+- chars: ! "\U0001F52D"
+  codes: 1F52D
+  name: TELESCOPE
+- chars: ! "\U0001F4E1"
+  codes: 1F4E1
+  name: SATELLITE ANTENNA
+- chars: ! "\U0001F56F"
+  codes: 1F56F
+  name: CANDLE
+- chars: ! "\U0001F4A1"
+  codes: 1F4A1
+  name: ELECTRIC LIGHT BULB
+- chars: ! "\U0001F526"
+  codes: 1F526
+  name: ELECTRIC TORCH
+- chars: ! "\U0001F3EE"
+  codes: 1F3EE
+  name: IZAKAYA LANTERN
+- chars: ! "\U0001F4D4"
+  codes: 1F4D4
+  name: NOTEBOOK WITH DECORATIVE COVER
+- chars: ! "\U0001F4D5"
+  codes: 1F4D5
+  name: CLOSED BOOK
+- chars: ! "\U0001F4D6"
+  codes: 1F4D6
+  name: OPEN BOOK
+- chars: ! "\U0001F4D7"
+  codes: 1F4D7
+  name: GREEN BOOK
+- chars: ! "\U0001F4D8"
+  codes: 1F4D8
+  name: BLUE BOOK
+- chars: ! "\U0001F4D9"
+  codes: 1F4D9
+  name: ORANGE BOOK
+- chars: ! "\U0001F4DA"
+  codes: 1F4DA
+  name: BOOKS
+- chars: ! "\U0001F4D3"
+  codes: 1F4D3
+  name: NOTEBOOK
+- chars: ! "\U0001F4D2"
+  codes: 1F4D2
+  name: LEDGER
+- chars: ! "\U0001F4C3"
+  codes: 1F4C3
+  name: PAGE WITH CURL
+- chars: ! "\U0001F4DC"
+  codes: 1F4DC
+  name: SCROLL
+- chars: ! "\U0001F4C4"
+  codes: 1F4C4
+  name: PAGE FACING UP
+- chars: ! "\U0001F4F0"
+  codes: 1F4F0
+  name: NEWSPAPER
+- chars: ! "\U0001F5DE"
+  codes: 1F5DE
+  name: ROLLED-UP NEWSPAPER
+- chars: ! "\U0001F4D1"
+  codes: 1F4D1
+  name: BOOKMARK TABS
+- chars: ! "\U0001F516"
+  codes: 1F516
+  name: BOOKMARK
+- chars: ! "\U0001F4B0"
+  codes: 1F4B0
+  name: MONEY BAG
+- chars: ! "\U0001F4B4"
+  codes: 1F4B4
+  name: BANKNOTE WITH YEN SIGN
+- chars: ! "\U0001F4B5"
+  codes: 1F4B5
+  name: BANKNOTE WITH DOLLAR SIGN
+- chars: ! "\U0001F4B6"
+  codes: 1F4B6
+  name: BANKNOTE WITH EURO SIGN
+- chars: ! "\U0001F4B7"
+  codes: 1F4B7
+  name: BANKNOTE WITH POUND SIGN
+- chars: ! "\U0001F4B8"
+  codes: 1F4B8
+  name: MONEY WITH WINGS
+- chars: ! "\U0001F4B3"
+  codes: 1F4B3
+  name: CREDIT CARD
+- chars: ! "\U0001F4B9"
+  codes: 1F4B9
+  name: CHART WITH UPWARDS TREND AND YEN SIGN
+- chars: ✉️
+  codes: '2709'
+  name: ENVELOPE
+- chars: ! "\U0001F4E7"
+  codes: 1F4E7
+  name: E-MAIL SYMBOL
+- chars: ! "\U0001F4E8"
+  codes: 1F4E8
+  name: INCOMING ENVELOPE
+- chars: ! "\U0001F4E9"
+  codes: 1F4E9
+  name: ENVELOPE WITH DOWNWARDS ARROW ABOVE
+- chars: ! "\U0001F4E4"
+  codes: 1F4E4
+  name: OUTBOX TRAY
+- chars: ! "\U0001F4E5"
+  codes: 1F4E5
+  name: INBOX TRAY
+- chars: ! "\U0001F4E6"
+  codes: 1F4E6
+  name: PACKAGE
+- chars: ! "\U0001F4EB"
+  codes: 1F4EB
+  name: CLOSED MAILBOX WITH RAISED FLAG
+- chars: ! "\U0001F4EA"
+  codes: 1F4EA
+  name: CLOSED MAILBOX WITH LOWERED FLAG
+- chars: ! "\U0001F4EC"
+  codes: 1F4EC
+  name: OPEN MAILBOX WITH RAISED FLAG
+- chars: ! "\U0001F4ED"
+  codes: 1F4ED
+  name: OPEN MAILBOX WITH LOWERED FLAG
+- chars: ! "\U0001F4EE"
+  codes: 1F4EE
+  name: POSTBOX
+- chars: ! "\U0001F5F3"
+  codes: 1F5F3
+  name: BALLOT BOX WITH BALLOT
+- chars: ✏️
+  codes: 270F
+  name: PENCIL
+- chars: ✒️
+  codes: '2712'
+  name: BLACK NIB
+- chars: ! "\U0001F58B"
+  codes: 1F58B
+  name: LOWER LEFT FOUNTAIN PEN
+- chars: ! "\U0001F58A"
+  codes: 1F58A
+  name: LOWER LEFT BALLPOINT PEN
+- chars: ! "\U0001F58C"
+  codes: 1F58C
+  name: LOWER LEFT PAINTBRUSH
+- chars: ! "\U0001F58D"
+  codes: 1F58D
+  name: LOWER LEFT CRAYON
+- chars: ! "\U0001F4DD"
+  codes: 1F4DD
+  name: MEMO
+- chars: ! "\U0001F4BC"
+  codes: 1F4BC
+  name: BRIEFCASE
+- chars: ! "\U0001F4C1"
+  codes: 1F4C1
+  name: FILE FOLDER
+- chars: ! "\U0001F4C2"
+  codes: 1F4C2
+  name: OPEN FILE FOLDER
+- chars: ! "\U0001F5C2"
+  codes: 1F5C2
+  name: CARD INDEX DIVIDERS
+- chars: ! "\U0001F4C5"
+  codes: 1F4C5
+  name: CALENDAR
+- chars: ! "\U0001F4C6"
+  codes: 1F4C6
+  name: TEAR-OFF CALENDAR
+- chars: ! "\U0001F5D2"
+  codes: 1F5D2
+  name: SPIRAL NOTE PAD
+- chars: ! "\U0001F5D3"
+  codes: 1F5D3
+  name: SPIRAL CALENDAR PAD
+- chars: ! "\U0001F4C7"
+  codes: 1F4C7
+  name: CARD INDEX
+- chars: ! "\U0001F4C8"
+  codes: 1F4C8
+  name: CHART WITH UPWARDS TREND
+- chars: ! "\U0001F4C9"
+  codes: 1F4C9
+  name: CHART WITH DOWNWARDS TREND
+- chars: ! "\U0001F4CA"
+  codes: 1F4CA
+  name: BAR CHART
+- chars: ! "\U0001F4CB"
+  codes: 1F4CB
+  name: CLIPBOARD
+- chars: ! "\U0001F4CC"
+  codes: 1F4CC
+  name: PUSHPIN
+- chars: ! "\U0001F4CD"
+  codes: 1F4CD
+  name: ROUND PUSHPIN
+- chars: ! "\U0001F4CE"
+  codes: 1F4CE
+  name: PAPERCLIP
+- chars: ! "\U0001F587"
+  codes: 1F587
+  name: LINKED PAPERCLIPS
+- chars: ! "\U0001F4CF"
+  codes: 1F4CF
+  name: STRAIGHT RULER
+- chars: ! "\U0001F4D0"
+  codes: 1F4D0
+  name: TRIANGULAR RULER
+- chars: ✂️
+  codes: '2702'
+  name: BLACK SCISSORS
+- chars: ! "\U0001F5C3"
+  codes: 1F5C3
+  name: CARD FILE BOX
+- chars: ! "\U0001F5C4"
+  codes: 1F5C4
+  name: FILE CABINET
+- chars: ! "\U0001F5D1"
+  codes: 1F5D1
+  name: WASTEBASKET
+- chars: ! "\U0001F512"
+  codes: 1F512
+  name: LOCK
+- chars: ! "\U0001F513"
+  codes: 1F513
+  name: OPEN LOCK
+- chars: ! "\U0001F50F"
+  codes: 1F50F
+  name: LOCK WITH INK PEN
+- chars: ! "\U0001F510"
+  codes: 1F510
+  name: CLOSED LOCK WITH KEY
+- chars: ! "\U0001F511"
+  codes: 1F511
+  name: KEY
+- chars: ! "\U0001F5DD"
+  codes: 1F5DD
+  name: OLD KEY
+- chars: ! "\U0001F528"
+  codes: 1F528
+  name: HAMMER
+- chars: ⛏
+  codes: 26CF
+  name: PICK
+- chars: ⚒
+  codes: '2692'
+  name: HAMMER AND PICK
+- chars: ! "\U0001F6E0"
+  codes: 1F6E0
+  name: HAMMER AND WRENCH
+- chars: ! "\U0001F527"
+  codes: 1F527
+  name: WRENCH
+- chars: ! "\U0001F529"
+  codes: 1F529
+  name: NUT AND BOLT
+- chars: ⚙
+  codes: '2699'
+  name: GEAR
+- chars: ! "\U0001F5DC"
+  codes: 1F5DC
+  name: COMPRESSION
+- chars: ⚗
+  codes: '2697'
+  name: ALEMBIC
+- chars: ⚖
+  codes: '2696'
+  name: SCALES
+- chars: ! "\U0001F517"
+  codes: 1F517
+  name: LINK SYMBOL
+- chars: ⛓
+  codes: 26D3
+  name: CHAINS
+- chars: ! "\U0001F489"
+  codes: 1F489
+  name: SYRINGE
+- chars: ! "\U0001F48A"
+  codes: 1F48A
+  name: PILL
+- chars: ! "\U0001F5E1"
+  codes: 1F5E1
+  name: DAGGER KNIFE
+- chars: ! "\U0001F52A"
+  codes: 1F52A
+  name: HOCHO
+- chars: ⚔
+  codes: '2694'
+  name: CROSSED SWORDS
+- chars: ! "\U0001F52B"
+  codes: 1F52B
+  name: PISTOL
+- chars: ! "\U0001F6E1"
+  codes: 1F6E1
+  name: SHIELD
+- chars: ! "\U0001F3F9"
+  codes: 1F3F9
+  name: BOW AND ARROW
+- chars: ! "\U0001F3C1"
+  codes: 1F3C1
+  name: CHEQUERED FLAG
+- chars: ! "\U0001F3F3"
+  codes: 1F3F3
+  name: WAVING WHITE FLAG
+- chars: ! "\U0001F3F4"
+  codes: 1F3F4
+  name: WAVING BLACK FLAG
+- chars: ! "\U0001F6A9"
+  codes: 1F6A9
+  name: TRIANGULAR FLAG ON POST
+- chars: ! "\U0001F6AC"
+  codes: 1F6AC
+  name: SMOKING SYMBOL
+- chars: ⚰
+  codes: 26B0
+  name: COFFIN
+- chars: ⚱
+  codes: 26B1
+  name: FUNERAL URN
+- chars: ! "\U0001F5FF"
+  codes: 1F5FF
+  name: MOYAI
+- chars: ! "\U0001F6E2"
+  codes: 1F6E2
+  name: OIL DRUM
+- chars: ! "\U0001F52E"
+  codes: 1F52E
+  name: CRYSTAL BALL
+- chars: ! "\U0001F3E7"
+  codes: 1F3E7
+  name: AUTOMATED TELLER MACHINE
+- chars: ! "\U0001F6AE"
+  codes: 1F6AE
+  name: PUT LITTER IN ITS PLACE SYMBOL
+- chars: ! "\U0001F6B0"
+  codes: 1F6B0
+  name: POTABLE WATER SYMBOL
+- chars: ♿️
+  codes: 267F
+  name: WHEELCHAIR SYMBOL
+- chars: ! "\U0001F6B9"
+  codes: 1F6B9
+  name: MENS SYMBOL
+- chars: ! "\U0001F6BA"
+  codes: 1F6BA
+  name: WOMENS SYMBOL
+- chars: ! "\U0001F6BB"
+  codes: 1F6BB
+  name: RESTROOM
+- chars: ! "\U0001F6BC"
+  codes: 1F6BC
+  name: BABY SYMBOL
+- chars: ! "\U0001F6BE"
+  codes: 1F6BE
+  name: WATER CLOSET
+- chars: ! "\U0001F6C2"
+  codes: 1F6C2
+  name: PASSPORT CONTROL
+- chars: ! "\U0001F6C3"
+  codes: 1F6C3
+  name: CUSTOMS
+- chars: ! "\U0001F6C4"
+  codes: 1F6C4
+  name: BAGGAGE CLAIM
+- chars: ! "\U0001F6C5"
+  codes: 1F6C5
+  name: LEFT LUGGAGE
+- chars: ⚠️
+  codes: 26A0
+  name: WARNING SIGN
+- chars: ! "\U0001F6B8"
+  codes: 1F6B8
+  name: CHILDREN CROSSING
+- chars: ⛔️
+  codes: 26D4
+  name: NO ENTRY
+- chars: ! "\U0001F6AB"
+  codes: 1F6AB
+  name: NO ENTRY SIGN
+- chars: ! "\U0001F6B3"
+  codes: 1F6B3
+  name: NO BICYCLES
+- chars: ! "\U0001F6AD"
+  codes: 1F6AD
+  name: NO SMOKING SYMBOL
+- chars: ! "\U0001F6AF"
+  codes: 1F6AF
+  name: DO NOT LITTER SYMBOL
+- chars: ! "\U0001F6B1"
+  codes: 1F6B1
+  name: NON-POTABLE WATER SYMBOL
+- chars: ! "\U0001F6B7"
+  codes: 1F6B7
+  name: NO PEDESTRIANS
+- chars: ☢
+  codes: '2622'
+  name: RADIOACTIVE SIGN
+- chars: ☣
+  codes: '2623'
+  name: BIOHAZARD SIGN
+- chars: ⬆️
+  codes: 2B06
+  name: UPWARDS BLACK ARROW
+- chars: ↗️
+  codes: '2197'
+  name: NORTH EAST ARROW
+- chars: ➡️
+  codes: 27A1
+  name: BLACK RIGHTWARDS ARROW
+- chars: ↘️
+  codes: '2198'
+  name: SOUTH EAST ARROW
+- chars: ⬇️
+  codes: 2B07
+  name: DOWNWARDS BLACK ARROW
+- chars: ↙️
+  codes: '2199'
+  name: SOUTH WEST ARROW
+- chars: ⬅️
+  codes: 2B05
+  name: LEFTWARDS BLACK ARROW
+- chars: ↖️
+  codes: '2196'
+  name: NORTH WEST ARROW
+- chars: ↕️
+  codes: '2195'
+  name: UP DOWN ARROW
+- chars: ↔️
+  codes: '2194'
+  name: LEFT RIGHT ARROW
+- chars: ↩️
+  codes: 21A9
+  name: LEFTWARDS ARROW WITH HOOK
+- chars: ↪️
+  codes: 21AA
+  name: RIGHTWARDS ARROW WITH HOOK
+- chars: ⤴️
+  codes: '2934'
+  name: ARROW POINTING RIGHTWARDS THEN CURVING UPWARDS
+- chars: ⤵️
+  codes: '2935'
+  name: ARROW POINTING RIGHTWARDS THEN CURVING DOWNWARDS
+- chars: ! "\U0001F503"
+  codes: 1F503
+  name: CLOCKWISE DOWNWARDS AND UPWARDS OPEN CIRCLE ARROWS
+- chars: ! "\U0001F504"
+  codes: 1F504
+  name: ANTICLOCKWISE DOWNWARDS AND UPWARDS OPEN CIRCLE ARROWS
+- chars: ! "\U0001F519"
+  codes: 1F519
+  name: BACK WITH LEFTWARDS ARROW ABOVE
+- chars: ! "\U0001F51A"
+  codes: 1F51A
+  name: END WITH LEFTWARDS ARROW ABOVE
+- chars: ! "\U0001F51B"
+  codes: 1F51B
+  name: ON WITH EXCLAMATION MARK WITH LEFT RIGHT ARROW ABOVE
+- chars: ! "\U0001F51C"
+  codes: 1F51C
+  name: SOON WITH RIGHTWARDS ARROW ABOVE
+- chars: ! "\U0001F51D"
+  codes: 1F51D
+  name: TOP WITH UPWARDS ARROW ABOVE
+- chars: ! "\U0001F6D0"
+  codes: 1F6D0
+  name: PLACE OF WORSHIP
+- chars: ⚛
+  codes: 269B
+  name: ATOM SYMBOL
+- chars: ! "\U0001F549"
+  codes: 1F549
+  name: OM SYMBOL
+- chars: ✡
+  codes: '2721'
+  name: STAR OF DAVID
+- chars: ☸
+  codes: '2638'
+  name: WHEEL OF DHARMA
+- chars: ☯
+  codes: 262F
+  name: YIN YANG
+- chars: ✝
+  codes: 271D
+  name: LATIN CROSS
+- chars: ☦
+  codes: '2626'
+  name: ORTHODOX CROSS
+- chars: ☪
+  codes: 262A
+  name: STAR AND CRESCENT
+- chars: ☮
+  codes: '262E'
+  name: PEACE SYMBOL
+- chars: ! "\U0001F54E"
+  codes: 1F54E
+  name: MENORAH WITH NINE BRANCHES
+- chars: ! "\U0001F52F"
+  codes: 1F52F
+  name: SIX POINTED STAR WITH MIDDLE DOT
+- chars: ♻️
+  codes: 267B
+  name: BLACK UNIVERSAL RECYCLING SYMBOL
+- chars: ! "\U0001F4DB"
+  codes: 1F4DB
+  name: NAME BADGE
+- chars: ⚜
+  codes: 269C
+  name: FLEUR-DE-LIS
+- chars: ! "\U0001F530"
+  codes: 1F530
+  name: JAPANESE SYMBOL FOR BEGINNER
+- chars: ! "\U0001F531"
+  codes: 1F531
+  name: TRIDENT EMBLEM
+- chars: ⭕️
+  codes: 2B55
+  name: HEAVY LARGE CIRCLE
+- chars: ✅
+  codes: '2705'
+  name: WHITE HEAVY CHECK MARK
+- chars: ☑️
+  codes: '2611'
+  name: BALLOT BOX WITH CHECK
+- chars: ✔️
+  codes: '2714'
+  name: HEAVY CHECK MARK
+- chars: ✖️
+  codes: '2716'
+  name: HEAVY MULTIPLICATION X
+- chars: ❌
+  codes: 274C
+  name: CROSS MARK
+- chars: ❎
+  codes: '274E'
+  name: NEGATIVE SQUARED CROSS MARK
+- chars: ➕
+  codes: '2795'
+  name: HEAVY PLUS SIGN
+- chars: ➖
+  codes: '2796'
+  name: HEAVY MINUS SIGN
+- chars: ➗
+  codes: '2797'
+  name: HEAVY DIVISION SIGN
+- chars: ➰
+  codes: 27B0
+  name: CURLY LOOP
+- chars: ➿
+  codes: 27BF
+  name: DOUBLE CURLY LOOP
+- chars: 〽️
+  codes: 303D
+  name: PART ALTERNATION MARK
+- chars: ✳️
+  codes: '2733'
+  name: EIGHT SPOKED ASTERISK
+- chars: ✴️
+  codes: '2734'
+  name: EIGHT POINTED BLACK STAR
+- chars: ❇️
+  codes: '2747'
+  name: SPARKLE
+- chars: ! "\U0001F4B1"
+  codes: 1F4B1
+  name: CURRENCY EXCHANGE
+- chars: ! "\U0001F4B2"
+  codes: 1F4B2
+  name: HEAVY DOLLAR SIGN
+- chars: ‼️
+  codes: 203C
+  name: DOUBLE EXCLAMATION MARK
+- chars: ⁉️
+  codes: '2049'
+  name: EXCLAMATION QUESTION MARK
+- chars: ❓
+  codes: '2753'
+  name: BLACK QUESTION MARK ORNAMENT
+- chars: ❔
+  codes: '2754'
+  name: WHITE QUESTION MARK ORNAMENT
+- chars: ❕
+  codes: '2755'
+  name: WHITE EXCLAMATION MARK ORNAMENT
+- chars: ❗️
+  codes: '2757'
+  name: HEAVY EXCLAMATION MARK SYMBOL
+- chars: 〰️
+  codes: '3030'
+  name: WAVY DASH
+- chars: ©️
+  codes: 00A9
+  name: COPYRIGHT SIGN
+- chars: ®️
+  codes: 00AE
+  name: REGISTERED SIGN
+- chars: ™️
+  codes: '2122'
+  name: TRADE MARK SIGN
+- chars: ♈️
+  codes: '2648'
+  name: ARIES
+- chars: ♉️
+  codes: '2649'
+  name: TAURUS
+- chars: ♊️
+  codes: 264A
+  name: GEMINI
+- chars: ♋️
+  codes: 264B
+  name: CANCER
+- chars: ♌️
+  codes: 264C
+  name: LEO
+- chars: ♍️
+  codes: 264D
+  name: VIRGO
+- chars: ♎️
+  codes: '264E'
+  name: LIBRA
+- chars: ♏️
+  codes: 264F
+  name: SCORPIUS
+- chars: ♐️
+  codes: '2650'
+  name: SAGITTARIUS
+- chars: ♑️
+  codes: '2651'
+  name: CAPRICORN
+- chars: ♒️
+  codes: '2652'
+  name: AQUARIUS
+- chars: ♓️
+  codes: '2653'
+  name: PISCES
+- chars: ⛎
+  codes: 26CE
+  name: OPHIUCHUS
+- chars: ! "\U0001F500"
+  codes: 1F500
+  name: TWISTED RIGHTWARDS ARROWS
+- chars: ! "\U0001F501"
+  codes: 1F501
+  name: CLOCKWISE RIGHTWARDS AND LEFTWARDS OPEN CIRCLE ARROWS
+- chars: ! "\U0001F502"
+  codes: 1F502
+  name: CLOCKWISE RIGHTWARDS AND LEFTWARDS OPEN CIRCLE ARROWS WITH CIRCLED ONE OVERLAY
+- chars: ▶️
+  codes: 25B6
+  name: BLACK RIGHT-POINTING TRIANGLE
+- chars: ⏩
+  codes: '23E9'
+  name: BLACK RIGHT-POINTING DOUBLE TRIANGLE
+- chars: ⏭
+  codes: 23ED
+  name: BLACK RIGHT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR
+- chars: ⏯
+  codes: 23EF
+  name: BLACK RIGHT-POINTING TRIANGLE WITH DOUBLE VERTICAL BAR
+- chars: ◀️
+  codes: 25C0
+  name: BLACK LEFT-POINTING TRIANGLE
+- chars: ⏪
+  codes: 23EA
+  name: BLACK LEFT-POINTING DOUBLE TRIANGLE
+- chars: ⏮
+  codes: '23EE'
+  name: BLACK LEFT-POINTING DOUBLE TRIANGLE WITH VERTICAL BAR
+- chars: ! "\U0001F53C"
+  codes: 1F53C
+  name: UP-POINTING SMALL RED TRIANGLE
+- chars: ⏫
+  codes: 23EB
+  name: BLACK UP-POINTING DOUBLE TRIANGLE
+- chars: ! "\U0001F53D"
+  codes: 1F53D
+  name: DOWN-POINTING SMALL RED TRIANGLE
+- chars: ⏬
+  codes: 23EC
+  name: BLACK DOWN-POINTING DOUBLE TRIANGLE
+- chars: ⏸
+  codes: 23F8
+  name: DOUBLE VERTICAL BAR
+- chars: ⏹
+  codes: 23F9
+  name: BLACK SQUARE FOR STOP
+- chars: ⏺
+  codes: 23FA
+  name: BLACK CIRCLE FOR RECORD
+- chars: ⏏
+  codes: 23CF
+  name: EJECT SYMBOL
+- chars: ! "\U0001F3A6"
+  codes: 1F3A6
+  name: CINEMA
+- chars: ! "\U0001F505"
+  codes: 1F505
+  name: LOW BRIGHTNESS SYMBOL
+- chars: ! "\U0001F506"
+  codes: 1F506
+  name: HIGH BRIGHTNESS SYMBOL
+- chars: ! "\U0001F4F6"
+  codes: 1F4F6
+  name: ANTENNA WITH BARS
+- chars: ! "\U0001F4F5"
+  codes: 1F4F5
+  name: NO MOBILE PHONES
+- chars: ! "\U0001F4F3"
+  codes: 1F4F3
+  name: VIBRATION MODE
+- chars: ! "\U0001F4F4"
+  codes: 1F4F4
+  name: MOBILE PHONE OFF
+- chars: ! '#'
+  codes: 0023 20E3
+  name: Keycap NUMBER SIGN
+- chars: ! '*⃣'
+  codes: 002A 20E3
+  name: Keycap ASTERISK
+- chars: '0'
+  codes: 0030 20E3
+  name: Keycap DIGIT ZERO
+- chars: '1'
+  codes: 0031 20E3
+  name: Keycap DIGIT ONE
+- chars: '2'
+  codes: 0032 20E3
+  name: Keycap DIGIT TWO
+- chars: '3'
+  codes: 0033 20E3
+  name: Keycap DIGIT THREE
+- chars: '4'
+  codes: 0034 20E3
+  name: Keycap DIGIT FOUR
+- chars: '5'
+  codes: 0035 20E3
+  name: Keycap DIGIT FIVE
+- chars: '6'
+  codes: 0036 20E3
+  name: Keycap DIGIT SIX
+- chars: '7'
+  codes: 0037 20E3
+  name: Keycap DIGIT SEVEN
+- chars: '8'
+  codes: 0038 20E3
+  name: Keycap DIGIT EIGHT
+- chars: '9'
+  codes: 0039 20E3
+  name: Keycap DIGIT NINE
+- chars: ! "\U0001F51F"
+  codes: 1F51F
+  name: KEYCAP TEN
+- chars: ! "\U0001F4AF"
+  codes: 1F4AF
+  name: HUNDRED POINTS SYMBOL
+- chars: ! "\U0001F51E"
+  codes: 1F51E
+  name: NO ONE UNDER EIGHTEEN SYMBOL
+- chars: ! "\U0001F520"
+  codes: 1F520
+  name: INPUT SYMBOL FOR LATIN CAPITAL LETTERS
+- chars: ! "\U0001F521"
+  codes: 1F521
+  name: INPUT SYMBOL FOR LATIN SMALL LETTERS
+- chars: ! "\U0001F522"
+  codes: 1F522
+  name: INPUT SYMBOL FOR NUMBERS
+- chars: ! "\U0001F523"
+  codes: 1F523
+  name: INPUT SYMBOL FOR SYMBOLS
+- chars: ! "\U0001F524"
+  codes: 1F524
+  name: INPUT SYMBOL FOR LATIN LETTERS
+- chars: ! "\U0001F170️"
+  codes: 1F170
+  name: NEGATIVE SQUARED LATIN CAPITAL LETTER A
+- chars: ! "\U0001F18E"
+  codes: 1F18E
+  name: NEGATIVE SQUARED AB
+- chars: ! "\U0001F171️"
+  codes: 1F171
+  name: NEGATIVE SQUARED LATIN CAPITAL LETTER B
+- chars: ! "\U0001F191"
+  codes: 1F191
+  name: SQUARED CL
+- chars: ! "\U0001F192"
+  codes: 1F192
+  name: SQUARED COOL
+- chars: ! "\U0001F193"
+  codes: 1F193
+  name: SQUARED FREE
+- chars: ℹ️
+  codes: '2139'
+  name: INFORMATION SOURCE
+- chars: ! "\U0001F194"
+  codes: 1F194
+  name: SQUARED ID
+- chars: Ⓜ️
+  codes: 24C2
+  name: CIRCLED LATIN CAPITAL LETTER M
+- chars: ! "\U0001F195"
+  codes: 1F195
+  name: SQUARED NEW
+- chars: ! "\U0001F196"
+  codes: 1F196
+  name: SQUARED NG
+- chars: ! "\U0001F17E️"
+  codes: 1F17E
+  name: NEGATIVE SQUARED LATIN CAPITAL LETTER O
+- chars: ! "\U0001F197"
+  codes: 1F197
+  name: SQUARED OK
+- chars: ! "\U0001F17F️"
+  codes: 1F17F
+  name: NEGATIVE SQUARED LATIN CAPITAL LETTER P
+- chars: ! "\U0001F198"
+  codes: 1F198
+  name: SQUARED SOS
+- chars: ! "\U0001F199"
+  codes: 1F199
+  name: SQUARED UP WITH EXCLAMATION MARK
+- chars: ! "\U0001F19A"
+  codes: 1F19A
+  name: SQUARED VS
+- chars: ! "\U0001F201"
+  codes: 1F201
+  name: SQUARED KATAKANA KOKO
+- chars: ! "\U0001F202️"
+  codes: 1F202
+  name: SQUARED KATAKANA SA
+- chars: ! "\U0001F237️"
+  codes: 1F237
+  name: SQUARED CJK UNIFIED IDEOGRAPH-6708
+- chars: ! "\U0001F236"
+  codes: 1F236
+  name: SQUARED CJK UNIFIED IDEOGRAPH-6709
+- chars: ! "\U0001F22F️"
+  codes: 1F22F
+  name: SQUARED CJK UNIFIED IDEOGRAPH-6307
+- chars: ! "\U0001F250"
+  codes: 1F250
+  name: CIRCLED IDEOGRAPH ADVANTAGE
+- chars: ! "\U0001F239"
+  codes: 1F239
+  name: SQUARED CJK UNIFIED IDEOGRAPH-5272
+- chars: ! "\U0001F21A️"
+  codes: 1F21A
+  name: SQUARED CJK UNIFIED IDEOGRAPH-7121
+- chars: ! "\U0001F232"
+  codes: 1F232
+  name: SQUARED CJK UNIFIED IDEOGRAPH-7981
+- chars: ! "\U0001F251"
+  codes: 1F251
+  name: CIRCLED IDEOGRAPH ACCEPT
+- chars: ! "\U0001F238"
+  codes: 1F238
+  name: SQUARED CJK UNIFIED IDEOGRAPH-7533
+- chars: ! "\U0001F234"
+  codes: 1F234
+  name: SQUARED CJK UNIFIED IDEOGRAPH-5408
+- chars: ! "\U0001F233"
+  codes: 1F233
+  name: SQUARED CJK UNIFIED IDEOGRAPH-7A7A
+- chars: ㊗️
+  codes: '3297'
+  name: CIRCLED IDEOGRAPH CONGRATULATION
+- chars: ㊙️
+  codes: '3299'
+  name: CIRCLED IDEOGRAPH SECRET
+- chars: ! "\U0001F23A"
+  codes: 1F23A
+  name: SQUARED CJK UNIFIED IDEOGRAPH-55B6
+- chars: ! "\U0001F235"
+  codes: 1F235
+  name: SQUARED CJK UNIFIED IDEOGRAPH-6E80
+- chars: ▪️
+  codes: 25AA
+  name: BLACK SMALL SQUARE
+- chars: ▫️
+  codes: 25AB
+  name: WHITE SMALL SQUARE
+- chars: ◻️
+  codes: 25FB
+  name: WHITE MEDIUM SQUARE
+- chars: ◼️
+  codes: 25FC
+  name: BLACK MEDIUM SQUARE
+- chars: ◽️
+  codes: 25FD
+  name: WHITE MEDIUM SMALL SQUARE
+- chars: ◾️
+  codes: 25FE
+  name: BLACK MEDIUM SMALL SQUARE
+- chars: ⬛️
+  codes: 2B1B
+  name: BLACK LARGE SQUARE
+- chars: ⬜️
+  codes: 2B1C
+  name: WHITE LARGE SQUARE
+- chars: ! "\U0001F536"
+  codes: 1F536
+  name: LARGE ORANGE DIAMOND
+- chars: ! "\U0001F537"
+  codes: 1F537
+  name: LARGE BLUE DIAMOND
+- chars: ! "\U0001F538"
+  codes: 1F538
+  name: SMALL ORANGE DIAMOND
+- chars: ! "\U0001F539"
+  codes: 1F539
+  name: SMALL BLUE DIAMOND
+- chars: ! "\U0001F53A"
+  codes: 1F53A
+  name: UP-POINTING RED TRIANGLE
+- chars: ! "\U0001F53B"
+  codes: 1F53B
+  name: DOWN-POINTING RED TRIANGLE
+- chars: ! "\U0001F4A0"
+  codes: 1F4A0
+  name: DIAMOND SHAPE WITH A DOT INSIDE
+- chars: ! "\U0001F518"
+  codes: 1F518
+  name: RADIO BUTTON
+- chars: ! "\U0001F532"
+  codes: 1F532
+  name: BLACK SQUARE BUTTON
+- chars: ! "\U0001F533"
+  codes: 1F533
+  name: WHITE SQUARE BUTTON
+- chars: ⚪️
+  codes: 26AA
+  name: MEDIUM WHITE CIRCLE
+- chars: ⚫️
+  codes: 26AB
+  name: MEDIUM BLACK CIRCLE
+- chars: ! "\U0001F534"
+  codes: 1F534
+  name: LARGE RED CIRCLE
+- chars: ! "\U0001F535"
+  codes: 1F535
+  name: LARGE BLUE CIRCLE
+- chars: ! "\U0001F1E6\U0001F1E8"
+  codes: 1F1E6 1F1E8
+  name: Flag for Ascension Island
+- chars: ! "\U0001F1E6\U0001F1E9"
+  codes: 1F1E6 1F1E9
+  name: Flag for Andorra
+- chars: ! "\U0001F1E6\U0001F1EA"
+  codes: 1F1E6 1F1EA
+  name: Flag for United Arab Emirates
+- chars: ! "\U0001F1E6\U0001F1EB"
+  codes: 1F1E6 1F1EB
+  name: Flag for Afghanistan
+- chars: ! "\U0001F1E6\U0001F1EC"
+  codes: 1F1E6 1F1EC
+  name: Flag for Antigua & Barbuda
+- chars: ! "\U0001F1E6\U0001F1EE"
+  codes: 1F1E6 1F1EE
+  name: Flag for Anguilla
+- chars: ! "\U0001F1E6\U0001F1F1"
+  codes: 1F1E6 1F1F1
+  name: Flag for Albania
+- chars: ! "\U0001F1E6\U0001F1F2"
+  codes: 1F1E6 1F1F2
+  name: Flag for Armenia
+- chars: ! "\U0001F1E6\U0001F1F4"
+  codes: 1F1E6 1F1F4
+  name: Flag for Angola
+- chars: ! "\U0001F1E6\U0001F1F6"
+  codes: 1F1E6 1F1F6
+  name: Flag for Antarctica
+- chars: ! "\U0001F1E6\U0001F1F7"
+  codes: 1F1E6 1F1F7
+  name: Flag for Argentina
+- chars: ! "\U0001F1E6\U0001F1F8"
+  codes: 1F1E6 1F1F8
+  name: Flag for American Samoa
+- chars: ! "\U0001F1E6\U0001F1F9"
+  codes: 1F1E6 1F1F9
+  name: Flag for Austria
+- chars: ! "\U0001F1E6\U0001F1FA"
+  codes: 1F1E6 1F1FA
+  name: Flag for Australia
+- chars: ! "\U0001F1E6\U0001F1FC"
+  codes: 1F1E6 1F1FC
+  name: Flag for Aruba
+- chars: ! "\U0001F1E6\U0001F1FD"
+  codes: 1F1E6 1F1FD
+  name: Flag for Åland Islands
+- chars: ! "\U0001F1E6\U0001F1FF"
+  codes: 1F1E6 1F1FF
+  name: Flag for Azerbaijan
+- chars: ! "\U0001F1E7\U0001F1E6"
+  codes: 1F1E7 1F1E6
+  name: Flag for Bosnia & Herzegovina
+- chars: ! "\U0001F1E7\U0001F1E7"
+  codes: 1F1E7 1F1E7
+  name: Flag for Barbados
+- chars: ! "\U0001F1E7\U0001F1E9"
+  codes: 1F1E7 1F1E9
+  name: Flag for Bangladesh
+- chars: ! "\U0001F1E7\U0001F1EA"
+  codes: 1F1E7 1F1EA
+  name: Flag for Belgium
+- chars: ! "\U0001F1E7\U0001F1EB"
+  codes: 1F1E7 1F1EB
+  name: Flag for Burkina Faso
+- chars: ! "\U0001F1E7\U0001F1EC"
+  codes: 1F1E7 1F1EC
+  name: Flag for Bulgaria
+- chars: ! "\U0001F1E7\U0001F1ED"
+  codes: 1F1E7 1F1ED
+  name: Flag for Bahrain
+- chars: ! "\U0001F1E7\U0001F1EE"
+  codes: 1F1E7 1F1EE
+  name: Flag for Burundi
+- chars: ! "\U0001F1E7\U0001F1EF"
+  codes: 1F1E7 1F1EF
+  name: Flag for Benin
+- chars: ! "\U0001F1E7\U0001F1F1"
+  codes: 1F1E7 1F1F1
+  name: Flag for St. Barthélemy
+- chars: ! "\U0001F1E7\U0001F1F2"
+  codes: 1F1E7 1F1F2
+  name: Flag for Bermuda
+- chars: ! "\U0001F1E7\U0001F1F3"
+  codes: 1F1E7 1F1F3
+  name: Flag for Brunei
+- chars: ! "\U0001F1E7\U0001F1F4"
+  codes: 1F1E7 1F1F4
+  name: Flag for Bolivia
+- chars: ! "\U0001F1E7\U0001F1F6"
+  codes: 1F1E7 1F1F6
+  name: Flag for Caribbean Netherlands
+- chars: ! "\U0001F1E7\U0001F1F7"
+  codes: 1F1E7 1F1F7
+  name: Flag for Brazil
+- chars: ! "\U0001F1E7\U0001F1F8"
+  codes: 1F1E7 1F1F8
+  name: Flag for Bahamas
+- chars: ! "\U0001F1E7\U0001F1F9"
+  codes: 1F1E7 1F1F9
+  name: Flag for Bhutan
+- chars: ! "\U0001F1E7\U0001F1FB"
+  codes: 1F1E7 1F1FB
+  name: Flag for Bouvet Island
+- chars: ! "\U0001F1E7\U0001F1FC"
+  codes: 1F1E7 1F1FC
+  name: Flag for Botswana
+- chars: ! "\U0001F1E7\U0001F1FE"
+  codes: 1F1E7 1F1FE
+  name: Flag for Belarus
+- chars: ! "\U0001F1E7\U0001F1FF"
+  codes: 1F1E7 1F1FF
+  name: Flag for Belize
+- chars: ! "\U0001F1E8\U0001F1E6"
+  codes: 1F1E8 1F1E6
+  name: Flag for Canada
+- chars: ! "\U0001F1E8\U0001F1E8"
+  codes: 1F1E8 1F1E8
+  name: Flag for Cocos Islands
+- chars: ! "\U0001F1E8\U0001F1E9"
+  codes: 1F1E8 1F1E9
+  name: Flag for Congo - Kinshasa
+- chars: ! "\U0001F1E8\U0001F1EB"
+  codes: 1F1E8 1F1EB
+  name: Flag for Central African Republic
+- chars: ! "\U0001F1E8\U0001F1EC"
+  codes: 1F1E8 1F1EC
+  name: Flag for Congo - Brazzaville
+- chars: ! "\U0001F1E8\U0001F1ED"
+  codes: 1F1E8 1F1ED
+  name: Flag for Switzerland
+- chars: ! "\U0001F1E8\U0001F1EE"
+  codes: 1F1E8 1F1EE
+  name: Flag for Côte d’Ivoire
+- chars: ! "\U0001F1E8\U0001F1F0"
+  codes: 1F1E8 1F1F0
+  name: Flag for Cook Islands
+- chars: ! "\U0001F1E8\U0001F1F1"
+  codes: 1F1E8 1F1F1
+  name: Flag for Chile
+- chars: ! "\U0001F1E8\U0001F1F2"
+  codes: 1F1E8 1F1F2
+  name: Flag for Cameroon
+- chars: ! "\U0001F1E8\U0001F1F3"
+  codes: 1F1E8 1F1F3
+  name: Flag for China
+- chars: ! "\U0001F1E8\U0001F1F4"
+  codes: 1F1E8 1F1F4
+  name: Flag for Colombia
+- chars: ! "\U0001F1E8\U0001F1F5"
+  codes: 1F1E8 1F1F5
+  name: Flag for Clipperton Island
+- chars: ! "\U0001F1E8\U0001F1F7"
+  codes: 1F1E8 1F1F7
+  name: Flag for Costa Rica
+- chars: ! "\U0001F1E8\U0001F1FA"
+  codes: 1F1E8 1F1FA
+  name: Flag for Cuba
+- chars: ! "\U0001F1E8\U0001F1FB"
+  codes: 1F1E8 1F1FB
+  name: Flag for Cape Verde
+- chars: ! "\U0001F1E8\U0001F1FC"
+  codes: 1F1E8 1F1FC
+  name: Flag for Curaçao
+- chars: ! "\U0001F1E8\U0001F1FD"
+  codes: 1F1E8 1F1FD
+  name: Flag for Christmas Island
+- chars: ! "\U0001F1E8\U0001F1FE"
+  codes: 1F1E8 1F1FE
+  name: Flag for Cyprus
+- chars: ! "\U0001F1E8\U0001F1FF"
+  codes: 1F1E8 1F1FF
+  name: Flag for Czech Republic
+- chars: ! "\U0001F1E9\U0001F1EA"
+  codes: 1F1E9 1F1EA
+  name: Flag for Germany
+- chars: ! "\U0001F1E9\U0001F1EC"
+  codes: 1F1E9 1F1EC
+  name: Flag for Diego Garcia
+- chars: ! "\U0001F1E9\U0001F1EF"
+  codes: 1F1E9 1F1EF
+  name: Flag for Djibouti
+- chars: ! "\U0001F1E9\U0001F1F0"
+  codes: 1F1E9 1F1F0
+  name: Flag for Denmark
+- chars: ! "\U0001F1E9\U0001F1F2"
+  codes: 1F1E9 1F1F2
+  name: Flag for Dominica
+- chars: ! "\U0001F1E9\U0001F1F4"
+  codes: 1F1E9 1F1F4
+  name: Flag for Dominican Republic
+- chars: ! "\U0001F1E9\U0001F1FF"
+  codes: 1F1E9 1F1FF
+  name: Flag for Algeria
+- chars: ! "\U0001F1EA\U0001F1E6"
+  codes: 1F1EA 1F1E6
+  name: Flag for Ceuta & Melilla
+- chars: ! "\U0001F1EA\U0001F1E8"
+  codes: 1F1EA 1F1E8
+  name: Flag for Ecuador
+- chars: ! "\U0001F1EA\U0001F1EA"
+  codes: 1F1EA 1F1EA
+  name: Flag for Estonia
+- chars: ! "\U0001F1EA\U0001F1EC"
+  codes: 1F1EA 1F1EC
+  name: Flag for Egypt
+- chars: ! "\U0001F1EA\U0001F1ED"
+  codes: 1F1EA 1F1ED
+  name: Flag for Western Sahara
+- chars: ! "\U0001F1EA\U0001F1F7"
+  codes: 1F1EA 1F1F7
+  name: Flag for Eritrea
+- chars: ! "\U0001F1EA\U0001F1F8"
+  codes: 1F1EA 1F1F8
+  name: Flag for Spain
+- chars: ! "\U0001F1EA\U0001F1F9"
+  codes: 1F1EA 1F1F9
+  name: Flag for Ethiopia
+- chars: ! "\U0001F1EA\U0001F1FA"
+  codes: 1F1EA 1F1FA
+  name: Flag for European Union
+- chars: ! "\U0001F1EB\U0001F1EE"
+  codes: 1F1EB 1F1EE
+  name: Flag for Finland
+- chars: ! "\U0001F1EB\U0001F1EF"
+  codes: 1F1EB 1F1EF
+  name: Flag for Fiji
+- chars: ! "\U0001F1EB\U0001F1F0"
+  codes: 1F1EB 1F1F0
+  name: Flag for Falkland Islands
+- chars: ! "\U0001F1EB\U0001F1F2"
+  codes: 1F1EB 1F1F2
+  name: Flag for Micronesia
+- chars: ! "\U0001F1EB\U0001F1F4"
+  codes: 1F1EB 1F1F4
+  name: Flag for Faroe Islands
+- chars: ! "\U0001F1EB\U0001F1F7"
+  codes: 1F1EB 1F1F7
+  name: Flag for France
+- chars: ! "\U0001F1EC\U0001F1E6"
+  codes: 1F1EC 1F1E6
+  name: Flag for Gabon
+- chars: ! "\U0001F1EC\U0001F1E7"
+  codes: 1F1EC 1F1E7
+  name: Flag for United Kingdom
+- chars: ! "\U0001F1EC\U0001F1E9"
+  codes: 1F1EC 1F1E9
+  name: Flag for Grenada
+- chars: ! "\U0001F1EC\U0001F1EA"
+  codes: 1F1EC 1F1EA
+  name: Flag for Georgia
+- chars: ! "\U0001F1EC\U0001F1EB"
+  codes: 1F1EC 1F1EB
+  name: Flag for French Guiana
+- chars: ! "\U0001F1EC\U0001F1EC"
+  codes: 1F1EC 1F1EC
+  name: Flag for Guernsey
+- chars: ! "\U0001F1EC\U0001F1ED"
+  codes: 1F1EC 1F1ED
+  name: Flag for Ghana
+- chars: ! "\U0001F1EC\U0001F1EE"
+  codes: 1F1EC 1F1EE
+  name: Flag for Gibraltar
+- chars: ! "\U0001F1EC\U0001F1F1"
+  codes: 1F1EC 1F1F1
+  name: Flag for Greenland
+- chars: ! "\U0001F1EC\U0001F1F2"
+  codes: 1F1EC 1F1F2
+  name: Flag for Gambia
+- chars: ! "\U0001F1EC\U0001F1F3"
+  codes: 1F1EC 1F1F3
+  name: Flag for Guinea
+- chars: ! "\U0001F1EC\U0001F1F5"
+  codes: 1F1EC 1F1F5
+  name: Flag for Guadeloupe
+- chars: ! "\U0001F1EC\U0001F1F6"
+  codes: 1F1EC 1F1F6
+  name: Flag for Equatorial Guinea
+- chars: ! "\U0001F1EC\U0001F1F7"
+  codes: 1F1EC 1F1F7
+  name: Flag for Greece
+- chars: ! "\U0001F1EC\U0001F1F8"
+  codes: 1F1EC 1F1F8
+  name: Flag for South Georgia & South Sandwich Islands
+- chars: ! "\U0001F1EC\U0001F1F9"
+  codes: 1F1EC 1F1F9
+  name: Flag for Guatemala
+- chars: ! "\U0001F1EC\U0001F1FA"
+  codes: 1F1EC 1F1FA
+  name: Flag for Guam
+- chars: ! "\U0001F1EC\U0001F1FC"
+  codes: 1F1EC 1F1FC
+  name: Flag for Guinea-Bissau
+- chars: ! "\U0001F1EC\U0001F1FE"
+  codes: 1F1EC 1F1FE
+  name: Flag for Guyana
+- chars: ! "\U0001F1ED\U0001F1F0"
+  codes: 1F1ED 1F1F0
+  name: Flag for Hong Kong
+- chars: ! "\U0001F1ED\U0001F1F2"
+  codes: 1F1ED 1F1F2
+  name: Flag for Heard & McDonald Islands
+- chars: ! "\U0001F1ED\U0001F1F3"
+  codes: 1F1ED 1F1F3
+  name: Flag for Honduras
+- chars: ! "\U0001F1ED\U0001F1F7"
+  codes: 1F1ED 1F1F7
+  name: Flag for Croatia
+- chars: ! "\U0001F1ED\U0001F1F9"
+  codes: 1F1ED 1F1F9
+  name: Flag for Haiti
+- chars: ! "\U0001F1ED\U0001F1FA"
+  codes: 1F1ED 1F1FA
+  name: Flag for Hungary
+- chars: ! "\U0001F1EE\U0001F1E8"
+  codes: 1F1EE 1F1E8
+  name: Flag for Canary Islands
+- chars: ! "\U0001F1EE\U0001F1E9"
+  codes: 1F1EE 1F1E9
+  name: Flag for Indonesia
+- chars: ! "\U0001F1EE\U0001F1EA"
+  codes: 1F1EE 1F1EA
+  name: Flag for Ireland
+- chars: ! "\U0001F1EE\U0001F1F1"
+  codes: 1F1EE 1F1F1
+  name: Flag for Israel
+- chars: ! "\U0001F1EE\U0001F1F2"
+  codes: 1F1EE 1F1F2
+  name: Flag for Isle of Man
+- chars: ! "\U0001F1EE\U0001F1F3"
+  codes: 1F1EE 1F1F3
+  name: Flag for India
+- chars: ! "\U0001F1EE\U0001F1F4"
+  codes: 1F1EE 1F1F4
+  name: Flag for British Indian Ocean Territory
+- chars: ! "\U0001F1EE\U0001F1F6"
+  codes: 1F1EE 1F1F6
+  name: Flag for Iraq
+- chars: ! "\U0001F1EE\U0001F1F7"
+  codes: 1F1EE 1F1F7
+  name: Flag for Iran
+- chars: ! "\U0001F1EE\U0001F1F8"
+  codes: 1F1EE 1F1F8
+  name: Flag for Iceland
+- chars: ! "\U0001F1EE\U0001F1F9"
+  codes: 1F1EE 1F1F9
+  name: Flag for Italy
+- chars: ! "\U0001F1EF\U0001F1EA"
+  codes: 1F1EF 1F1EA
+  name: Flag for Jersey
+- chars: ! "\U0001F1EF\U0001F1F2"
+  codes: 1F1EF 1F1F2
+  name: Flag for Jamaica
+- chars: ! "\U0001F1EF\U0001F1F4"
+  codes: 1F1EF 1F1F4
+  name: Flag for Jordan
+- chars: ! "\U0001F1EF\U0001F1F5"
+  codes: 1F1EF 1F1F5
+  name: Flag for Japan
+- chars: ! "\U0001F1F0\U0001F1EA"
+  codes: 1F1F0 1F1EA
+  name: Flag for Kenya
+- chars: ! "\U0001F1F0\U0001F1EC"
+  codes: 1F1F0 1F1EC
+  name: Flag for Kyrgyzstan
+- chars: ! "\U0001F1F0\U0001F1ED"
+  codes: 1F1F0 1F1ED
+  name: Flag for Cambodia
+- chars: ! "\U0001F1F0\U0001F1EE"
+  codes: 1F1F0 1F1EE
+  name: Flag for Kiribati
+- chars: ! "\U0001F1F0\U0001F1F2"
+  codes: 1F1F0 1F1F2
+  name: Flag for Comoros
+- chars: ! "\U0001F1F0\U0001F1F3"
+  codes: 1F1F0 1F1F3
+  name: Flag for St. Kitts & Nevis
+- chars: ! "\U0001F1F0\U0001F1F5"
+  codes: 1F1F0 1F1F5
+  name: Flag for North Korea
+- chars: ! "\U0001F1F0\U0001F1F7"
+  codes: 1F1F0 1F1F7
+  name: Flag for South Korea
+- chars: ! "\U0001F1F0\U0001F1FC"
+  codes: 1F1F0 1F1FC
+  name: Flag for Kuwait
+- chars: ! "\U0001F1F0\U0001F1FE"
+  codes: 1F1F0 1F1FE
+  name: Flag for Cayman Islands
+- chars: ! "\U0001F1F0\U0001F1FF"
+  codes: 1F1F0 1F1FF
+  name: Flag for Kazakhstan
+- chars: ! "\U0001F1F1\U0001F1E6"
+  codes: 1F1F1 1F1E6
+  name: Flag for Laos
+- chars: ! "\U0001F1F1\U0001F1E7"
+  codes: 1F1F1 1F1E7
+  name: Flag for Lebanon
+- chars: ! "\U0001F1F1\U0001F1E8"
+  codes: 1F1F1 1F1E8
+  name: Flag for St. Lucia
+- chars: ! "\U0001F1F1\U0001F1EE"
+  codes: 1F1F1 1F1EE
+  name: Flag for Liechtenstein
+- chars: ! "\U0001F1F1\U0001F1F0"
+  codes: 1F1F1 1F1F0
+  name: Flag for Sri Lanka
+- chars: ! "\U0001F1F1\U0001F1F7"
+  codes: 1F1F1 1F1F7
+  name: Flag for Liberia
+- chars: ! "\U0001F1F1\U0001F1F8"
+  codes: 1F1F1 1F1F8
+  name: Flag for Lesotho
+- chars: ! "\U0001F1F1\U0001F1F9"
+  codes: 1F1F1 1F1F9
+  name: Flag for Lithuania
+- chars: ! "\U0001F1F1\U0001F1FA"
+  codes: 1F1F1 1F1FA
+  name: Flag for Luxembourg
+- chars: ! "\U0001F1F1\U0001F1FB"
+  codes: 1F1F1 1F1FB
+  name: Flag for Latvia
+- chars: ! "\U0001F1F1\U0001F1FE"
+  codes: 1F1F1 1F1FE
+  name: Flag for Libya
+- chars: ! "\U0001F1F2\U0001F1E6"
+  codes: 1F1F2 1F1E6
+  name: Flag for Morocco
+- chars: ! "\U0001F1F2\U0001F1E8"
+  codes: 1F1F2 1F1E8
+  name: Flag for Monaco
+- chars: ! "\U0001F1F2\U0001F1E9"
+  codes: 1F1F2 1F1E9
+  name: Flag for Moldova
+- chars: ! "\U0001F1F2\U0001F1EA"
+  codes: 1F1F2 1F1EA
+  name: Flag for Montenegro
+- chars: ! "\U0001F1F2\U0001F1EB"
+  codes: 1F1F2 1F1EB
+  name: Flag for St. Martin
+- chars: ! "\U0001F1F2\U0001F1EC"
+  codes: 1F1F2 1F1EC
+  name: Flag for Madagascar
+- chars: ! "\U0001F1F2\U0001F1ED"
+  codes: 1F1F2 1F1ED
+  name: Flag for Marshall Islands
+- chars: ! "\U0001F1F2\U0001F1F0"
+  codes: 1F1F2 1F1F0
+  name: Flag for Macedonia
+- chars: ! "\U0001F1F2\U0001F1F1"
+  codes: 1F1F2 1F1F1
+  name: Flag for Mali
+- chars: ! "\U0001F1F2\U0001F1F2"
+  codes: 1F1F2 1F1F2
+  name: Flag for Myanmar
+- chars: ! "\U0001F1F2\U0001F1F3"
+  codes: 1F1F2 1F1F3
+  name: Flag for Mongolia
+- chars: ! "\U0001F1F2\U0001F1F4"
+  codes: 1F1F2 1F1F4
+  name: Flag for Macau
+- chars: ! "\U0001F1F2\U0001F1F5"
+  codes: 1F1F2 1F1F5
+  name: Flag for Northern Mariana Islands
+- chars: ! "\U0001F1F2\U0001F1F6"
+  codes: 1F1F2 1F1F6
+  name: Flag for Martinique
+- chars: ! "\U0001F1F2\U0001F1F7"
+  codes: 1F1F2 1F1F7
+  name: Flag for Mauritania
+- chars: ! "\U0001F1F2\U0001F1F8"
+  codes: 1F1F2 1F1F8
+  name: Flag for Montserrat
+- chars: ! "\U0001F1F2\U0001F1F9"
+  codes: 1F1F2 1F1F9
+  name: Flag for Malta
+- chars: ! "\U0001F1F2\U0001F1FA"
+  codes: 1F1F2 1F1FA
+  name: Flag for Mauritius
+- chars: ! "\U0001F1F2\U0001F1FB"
+  codes: 1F1F2 1F1FB
+  name: Flag for Maldives
+- chars: ! "\U0001F1F2\U0001F1FC"
+  codes: 1F1F2 1F1FC
+  name: Flag for Malawi
+- chars: ! "\U0001F1F2\U0001F1FD"
+  codes: 1F1F2 1F1FD
+  name: Flag for Mexico
+- chars: ! "\U0001F1F2\U0001F1FE"
+  codes: 1F1F2 1F1FE
+  name: Flag for Malaysia
+- chars: ! "\U0001F1F2\U0001F1FF"
+  codes: 1F1F2 1F1FF
+  name: Flag for Mozambique
+- chars: ! "\U0001F1F3\U0001F1E6"
+  codes: 1F1F3 1F1E6
+  name: Flag for Namibia
+- chars: ! "\U0001F1F3\U0001F1E8"
+  codes: 1F1F3 1F1E8
+  name: Flag for New Caledonia
+- chars: ! "\U0001F1F3\U0001F1EA"
+  codes: 1F1F3 1F1EA
+  name: Flag for Niger
+- chars: ! "\U0001F1F3\U0001F1EB"
+  codes: 1F1F3 1F1EB
+  name: Flag for Norfolk Island
+- chars: ! "\U0001F1F3\U0001F1EC"
+  codes: 1F1F3 1F1EC
+  name: Flag for Nigeria
+- chars: ! "\U0001F1F3\U0001F1EE"
+  codes: 1F1F3 1F1EE
+  name: Flag for Nicaragua
+- chars: ! "\U0001F1F3\U0001F1F1"
+  codes: 1F1F3 1F1F1
+  name: Flag for Netherlands
+- chars: ! "\U0001F1F3\U0001F1F4"
+  codes: 1F1F3 1F1F4
+  name: Flag for Norway
+- chars: ! "\U0001F1F3\U0001F1F5"
+  codes: 1F1F3 1F1F5
+  name: Flag for Nepal
+- chars: ! "\U0001F1F3\U0001F1F7"
+  codes: 1F1F3 1F1F7
+  name: Flag for Nauru
+- chars: ! "\U0001F1F3\U0001F1FA"
+  codes: 1F1F3 1F1FA
+  name: Flag for Niue
+- chars: ! "\U0001F1F3\U0001F1FF"
+  codes: 1F1F3 1F1FF
+  name: Flag for New Zealand
+- chars: ! "\U0001F1F4\U0001F1F2"
+  codes: 1F1F4 1F1F2
+  name: Flag for Oman
+- chars: ! "\U0001F1F5\U0001F1E6"
+  codes: 1F1F5 1F1E6
+  name: Flag for Panama
+- chars: ! "\U0001F1F5\U0001F1EA"
+  codes: 1F1F5 1F1EA
+  name: Flag for Peru
+- chars: ! "\U0001F1F5\U0001F1EB"
+  codes: 1F1F5 1F1EB
+  name: Flag for French Polynesia
+- chars: ! "\U0001F1F5\U0001F1EC"
+  codes: 1F1F5 1F1EC
+  name: Flag for Papua New Guinea
+- chars: ! "\U0001F1F5\U0001F1ED"
+  codes: 1F1F5 1F1ED
+  name: Flag for Philippines
+- chars: ! "\U0001F1F5\U0001F1F0"
+  codes: 1F1F5 1F1F0
+  name: Flag for Pakistan
+- chars: ! "\U0001F1F5\U0001F1F1"
+  codes: 1F1F5 1F1F1
+  name: Flag for Poland
+- chars: ! "\U0001F1F5\U0001F1F2"
+  codes: 1F1F5 1F1F2
+  name: Flag for St. Pierre & Miquelon
+- chars: ! "\U0001F1F5\U0001F1F3"
+  codes: 1F1F5 1F1F3
+  name: Flag for Pitcairn Islands
+- chars: ! "\U0001F1F5\U0001F1F7"
+  codes: 1F1F5 1F1F7
+  name: Flag for Puerto Rico
+- chars: ! "\U0001F1F5\U0001F1F8"
+  codes: 1F1F5 1F1F8
+  name: Flag for Palestinian Territories
+- chars: ! "\U0001F1F5\U0001F1F9"
+  codes: 1F1F5 1F1F9
+  name: Flag for Portugal
+- chars: ! "\U0001F1F5\U0001F1FC"
+  codes: 1F1F5 1F1FC
+  name: Flag for Palau
+- chars: ! "\U0001F1F5\U0001F1FE"
+  codes: 1F1F5 1F1FE
+  name: Flag for Paraguay
+- chars: ! "\U0001F1F6\U0001F1E6"
+  codes: 1F1F6 1F1E6
+  name: Flag for Qatar
+- chars: ! "\U0001F1F7\U0001F1EA"
+  codes: 1F1F7 1F1EA
+  name: Flag for Réunion
+- chars: ! "\U0001F1F7\U0001F1F4"
+  codes: 1F1F7 1F1F4
+  name: Flag for Romania
+- chars: ! "\U0001F1F7\U0001F1F8"
+  codes: 1F1F7 1F1F8
+  name: Flag for Serbia
+- chars: ! "\U0001F1F7\U0001F1FA"
+  codes: 1F1F7 1F1FA
+  name: Flag for Russia
+- chars: ! "\U0001F1F7\U0001F1FC"
+  codes: 1F1F7 1F1FC
+  name: Flag for Rwanda
+- chars: ! "\U0001F1F8\U0001F1E6"
+  codes: 1F1F8 1F1E6
+  name: Flag for Saudi Arabia
+- chars: ! "\U0001F1F8\U0001F1E7"
+  codes: 1F1F8 1F1E7
+  name: Flag for Solomon Islands
+- chars: ! "\U0001F1F8\U0001F1E8"
+  codes: 1F1F8 1F1E8
+  name: Flag for Seychelles
+- chars: ! "\U0001F1F8\U0001F1E9"
+  codes: 1F1F8 1F1E9
+  name: Flag for Sudan
+- chars: ! "\U0001F1F8\U0001F1EA"
+  codes: 1F1F8 1F1EA
+  name: Flag for Sweden
+- chars: ! "\U0001F1F8\U0001F1EC"
+  codes: 1F1F8 1F1EC
+  name: Flag for Singapore
+- chars: ! "\U0001F1F8\U0001F1ED"
+  codes: 1F1F8 1F1ED
+  name: Flag for St. Helena
+- chars: ! "\U0001F1F8\U0001F1EE"
+  codes: 1F1F8 1F1EE
+  name: Flag for Slovenia
+- chars: ! "\U0001F1F8\U0001F1EF"
+  codes: 1F1F8 1F1EF
+  name: Flag for Svalbard & Jan Mayen
+- chars: ! "\U0001F1F8\U0001F1F0"
+  codes: 1F1F8 1F1F0
+  name: Flag for Slovakia
+- chars: ! "\U0001F1F8\U0001F1F1"
+  codes: 1F1F8 1F1F1
+  name: Flag for Sierra Leone
+- chars: ! "\U0001F1F8\U0001F1F2"
+  codes: 1F1F8 1F1F2
+  name: Flag for San Marino
+- chars: ! "\U0001F1F8\U0001F1F3"
+  codes: 1F1F8 1F1F3
+  name: Flag for Senegal
+- chars: ! "\U0001F1F8\U0001F1F4"
+  codes: 1F1F8 1F1F4
+  name: Flag for Somalia
+- chars: ! "\U0001F1F8\U0001F1F7"
+  codes: 1F1F8 1F1F7
+  name: Flag for Suriname
+- chars: ! "\U0001F1F8\U0001F1F8"
+  codes: 1F1F8 1F1F8
+  name: Flag for South Sudan
+- chars: ! "\U0001F1F8\U0001F1F9"
+  codes: 1F1F8 1F1F9
+  name: Flag for São Tomé & Príncipe
+- chars: ! "\U0001F1F8\U0001F1FB"
+  codes: 1F1F8 1F1FB
+  name: Flag for El Salvador
+- chars: ! "\U0001F1F8\U0001F1FD"
+  codes: 1F1F8 1F1FD
+  name: Flag for Sint Maarten
+- chars: ! "\U0001F1F8\U0001F1FE"
+  codes: 1F1F8 1F1FE
+  name: Flag for Syria
+- chars: ! "\U0001F1F8\U0001F1FF"
+  codes: 1F1F8 1F1FF
+  name: Flag for Swaziland
+- chars: ! "\U0001F1F9\U0001F1E6"
+  codes: 1F1F9 1F1E6
+  name: Flag for Tristan da Cunha
+- chars: ! "\U0001F1F9\U0001F1E8"
+  codes: 1F1F9 1F1E8
+  name: Flag for Turks & Caicos Islands
+- chars: ! "\U0001F1F9\U0001F1E9"
+  codes: 1F1F9 1F1E9
+  name: Flag for Chad
+- chars: ! "\U0001F1F9\U0001F1EB"
+  codes: 1F1F9 1F1EB
+  name: Flag for French Southern Territories
+- chars: ! "\U0001F1F9\U0001F1EC"
+  codes: 1F1F9 1F1EC
+  name: Flag for Togo
+- chars: ! "\U0001F1F9\U0001F1ED"
+  codes: 1F1F9 1F1ED
+  name: Flag for Thailand
+- chars: ! "\U0001F1F9\U0001F1EF"
+  codes: 1F1F9 1F1EF
+  name: Flag for Tajikistan
+- chars: ! "\U0001F1F9\U0001F1F0"
+  codes: 1F1F9 1F1F0
+  name: Flag for Tokelau
+- chars: ! "\U0001F1F9\U0001F1F1"
+  codes: 1F1F9 1F1F1
+  name: Flag for Timor-Leste
+- chars: ! "\U0001F1F9\U0001F1F2"
+  codes: 1F1F9 1F1F2
+  name: Flag for Turkmenistan
+- chars: ! "\U0001F1F9\U0001F1F3"
+  codes: 1F1F9 1F1F3
+  name: Flag for Tunisia
+- chars: ! "\U0001F1F9\U0001F1F4"
+  codes: 1F1F9 1F1F4
+  name: Flag for Tonga
+- chars: ! "\U0001F1F9\U0001F1F7"
+  codes: 1F1F9 1F1F7
+  name: Flag for Turkey
+- chars: ! "\U0001F1F9\U0001F1F9"
+  codes: 1F1F9 1F1F9
+  name: Flag for Trinidad & Tobago
+- chars: ! "\U0001F1F9\U0001F1FB"
+  codes: 1F1F9 1F1FB
+  name: Flag for Tuvalu
+- chars: ! "\U0001F1F9\U0001F1FC"
+  codes: 1F1F9 1F1FC
+  name: Flag for Taiwan
+- chars: ! "\U0001F1F9\U0001F1FF"
+  codes: 1F1F9 1F1FF
+  name: Flag for Tanzania
+- chars: ! "\U0001F1FA\U0001F1E6"
+  codes: 1F1FA 1F1E6
+  name: Flag for Ukraine
+- chars: ! "\U0001F1FA\U0001F1EC"
+  codes: 1F1FA 1F1EC
+  name: Flag for Uganda
+- chars: ! "\U0001F1FA\U0001F1F2"
+  codes: 1F1FA 1F1F2
+  name: Flag for U.S. Outlying Islands
+- chars: ! "\U0001F1FA\U0001F1F8"
+  codes: 1F1FA 1F1F8
+  name: Flag for United States
+- chars: ! "\U0001F1FA\U0001F1FE"
+  codes: 1F1FA 1F1FE
+  name: Flag for Uruguay
+- chars: ! "\U0001F1FA\U0001F1FF"
+  codes: 1F1FA 1F1FF
+  name: Flag for Uzbekistan
+- chars: ! "\U0001F1FB\U0001F1E6"
+  codes: 1F1FB 1F1E6
+  name: Flag for Vatican City
+- chars: ! "\U0001F1FB\U0001F1E8"
+  codes: 1F1FB 1F1E8
+  name: Flag for St. Vincent & Grenadines
+- chars: ! "\U0001F1FB\U0001F1EA"
+  codes: 1F1FB 1F1EA
+  name: Flag for Venezuela
+- chars: ! "\U0001F1FB\U0001F1EC"
+  codes: 1F1FB 1F1EC
+  name: Flag for British Virgin Islands
+- chars: ! "\U0001F1FB\U0001F1EE"
+  codes: 1F1FB 1F1EE
+  name: Flag for U.S. Virgin Islands
+- chars: ! "\U0001F1FB\U0001F1F3"
+  codes: 1F1FB 1F1F3
+  name: Flag for Vietnam
+- chars: ! "\U0001F1FB\U0001F1FA"
+  codes: 1F1FB 1F1FA
+  name: Flag for Vanuatu
+- chars: ! "\U0001F1FC\U0001F1EB"
+  codes: 1F1FC 1F1EB
+  name: Flag for Wallis & Futuna
+- chars: ! "\U0001F1FC\U0001F1F8"
+  codes: 1F1FC 1F1F8
+  name: Flag for Samoa
+- chars: ! "\U0001F1FD\U0001F1F0"
+  codes: 1F1FD 1F1F0
+  name: Flag for Kosovo
+- chars: ! "\U0001F1FE\U0001F1EA"
+  codes: 1F1FE 1F1EA
+  name: Flag for Yemen
+- chars: ! "\U0001F1FE\U0001F1F9"
+  codes: 1F1FE 1F1F9
+  name: Flag for Mayotte
+- chars: ! "\U0001F1FF\U0001F1E6"
+  codes: 1F1FF 1F1E6
+  name: Flag for South Africa
+- chars: ! "\U0001F1FF\U0001F1F2"
+  codes: 1F1FF 1F1F2
+  name: Flag for Zambia
+- chars: ! "\U0001F1FF\U0001F1FC"
+  codes: 1F1FF 1F1FC
+  name: Flag for Zimbabwe

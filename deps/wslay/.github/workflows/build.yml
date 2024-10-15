@@ -1,0 +1,82 @@
+name: build
+
+on: push
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, macos-10.15]
+        compiler: [gcc, clang]
+        buildtool: [autotools, cmake]
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Linux setup
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get install \
+          g++-10 \
+          autoconf \
+          automake \
+          autotools-dev \
+          libtool \
+          pkg-config \
+          libcunit1-dev \
+          nettle-dev \
+          cmake \
+          cmake-data
+    - name: MacOS setup
+      if: runner.os == 'macOS'
+      run: |
+        brew install nettle cunit autoconf automake pkg-config libtool
+    - name: Setup clang
+      if: matrix.compiler == 'clang'
+      run: |
+        echo 'CC=clang' >> $GITHUB_ENV
+        echo 'CXX=clang++' >> $GITHUB_ENV
+    - name: Setup gcc
+      if: runner.os == 'Linux' && matrix.compiler == 'gcc'
+      run: |
+        echo 'CC=gcc-10' >> $GITHUB_ENV
+        echo 'CXX=g++-10' >> $GITHUB_ENV
+    - name: Enable ASAN
+      if: runner.os == 'Linux'
+      run: |
+        asanflags="-fsanitize=address,undefined -fno-sanitize-recover=undefined"
+
+        LDFLAGS="$LDFLAGS $asanflags"
+        CFLAGS="$CFLAGS $asanflags"
+        CXXFLAGS="$CXXFLAGS $asanflags"
+
+        echo 'LDFLAGS='"$LDFLAGS" >> $GITHUB_ENV
+        echo 'CFLAGS='"$CFLAGS" >> $GITHUB_ENV
+        echo 'CXXFLAGS='"$CXXFLAGS" >> $GITHUB_ENV
+    - name: Configure autotools
+      if: matrix.buildtool == 'autotools'
+      run: |
+        autoreconf -i && ./configure --enable-werror
+    - name: Setup cmake options (Linux)
+      if: runner.os == 'Linux' && matrix.buildtool == 'cmake'
+      run: |
+        echo CMAKE_OPTS="-DWSLAY_TESTS=ON -DWSLAY_EXAMPLES=ON" >> $GITHUB_ENV
+    - name: Setup cmake options (macOS)
+      if: runner.os == 'macOS' && matrix.buildtool == 'cmake'
+      run: |
+        echo CMAKE_OPTS="-DWSLAY_TESTS=ON" >> $GITHUB_ENV
+    - name: Configure cmake
+      if: matrix.buildtool == 'cmake'
+      run: |
+        cmake $CMAKE_OPTS .
+    - name: Build wslay (autotools)
+      if: matrix.buildtool == 'autotools'
+      run: |
+        make
+        make check
+    - name: Build wslay (cmake)
+      if: matrix.buildtool == 'cmake'
+      run: |
+        make
+        tests/wslay_tests

@@ -1,0 +1,10 @@
+- item 1
+- item 2
+# STREAM_START
+# BLOCK_SEQUENCE_START
+# BLOCK_ENTRY
+# SCALAR value='item 1' style=PLAIN
+# BLOCK_ENTRY
+# SCALAR value='item 2' style=PLAIN
+# BLOCK_END
+# STREAM_END

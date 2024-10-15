@@ -1,0 +1,6 @@
+---
+{
+  foo: bar,   # foo:bar comment
+  baz: frooz, # baz:frooz comment
+  whee: yikes # whee: yikes comment
+}

@@ -1,0 +1,29 @@
+name: Standard Automake CI
+
+on: [push]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v1
+
+    - name: apt-deps
+      run: sudo apt-get update -qq && sudo apt-get install --no-install-recommends -y gcc autoconf automake libtool git make libyaml-dev libltdl-dev pkg-config check python3 python3-pip python3-setuptools
+
+    - name: boostrap
+      run: ./bootstrap.sh
+
+    - name: configure
+      run: ./configure
+
+    - name: make
+      run: make
+
+    - name: make check
+      run: make check
+
+    - name: make distcheck
+      run: make distcheck

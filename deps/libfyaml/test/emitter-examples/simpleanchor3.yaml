@@ -1,0 +1,8 @@
+a: &anchor
+     - b
+     - &another bb
+     - b3
+     - b4
+c: *anchor
+d: e
+f: *another

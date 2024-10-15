@@ -1,0 +1,24 @@
+key spaces: |
+  Normal indent
+    One more indent
+  Back to normal
+folded : >
+  Folding is easy to do
+    Indenting too
+  Roses are blue
+foo: bar
+another-fold: >-
+  fold
+  1
+  2
+  3
+yet-another-fold: >+
+  another-fold
+  11
+  12
+  13
+more-fold: >
+  more-fold
+  21
+  22
+  23

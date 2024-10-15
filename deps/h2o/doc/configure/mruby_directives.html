@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
+<base href="../" />
+
+<!-- oktavia -->
+<link rel="stylesheet" href="assets/searchstyle.css" type="text/css" />
+<script src="search/jquery-1.9.1.min.js"></script>
+<script src="search/oktavia-jquery-ui.js"></script>
+<script src="search/oktavia-english-search.js"></script>
+<!-- /oktavia -->
+
+<link rel="stylesheet" href="assets/style.css" type="text/css" />
+
+<title>Mruby Directives - Configure - H2O - the optimized HTTP server</title>
+</head>
+<body>
+<div id="body">
+<div id="top">
+
+<h1>
+<a href="index.html">H2O</a>
+</h1>
+<p class="description">the optimized HTTP/1.x, HTTP/2, HTTP/3 server</p>
+
+<!-- oktavia -->
+<form id="searchform">
+<input class="search" type="search" name="search" id="search" results="5" value="" placeholder="Search" />
+<div id="searchresult_box">
+<div id="close_search_box">&times;</div>
+<div id="searchresult_summary"></div>
+<div id="searchresult"></div>
+<div id="searchresult_nav"></div>
+<span class="pr">Powered by <a href="https://github.com/shibukawa/oktavia">Oktavia</a></span>
+</div>
+</form>
+<!-- /oktavia -->
+
+</div>
+
+<table id="menu">
+<tr>
+<td><a href="index.html">Top</a></td>
+<td><a href="install.html">Install</a></td>
+<td class="selected"><a href="configure.html">Configure</a></td>
+<td><a href="faq.html">FAQ</a></td>
+<td><a href="http://blog.kazuhooku.com/search/label/H2O" target="_blank">Blog</a></td>
+<td><a href="http://github.com/h2o/h2o/" target="_blank">Source</a></td>
+</tr>
+</table>
+
+<div id="main">
+
+<h2>
+<a href="configure.html">Configure</a> &gt;
+Mruby Directives
+</h2>
+
+
+<p>
+The following are the configuration directives of the mruby handler.
+Please refer to <a href="configure/mruby.html">Using mruby</a> to find out how to write handlers using mruby.
+</p>
+
+<ul>
+<li><a href="configure/mruby_directives.html#mruby.handler">
+<code>mruby.handler</code>
+</a></li>
+<li><a href="configure/mruby_directives.html#mruby.handler-file">
+<code>mruby.handler-file</code>
+</a></li>
+</ul>
+
+
+<div id="mruby.handler" class="directive-head">
+<h3><a href="configure/mruby_directives.html#mruby.handler"><code>"mruby.handler"</code></a></h3>
+</div>
+
+<dl class="directive-desc">
+<dt>Description:</dt>
+<dd>
+<p>
+Upon start-up evaluates given mruby expression, and uses the returned mruby object to handle the incoming requests.
+
+</p>
+
+
+<div class="example">
+<div class="caption">Example. Hello-world in mruby</div>
+<pre><code>mruby.handler: |
+  Proc.new do |env|
+    [200, {&#39;content-type&#39; =&gt; &#39;text/plain&#39;}, [&quot;Hello world\n&quot;]]
+  end
+</code></pre>
+</div>
+
+
+<p>
+Note that the provided expression is evaluated more than once (typically for every thread that accepts incoming connections).
+</p>
+
+</dd>
+<dt><a href="configure/syntax_and_structure.html#config_levels">Level</a>:</dt>
+<dd>path</dd>
+<dt>See also:</dt>
+<dd><a href="configure/mruby_directives.html#mruby.handler-file"><code>mruby.handler-file</code></a>
+</dd>
+</dl>
+
+<div id="mruby.handler-file" class="directive-head">
+<h3><a href="configure/mruby_directives.html#mruby.handler-file"><code>"mruby.handler-file"</code></a></h3>
+</div>
+
+<dl class="directive-desc">
+<dt>Description:</dt>
+<dd>
+<p>
+Upon start-up evaluates given mruby file, and uses the returned mruby object to handle the incoming requests.
+
+</p>
+
+
+<div class="example">
+<div class="caption">Example. Hello-world in mruby</div>
+<pre><code>mruby.handler-file: /path/to/my-mruby-handler.rb
+</code></pre>
+</div>
+
+
+<p>
+Note that the provided expression is evaluated more than once (typically for every thread that accepts incoming connections).
+</p>
+
+</dd>
+<dt><a href="configure/syntax_and_structure.html#config_levels">Level</a>:</dt>
+<dd>path</dd>
+<dt>See also:</dt>
+<dd><a href="configure/mruby_directives.html#mruby.handler"><code>mruby.handler</code></a>
+</dd>
+</dl>
+
+
+
+
+
+
+</div>
+<div id="footer">
+<p>
+Copyright &copy; 2015-2023 <a href="http://dena.com/intl/">DeNA Co., Ltd.</a> et al.
+</p>
+</div>
+</body>
+</html>

@@ -1,0 +1,82 @@
+wslay 1.1.1
+===========
+
+Release Note
+------------
+
+This release fixes the bug that eof is not evaluated after the
+invocation of read_callback.
+
+Changes
+-------
+
+* Check for eof when read_callback returns 0 (GH-47)
+
+  Patch from Robert Bragg
+
+
+
+wslay 1.1.0
+===========
+
+Release Note
+------------
+
+This release adds CMake build support and the ability to set and
+verify reserved bits.  Build issue with nettle >= 3.4 was fixed.
+
+Changes
+-------
+
+* Fix compilation of examples
+
+  Since 3.4 nettle defines base64_encode_raw like this:
+
+      void base64_encode_raw(char *dst, size_t length, const uint8_t *src);
+
+  So examples have to be adjusted. More read at
+  https://git.lysator.liu.se/nettle/nettle/blob/nettle_3.4_release_20171119/NEWS#L49-53
+
+  Patch from Sergey Avseyev
+
+* check for 0 length before memcpy:
+
+  .../wslay/lib/wslay_event.c:304:7: runtime error: null pointer passed as argument 2, which is declared to never be null
+
+  Patch from Anders Bakken
+
+* Skip UTF-8 validation for PMCE fragments
+
+  If the message was marked with rsv1 on the initial frame then we
+  should skip utf-8 validation on subsequent continuation frames as
+  well.
+
+  Added test for this case.
+
+  Found by autobahn wstest tool.
+
+  Patch from Isaac Boukris
+
+* Allow RSV1 bit in event-based API for PMCE - RFC 7692
+
+  Add a new function wslay_event_set_allowed_rsv_bits which only accpet
+  RSV1 for now (or 0 to disable).
+
+  Skip UTF-8 validation on frames with RSV1 set as it is too early for that.
+
+  Add extended versions of wslay_event_queue_msg functions which also
+  take the reserved bits to set for this message.
+
+  Patch from Isaac Boukris
+
+* fixed missing malloc guard
+
+  Patch from Jakub Piskorz
+
+* Fix argc check.
+
+  Patch from Anders Bakken
+
+* CMake support
+
+  Patch from wonder-mice

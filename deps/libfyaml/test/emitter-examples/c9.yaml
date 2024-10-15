@@ -1,0 +1,17 @@
+---
+# 1
+# top foo:bar comment
+# 2
+foo: bar    # foo:bar comment
+            # continue foo:bar comment
+
+# 3
+# top baz:frooz comment
+# 4
+  # break 
+baz: frooz  # baz:frooz comment
+
+# top whee comment
+whee:       # whee: comment
+  level:    # level: comment
+    1: level-1 # level-1 comment

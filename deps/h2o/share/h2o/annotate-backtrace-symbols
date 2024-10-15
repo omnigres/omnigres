@@ -1,0 +1,33 @@
+#! /bin/sh
+exec ${H2O_PERL:-perl} -x $0 "$@"
+#! perl
+
+use strict;
+use warnings;
+
+my $ppid = getppid;
+
+# backtrace_symbols_fd(3) in Linux glibc shows different outputs for each compiler:
+#   clang: `./prog[0x1234]` where `0x1234` is the position addr
+#   gcc: `./prog(+0x1234)[0x55c98ec6a23b]` where `0x1234` is the position addr
+
+while (my $line = <STDIN>) {
+    chomp $line;
+    if ($line =~ m{^([^\(\[]+)(?:\(\+(0x[0-9A-Fa-f]+)\))?[^\[]*\[(0x[0-9A-Fa-f]+)\]}) {
+        my $exe = $1;
+        my $addr = $2 // $3;
+        my $resolved = addr2line($exe, $addr);
+        $line .= " $resolved"
+            if $resolved;
+    }
+    print "[$ppid] $line\n";
+}
+
+sub addr2line {
+    my ($exe, $addr) = @_;
+    open my $fh, "-|", qw(addr2line -pif -e), $exe, $addr
+        or return;
+    my $resolved = <$fh>;
+    chomp $resolved;
+    $resolved;
+}

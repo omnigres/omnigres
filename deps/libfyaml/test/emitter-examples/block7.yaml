@@ -1,0 +1,6 @@
+block-scalar: |
+  Test
+    12
+   testing
+  FOO
+...

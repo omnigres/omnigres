@@ -13,7 +13,7 @@ find_program(PG_CONFIG pg_config REQUIRED)
 
 include(CPM)
 include(../cmake/dependencies/versions.cmake)
-CPMAddPackage(NAME libfyaml GITHUB_REPOSITORY "yrashk/libfyaml" GIT_TAG ${GIT_TAG_libfyaml} VERSION ${VERSION_libfyaml}
+CPMAddPackage(NAME libfyaml SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/../deps/libfyaml VERSION ${VERSION_libfyaml}
         EXCLUDE_FROM_ALL YES OPTIONS "BUILD_SHARED_LIBS OFF")
 
 include(CTest)

@@ -1,0 +1,15 @@
+# Copyright (C) 2021 Sebastian Pipping <sebastian@pipping.org>
+# Licensed under the MIT license
+
+version: 2
+updates:
+
+  - package-ecosystem: "github-actions"
+    commit-message:
+      include: "scope"
+      prefix: "Actions"
+    directory: "/"
+    labels:
+      - "enhancement"
+    schedule:
+      interval: "weekly"

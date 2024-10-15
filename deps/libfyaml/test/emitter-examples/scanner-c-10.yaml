@@ -1,0 +1,18 @@
+{
+    a simple key: a value,  # Note that the KEY token is produced.
+    ? a complex key: another value,
+}
+# STREAM_START                                  FYTT_STREAM_START
+# FLOW_MAPPING_START                            FYTT_FLOW_MAPPING_START
+# KEY                                           FYTT_KEY
+# SCALAR value='a simple key' style=PLAIN       FYTT_SCALAR value='a simple key' style=PLAIN
+# VALUE                                         FYTT_VALUE
+# SCALAR value='a value' style=PLAIN            FYTT_SCALAR value='a value' style=PLAIN
+# FLOW_ENTRY                                    FYTT_FLOW_ENTRY
+# KEY                                           FYTT_KEY
+# SCALAR value='a complex key' style=PLAIN      FYTT_SCALAR value='a complex key' style=PLAIN
+# VALUE                                         FYTT_VALUE
+# SCALAR value='another value' style=PLAIN      FYTT_SCALAR value='another value' style=PLAIN
+# FLOW_ENTRY                                    FYTT_FLOW_ENTRY
+# FLOW_MAPPING_END                              FYTT_FLOW_MAPPING_END
+# STREAM_END                                    FYTT_STREAM_END

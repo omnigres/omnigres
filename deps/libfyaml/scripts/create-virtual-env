@@ -1,0 +1,6 @@
+virtualenv -p python3 sphinx
+. sphinx/bin/activate
+pip3 install sphinx
+pip3 install git+http://github.com/return42/linuxdoc.git
+pip3 install sphinx_rtd_theme
+pip3 install sphinx-markdown-builder

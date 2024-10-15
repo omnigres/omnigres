@@ -1,0 +1,9 @@
+# root comment
+
+  # top comment of A
+- A # right comment of A
+  # bottom comment of A
+
+  # top comment of B
+- B # right comment of B
+  # bottom comment of B

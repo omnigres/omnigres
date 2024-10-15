@@ -1,0 +1,23 @@
+name: Style
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Install format dependencies
+      run: pip3 install cmake_format==0.6.11 pyyaml
+
+    - name: Check source style
+      run: cmake-format --check ./CMakeLists.txt ./cmake-format.cmake

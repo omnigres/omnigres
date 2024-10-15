@@ -1,0 +1,10 @@
+[
+  # top comment of A
+  A, # right comment of A
+  # bottom comment of A
+
+  # top comment of A
+  B, # right comment of A
+  # bottom comment of A
+]
+ 

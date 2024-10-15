@@ -1,0 +1,61 @@
+name: Unix
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+
+    runs-on: macos-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Configure and build without format dependencies
+      run: |
+        cmake -Htest -Bbuild
+        cmake --build build
+        ./build/test
+        ! cmake --build build --target format
+
+    - name: Install format dependencies
+      run: |
+        brew install clang-format
+        pip3 install cmake_format==0.6.11 pyyaml
+
+    - name: Configure
+      run: cmake -Htest -Bbuild
+
+    - name: Run format
+      run: "cmake --build build --target format"
+
+    - name: Check clang-format
+      run: "! cmake --build build --target check-clang-format"
+
+    - name: Check cmake-format
+      run: "! cmake --build build --target check-cmake-format"
+
+    - name: Check format
+      run: "! cmake --build build --target check-format"
+
+    - name: Fix format
+      run: cmake --build build --target fix-format
+
+    - name: Check fixed format
+      run: cmake --build build --target check-format && ! git diff --exit-code
+
+    - name: Configure cmake-format with excluded file
+      run: |
+        git reset --hard HEAD
+        cmake -Htest -Bbuild -DCMAKE_FORMAT_EXCLUDE="(^|/)sample\\.cmake$"
+
+    - name: Fix cmake-format skipping excluded file
+      run: cmake --build build --target fix-cmake-format
+
+    - name: Check cmake-format with excluded file
+      run: cmake --build build --target check-cmake-format && ! git diff --exit-code -- test/CMakeLists.txt && git diff --exit-code -- test/sample.cmake

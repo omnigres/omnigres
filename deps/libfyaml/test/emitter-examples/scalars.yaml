@@ -1,0 +1,24 @@
+---
+plain-simple  :  plain-simple
+plain: This is a plain scalar   # alright
+key with spaces-1 : scalar with spaces too
+key with spaces-2: scalar with spaces too 2
+key with spaces-3   : scalar with spaces too 3# comment
+key with spaces-4   : scalar with spaces too 4 # comment
+
+single-quoted: 'This is a single quoted scalar'
+single-quoted-escaped: 'This is a single quoted scalar with ''escapes'''
+double-quoted: "This is a double quoted scalar"
+double-quoted-escaped: "This is a double quoted\tscalar\nwith escapes"
+double-quoted-escaped2: "This is a double quoted\tscalar\nwith \x20 escapes"
+literal: |
+  This is a literal scalar # comments included
+literal2: |
+  This is a literal scalar 2
+  More than one line
+    Indentation
+  Indeed
+folded: >
+  This is a  folded
+  scalar
+...

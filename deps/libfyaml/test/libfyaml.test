@@ -1,0 +1,9 @@
+#!/bin/bash
+
+if [ "x$builddir" == "x" ]; then
+	T=`realpath ./libfyaml-test`
+else
+	T=`realpath ${builddir}/libfyaml-test`
+fi
+${T}
+exit $?

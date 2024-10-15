@@ -1,0 +1,4 @@
+test-bin
+xcuserdata
+*.xccheckout
+.DS_Store

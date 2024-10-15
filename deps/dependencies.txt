@@ -1,0 +1,9 @@
+h2o=https://github.com/h2o/h2o@579135a
+pugixml=https://github.com/zeux/pugixml@v1.14
+metalang=https://github.com/Hirrolot/metalang99@v1.13.2
+STC=https://github.com/stclib/STC@v4.2
+uriparser=https://github.com/uriparser/uriparser@uriparser-0.9.7
+wslay=https://github.com/tatsuhiro-t/wslay@0e7d106
+libfyaml=https://github.com/yrashk/libfyaml@4f1a4b1
+pcre2=https://github.com/PCRE2Project/pcre2@pcre2-10.44
+Format.cmake=https://github.com/omnigres/Format.cmake@fc50a0f

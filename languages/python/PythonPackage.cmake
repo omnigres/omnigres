@@ -27,7 +27,7 @@ function(add_python_package NAME)
 
     add_custom_command(
             OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/dist/${_py_PACKAGE_NAME}-${_py_VERSION}.tar.gz ${CMAKE_CURRENT_BINARY_DIR}/dist/${_py_PACKAGE_NAME}-${_py_VERSION}-py3-none-any.whl
-            COMMAND ${Python3_EXECUTABLE} -m build --outdir ${CMAKE_CURRENT_BINARY_DIR}/dist
+            COMMAND PIP_NO_INDEX=true PIP_FIND_LINKS="${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../../deps/python" ${Python3_EXECUTABLE} -m build --outdir ${CMAKE_CURRENT_BINARY_DIR}/dist
             DEPENDS ${PYTHON_PACKAGE_FILES}
             WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     )

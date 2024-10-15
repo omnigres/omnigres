@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
+<base href="../" />
+
+<!-- oktavia -->
+<link rel="stylesheet" href="assets/searchstyle.css" type="text/css" />
+<script src="search/jquery-1.9.1.min.js"></script>
+<script src="search/oktavia-jquery-ui.js"></script>
+<script src="search/oktavia-english-search.js"></script>
+<!-- /oktavia -->
+
+<link rel="stylesheet" href="assets/style.css" type="text/css" />
+
+<title>Quick Start - Configure - H2O - the optimized HTTP server</title>
+</head>
+<body>
+<div id="body">
+<div id="top">
+
+<h1>
+<a href="index.html">H2O</a>
+</h1>
+<p class="description">the optimized HTTP/1.x, HTTP/2, HTTP/3 server</p>
+
+<!-- oktavia -->
+<form id="searchform">
+<input class="search" type="search" name="search" id="search" results="5" value="" placeholder="Search" />
+<div id="searchresult_box">
+<div id="close_search_box">&times;</div>
+<div id="searchresult_summary"></div>
+<div id="searchresult"></div>
+<div id="searchresult_nav"></div>
+<span class="pr">Powered by <a href="https://github.com/shibukawa/oktavia">Oktavia</a></span>
+</div>
+</form>
+<!-- /oktavia -->
+
+</div>
+
+<table id="menu">
+<tr>
+<td><a href="index.html">Top</a></td>
+<td><a href="install.html">Install</a></td>
+<td class="selected"><a href="configure.html">Configure</a></td>
+<td><a href="faq.html">FAQ</a></td>
+<td><a href="http://blog.kazuhooku.com/search/label/H2O" target="_blank">Blog</a></td>
+<td><a href="http://github.com/h2o/h2o/" target="_blank">Source</a></td>
+</tr>
+</table>
+
+<div id="main">
+
+<h2>
+<a href="configure.html">Configure</a> &gt;
+Quick Start
+</h2>
+
+
+<p>
+In order to run the H2O standalone HTTP server, you need to write a configuration file.
+The minimal configuration file looks like as follows.
+</p>
+
+<pre><code>listen:
+  port: 80
+
+hosts:
+  &quot;myhost.example.com&quot;:
+    listen: &amp;listen_ssl
+      port: 443
+      ssl:
+        certificate-file: /path/to/certificate-file
+        key-file: /path/to/key-file
+    listen:
+      &lt;&lt;: *listen_ssl
+      type: quic
+    paths:
+      /:
+        file.dir: /path/to/the/public-files
+
+user: nobody
+access-log: /path/to/the/access-log
+error-log: /path/to/the/error-log
+pid-file: /path/to/the/pid-file
+</code></pre>
+
+<p>
+The configuration instructs the server to:
+<ol>
+<li>listen on TCP port 80 for all hosts</li>
+<li>for myhost.example.com, listen on TCP port 443 using given TLS certificate and key pair</li>
+<li>listen on UDP port 443 (QUIC), reusing the previous setting named as <code>listen_ssl</code>
+<li>serve files under <code>/path/to/the/public-files</code></li>
+<li>under the privileges of <code>nobody</code></li>
+<li>emit access logs to file: <code>/path/to/the/access-log</code></li>
+<li>emit error logs to <code>/path/to/the/error-log</code></li>
+<li>store the process id of the server in <code>/path/to/the/pid-file</code>
+</ol>
+</p>
+
+<p>
+Enter the command below to start the server.
+</p>
+
+<pre><code>% sudo h2o -m daemon -c /path/to/the/configuration-file
+</code></pre>
+
+<p>
+The command instructs the server to read the configuration file, and start in <code>daemon</code> mode, which dispatches a pair of master and worker processes that serves the HTTP requests.
+</p>
+
+<p>
+To stop the server, send <code>SIGTERM</code> to the server.
+</p>
+
+<pre><code>% sudo kill -TERM `cat /path/to/the/pid-file`
+</code></pre>
+
+<h3>Next Step</h3>
+
+<p>
+Now that you know how to start and stop the server, the next step is to learn the <a href="configure.html">configuration directives and their structure</a>, or see <a href="https://github.com/h2o/h2o/wiki#configuration-examples">the configuration examples</a>.
+</p>
+
+</p>
+
+
+
+
+</div>
+<div id="footer">
+<p>
+Copyright &copy; 2015-2023 <a href="http://dena.com/intl/">DeNA Co., Ltd.</a> et al.
+</p>
+</div>
+</body>
+</html>
