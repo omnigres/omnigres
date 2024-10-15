@@ -1,2 +1,0 @@
-breathe >= 4.25.1
-insipid-sphinx-theme >= 0.2.8
