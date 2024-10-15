@@ -1,6 +1,6 @@
 h2o=https://github.com/h2o/h2o@579135a
 pugixml=https://github.com/zeux/pugixml@v1.14
-metalang=https://github.com/Hirrolot/metalang99@v1.13.2
+metalang99=https://github.com/Hirrolot/metalang99@v1.13.2
 STC=https://github.com/stclib/STC@v4.2
 uriparser=https://github.com/uriparser/uriparser@uriparser-0.9.7
 wslay=https://github.com/tatsuhiro-t/wslay@0e7d106
