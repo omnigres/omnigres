@@ -12,6 +12,7 @@ jobs:
       with:
         clang-format-version: '17'
         check-path: '.'
+        exclude-regex: '^./deps/.*'
       # If it fails, run `ruff format`
     - uses: chartboost/ruff-action@v1
       with:

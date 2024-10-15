@@ -1,0 +1,7 @@
+*.o
+autom4te.cache/
+*.log
+config.status
+config.h
+*.lock
+/mruby-*

@@ -1,0 +1,101 @@
+# uriparser - RFC 3986 URI parsing library
+#
+# Copyright (C) 2018, Sebastian Pipping <sebastian@pipping.org>
+# All rights reserved.
+#
+# Redistribution and use in source  and binary forms, with or without
+# modification, are permitted provided  that the following conditions
+# are met:
+#
+#     1. Redistributions  of  source  code   must  retain  the  above
+#        copyright notice, this list  of conditions and the following
+#        disclaimer.
+#
+#     2. Redistributions  in binary  form  must  reproduce the  above
+#        copyright notice, this list  of conditions and the following
+#        disclaimer  in  the  documentation  and/or  other  materials
+#        provided with the distribution.
+#
+#     3. Neither the  name of the  copyright holder nor the  names of
+#        its contributors may be used  to endorse or promote products
+#        derived from  this software  without specific  prior written
+#        permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+# "AS IS" AND  ANY EXPRESS OR IMPLIED WARRANTIES,  INCLUDING, BUT NOT
+# LIMITED TO,  THE IMPLIED WARRANTIES OF  MERCHANTABILITY AND FITNESS
+# FOR  A  PARTICULAR  PURPOSE  ARE  DISCLAIMED.  IN  NO  EVENT  SHALL
+# THE  COPYRIGHT HOLDER  OR CONTRIBUTORS  BE LIABLE  FOR ANY  DIRECT,
+# INDIRECT, INCIDENTAL, SPECIAL,  EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO,  PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA,  OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT,
+# STRICT  LIABILITY,  OR  TORT (INCLUDING  NEGLIGENCE  OR  OTHERWISE)
+# ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED
+# OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+version: '{build}-{branch}'
+
+configuration:
+  - Debug
+# - Release
+
+environment:
+  GTEST_VERSION: 1.10.0
+
+  # https://www.appveyor.com/docs/windows-images-software/
+  matrix:
+  # Visual Studio 2017, 32 bit
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+      CMAKE_GENERATOR: Visual Studio 15 2017
+      PLATFORM: Win32
+
+  # Visual Studio 2017, 64 bit
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2017
+      CMAKE_GENERATOR: Visual Studio 15 2017 Win64
+      PLATFORM: x64
+
+  # Visual Studio 2022, 32 bit
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2022
+      CMAKE_GENERATOR: Visual Studio 17 2022
+      COMMON_CMAKE_ARGS: -A Win32
+
+  # Visual Studio 2022, 64 bit
+    - APPVEYOR_BUILD_WORKER_IMAGE: Visual Studio 2022
+      CMAKE_GENERATOR: Visual Studio 17 2022
+      COMMON_CMAKE_ARGS: -A x64
+
+before_build:
+  - curl -fsSL -o release-%GTEST_VERSION%.zip https://github.com/google/googletest/archive/release-%GTEST_VERSION%.zip
+  - unzip -q release-%GTEST_VERSION%.zip
+  - cd googletest-release-%GTEST_VERSION%
+  - cmake
+      -G "%CMAKE_GENERATOR%"
+      -DCVF_VERSION=%GTEST_VERSION%
+      %COMMON_CMAKE_ARGS%
+      .
+  - cmake --build . --config Release -- /m
+# BEGIN Enrich folder to make FindGTest.cmake happy
+  - md googletest\lib
+  - copy lib\Release\gtest.lib googletest\lib
+  - copy lib\Release\gtest_main.lib googletest\lib
+# END
+  - cd ..
+  - mkdir build
+  - cd build
+# NOTE: GTEST_ROOT is relative to source CMakeLists.txt, not the build directory
+  - cmake
+      -G "%CMAKE_GENERATOR%"
+      -DGTEST_ROOT=googletest-release-%GTEST_VERSION%/googletest
+      -DURIPARSER_BUILD_DOCS=OFF
+      -DURIPARSER_MSVC_RUNTIME=/MT
+      -DURIPARSER_WARNINGS_AS_ERRORS=ON
+      %COMMON_CMAKE_ARGS%
+      ..
+
+build:
+  parallel: true
+  project: $(APPVEYOR_BUILD_FOLDER)\build\$(APPVEYOR_PROJECT_NAME).sln
+
+test_script:
+  - '%APPVEYOR_BUILD_FOLDER%\build\%CONFIGURATION%\testrunner.exe'

@@ -1,0 +1,1005 @@
+.\" Man page generated from reStructuredText.
+.
+.TH "FY-TOOL" "1" "Jan 14, 2022" "" "libfyaml"
+.SH NAME
+fy-tool \- fy-tool documentation 
+.
+.nr rst2man-indent-level 0
+.
+.de1 rstReportMargin
+\\$1 \\n[an-margin]
+level \\n[rst2man-indent-level]
+level margin: \\n[rst2man-indent\\n[rst2man-indent-level]]
+-
+\\n[rst2man-indent0]
+\\n[rst2man-indent1]
+\\n[rst2man-indent2]
+..
+.de1 INDENT
+.\" .rstReportMargin pre:
+. RS \\$1
+. nr rst2man-indent\\n[rst2man-indent-level] \\n[an-margin]
+. nr rst2man-indent-level +1
+.\" .rstReportMargin post:
+..
+.de UNINDENT
+. RE
+.\" indent \\n[an-margin]
+.\" old: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.nr rst2man-indent-level -1
+.\" new: \\n[rst2man-indent\\n[rst2man-indent-level]]
+.in \\n[rst2man-indent\\n[rst2man-indent-level]]u
+..
+.SH SYNOPSIS
+.sp
+\fBfy\-tool\fP [\fIOPTIONS\fP] [<\fIfile\fP> ...]
+.sp
+\fBfy\-dump\fP [\fIOPTIONS\fP] [<\fIfile\fP> ...]
+.sp
+\fBfy\-testsuite\fP [\fIOPTIONS\fP] <\fIfile\fP>
+.sp
+\fBfy\-filter\fP [\fIOPTIONS\fP] [\-f*FILE*] [<\fIpath\fP> ...]
+.sp
+\fBfy\-join\fP [\fIOPTIONS\fP] [\-T*PATH*] [\-F*PATH*] [\-t*PATH*] [<\fIfile\fP> ...]
+.sp
+\fBfy\-ypath\fP [\fIOPTIONS\fP] <\fIypath\-expression> [<*file\fP> ...]
+.sp
+\fBfy\-compose\fP [\fIOPTIONS\fP] [<\fIfile\fP> ...]
+.SH DESCRIPTION
+.sp
+\fBfy\-tool\fP is a general YAML/JSON manipulation tool using \fIlibfyaml\fP\&.
+Its operation is different depending on how it\(aqs called, either via aliases
+named \fIfy\-dump\fP, \fIfy\-testsuite\fP, \fIfy\-filter\fP, \fIfy\-join\fP, or via the
+\fI\-\-dump\fP, \fI\-\-testsuite\fP, \fI\-\-filter\fP, \fI\-\-join\fP, \fI\-\-ypath\fP and \fI\-\-compose\fP options.
+.INDENT 0.0
+.IP \(bu 2
+In \fIdump\fP mode it will parse YAML/JSON input files and output YAML/JSON
+according to the output format options.
+.IP \(bu 2
+In \fItestsuite\fP mode it will parse a single YAML input file and output
+yaml testsuite reference output.
+.IP \(bu 2
+In \fIfilter\fP mode it will parse YAML/JSON files and output YAML/JSON
+output filtered according to the given option.
+.IP \(bu 2
+In \fIjoin\fP mode it will parse YAML/JSON files and join them into a single
+YAML/JSON document according to the given command line options.
+.IP \(bu 2
+In \fIypath\fP mode it will parse YAML/JSON files and execute a ypath query
+which will output a document stream according to the results. This is
+an experimental mode under development, where the syntax is not yet
+decided completely.
+.IP \(bu 2
+In \fIcompose\fP mode, it operates similarly to dump, but the document tree
+is created using the built\-in composer API.
+.UNINDENT
+.SH OPTIONS
+.sp
+A number of options are common for all the different modes of operation
+and they are as follows:
+Common options.INDENT 0.0
+.TP
+.B \-q, \-\-quiet
+Quiet operation, does not output informational messages at all.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-h, \-\-help
+Display usage information.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-v, \-\-version
+Display version information.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-I DIR, \-\-include=DIR
+Add the \fIDIR\fP  directory to the search path which will be used to locate a YAML/JSON file.
+The default path is set to ""
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-d LEVEL, \-\-debug\-level=LEVEL
+Set the minimum numeric debug level value of the library to \fILEVEL\fP\&.
+The numeric value must be in the range of 0 to 4 and their meaning is as follows:
+.INDENT 7.0
+.IP \(bu 2
+\fB0\fP (\fIDEBUG\fP)
+.sp
+Internal library debugging messages. No output is produced when the
+library was compiled with \fI\-\-disable\-debug\fP
+.IP \(bu 2
+\fB1\fP (\fIINFO\fP)
+.sp
+Informational messages about the internal operation of the library.
+.IP \(bu 2
+\fB2\fP (\fINOTICE\fP)
+.sp
+Messsages that could require attention.
+.IP \(bu 2
+\fB3\fP (\fIWARNING\fP)
+.sp
+A warning message, something is wrong, but operation can continue.
+This is the default value.
+.IP \(bu 2
+\fB4\fP (\fIERROR\fP)
+.sp
+A fatal error occured, it is impossible to continue.
+.UNINDENT
+.sp
+The default level is 3 (\fIWARNING\fP), which means that messages
+with level 3 and higher will be displayed.
+.UNINDENT
+Parser Options.INDENT 0.0
+.TP
+.B \-j JSONOPT, \-\-json=JSONOPT
+Marks the input files as JSON or YAML accordingly to:
+.INDENT 7.0
+.IP \(bu 2
+\fBno\fP
+.sp
+The input files are always in YAML mode.
+.IP \(bu 2
+\fBforce\fP
+.sp
+The input files are always set to JSON mode.
+.IP \(bu 2
+\fBauto\fP
+.sp
+The input files are set to JSON mode automatically when the
+file\(aqs extension is \fI\&.json\fP\&. This is the default.
+.UNINDENT
+.sp
+JSON support is complete so all valid JSON files are parsed according
+to JSON rules, even where those differ with YAML rules.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-yaml\-1.1
+Force YAML 1.1 rules, when input does not specify a version via a directive.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-yaml\-1.2
+Force YAML 1.2 rules, when input does not specify a version via a directive.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-yaml\-1.3
+Force YAML 1.3 rules, when input does not specify a version via a directive.
+This option is experimental since the 1.3 spec is not yet released.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-disable\-accel
+Disable use of acceleration features; use less memory but potentially more CPU.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-disable\-buffering
+Disable use stdio bufferring, reads will be performed via unix fd reads. This
+may reduce latency when reading from a network file descriptor, or similar.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-disable\-depth\-limit
+Disable the object depth limit, which is usually set to a value near 60.
+Using this option is is possible to process even pathological inputs when
+using the default non\-recursive build mode.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-prefer\-recursive
+Prefer recursive build methods, instead of iterative. This field is merely here
+for evaluation purposes and will be removed in a future version.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-sloppy\-flow\-indentation
+Use sloppy flow indentation, where indentation is not taken into account in flow
+mode, even when the input is invalid YAML according to the spec.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-ypath\-aliases
+Process aliases using ypaths. Experimental option.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-streaming
+Only valid when in \fBdump\fP mode, enables streaming mode. This means
+that no in\-memory graph tree is constructed, so indefinite and arbitrary
+large YAML input streams can be processed.
+.sp
+Note that in streaming mode:
+.INDENT 7.0
+.IP \(bu 2
+Key duplication checks are disabled.
+.IP \(bu 2
+No reording of key order is possible when emitting (i.e. \fI\-\-sort\fP is not available).
+.IP \(bu 2
+Alias resolution is not available (i.e. \fI\-\-resolve\fP).
+.UNINDENT
+.UNINDENT
+Resolver Options.INDENT 0.0
+.TP
+.B \-r, \-\-resolve
+Perform anchor and merge key resolution. By default this option is disabled.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-l, \-\-follow
+Follow aliases when performing path traversal. By default this option is disabled.
+.UNINDENT
+Testsuite Options.INDENT 0.0
+.TP
+.B \-\-disable\-flow\-markers
+Do not output flow\-markers for the testsuite output.
+.UNINDENT
+Emitter Options.INDENT 0.0
+.TP
+.B \-i INDENT, \-\-indent=INDENT
+Sets the emitter indent (in spaces). Default is \fB2\fP\&.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-w WIDTH, \-\-width=WIDTH
+Sets the preferred output width of the emitter. It is generally impossible
+to strictly adhere to this limit so this is treated as a hint at best.
+It not valid in any oneline output modes (i.e. \fIflow\-oneline\fP or \fIjson\-oneline\fP).
+Default value is 80.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-m MODE, \-\-mode=MODE
+Sets the output mode of the YAML emitted. Possible values are:
+.INDENT 7.0
+.IP \(bu 2
+\fBoriginal\fP
+.sp
+The original formatting used in the input. This is default mode.
+.IP \(bu 2
+\fBblock\fP
+.sp
+The output is forced to be in block mode. All flow constructs will
+be converted to block mode.
+.IP \(bu 2
+\fBflow\fP
+.sp
+The output is forced to be in flow mode. All block constructs will
+be converted to flow mode.
+.IP \(bu 2
+\fBflow\-oneline\fP
+.sp
+The output is forced to be in flow mode, but no newlines will be
+emitted; the output is going to be a (potentially very) long line.
+.IP \(bu 2
+\fBjson\fP
+.sp
+The output is forced to be in JSON mode. Note that it is impossible
+to output an arbitrary YAML file as JSON, so this may fail.
+.IP \(bu 2
+\fBjson\-oneline\fP
+.sp
+The output is forced to be in JSON mode and in a single line.
+.IP \(bu 2
+\fBdejson\fP
+.sp
+Output is in block YAML mode but with special care to convert
+JSON quoted strings in as non\-idiomatic YAML as possible.
+For example \fI{ foo: "this is a test" }\fP will be emitted as
+\fIfoo: this is a test\fP\&. YAML can handle scalars without using
+excessive quoting.
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-C MODE, \-\-color=MODE
+It is possible to colorize output using ANSI color escape sequences,
+and the mode can be one of:
+.INDENT 7.0
+.IP \(bu 2
+\fBoff\fP
+.sp
+Never colorize output.
+.IP \(bu 2
+\fBon\fP
+.sp
+Always colorize output.
+.IP \(bu 2
+\fBauto\fP
+.sp
+Automatically colorize output when the output is a terminal.
+This is the default.
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-V, \-\-visible
+Make all whitespace (spaces, unicode spaces and linebreaks) visible.
+Note that this is performed using UTF8 characters so it will not work
+on non\-UTF8 terminals, or a non\-UTF8 complete font.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-s, \-\-sort
+Sort keys on output. This option is disabled by default.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-c, \-\-comment
+Experimental output comments option. Enabled output while preserving comments.
+Disabled by default.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-strip\-labels
+Strip labels on output. Disabled by default.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-strip\-tags
+Strip tags on output. Disabled by default.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-strip\-doc
+Strip document indicators on output. Disabled by default.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-null\-output
+Do not generate any output, useful for profiling the parser.
+.UNINDENT
+YPATH options.INDENT 0.0
+.TP
+.B \-\-dump\-pathexpr
+Dump the produced path expression for debugging.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-no\-exec
+Do not execute the expression. Useful when used with \fI\-\-dump\-pathexpr\fP
+.UNINDENT
+Compose options.INDENT 0.0
+.TP
+.B \-\-dump\-path
+Dump the path while composing.
+.UNINDENT
+Tool mode select options.INDENT 0.0
+.TP
+.B \-\-dump
+Select \fIdump\fP mode of operation. This is the default.
+This mode is also enabled when the called binary is aliased to
+\fIfy\-dump\fP\&.
+.sp
+In this mode, all files provided in the command line will be dumped
+in one continuous stream, to the standard output, using document start
+indicators to mark the start of end new file.
+.sp
+If the file provided is \fI\-\fP then the input is the standard input.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-testsuite
+Select \fItestsuite\fP mode of operation.
+This mode is also enabled when the called binary is aliased to \fIfy\-testsuite\fP\&.
+.sp
+In this mode, a single YAML file is read and an event stream is
+generated which is the format used for \fIyaml\-testsuite\fP compliance.
+.sp
+If the file provided is \fI\-\fP then the input is the standard input.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-filter
+Select \fIfilter\fP mode of operation.
+This mode is also enabled when the called binary is aliased to \fIfy\-filter\fP\&.
+.sp
+In this mode, a single YAML file is read from the standard input for each path
+that is provided in the command line a document will be produced to the
+standard output.
+To use file instead of standard input use the \fI\-f/\-\-file\fP option.
+.sp
+If the file provided is \fI\-\fP then the input is the standard input.
+.INDENT 7.0
+.TP
+.B \-f FILE, \-\-file=FILE
+Use the given file as input instead of standard input.
+.sp
+If  first character of \fIFILE\fP is \fB>\fP the the input is the content of the option
+that follows.
+For example \-\-file ">foo: bar" is as \-\-file file.yaml with file.yaml "foo: bar"
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-join
+Select \fIjoin\fP mode of operation.
+This mode is also enabled when the called binary is aliased to \fIfy\-join\fP\&.
+.sp
+In this mode, multiple YAML files are joined into a single document, emitted
+to the standard output.
+.sp
+If the file provided is \fI\-\fP then the input is the standard input.
+.INDENT 7.0
+.TP
+.B \-T PATH, \-\-to=PATH
+The target path of the join. By default this is the root \fB/\fP\&.
+.sp
+If  first character of \fIFILE\fP is \fB>\fP the the input is the content of the option
+that follows.
+.UNINDENT
+.INDENT 7.0
+.TP
+.B \-F PATH, \-\-from=PATH
+The origin path of the join (for each input). By default this is the root \fB/\fP\&.
+.sp
+If  first character of \fIFILE\fP is \fB>\fP the the input is the content of the option
+that follows.
+.UNINDENT
+.INDENT 7.0
+.TP
+.B \-t PATH, \-\-trim=PATH
+Trim path of the output of the join. By default this is the root \fB/\fP\&.
+.sp
+If  first character of \fIFILE\fP is \fB>\fP the the input is the content of the option
+that follows.
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-ypath
+Process files and output query results using ypath.
+.UNINDENT
+.INDENT 0.0
+.TP
+.B \-\-compose
+Use the composer API to build the document instead of direct events.
+.UNINDENT
+.SH EXAMPLES
+Example input files
+.sp
+We\(aqre going to be using a couple of YAML files in our examples.
+.sp
+invoice.yaml
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+# invoice.yaml
+invoice: 34843
+date   : !!str 2001\-01\-23
+bill\-to: &id001
+given  : Chris
+family : Dumars
+address:
+        lines: |
+        458 Walkman Dr.
+        Suite #292
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+simple\-anchors.yaml
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+# simple\-anchors.yaml
+foo: &label { bar: frooz }
+baz: *label
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+mergekeyspec.yaml
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+\-\-\-
+\- &CENTER { x: 1, y: 2 }
+\- &LEFT { x: 0, y: 2 }
+\- &BIG { r: 10 }
+\- &SMALL { r: 1 }
+
+# All the following maps are equal:
+
+\- # Explicit keys
+  x: 1
+  y: 2
+  r: 10
+  label: center/big
+
+\- # Merge one map
+  << : *CENTER
+  r: 10
+  label: center/big
+
+\- # Merge multiple maps
+  << : [ *CENTER, *BIG ]
+  label: center/big
+
+\- # Override
+  << : [ *BIG, *LEFT, *SMALL ]
+  x: 1
+  label: center/big
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+bomb.yaml
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+a: &a ["lol","lol","lol","lol","lol","lol","lol","lol","lol"]
+b: &b [*a,*a,*a,*a,*a,*a,*a,*a,*a]
+c: &c [*b,*b,*b,*b,*b,*b,*b,*b,*b]
+d: &d [*c,*c,*c,*c,*c,*c,*c,*c,*c]
+e: &e [*d,*d,*d,*d,*d,*d,*d,*d,*d]
+f: &f [*e,*e,*e,*e,*e,*e,*e,*e,*e]
+g: &g [*f,*f,*f,*f,*f,*f,*f,*f,*f]
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+fy\-dump examples.
+.sp
+Parse and dump generated YAML document tree in the original YAML form
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ fy\-dump invoice.yaml
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+invoice: 34843
+date: !!str 2001\-01\-23
+bill\-to: &id001
+given: Chris
+family: Dumars
+  address:
+  lines: |
+    458 Walkman Dr.
+    Suite #292
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Parse and dump generated YAML document tree in flow YAML form
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ fy\-dump \-mflow invoice.yaml
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  invoice: 34843,
+  date: !!str 2001\-01\-23,
+  bill\-to: &id001 {
+    given: Chris,
+    family: Dumars,
+    address: {
+      lines: "458 Walkman Dr.\enSuite #292\en"
+    }
+  }
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Parse and dump generated YAML document from the input string
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ fy\-dump \-mjson ">foo: bar"
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+{
+  "foo": "bar"
+}
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Using the resolve option on the \fIsimple\-anchors.yaml\fP
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ fy\-dump \-r simple\-anchor.yaml
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+foo: &label {
+    bar: frooz
+  }
+baz: {
+    bar: frooz
+  }
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Stripping the labels too:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ fy\-dump \-r \-\-strip\-label simple\-anchor.yaml
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+foo: {
+    bar: frooz
+  }
+baz: {
+    bar: frooz
+  }
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Merge key support:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ fy\-dump \-r \-\-strip\-label mergekeyspec.yaml
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+\-\-\-
+\- {
+    x: 1,
+    y: 2
+  }
+\- {
+    x: 0,
+    y: 2
+  }
+\- {
+    r: 10
+  }
+\- {
+    r: 1
+  }
+\- x: 1
+  y: 2
+  r: 10
+  label: center/big
+\- y: 2
+  x: 1
+  r: 10
+  label: center/big
+\- r: 10
+  y: 2
+  x: 1
+  label: center/big
+\- y: 2
+  r: 10
+  x: 1
+  label: center/big
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Sorting option:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ fy\-dump \-s invoice.yaml
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+bill\-to: &id001
+  address:
+    lines: |
+      458 Walkman Dr.
+      Suite #292
+  family: Dumars
+  given: Chris
+date: !!str 2001\-01\-23
+invoice: 34843
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+fy\-testsuite example.
+.sp
+An example using the testsuite mode generates the following
+event stream from \fIinvoice.yaml\fP
+.sp
+Parse and dump test\-suite event format
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ fy\-testsuite invoice.yaml
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+fy\-filter examples.
+.sp
+Filter out from the \fI/bill\-to\fP path of \fIinvoice.yaml\fP
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ cat invoice.yaml | fy\-filter /bill\-to
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+&id001
+given: Chris
+family: Dumars
+address:
+  lines: |
+    458 Walkman Dr.
+    Suite #292
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Filter example with arrays (and use the \-\-file option)
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ fy\-filter \-\-file=mergekeyspec.yaml /5
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+\-\-\-
+<<: *CENTER
+r: 10
+label: center/big
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Follow anchors example
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ fy\-filter \-\-file=simple\-anchors.yaml /baz/bar
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+frooz
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Handle YAML bombs (if you can spare the memory and cpu time)
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ fy\-filter \-\-file=bomb.yaml \-r / | wc \-l
+6726047
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+You don\(aqt have to, you can just follow links to retrieve data.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ fy\-filter \-\-file=stuff/bomb.yaml \-l \-\-strip\-label /g/0/1/2/3/4/5/6
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+"lol"
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Following links works with merge keys too:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ fy\-filter \-\-file=mergekeyspec.yaml \-l \-\-strip\-label /5/x
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+\-\-\- 1
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+fy\-join examples.
+.sp
+Joining two YAML files that have root mappings.
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ fy\-join simple\-anchors.yaml invoice.yaml
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+foo: &label {
+    bar: frooz
+  }
+baz: *label
+invoice: 34843
+date: !!str 2001\-01\-23
+bill\-to: &id001
+  given: Chris
+  family: Dumars
+  address:
+    lines: |
+      458 Walkman Dr.
+      Suite #292
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.sp
+Join two files with sequences at root:
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+$ fy\-join \-mblock ">[ foo, bar ]" ">[ baz ]"
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.INDENT 0.0
+.INDENT 3.5
+.sp
+.nf
+.ft C
+\- foo
+\- bar
+\- baz
+.ft P
+.fi
+.UNINDENT
+.UNINDENT
+.SH AUTHOR
+.sp
+Pantelis Antoniou <\fI\%pantelis.antoniou@konsulko.com\fP>
+.SH BUGS
+.INDENT 0.0
+.IP \(bu 2
+The only supported input and output character encoding is UTF8.
+.IP \(bu 2
+Sorting does not respect language settings.
+.IP \(bu 2
+There is no way for the user to specific a different coloring scheme.
+.UNINDENT
+.SH SEE ALSO
+.sp
+\fBlibfyaml(1)\fP
+.SH COPYRIGHT
+2019, Pantelis Antoniou
+.\" Generated by docutils manpage writer.
+.

@@ -1,0 +1,6 @@
+---
+{
+  foo: bar,  # comment
+  # top comment
+  baz: frooz # last comment
+}

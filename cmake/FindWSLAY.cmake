@@ -1,6 +1,6 @@
 include(CPM)
 include(${CMAKE_CURRENT_LIST_DIR}/dependencies/versions.cmake)
-CPMAddPackage(NAME wslay GIT_REPOSITORY https://github.com/tatsuhiro-t/wslay GIT_TAG ${GIT_TAG_wslay} VERSION ${VERSION_wslay}
+CPMAddPackage(NAME wslay SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/../deps/wslay VERSION ${VERSION_wslay}
         OPTIONS "WSLAY_CONFIGURE_INSTALL OFF")
 
 set(WSLAY_INCLUDE_DIRS "${wslay_SOURCE_DIR}/lib/include")

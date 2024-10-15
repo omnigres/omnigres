@@ -1,0 +1,193 @@
+# Copyright (C) 2021 Sebastian Pipping <sebastian@pipping.org>
+# Licensed under the MIT license
+
+name: Build and test
+
+on:
+  pull_request:
+  push:
+  schedule:
+    - cron: '0 4 * * 5'  # Every Friday at 4am
+
+jobs:
+  build_and_test:
+    name: Build and test
+    strategy:
+      matrix:
+        include:
+          - name: Native Linux
+            cmake_args: >-
+              -DCMAKE_C_COMPILER=clang-15
+              -DCMAKE_CXX_COMPILER=clang++-15
+            cflags: >-
+              -fsanitize=address,undefined,leak
+              -fno-sanitize-recover=all
+              -fno-omit-frame-pointer
+            ldflags: >-
+              -fsanitize=address
+          - name: MingGW on Linux
+            cmake_args: >-
+              -DCMAKE_C_COMPILER=i686-w64-mingw32-gcc
+              -DCMAKE_CXX_COMPILER=i686-w64-mingw32-g++
+              -DCMAKE_SYSTEM_NAME=Windows
+              -DWIN32=ON
+              -DMINGW=ON
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v3.0.2
+
+      - name: Add Clang/LLVM repositories (Non-MinGW)
+        if: "${{ ! contains(matrix.cmake_args, 'mingw') }}"
+        run: |-
+          set -x
+          source /etc/os-release
+          wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
+          sudo add-apt-repository "deb http://apt.llvm.org/${UBUNTU_CODENAME}/ llvm-toolchain-${UBUNTU_CODENAME}-15 main"
+
+      - name: Install build dependencies
+        run: |-
+          set -x
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends -V \
+              cmake \
+              doxygen \
+              graphviz \
+              lzip \
+              qhelpgenerator-qt5 \
+              qtchooser
+
+      - name: Install build dependencies (MinGW)
+        if: "${{ contains(matrix.cmake_args, 'mingw') }}"
+        run: |-
+          set -x -u -o pipefail
+          source /etc/os-release
+
+          # Get rid of packages installed from ppa:ondrej/php so that we will be able to install wine32:i386 without conflicts
+          # (see issue https://github.com/actions/virtual-environments/issues/4589)
+          # In detail we:
+          #   1. Remove all packages that ppa:ondrej/php has but plain Ubuntu doesn't, e.g. everything PHP
+          #   2. Revert (remaining) packages that ppa:ondrej/php and plain Ubuntu share, back to the plain Ubuntu version
+          #   3. Assert that no packages from ppa:ondrej/php are left installed
+          dpkg -l | grep '^ii' | fgrep deb.sury.org | awk '{print $2}' | grep '^php' \
+            | xargs -r -t sudo apt-get remove --yes libpcre2-posix3 libzip4
+          dpkg -l | grep '^ii' | fgrep deb.sury.org | awk '{print $2}' | sed "s,\$,/${UBUNTU_CODENAME}," \
+            | xargs -r -t sudo apt-get install --yes --no-install-recommends --allow-downgrades -V
+          ! dpkg -l | grep '^ii' | fgrep deb.sury.org
+
+          # Install 32bit Wine
+          sudo dpkg --add-architecture i386  # for wine32
+          sudo apt-get update  # again, due to new architecture
+          sudo apt-get install --yes --no-install-recommends -V \
+              mingw-w64 \
+              wine-stable \
+              wine32:i386
+
+      - name: Install build dependencies (Non-MinGW)
+        if: "${{ ! contains(matrix.cmake_args, 'mingw') }}"
+        run: |-
+          sudo apt-get install --yes --no-install-recommends -V \
+              clang-15 \
+              llvm-15
+
+      - name: Build, test and install
+        run: |-
+          set -x
+          sed 's,:,\n,g' <<<"${PATH}"
+          cmake --version
+
+          GTEST_VERSION=1.8.1
+          GTEST_PREFIX=~/.local/
+
+          wget https://github.com/google/googletest/archive/release-${GTEST_VERSION}.tar.gz
+          tar xf release-${GTEST_VERSION}.tar.gz
+          (
+            cd googletest-release-${GTEST_VERSION}/
+
+            # Silence warning "Compatibility with CMake < 2.8.12 will be removed"
+            find -name CMakeLists.txt -print -exec sed 's/cmake_minimum_required.*/cmake_minimum_required(VERSION 3.0.2)/' -i {} \;
+
+            cmake \
+                -DBUILD_SHARED_LIBS=ON \
+                -DCVF_VERSION=${GTEST_VERSION} \
+                -DCMAKE_INSTALL_PREFIX:PATH=${GTEST_PREFIX} \
+                ${{ matrix.cmake_args }} \
+                .
+            make
+            make install
+          )
+
+          mkdir build
+          pushd build
+            compile_flags=(
+              -pipe
+
+              -O1
+              -g
+              ${{ matrix.cflags }}
+
+              -Wall
+              -Wextra
+              -pedantic
+            )
+            CFLAGS="${compile_flags[*]} -std=c89"
+            CXXFLAGS="${compile_flags[*]} -std=c++98"
+            LDFLAGS='-g ${{ matrix.ldflags }}'
+            cmake_args=(
+              -DCMAKE_INSTALL_PREFIX:PATH=${GTEST_PREFIX}
+
+              -Wdev
+              -Werror=dev
+              -Wdeprecated
+              -Werror=deprecated
+
+              -DCMAKE_C_FLAGS="${CFLAGS}"
+              -DCMAKE_CXX_FLAGS="${CXXFLAGS}"
+              -DCMAKE_EXE_LINKER_FLAGS="${LDFLAGS}"
+              -DCMAKE_MODULE_LINKER_FLAGS="${LDFLAGS}"
+              -DCMAKE_SHARED_LINKER_FLAGS="${LDFLAGS}"
+
+              ${{ matrix.cmake_args }}
+
+              -DURIPARSER_WARNINGS_AS_ERRORS=ON
+            )
+            cmake "${cmake_args[@]}" -DCMAKE_INSTALL_INCLUDEDIR=include123 ..
+
+            make VERBOSE=1 all
+
+            # NOTE: We need to copy some .dll files next to the
+            #       Windows binaries so that they are ready to be executed
+            if [[ "${{ matrix.cmake_args }}" == *mingw* ]]; then
+              cp /usr/lib/gcc/i686-w64-mingw32/*-posix/libgcc_s_sjlj-1.dll ./
+              cp /usr/lib/gcc/i686-w64-mingw32/*-posix/libstdc++-6.dll ./
+              cp /usr/i686-w64-mingw32/lib/libwinpthread-1.dll ./
+              cp "${GTEST_PREFIX}"/bin/libgtest.dll ./
+            fi
+
+            make VERBOSE=1 test ARGS=--verbose
+            cat Testing/Temporary/LastTest.log
+
+            make install
+            make DESTDIR="${PWD}"/ROOT/ install
+            find ROOT | sort
+
+            ./doc/release.sh
+          popd
+          pushd cmake/test_find_package
+            cmake "${cmake_args[@]}" .
+            make VERBOSE=1
+            if [[ "${{ matrix.cmake_args }}" == *mingw* ]]; then
+              cp "${GTEST_PREFIX}"/bin/liburiparser-1.dll ./
+              wine ./hello.exe
+            else
+              ./hello
+            fi
+          popd
+
+          git fetch --force --tags --unshallow origin  # for "git describe" in make-distcheck.sh
+
+          GTEST_PREFIX="${GTEST_PREFIX}" \
+            ./make-distcheck.sh \
+            -DCMAKE_INSTALL_PREFIX:PATH=${GTEST_PREFIX} \
+            ${{ matrix.cmake_args }}
+
+          ! git status | fgrep -A100 'Untracked files:'  # works best at the very end

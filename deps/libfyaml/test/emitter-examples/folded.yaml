@@ -1,0 +1,33 @@
+clip: >
+  This is a single clipped line
+keep: >+
+  This is a single kept line
+strip: >-
+  This is a single stripped line
+clip2: >
+  These are two
+  clipped lines
+keep2: >+
+  These are two
+  kept lines
+strip2: >-
+  These are two
+  striped lines
+clip3: >
+  These are two
+  clipped lines with trailing line breaks
+
+
+
+keep3: >+
+  These are two
+  kept lines with trailing line breaks
+
+
+
+strip3: >-
+  These are two
+  striped lines with trailing line breaks
+
+
+

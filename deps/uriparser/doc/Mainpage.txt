@@ -1,0 +1,300 @@
+/**
+ * @mainpage
+ *
+ * @section SEC_TOC Table of Contents
+ * - <a href="#intro">Introduction</a>
+ * - Algorithms and Examples
+ *   - <a href="#parsing">Parsing URIs</a> (from string to object)
+ *   - <a href="#recomposition">Recomposing URIs</a> (from object back to string)
+ *   - <a href="#resolution">Resolving References</a>
+ *   - <a href="#shortening">Creating References</a>
+ *   - <a href="#filenames">Filenames and URIs</a>
+ *   - <a href="#normalization">Normalizing URIs</a>
+ *   - <a href="#querystrings">Working with Query Strings</a>
+ * - <a href="#chartypes">Narrow Strings and Wide Strings</a>
+ * - <a href="#autoconf">Autoconf Check</a>
+ *
+ *
+ * @section intro Introduction
+ * Welcome to the short uriparser integration tutorial.
+ * It is intended to answer upcoming questions and to shed light
+ * where function prototypes alone are not enough.
+ * Please drop me a line if you need further assistance and I will
+ * see what I can do for you. Good luck with uriparser!
+ *
+ *
+ * @subsection parsing Parsing URIs (from string to object)
+ * Parsing a URI with uriparser looks like this:
+ *
+ * @code
+ * 	UriUriA uri;
+ * 	const char * const uriString = "file:///home/user/song.mp3";
+ * 	const char * errorPos;
+ *
+ * 	if (uriParseSingleUriA(&uri, uriString, &errorPos) != URI_SUCCESS) {
+ * 		/COMMENT_HACK* Failure (no need to call uriFreeUriMembersA) *COMMENT_HACK/
+ * 		...
+ * 		return ...;
+ * 	}
+ *
+ * 	/COMMENT_HACK* Success *COMMENT_HACK/
+ * 	...
+ * 	uriFreeUriMembersA(&uri);
+ * @endcode
+ *
+ * While the URI object (::UriUriA) holds information about the recognized
+ * parts of the given URI string, in case of <c>URI_ERROR_SYNTAX</c>,
+ * <c>errorPos</c> points to the first character starting invalid syntax.
+ *
+ * @subsection recomposition Recomposing URIs (from object back to string)
+ * According to <a href="http://tools.ietf.org/html/rfc3986#section-5.3" target="_blank">RFC 3986</a>
+ * gluing parts of a URI together to form a string is called recomposition.
+ * Before we can recompose a URI object we have to know how much
+ * space the resulting string will take:
+ *
+ * @code
+ * 	UriUriA uri;
+ * 	char * uriString;
+ * 	int charsRequired;
+ * 	...
+ * 	if (uriToStringCharsRequiredA(&uri, &charsRequired) != URI_SUCCESS) {
+ * 		/COMMENT_HACK* Failure *COMMENT_HACK/
+ * 		...
+ * 	}
+ * 	charsRequired++;
+ * @endcode
+ *
+ * Now we can tell uriToStringA() to write the string to a given buffer:
+ *
+ * @code
+ * 	uriString = malloc(charsRequired * sizeof(char));
+ * 	if (uriString == NULL) {
+ * 		/COMMENT_HACK* Failure *COMMENT_HACK/
+ * 		...
+ * 	}
+ * 	if (uriToStringA(uriString, &uri, charsRequired, NULL) != URI_SUCCESS) {
+ * 		/COMMENT_HACK* Failure *COMMENT_HACK/
+ * 		...
+ * 	}
+ * @endcode
+ *
+ * @remarks
+ * Incrementing <c>charsRequired</c> by 1 is required since
+ * uriToStringCharsRequiredA() returns the length of the string
+ * as strlen() does, but uriToStringA() works with the number
+ * of maximum characters to be written <b>including</b> the
+ * zero-terminator.
+ *
+ *
+ * @subsection resolution Resolving References
+ * <a href="http://tools.ietf.org/html/rfc3986#section-5" target="_blank">Reference Resolution</a>
+ * is the process of turning a (relative) URI reference into an absolute URI by applying a base
+ * URI to it. In code it looks like this:
+ *
+ * @code
+ * 	UriUriA absoluteDest;
+ * 	UriUriA relativeSource;
+ * 	UriUriA absoluteBase;
+ * 	...
+ * 	/COMMENT_HACK* relativeSource holds "../TWO" now *COMMENT_HACK/
+ * 	/COMMENT_HACK* absoluteBase holds "file:///one/two/three" now *COMMENT_HACK/
+ * 	if (uriAddBaseUriA(&absoluteDest, &relativeSource, &absoluteBase) != URI_SUCCESS) {
+ * 		/COMMENT_HACK* Failure *COMMENT_HACK/
+ * 		uriFreeUriMembersA(&absoluteDest);
+ * 		...
+ * 	}
+ * 	/COMMENT_HACK* absoluteDest holds "file:///one/TWO" now *COMMENT_HACK/
+ * 	...
+ * 	uriFreeUriMembersA(&absoluteDest);
+ * @endcode
+ *
+ * @remarks
+ * uriAddBaseUriA() does not normalize the resulting URI.
+ * Usually you might want to pass it through uriNormalizeSyntaxA() after.
+ *
+ *
+ * @subsection shortening Creating References
+ * Reference Creation is the inverse process of Reference Resolution: A common base URI
+ * is &quot;subtracted&quot; from an absolute URI to make a (relative) reference.
+ * If the base URI is not common the remaining URI will still be absolute, i.e. will
+ * carry a scheme
+ *
+ * @code
+ * 	UriUriA dest;
+ * 	UriUriA absoluteSource;
+ * 	UriUriA absoluteBase;
+ * 	...
+ * 	/COMMENT_HACK* absoluteSource holds "file:///one/TWO" now *COMMENT_HACK/
+ * 	/COMMENT_HACK* absoluteBase holds "file:///one/two/three" now *COMMENT_HACK/
+ * 	if (uriRemoveBaseUriA(&dest, &absoluteSource, &absoluteBase, URI_FALSE) != URI_SUCCESS) {
+ * 		/COMMENT_HACK* Failure *COMMENT_HACK/
+ * 		uriFreeUriMembersA(&dest);
+ * 		...
+ * 	}
+ * 	/COMMENT_HACK* dest holds "../TWO" now *COMMENT_HACK/
+ * 	...
+ * 	uriFreeUriMembersA(&dest);
+ * @endcode
+ *
+ * The fourth parameter is the domain root mode. With <c>URI_FALSE</c> as above this will produce
+ * URIs relative to the base URI. With <c>URI_TRUE</c> the resulting URI will be relative to the
+ * domain root instead, e.g. &quot;/one/TWO&quot; in this case.
+ *
+ *
+ * @subsection filenames Filenames and URIs
+ * Converting filenames to and from URIs works on strings directly,
+ * i.e. without creating an URI object. 
+ *
+ * @code
+ * 	const char * const absFilename = "E:\\Documents and Settings";
+ * 	const int bytesNeeded = 8 + 3 * strlen(absFilename) + 1;
+ * 	char * absUri = malloc(bytesNeeded * sizeof(char));
+ * 	if (uriWindowsFilenameToUriStringA(absFilename, absUri) != URI_SUCCESS) {
+ * 		/COMMENT_HACK* Failure *COMMENT_HACK/
+ * 		free(absUri);
+ * 		...
+ * 	}
+ * 	/COMMENT_HACK* absUri is "file:///E:/Documents%20and%20Settings" now *COMMENT_HACK/
+ * 	...
+ * 	free(absUri);
+ * @endcode
+ *
+ * Conversion works ..
+ * - for relative or absolute values,
+ * - in both directions (filenames &lt;--&gt; URIs) and
+ * - with Unix and Windows filenames.
+ *
+ * All you have to do is to choose the right function for the task and allocate
+ * the required space (in characters) for the target buffer.
+ * Let me present you an overview:
+ *
+ * - Filename --&gt; URI
+ *   - uriUnixFilenameToUriStringA()\n
+ *     Space required: [<b>7</b> +] 3 * len(filename) + 1 
+ *   - uriWindowsFilenameToUriStringA()\n
+ *     Space required: [<b>8</b> +] 3 * len(filename) + 1
+ * - URI --&gt; filename
+ *   - uriUriStringToUnixFilenameA()\n
+ *     Space required: len(uriString) + 1 [- <b>7]</b>
+ *   - uriUriStringToWindowsFilenameA()\n
+ *     Space required: len(uriString) + 1 [- <b>8]</b>
+ *
+ *
+ * @subsection normalization Normalizing URIs
+ * Sometimes we come across unnecessarily long URIs like &quot;http<b></b>://example.org/one/two/../../one&quot;.
+ * The algorithm we can use to shorten this URI down to &quot;http<b></b>://example.org/one&quot; is called
+ * <a href="http://tools.ietf.org/html/rfc3986#section-6.2.2" target="_blank">Syntax-Based Normalization</a>.
+ * Note that normalizing a URI does more than just &quot;stripping dot segments&quot;. Please have a look at
+ * <a href="http://tools.ietf.org/html/rfc3986#section-6.2.2" target="_blank">Section 6.2.2 of RFC 3986</a>
+ * for the full description.
+ *
+ * As we asked uriToStringCharsRequiredA() for the required space when converting
+ * a URI object back to a string, we can ask uriNormalizeSyntaxMaskRequiredA() for
+ * the parts of a URI that require normalization and then pass this normalization
+ * mask to uriNormalizeSyntaxExA():
+ *
+ * @code
+ * 	const unsigned int dirtyParts = uriNormalizeSyntaxMaskRequiredA(&uri);
+ * 	if (uriNormalizeSyntaxExA(&uri, dirtyParts) != URI_SUCCESS) {
+ * 		/COMMENT_HACK* Failure *COMMENT_HACK/
+ * 		...
+ * 	}
+ * @endcode
+ *
+ * If you don't want to normalize all parts of the URI you can pass a custom
+ * mask as well:
+ *
+ * @code
+ * 	const unsigned int normMask = URI_NORMALIZE_SCHEME | URI_NORMALIZE_USER_INFO;
+ * 	if (uriNormalizeSyntaxExA(&uri, normMask) != URI_SUCCESS) {
+ * 		/COMMENT_HACK* Failure *COMMENT_HACK/
+ * 		...
+ * 	}
+ * @endcode
+ *
+ * Please see ::UriNormalizationMaskEnum for the complete set of flags.
+ *
+ * On the other hand calling plain uriNormalizeSyntaxA() (without the &quot;Ex&quot;)
+ * saves you thinking about single parts, as it queries uriNormalizeSyntaxMaskRequiredA()
+ * internally:
+ *
+ * @code
+ * 	if (uriNormalizeSyntaxA(&uri) != URI_SUCCESS) {
+ * 		/COMMENT_HACK* Failure *COMMENT_HACK/
+ * 		...
+ * 	}
+ * @endcode
+ *
+ *
+ * @section querystrings Working with Query Strings
+ * <a href="http://tools.ietf.org/html/rfc3986" target="_blank">RFC 3986</a>
+ * itself does not understand the query part of a URI as a list of key/value pairs.
+ * But HTML 2.0 does and defines a media type <i>application/x-www-form-urlencoded</i>
+ * in in <a href="http://tools.ietf.org/html/rfc1866#section-8.2.1" target="blank">section 8.2.1</a>
+ * of <a href="http://tools.ietf.org/html/rfc1866" target="blank">RFC 1866</a>.
+ * uriparser allows you to dissect (or parse) a query string into unescaped key/value pairs
+ * and back.
+ *
+ * To dissect the query part of a just-parsed URI you could write code like this:
+ * 
+ * @code
+ * 	UriUriA uri;
+ * 	UriQueryListA * queryList;
+ * 	int itemCount;
+ * 	...
+ * 	if (uriDissectQueryMallocA(&queryList, &itemCount, uri.query.first,
+ * 			uri.query.afterLast) != URI_SUCCESS) {
+ * 		/COMMENT_HACK* Failure *COMMENT_HACK/
+ * 		...
+ * 	}
+ * 	...
+ * 	uriFreeQueryListA(queryList);
+ * @endcode
+ *
+ * @remarks
+ * - <c>NULL</c> in the <c>value</c> member means there was <b>no</b> '=' in the item text as with "?abc&def".
+ * - An empty string in the <c>value</c> member means there was '=' in the item as with "?abc=&def".
+ *
+ *
+ * To compose a query string from a query list you could write code like this:
+ *
+ * @code
+ * 	int charsRequired;
+ * 	int charsWritten;
+ * 	char * queryString;
+ * 	...
+ * 	if (uriComposeQueryCharsRequiredA(queryList, &charsRequired) != URI_SUCCESS) {
+ * 		/COMMENT_HACK* Failure *COMMENT_HACK/
+ * 		...
+ * 	}
+ * 	queryString = malloc((charsRequired + 1) * sizeof(char));
+ * 	if (queryString == NULL) {
+ * 		/COMMENT_HACK* Failure *COMMENT_HACK/
+ * 		...
+ * 	}
+ * 	if (uriComposeQueryA(queryString, queryList, charsRequired + 1, &charsWritten) != URI_SUCCESS) {
+ * 		/COMMENT_HACK* Failure *COMMENT_HACK/
+ * 		...
+ * 	}
+ * 	...
+ * 	free(queryString);
+ * @endcode
+ *
+ *
+ * @section chartypes Narrow Strings and Wide Strings
+ * uriparser comes with two versions of every structure and function:
+ * one handling narrow strings (<code>char *</code>) and one working with wide strings (<code>wchar_t *</code>),
+ * for instance
+ * - uriParseSingleUriA() for <code>char *</code>
+ * - uriParseSingleUriW() for <code>wchar_t *</code>.
+ *
+ * This tutorial only shows the usage of the narrow string editions but
+ * their wide string counterparts work in the very same way.
+ *
+ *
+ * @section autoconf Autoconf Check
+ * You can use the code below to make <c>./configure</c> test for presence
+ * of uriparser 0.9.0 or later.
+ *
+ *<div class="fragment"><pre class="fragment">PKG_CHECK_MODULES([URIPARSER], [liburiparser >= 0.9.0], [], [])</pre></div>
+ */

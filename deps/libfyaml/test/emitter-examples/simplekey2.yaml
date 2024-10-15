@@ -1,0 +1,5 @@
+root:           # level 0
+  key:          # level 1
+    value       # level 2
+  key2:         # level 1
+    value2      # level 2

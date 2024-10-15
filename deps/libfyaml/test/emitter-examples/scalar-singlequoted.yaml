@@ -1,0 +1,14 @@
+simple: 'simple'
+multiline: 'multi line
+  singled quoted scalar'
+multiline2: 'multi line
+  singled quoted scalar
+        
+  with a newline   '
+comment-3:
+  '   Deliver here, but if not
+   possible deliver there.  
+
+
+   Tatta!  '
+

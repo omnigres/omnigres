@@ -1,0 +1,88 @@
+#!/bin/bash
+
+count=0
+for basetst in test-suite-data/[A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9]/; do
+	for tst in ${basetst} ${basetst}[0-9][0-9]/ ${basetst}[0-9][0-9][0-9]/; do
+		# there must be a test there
+		if [ ! -e "$tst/===" ]; then
+			continue
+		fi
+		# skip tests that are expected to fail
+		if [ -e "$tst/error" ]; then
+			continue
+		fi
+		count=`expr $count + 1`
+	done
+done
+
+# output plan
+echo 1..$count
+
+skiplist="2JQS"
+xfaillist=""
+
+i=0
+for basetst in test-suite-data/[A-Z0-9][A-Z0-9][A-Z0-9][A-Z0-9]/; do
+
+	for tst in ${basetst} ${basetst}[0-9][0-9]/ ${basetst}[0-9][0-9][0-9]/; do
+
+		# there must be a test there
+		if [ ! -e "$tst/===" ]; then
+			continue
+		fi
+
+		# skip tests that are expected to fail
+		if [ -e "$tst/error" ]; then
+			continue
+		fi
+
+		i=`expr $i + 1`
+
+		# strip trailing /
+		t=${tst%/}
+		# remove test-suite-data/
+		test_subtest_id=`echo $t | cut -d/ -f2-`
+		test_id=`echo $test_subtest_id | cut -d/ -f1`
+		subtest_id=`echo $test_subtest_id | cut -s -d/ -f2`
+
+		desctxt=`cat 2>/dev/null "$tst/==="`
+
+		t=`mktemp`
+
+		directive=""
+		for skip in $skiplist; do
+			if [ "$test_subtest_id" == "$skip" ]; then
+				directive=" # skip: duplicate keys in testcase; cannot load as document"
+				break
+			fi
+		done
+
+		res="ok"
+		if [ "x$directive" == "x" ]; then
+			res="not ok"
+			# run the test using document-event-stream
+			${TOP_BUILDDIR}/src/fy-tool --testsuite --document-event-stream "$tst/in.yaml" >"$t"
+			if [ $? -eq 0 ]; then
+				diff -u "$tst/test.event" "$t"
+				if [ $? -eq 0 ]; then
+					res="ok"
+				else
+					res="not ok"
+				fi
+			else
+				res="not ok"
+			fi
+
+			rm -f "$t"
+
+			for xfail in $xfaillist; do
+				if [ "$test_subtest_id" == "$xfail" ]; then
+					directive=" # TODO: known failure."
+					break
+				fi
+			done
+		fi
+
+		echo "$res $i $test_subtest_id - $desctxt$directive"
+	done
+done

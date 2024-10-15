@@ -1,0 +1,12 @@
+{
+  ? complex key: value
+}
+# STREAM_START                                  FYTT_STREAM_START
+# FLOW_MAPPING_START                            FYTT_FLOW_MAPPING_START
+# KEY                                           FYTT_KEY
+# SCALAR value='complex key' style=PLAIN        FYTT_KEY
+# VALUE                                         FYTT_SCALAR value='complex key' style=PLAIN
+# SCALAR value='value' style=PLAIN              FYTT_VALUE
+# FLOW_MAPPING_END                              FYTT_SCALAR value='value' style=PLAIN
+# STREAM_END                                    FYTT_FLOW_MAPPING_END
+#                                               FYTT_STREAM_END

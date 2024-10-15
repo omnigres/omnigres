@@ -1,0 +1,17 @@
+*.swp
+*.old
+*.csr
+*/*.dSYM/
+.DS_Store
+CMakeCache.txt
+CMakeFiles/
+Makefile
+build/
+./mruby/
+cmake_install.cmake
+xcuserdata
+*.xccheckout
+!include/h2o
+misc/test-ca/demoCA/newcerts/*.pem
+tmp/
+/doc/workdir/

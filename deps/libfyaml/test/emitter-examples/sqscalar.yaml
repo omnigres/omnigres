@@ -1,0 +1,13 @@
+- 'quoted'
+- 'quoted\nescaped new line'
+- 'quoted    
+      explicit new line'
+- ''
+- '    '
+- '     
+     '
+- '   pre-spaces'
+- 'post-spaces    '
+- 'key': value
+- 'key/newline': value
+- 'escaped '' quote'

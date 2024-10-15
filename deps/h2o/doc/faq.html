@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
+
+<!-- oktavia -->
+<link rel="stylesheet" href="assets/searchstyle.css" type="text/css" />
+<script src="search/jquery-1.9.1.min.js"></script>
+<script src="search/oktavia-jquery-ui.js"></script>
+<script src="search/oktavia-english-search.js"></script>
+<!-- /oktavia -->
+
+<link rel="stylesheet" href="assets/style.css" type="text/css" />
+
+<title>Frequently Asked Questions - H2O - the optimized HTTP server</title>
+</head>
+<body>
+<div id="body">
+<div id="top">
+
+<h1>
+<a href="index.html">H2O</a>
+</h1>
+<p class="description">the optimized HTTP/1.x, HTTP/2, HTTP/3 server</p>
+
+<!-- oktavia -->
+<form id="searchform">
+<input class="search" type="search" name="search" id="search" results="5" value="" placeholder="Search" />
+<div id="searchresult_box">
+<div id="close_search_box">&times;</div>
+<div id="searchresult_summary"></div>
+<div id="searchresult"></div>
+<div id="searchresult_nav"></div>
+<span class="pr">Powered by <a href="https://github.com/shibukawa/oktavia">Oktavia</a></span>
+</div>
+</form>
+<!-- /oktavia -->
+
+</div>
+
+<table id="menu">
+<tr>
+<td><a href="index.html">Top</a></td>
+<td><a href="install.html">Install</a></td>
+<td><a href="configure.html">Configure</a></td>
+<td class="selected"><a href="faq.html">FAQ</a></td>
+<td><a href="http://blog.kazuhooku.com/search/label/H2O" target="_blank">Blog</a></td>
+<td><a href="http://github.com/h2o/h2o/" target="_blank">Source</a></td>
+</tr>
+</table>
+
+<div id="main">
+
+<h2>
+Frequently Asked Questions
+</h2>
+
+
+<h3 id="license">What are the license terms?</h3>
+
+<div>
+H2O is licensed under <a href="http://opensource.org/licenses/MIT">the MIT license</a>.
+</div>
+<div>
+Portions of the software use following libraries that are also licensed under the MIT license: <a href="https://github.com/h2o/h2o/blob/master/deps/klib/khash.h">khash.h</a>, <a href="https://github.com/h2o/h2o/blob/master/deps/picohttpparser/">PicoHTTPParser</a>, <a href="https://github.com/h2o/h2o/blob/master/deps/yaml/">libyaml</a>.
+</div>
+
+<div>
+Depending on how H2O is configured, the software links against OpenSSL or LibreSSL, both of which are <a href="https://www.openssl.org/source/license.html">dual-licensed under the OpenSSL License and the original SSLeay license</a>.
+</div>
+
+<h3 id="design-docs">Are there any design documents?</h3>
+
+<div>
+Please refer to the main developer's <a href="http://www.slideshare.net/kazuho/h2o-20141103pptx" target="_blank">presentation slides</a> at the HTTP/2 conference, and <a href="http://blog.kazuhooku.com" target="_blank">his weblog</a>.
+</div>
+
+<h3 id="libh2o">How do I use H2O as a library?</h3>
+
+<div>
+<p>
+Aside from the standalone server, H2O can also be used as a software library.
+The name of the library is <code>libh2o</code>.
+</p>
+<p>
+To build H2O as a library you will need to install the following dependencies:
+<ul>
+<li><a href="https://github.com/libuv/libuv/">libuv</a> version 1.0 or above</li>
+<li><a href="https://www.openssl.org/">OpenSSL</a> version 1.0.2 or above<sup><a href="#note_1" id="#cite_1" title="libh2o cannot be linked against the bundled LibreSSL; see issue #290">1</sup></a></sup></li>
+</ul>
+In case the dependencies are installed under a non-standard path, <code>PKG_CONFIG_PATH</code> configuration variable can be used for specifying their paths.  For example, the following snippet builds <code>libh2o</code> using the libraries installed in their respective paths.
+</p>
+
+<pre><code>% PKG_CONFIG_PATH=/usr/local/libuv-1.4/lib/pkgconfig:/usr/local/openssl-1.0.2a/lib/pkgconfig cmake .
+% make libh2o
+</code></pre>
+
+<p>
+For more information, please refer to the <a href="https://github.com/h2o/h2o/labels/libh2o">GitHub issues tagged as libh2o</a>.
+</p>
+</div>
+
+<h3 id="issues">I have a problem.  Where should I look for answers?</h3>
+
+<div>
+Please refer to the <a href="https://github.com/h2o/h2o/labels/FAQ">GitHub issues tagged as FAQ</a>.
+</div>
+
+
+
+<div class="notes">
+<h3>Notes:</h3>
+<ol>
+<li id="note_1">libh2o cannot be linked against the bundled LibreSSL; see <a href="https://github.com/h2o/h2o/issues/290">issue #290</a></li>
+</ol>
+</div>
+
+</div>
+<div id="footer">
+<p>
+Copyright &copy; 2015-2023 <a href="http://dena.com/intl/">DeNA Co., Ltd.</a> et al.
+</p>
+</div>
+</body>
+</html>

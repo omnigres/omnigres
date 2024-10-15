@@ -1,0 +1,34 @@
+- item 1
+- item 2
+-
+  - item 3.1
+  - item 3.2
+-
+  key 1: value 1
+  key 2: value 2
+# STREAM_START
+# BLOCK_SEQUENCE_START
+# BLOCK_ENTRY
+# SCALAR value='item 1' style=PLAIN
+# BLOCK_ENTRY
+# SCALAR value='item 2' style=PLAIN
+# BLOCK_ENTRY
+# BLOCK_SEQUENCE_START
+# BLOCK_ENTRY
+# SCALAR value='item 3.1' style=PLAIN
+# BLOCK_ENTRY
+# SCALAR value='item 3.2' style=PLAIN
+# BLOCK_END
+# BLOCK_ENTRY
+# BLOCK_MAPPING_START
+# KEY
+# SCALAR value='key 1' style=PLAIN
+# VALUE
+# SCALAR value='value 1' style=PLAIN
+# KEY
+# SCALAR value='key 2' style=PLAIN
+# VALUE
+# SCALAR value='value 2' style=PLAIN
+# BLOCK_END
+# BLOCK_END
+# STREAM_END

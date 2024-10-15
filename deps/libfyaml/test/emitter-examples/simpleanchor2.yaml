@@ -1,0 +1,3 @@
+a: &anchor [ b, bb, b3, b4 ]
+c: *anchor
+d: e

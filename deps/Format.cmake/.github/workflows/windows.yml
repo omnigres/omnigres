@@ -1,0 +1,75 @@
+name: Windows
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+
+    runs-on: windows-latest
+
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Configure and build without format dependencies
+      shell: bash
+      run: |
+        cmake -Htest -Bbuild
+        cmake --build build
+        ./build/Debug/test.exe
+        ! cmake --build build --target format
+
+    - name: Install format dependencies
+      env: 
+        ACTIONS_ALLOW_UNSECURE_COMMANDS: true
+      run: |
+        choco install llvm -y
+        echo "::add-path::C:\\Program Files\\LLVM\\bin"
+        pip3 install cmake_format==0.6.11 pyyaml
+
+    - name: Configure
+      shell: bash
+      run: cmake -Htest -Bbuild
+
+    - name: Run format
+      shell: bash
+      run: "cmake --build build --target format"
+
+    - name: Check clang-format
+      shell: bash
+      run: "! cmake --build build --target check-clang-format"
+
+    - name: Check cmake-format
+      shell: bash
+      run: "! cmake --build build --target check-cmake-format"
+
+    - name: Check format
+      shell: bash
+      run: "! cmake --build build --target check-format"
+
+    - name: Fix format
+      shell: bash
+      run: cmake --build build --target fix-format
+
+    - name: Check fixed format
+      shell: bash
+      run: cmake --build build --target check-format && ! git diff --exit-code
+
+    - name: Configure cmake-format with excluded file
+      # Not using `bash` to prevent regular expression from being treated as a filesystem path
+      run: |
+        git reset --hard HEAD
+        cmake -Htest -Bbuild -DCMAKE_FORMAT_EXCLUDE="(^|/)sample\.cmake$"
+
+    - name: Fix cmake-format skipping excluded file
+      shell: bash
+      run: cmake --build build --target fix-cmake-format
+
+    - name: Check cmake-format with excluded file
+      shell: bash
+      run: cmake --build build --target check-cmake-format && ! git diff --exit-code -- test/CMakeLists.txt && git diff --exit-code -- test/sample.cmake

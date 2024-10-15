@@ -1,0 +1,10 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: libfyaml
+Description: Fancy YAML 1.3 parser library
+Version: @PACKAGE_VERSION@
+Libs: -L${libdir} @ASAN_LIBS@ -lfyaml @PTHREAD_LIBS@
+Cflags: -I${includedir} @ASAN_CFLAGS@ @PTHREAD_CFLAGS@

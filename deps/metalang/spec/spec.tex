@@ -1,0 +1,289 @@
+\documentclass[12pt]{article}
+
+\usepackage{hyperref}
+\usepackage{float}
+\usepackage{bussproofs}
+\usepackage{minted}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage[standard,thmmarks]{ntheorem}
+\usepackage{biblatex}
+\usepackage{csquotes}
+\usepackage{mathtools}
+\usepackage{tabularx}
+\usepackage[english]{babel}
+
+\theoremstyle{break}
+\newtheorem{notation}{Notation}
+
+\addbibresource{references.bib}
+
+\floatstyle{boxed}
+\restylefloat{figure}
+\allowdisplaybreaks
+
+\begin{document}
+
+\title{Metalang99 Specification (v1.13.2)}
+\date{\today}
+\author{Hirrolot \\ e-mail: \href{mailto:hirrolot@gmail.com}{hirrolot@gmail.com}}
+\maketitle
+
+\begin{abstract}
+This paper formally describes the syntax and semantics of metaprograms written in Metalang99,
+a metalanguage aimed at full-blown C99 preprocessor metaprogramming. For the motivation and
+a user-friendly overview, please see the official repository \cite{Metalang99}.
+\end{abstract}
+
+\tableofcontents
+
+\newpage
+
+\section{EBNF Grammar}
+
+\begin{figure}[H]
+    \caption{Grammar rules}
+
+\begin{minted}{bnf}
+<eval> ::= "ML99_EVAL(" <term-seq> ")" ;
+
+<term-seq> ::= <term> { "," <term> }* ;
+
+<term> ::=
+      "ML99_call(" <op> "," <term-seq> ")"
+    | "ML99_callUneval(" <ident> "," <pp-token-list> ")"
+    | "ML99_abort(" <term-seq> ")"
+    | "ML99_fatal(" <ident> "," <pp-token-list> ")"
+    | "v(" <pp-token-list> ")" ;
+
+<op> ::= <ident> | <term> ;
+\end{minted}
+
+\end{figure}
+
+Notes:
+
+\begin{itemize}
+    \item \texttt{<pp-token-list>} stands for a list of preprocessor tokens (e.g., \texttt{a 123, hello!}).
+    \item The grammar above describes metaprograms already expanded by the preprocessor,
+    except for \texttt{ML99\_EVAL}, \texttt{ML99\_call}, \texttt{ML99\_callUneval}, \\
+    \texttt{ML99\_abort}, \texttt{ML99\_fatal}, and \texttt{v}.
+    \item \texttt{ML99\_call} accepts \texttt{op} either as an identifier or as a term that
+    reduces to an identifier.
+    \item \texttt{ML99\_callUneval} accepts an operation strictly as an identifier.
+\end{itemize}
+
+The \texttt{ML99\_call} syntax hurts IDE support (no parameters documentation highlighting) and is also
+less natural. The workaround is to define a wrapper around an implementation macro like this:
+
+\begin{minted}{c}
+/// The documentation string.
+#define FOO(a, b, c) ML99_call(FOO, a, b, c)
+#define FOO_IMPL(a, b, c) // The implementation.
+\end{minted}
+
+Then \texttt{FOO} can be conveniently called as \texttt{FOO(v(1), v(2), v(3))}.
+
+\section{Notations}
+
+\begin{notation}[Sequence]
+    \begin{itemize}
+        \item $\overline{x} \coloneqq x_1 \ldots x_n$. Examples:
+        \begin{itemize}
+            \item Metalang99 terms: \texttt{v(abc), ML99\_call(FOO, v(123)), v(u 8 9)}
+            \item Preprocessor tokens: \texttt{abc 13 "hello" + -}
+        \end{itemize}
+        \item $()$ denotes the empty sequence.
+        \item Appending to a sequence:
+        \begin{itemize}
+            \item Appending an element: $S \ y \coloneqq x_1 \ldots x_n \ y$, where $S = x_1 \ldots x_n$
+            \item Appending a sequence: $S_1 \ S_2 \coloneqq x_1 \ldots x_n \ y_1 \ldots y_m$, where $S_1 = x_1 \ldots x_n$
+            and $S_2 = y_1 \ldots y_m$
+        \end{itemize}
+    \end{itemize}
+\end{notation}
+
+\begin{notation}[Reduction step]
+    $\to$ denotes a single step of reduction (computation, evaluation).
+\end{notation}
+
+\begin{notation}[Metavariables]
+    \ \\
+    \begin{tabular}{|c|c|}
+        \hline
+        \texttt{tok} & preprocessor token \\
+        \texttt{ident} & preprocessor identifier \\
+        \texttt{t} & Metalang99 term \\
+        \texttt{a} & Metalang99 term used as an argument \\
+        \hline
+    \end{tabular}
+\end{notation}
+
+\section{Reduction Semantics}
+
+We define a reduction semantics for Metalang99 \ref{ReductionSemantics}. The abstract
+machine executes configurations of the form $\langle K; F; A; C \rangle$:
+
+\begin{itemize}
+    \item $K$ is a continuation of the form $\langle K; F; A; C \rangle$, where
+    $C$ includes the $?$ sign denoting a result passed into the continuation.
+    For example, let $K$ be $\langle K'; (1, 2, 3); v(x), \ ? \rangle$,
+    then $K(v(y))$ is $\langle K'; (1, 2, 3); v(x), v(y) \rangle$. A special
+    continuation $halt$ terminates the abstract machine and substitutes itself
+    with a provided result. For example, when the abstract machine encounters
+    $halt(1 + 2)$, it will just stop and paste $1 + 2$.
+
+    \item $F$ is a left folder of the form $(acc, \overline{tok}) \to acc$. It is used
+    to flexibly append a newly evaluated term to an accumulator without extra reduction
+    steps. There are the only two folders:
+    \begin{itemize}
+        \item $fspace(acc, \overline{tok}) \coloneqq acc \ \overline{tok}$
+        \item $fcomma(acc, \overline{tok}) \coloneqq if (acc \ is \ ()) \ then \ \overline{tok} \ else \ acc \ "," \ \overline{tok}$
+    \end{itemize}
+
+    \item $A$ (accumulator) is a sequence of already computed results.
+
+    \item $C$ (control) is a sequence of terms upon which the abstract
+    machine is operating right now.
+\end{itemize}
+
+\begin{figure}
+    \caption{Reduction Semantics}
+
+    \begin{align*}
+        (v): & \ \langle K; F; A; \texttt{v}(\overline{tok}), \overline{t} \rangle \to
+            \langle K; F; F(A, \overline{tok}); \overline{t} \rangle \\
+        (op): & \ \langle K; F; A; \texttt{ML99\_call}(t, \overline{a}), \overline{t'} \rangle \to \langle \\
+            & \ \ \ \ \langle K; F; A; \texttt{ML99\_call}(?), \overline{t'} \rangle; \\
+            & \ \ \ \ fcomma; \\
+            & \ \ \ \ (); \\
+            & \ \ \ \ t, \overline{a} \rangle \\
+        (args): & \ \langle K; F; A; \texttt{ML99\_call}(ident, \overline{a}), \overline{t} \rangle \to \langle \\
+            & \ \ \ \ \langle \langle K; F; F(A, ?); \overline{t} \rangle; fspace; (); ident\texttt{\_IMPL}(?) \rangle; \\
+            & \ \ \ \ fcomma; \\
+            & \ \ \ \ (); \\
+            & \ \ \ \ \overline{a} \rangle \\
+        (callUneval): & \ \langle K; F; A; \texttt{ML99\_callUneval}(ident, \overline{tok}), \overline{t} \rangle \to \langle \\
+            & \ \ \ \ \langle K; F; F(A, ?); \overline{t} \rangle; \\
+            & \ \ \ \ fspace; \\
+            & \ \ \ \ (); \\
+            & \ \ \ \ ident\texttt{\_IMPL}(\overline{tok}) \rangle \\
+        (abort): & \ \langle K; F; A; \texttt{ML99\_abort}(\overline{t}), \overline{t'} \rangle \to \langle halt; fspace; (); \overline{t} \rangle \\
+        (fatal): & \ \langle K; F; A; \texttt{ML99\_fatal}(ident, \overline{tok}), \overline{t} \rangle \to halt(\ldots) \\
+        (end): & \ \langle K; F; A; () \rangle \to K(A) \\
+        (start): & \ \texttt{ML99\_call}(\overline{t}) \to \langle halt; fspace; (); \overline{t} \rangle
+    \end{align*}
+    \label{ReductionSemantics}
+\end{figure}
+
+Notes:
+
+\begin{itemize}
+    \item Metalang99 follows applicative evaluation strategy \cite{ApplicativeEvaluationStrategy}.
+
+    \item $(args)$ Metalang99 generates a usual C-style macro invocation with
+    fully evaluated arguments, which will be then expanded by the preprocessor, resulting
+    in yet another concrete sequence of Metalang99 terms to be evaluated by the computational
+    rules.
+    \item $(args)$ Metalang99 appends \texttt{\_IMPL} to every macro identifier called using
+    \texttt{ML99\_call} -- it makes easier to follow the convention that all implementations
+    of metafunctions must have the postfix \texttt{\_IMPL}.
+    \item $(callUneval)$ \texttt{ML99\_callUneval} is used when an operation and all
+    arguments are already evaluated. It is semantically the same as \\ \texttt{ML99\_call(ident, v(...))}
+    but performs one less reduction steps to benefit in performance.
+    \item $(fatal)$ The ellipsis means that an implementation is free to provide
+    diagnostics in any format.
+    \item $(fatal)$ interprets its variadic arguments without preprocessor expansion -- i.e.,
+    they are pasted as-is. This is intended because otherwise identifiers located in an
+    error message may stand for other macros that will be unintentionally expanded.
+    \item The number of reduction steps is finite and may vary from version to version. If
+    the limit is exceeded, Metalang99 will not be able to perform reduction of a given
+    metaprogram anymore.
+\end{itemize}
+
+\subsection{Examples}
+
+Take the following code:
+
+\begin{minted}{c}
+#define X_IMPL(op)        ML99_call(op, v(123))
+#define CALL_X_IMPL(_123) ML99_call(X, v(ID))
+#define ID_IMPL(x)        v(x)
+\end{minted}
+
+See how \texttt{ML99\_call(X, v(CALL\_X))} is evaluated:
+
+\begin{example}[Evaluation of terms]
+\begin{align*}
+    \texttt{ML99\_EVAL}(\texttt{ML99\_call}(X, \texttt{v}(\texttt{CALL\_X}))) & \ \underrightarrow{(start)} \\
+    \langle halt; fspace; (); \texttt{ML99\_call}(X, \texttt{v}(\texttt{CALL\_X})) \rangle & \ \underrightarrow{(args)} \\
+    \langle \langle halt; fspace; (); \texttt{X}(?) \rangle; fcomma; (); \texttt{v}(\texttt{CALL\_X}) \rangle & \ \underrightarrow{(v)} \\
+    \langle \langle halt; fspace; (); \texttt{X}(?) \rangle; fcomma; \texttt{CALL\_X}; () \rangle & \ \underrightarrow{(end)} \\
+    \langle halt; fspace; (); \texttt{ML99\_call}(\texttt{CALL\_X}, \texttt{v}(123)) \rangle & \ \underrightarrow{(args)} \\
+    \langle \langle halt; fspace; (); \texttt{CALL\_X}(?) \rangle; fcomma; (); \texttt{v}(123) \rangle & \ \underrightarrow{(v)} \\
+    \langle \langle halt; fspace; (); \texttt{CALL\_X}(?) \rangle; fcomma; 123; () \rangle & \ \underrightarrow{(end)} \\
+    \langle halt; fspace; (); \texttt{ML99\_call}(X, \texttt{v}(\texttt{ID})) \rangle & \ \underrightarrow{(args)} \\
+    \langle \langle halt; fspace; (); \texttt{X}(?) \rangle; fcomma; (); \texttt{v}(\texttt{ID}) \rangle & \ \underrightarrow{(v)} \\
+    \langle \langle halt; fspace; (); \texttt{X}(?) \rangle; fcomma; \texttt{ID}; \rangle & \ \underrightarrow{(end)} \\
+    \langle halt; fspace; (); \texttt{ML99\_call}(\texttt{ID}, \texttt{v}(123)) \rangle & \ \underrightarrow{(args)} \\
+    \langle \langle halt; fspace; (); \texttt{ID}(?) \rangle; fcomma; (); \texttt{v}(123) \rangle & \ \underrightarrow{(v)} \\
+    \langle \langle halt; fspace; (); \texttt{ID}(?) \rangle; fcomma; 123; () \rangle & \ \underrightarrow{(end)} \\
+    \langle halt; fspace; (); \texttt{v}(123) \rangle & \ \underrightarrow{(v)} \\
+    \langle halt; fspace; 123; () \rangle & \ \underrightarrow{(end)} \\
+    halt(123) &
+\end{align*}
+\end{example}
+
+The analogous version written in ordinary C looks like this:
+
+\begin{minted}{c}
+#define X(op)        op(123)
+#define CALL_X(_123) X(ID)
+#define ID(x)        x
+\end{minted}
+
+However, unlike the Metalang99 version above, \texttt{X(CALL\_X)} gets blocked \cite{Bluepainting} due to the
+second call to \texttt{X}. The trick is that Metalang99 performs evaluation step-by-step,
+unlike the preprocessor:
+
+\begin{itemize}
+    \item The Metalang99 version: \texttt{X(CALL\_X)} expands to \texttt{ML99\_call(\\ CALL\_X, v(123))}.
+    This expansion does not contain \texttt{X}, and therefore \texttt{X} is \textbf{not}
+    blocked by the preprocessor.
+
+    \item The ordinary version: \texttt{X(CALL\_X)} expands to \texttt{X(ID)}. This expansion
+    does contains \texttt{X}, and therefore \texttt{X} is blocked by the preprocessor.
+\end{itemize}
+
+\section{Properties}
+
+\subsection{Progress}
+
+\begin{proposition}[Progress]
+Either $\langle K; F; A; \overline{t} \rangle \to \langle K; F; A; \overline{t'} \rangle$ or \\
+$\langle K; F; A; \overline{t} \rangle \to halt(\overline{x})$.
+\end{proposition}
+
+\begin{proof}
+By inspection of \ref{ReductionSemantics}.
+\end{proof}
+
+\section{Caveats}
+
+\begin{itemize}
+\item Consider this scenario:
+    \begin{itemize}
+        \item You call \texttt{FOO(1, 2, 3)}
+        \item It gets expanded by the preprocessor (not by Metalang99)
+        \item Its expansion contains \texttt{FOO}
+    \end{itemize}
+Then \texttt{FOO} gets blocked \cite{Bluepainting} by the preprocessor, i.e. Metalang99 cannot handle ordinary
+macro recursion; you must use \texttt{ML99\_call} to be sure that recursive calls
+will behave as expected. I therefore recommend to use only primitive C-style macros, e.g.
+for performance reasons or because of you cannot express them in terms of Metalang99.
+\end{itemize}
+
+\emergencystretch=1em
+\printbibliography
+
+\end{document}

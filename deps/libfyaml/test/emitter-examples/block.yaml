@@ -1,0 +1,7 @@
+- item 1
+# STREAM_START                          FYTT_STREAM_START
+# BLOCK_SEQUENCE_START                  FYTT_BLOCK_SEQUENCE_START
+# BLOCK_ENTRY                           FYTT_BLOCK_ENTRY
+# SCALAR value='item 1' style=PLAIN     FYTT_SCALAR value='item 1' style=PLAIN
+# BLOCK_END                             FYTT_BLOCK_END
+# STREAM_END                            FYTT_STREAM_END
