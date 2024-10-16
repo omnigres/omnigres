@@ -314,7 +314,6 @@ Datum set_session(PG_FUNCTION_ARGS) {
     MemoryContextSwitchTo(old_context);
   }
   vvar->oid = value_type;
-  ereport(NOTICE, errmsg("%s", format_type_be(vvar->oid)));
   vvar->isnull = PG_ARGISNULL(1);
 
   if (PG_ARGISNULL(1)) {
