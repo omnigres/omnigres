@@ -106,7 +106,6 @@ Datum retry(PG_FUNCTION_ARGS) {
       SPI_finish();
       ErrorData *err = CopyErrorData();
       if (err->sqlerrcode == ERRCODE_T_R_SERIALIZATION_FAILURE) {
-        ereport(NOTICE, errmsg("%d", max_attempts));
         if (++retry_attempts <= max_attempts) {
           int64 backoff_with_jitter_in_microsecs =
               backoff_jitter(cap_sleep_microsecs, base_sleep_microsecs, retry_attempts);
