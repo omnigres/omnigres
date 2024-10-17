@@ -6,6 +6,9 @@
 #include <miscadmin.h>
 #include <utils/builtins.h>
 #include <utils/snapmgr.h>
+#if PG_MAJORVERSION_NUM < 17
+#include <utils/typcache.h>
+#endif
 #if PG_MAJORVERSION_NUM < 15
 #include <access/xact.h>
 #endif
@@ -78,6 +81,53 @@ Datum retry(PG_FUNCTION_ARGS) {
     collect_backoff_values = PG_GETARG_BOOL(3);
   }
 
+  // This indicates that `params` were set
+  TupleDesc paramsTupDesc = NULL;
+  // These are only set when `paramsTupDesc` is not NULL
+  // and are used to prepare the statement
+  HeapTupleData paramsTuple;
+  Datum *paramsValues;
+  Oid *paramsTypes;
+  bool *paramsNulls;
+  char *paramsNullChars;
+
+  // If `params` is set
+  if (!PG_ARGISNULL(4)) {
+    Oid type_oid = get_fn_expr_argtype(fcinfo->flinfo, 4);
+    if (type_oid == RECORDOID) {
+      HeapTupleHeader td = DatumGetHeapTupleHeader(PG_GETARG_DATUM(4));
+
+      Oid tuple_type_id = HeapTupleHeaderGetTypeId(td);
+      int32 tuple_typmod = HeapTupleHeaderGetTypMod(td);
+
+      paramsTupDesc = lookup_rowtype_tupdesc(tuple_type_id, tuple_typmod);
+
+      int num_attrs = paramsTupDesc->natts;
+
+      paramsTuple.t_len = HeapTupleHeaderGetDatumLength(td);
+      paramsTuple.t_data = td;
+
+      paramsValues = palloc(sizeof(Datum) * num_attrs);
+      paramsNulls = palloc(sizeof(bool) * num_attrs);
+      paramsNullChars = palloc(sizeof(char) * num_attrs);
+      paramsTypes = palloc(sizeof(Oid) * num_attrs);
+
+      heap_deform_tuple(&paramsTuple, paramsTupDesc, paramsValues, paramsNulls);
+
+      // Iterate through the attributes to check for correctness
+      // and set up all appropriate variables
+      for (int i = 0; i < num_attrs; i++) {
+        Oid att_type_oid = TupleDescAttr(paramsTupDesc, i)->atttypid; // Attribute type OID
+        if (att_type_oid == UNKNOWNOID) {
+          ReleaseTupleDesc(paramsTupDesc);
+          ereport(ERROR, errmsg("query parameter %d is of unknown type", i + 1));
+        }
+        paramsNullChars[i] = paramsNulls[i] ? 'n' : ' ';
+        paramsTypes[i] = att_type_oid;
+      }
+    }
+  }
+
   if (collect_backoff_values) {
     // make sure that we are not collecting backoff values from another
     // transaction. Frees up existing memory in order not to leak it from
@@ -96,7 +146,12 @@ Datum retry(PG_FUNCTION_ARGS) {
     MemoryContext current_mcxt = CurrentMemoryContext;
     PG_TRY();
     {
-      SPI_exec(cstmts, 0);
+      if (paramsTupDesc) {
+        SPI_execute_with_args(cstmts, paramsTupDesc->natts, paramsTypes, paramsValues,
+                              paramsNullChars, false, 0);
+      } else {
+        SPI_exec(cstmts, 0);
+      }
       SPI_finish();
       retry = false;
     }
@@ -133,6 +188,9 @@ Datum retry(PG_FUNCTION_ARGS) {
 
         } else {
           // abort the attempt to run the code.
+          if (paramsTupDesc) {
+            ReleaseTupleDesc(paramsTupDesc);
+          }
           ereport(ERROR, errcode(err->sqlerrcode),
                   errmsg("maximum number of retries (%d) has been attempted", max_attempts));
         }
@@ -147,6 +205,9 @@ Datum retry(PG_FUNCTION_ARGS) {
     PG_END_TRY();
   }
 
+  if (paramsTupDesc) {
+    ReleaseTupleDesc(paramsTupDesc);
+  }
   PG_RETURN_VOID();
 }
 

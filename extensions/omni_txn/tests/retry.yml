@@ -164,3 +164,26 @@ tests:
         max: true
         min:  true
         avg: true
+
+- name: params
+  transaction: false
+  tests:
+  - create table tab
+    (
+        i int,
+        f float,
+        t text
+    )
+  - |
+    call omni_txn.retry('insert into tab values ($1,$2,$3);insert into tab values ($1,$2,$3)',
+                        params => row (1,1.2,'text'::text))
+  - query: select *
+           from tab
+    results:
+    - i: 1
+      f: 1.2
+      t: text
+    - i: 1
+      f: 1.2
+      t: text
+  - drop table tab
