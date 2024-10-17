@@ -2,10 +2,14 @@
 #include <postgres.h>
 #include <fmgr.h>
 // clang-format on
+#include <common/hashfn.h>
 #include <executor/spi.h>
 #include <miscadmin.h>
 #include <utils/builtins.h>
 #include <utils/snapmgr.h>
+#if PG_MAJORVERSION_NUM < 17
+#include <utils/typcache.h>
+#endif
 #if PG_MAJORVERSION_NUM < 15
 #include <access/xact.h>
 #endif
@@ -60,6 +64,38 @@ static int64 backoff_jitter(int64 cap, int64 base, int32 attempt) {
  */
 static float8 to_secs(int64 secs) { return (float8)secs / 1000000.0; }
 
+typedef struct {
+  char *stmt;
+  uint32 status;
+  SPIPlanPtr plan;
+} PreparedStatementEntry;
+
+#define SH_PREFIX preparedstmthash
+#define SH_ELEMENT_TYPE PreparedStatementEntry
+#define SH_KEY_TYPE char *
+#define SH_KEY stmt
+#define SH_HASH_KEY(tb, key) string_hash(key, strlen(key))
+#define SH_EQUAL(tb, a, b) (strcmp(a, b) == 0)
+#define SH_SCOPE static inline
+#define SH_DECLARE
+#define SH_DEFINE
+#include <lib/simplehash.h>
+
+static preparedstmthash_hash *stmthash = NULL;
+static MemoryContext RetryPreparedStatementMemoryContext;
+
+static inline void init_preparedstmthash() {
+  stmthash = preparedstmthash_create(RetryPreparedStatementMemoryContext, 8192, NULL);
+}
+
+void _PG_init(void) {
+  RetryPreparedStatementMemoryContext = AllocSetContextCreate(
+      TopMemoryContext, "omni_txn: retry prepared statements", ALLOCSET_DEFAULT_SIZES);
+  if (stmthash == NULL) {
+    init_preparedstmthash();
+  }
+}
+
 PG_FUNCTION_INFO_V1(retry);
 
 Datum retry(PG_FUNCTION_ARGS) {
@@ -74,8 +110,55 @@ Datum retry(PG_FUNCTION_ARGS) {
     max_attempts = PG_GETARG_INT32(1);
   }
   bool collect_backoff_values = false;
-  if (!PG_ARGISNULL(2)) {
-    collect_backoff_values = PG_GETARG_BOOL(2);
+  if (!PG_ARGISNULL(3)) {
+    collect_backoff_values = PG_GETARG_BOOL(3);
+  }
+
+  // This indicates that `params` were set
+  TupleDesc paramsTupDesc = NULL;
+  // Default values are prepared for the case when no `params` are set
+  int paramsCount = 0;
+  Datum *paramsValues;
+  Oid *paramsTypes;
+  char *paramsNullChars;
+
+  // If `params` is set
+  if (!PG_ARGISNULL(4)) {
+    Oid type_oid = get_fn_expr_argtype(fcinfo->flinfo, 4);
+    if (type_oid == RECORDOID) {
+      HeapTupleData paramsTuple;
+      bool *paramsNulls;
+      HeapTupleHeader td = DatumGetHeapTupleHeader(PG_GETARG_DATUM(4));
+
+      Oid tuple_type_id = HeapTupleHeaderGetTypeId(td);
+      int32 tuple_typmod = HeapTupleHeaderGetTypMod(td);
+
+      paramsTupDesc = lookup_rowtype_tupdesc(tuple_type_id, tuple_typmod);
+
+      paramsCount = paramsTupDesc->natts;
+
+      paramsTuple.t_len = HeapTupleHeaderGetDatumLength(td);
+      paramsTuple.t_data = td;
+
+      paramsValues = palloc(sizeof(Datum) * paramsCount);
+      paramsNulls = palloc(sizeof(bool) * paramsCount);
+      paramsNullChars = palloc(sizeof(char) * paramsCount);
+      paramsTypes = palloc(sizeof(Oid) * paramsCount);
+
+      heap_deform_tuple(&paramsTuple, paramsTupDesc, paramsValues, paramsNulls);
+
+      // Iterate through the attributes to check for correctness
+      // and set up all appropriate variables
+      for (int i = 0; i < paramsCount; i++) {
+        Oid att_type_oid = TupleDescAttr(paramsTupDesc, i)->atttypid; // Attribute type OID
+        if (att_type_oid == UNKNOWNOID) {
+          ReleaseTupleDesc(paramsTupDesc);
+          ereport(ERROR, errmsg("query parameter %d is of unknown type", i + 1));
+        }
+        paramsNullChars[i] = paramsNulls[i] ? 'n' : ' ';
+        paramsTypes[i] = att_type_oid;
+      }
+    }
   }
 
   if (collect_backoff_values) {
@@ -96,7 +179,14 @@ Datum retry(PG_FUNCTION_ARGS) {
     MemoryContext current_mcxt = CurrentMemoryContext;
     PG_TRY();
     {
-      SPI_exec(cstmts, 0);
+      bool found;
+      PreparedStatementEntry *entry = preparedstmthash_insert(
+          stmthash, MemoryContextStrdup(RetryPreparedStatementMemoryContext, cstmts), &found);
+      if (!found) {
+        entry->plan = SPI_prepare(cstmts, paramsCount, paramsTypes);
+        SPI_keepplan(entry->plan);
+      }
+      SPI_execute_plan(entry->plan, paramsValues, paramsNullChars, false, 0);
       SPI_finish();
       retry = false;
     }
@@ -106,7 +196,6 @@ Datum retry(PG_FUNCTION_ARGS) {
       SPI_finish();
       ErrorData *err = CopyErrorData();
       if (err->sqlerrcode == ERRCODE_T_R_SERIALIZATION_FAILURE) {
-        ereport(NOTICE, errmsg("%d", max_attempts));
         if (++retry_attempts <= max_attempts) {
           int64 backoff_with_jitter_in_microsecs =
               backoff_jitter(cap_sleep_microsecs, base_sleep_microsecs, retry_attempts);
@@ -134,6 +223,9 @@ Datum retry(PG_FUNCTION_ARGS) {
 
         } else {
           // abort the attempt to run the code.
+          if (paramsTupDesc) {
+            ReleaseTupleDesc(paramsTupDesc);
+          }
           ereport(ERROR, errcode(err->sqlerrcode),
                   errmsg("maximum number of retries (%d) has been attempted", max_attempts));
         }
@@ -148,6 +240,9 @@ Datum retry(PG_FUNCTION_ARGS) {
     PG_END_TRY();
   }
 
+  if (paramsTupDesc) {
+    ReleaseTupleDesc(paramsTupDesc);
+  }
   PG_RETURN_VOID();
 }
 
@@ -184,4 +279,50 @@ Datum retry_backoff_values(PG_FUNCTION_ARGS) {
 
   MemoryContextSwitchTo(oldcontext);
   PG_RETURN_NULL();
+}
+
+PG_FUNCTION_INFO_V1(retry_prepared_statements);
+
+Datum retry_prepared_statements(PG_FUNCTION_ARGS) {
+  ReturnSetInfo *rsinfo = (ReturnSetInfo *)fcinfo->resultinfo;
+  rsinfo->returnMode = SFRM_Materialize;
+
+  MemoryContext per_query_ctx = rsinfo->econtext->ecxt_per_query_memory;
+  MemoryContext oldcontext = MemoryContextSwitchTo(per_query_ctx);
+
+  Tuplestorestate *tupstore = tuplestore_begin_heap(false, false, work_mem);
+  rsinfo->setResult = tupstore;
+
+  preparedstmthash_iterator iter;
+  preparedstmthash_start_iterate(stmthash, &iter);
+  PreparedStatementEntry *entry;
+  while ((entry = preparedstmthash_iterate(stmthash, &iter))) {
+    Datum values[1] = {PointerGetDatum(cstring_to_text(entry->stmt))};
+    bool isnull[1] = {false};
+    tuplestore_putvalues(tupstore, rsinfo->expectedDesc, values, isnull);
+  }
+
+#if PG_MAJORVERSION_NUM < 17
+  tuplestore_donestoring(tupstore);
+#endif
+
+  MemoryContextSwitchTo(oldcontext);
+  PG_RETURN_NULL();
+}
+
+PG_FUNCTION_INFO_V1(reset_retry_prepared_statements);
+
+Datum reset_retry_prepared_statements(PG_FUNCTION_ARGS) {
+  // Free all allocated plans
+  preparedstmthash_iterator iter;
+  preparedstmthash_start_iterate(stmthash, &iter);
+  PreparedStatementEntry *entry;
+  while ((entry = preparedstmthash_iterate(stmthash, &iter))) {
+    SPI_freeplan(entry->plan);
+  }
+
+  // Reset the context to free all statements and the hashtable
+  MemoryContextReset(RetryPreparedStatementMemoryContext);
+  init_preparedstmthash();
+  PG_RETURN_VOID();
 }

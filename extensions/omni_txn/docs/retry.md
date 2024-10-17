@@ -11,6 +11,7 @@ to handle such typical cases.
 |           **max_attempts** | int     | Max number of times to retry. 0 means no retries. 10 by default.     |
 |        **repeatable_read** | boolean | Use `REPEATABLE READ` instead of `SERIALIZABLE`. False by default.   |
 | **collect_backoff_values** | boolean | Collect actual backoff values for inspection. False by default.      |
+|                 **params** | record  | A record of parameters to pass to the statement. NULL by default     |
 
 ## Retry attempt
 
@@ -76,3 +77,17 @@ update inventory set quantity = quantity - 10
        where product_name = 'Widgert'
 $$);
 ```
+
+## Parameterized statements
+
+Statement(s) passed to `omni_txn.retry` can be parameterized with the `params` argument:
+
+```postgresql
+call omni_txn.retry($$ insert into tab values ($1) $$, params => row (1));
+```
+
+## Debugging
+
+`omni_txn.retry` will cache prepared statement plans for every new statement provided. To see the list of currently
+cached planned statements, query `omni_txn.retry_prepared_statements` view. If you want to reset the cache, query
+`select omni_txn.reset_retry_prepared_statements()`.

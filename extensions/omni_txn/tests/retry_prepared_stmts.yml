@@ -1,0 +1,29 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_txn cascade
+
+tests:
+
+- name: run something
+  transaction: false
+  query: call omni_txn.retry('select 1');
+
+- name: run something else
+  transaction: false
+  query: call omni_txn.retry('select 2');
+
+- name: check the cache
+  query: select *
+         from omni_txn.retry_prepared_statements
+         order by stmt
+  results:
+  - stmt: select 1
+  - stmt: select 2
+
+- name: reset the cache
+  steps:
+  - select omni_txn.reset_retry_prepared_statements()
+  - query: select *
+           from omni_txn.retry_prepared_statements
+    results: [ ]
