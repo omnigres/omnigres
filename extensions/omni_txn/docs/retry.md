@@ -85,3 +85,9 @@ Statement(s) passed to `omni_txn.retry` can be parameterized with the `params` a
 ```postgresql
 call omni_txn.retry($$ insert into tab values ($1) $$, params => row (1));
 ```
+
+## Debugging
+
+`omni_txn.retry` will cache prepared statement plans for every new statement provided. To see the list of currently
+cached planned statements, query `omni_txn.retry_prepared_statements` view. If you want to reset the cache, query
+`select omni_txn.reset_retry_prepared_statements()`.
