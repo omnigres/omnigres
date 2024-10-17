@@ -10,6 +10,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 * `omni_txn.retry` now accepts an optional `params` argument [#663](https://github.com/omnigres/omnigres/pull/663)
+* `omni_txn.retry` will now cache prepared statement plans [#664](https://github.com/omnigres/omnigres/pull/664)
 
 ### Fixed
 
