@@ -74,8 +74,8 @@ Datum retry(PG_FUNCTION_ARGS) {
     max_attempts = PG_GETARG_INT32(1);
   }
   bool collect_backoff_values = false;
-  if (!PG_ARGISNULL(2)) {
-    collect_backoff_values = PG_GETARG_BOOL(2);
+  if (!PG_ARGISNULL(3)) {
+    collect_backoff_values = PG_GETARG_BOOL(3);
   }
 
   if (collect_backoff_values) {

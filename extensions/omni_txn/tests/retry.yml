@@ -129,6 +129,21 @@ tests:
     error: maximum number of retries (0) has been attempted
   - rollback
 
+- name: no backoff values unless requested
+  transaction: false
+  tests:
+  - query: |
+      call omni_txn.retry($$select quantity from inventory where product_name = 'Widget';
+      select call_other_session() where omni_txn.current_retry_attempt() < 10;
+      update inventory set quantity = quantity + 20 where product_name = 'Widget';
+      $$, 10, repeatable_read => true, collect_backoff_values => false);
+    # (setting repeatable_read because a previous bug was treating `repeatable_read` as `collect_backoff_values`)
+    transaction: false
+  - query: select count(*)
+           from omni_txn.retry_backoff_values()
+    results:
+    - count: 0
+
 - name: backoff values
   transaction: false
   tests:
@@ -136,7 +151,7 @@ tests:
       call omni_txn.retry($$select quantity from inventory where product_name = 'Widget';
       select call_other_session() where omni_txn.current_retry_attempt() < 10;
       update inventory set quantity = quantity + 20 where product_name = 'Widget';
-      $$, 10, true);
+      $$, 10, collect_backoff_values => true);
     transaction: false
   - query: |
       select count(*) = 10 as "count",
