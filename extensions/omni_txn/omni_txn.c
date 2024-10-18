@@ -5,7 +5,10 @@
 #include <common/hashfn.h>
 #include <executor/spi.h>
 #include <miscadmin.h>
+#include <storage/predicate.h>
+#include <tcop/pquery.h>
 #include <utils/builtins.h>
+#include <utils/lsyscache.h>
 #include <utils/snapmgr.h>
 #if PG_MAJORVERSION_NUM < 17
 #include <utils/typcache.h>
@@ -17,9 +20,17 @@
 #include <common/pg_prng.h>
 #endif
 #include <nodes/pg_list.h>
+#include <storage/predicate_internals.h>
 #include <utils/memutils.h>
 
+#include <omni/omni_v0.h>
+
 PG_MODULE_MAGIC;
+
+OMNI_MAGIC;
+
+OMNI_MODULE_INFO(.name = "omni_txn", .version = EXT_VERSION,
+                 .identity = "72b87e01-b6d4-440a-bcf0-d7a5ff8757f8");
 
 static List *backoff_values;
 static int32 retry_attempts = 0;
@@ -114,6 +125,32 @@ Datum retry(PG_FUNCTION_ARGS) {
     collect_backoff_values = PG_GETARG_BOOL(3);
   }
 
+  text *stmts = PG_GETARG_TEXT_PP(0);
+  char *cstmts = MemoryContextStrdup(RetryPreparedStatementMemoryContext, text_to_cstring(stmts));
+
+  int original_default_iso_level = DefaultXactIsoLevel;
+
+  int intended_iso_level =
+      (!PG_ARGISNULL(2) && PG_GETARG_BOOL(2)) ? XACT_REPEATABLE_READ : XACT_SERIALIZABLE;
+
+  if (ActiveSnapshotSet()) {
+    // We restart a transaction because there's a chance the planner took out a snapshot
+    // without having a new isolation level set. It is the code that looks like this:
+    // ```c
+    // if (analyze_requires_snapshot(parsetree))
+    // {
+    //    PushActiveSnapshot(GetTransactionSnapshot());
+    //    snapshot_set = true;
+    // }
+    // ```
+    PopActiveSnapshot();
+    AbortCurrentTransaction();
+    DefaultXactIsoLevel = XactIsoLevel = intended_iso_level;
+    SetCurrentStatementStartTimestamp();
+    StartTransactionCommand();
+    PushActiveSnapshot(GetTransactionSnapshot());
+  }
+
   // This indicates that `params` were set
   TupleDesc paramsTupDesc = NULL;
   // Default values are prepared for the case when no `params` are set
@@ -168,20 +205,18 @@ Datum retry(PG_FUNCTION_ARGS) {
     list_free(backoff_values);
     backoff_values = NIL;
   }
-  text *stmts = PG_GETARG_TEXT_PP(0);
-  char *cstmts = text_to_cstring(stmts);
+
   bool retry = true;
   retry_attempts = 0;
   while (retry) {
-    XactIsoLevel =
-        (!PG_ARGISNULL(2) && PG_GETARG_BOOL(2)) ? XACT_REPEATABLE_READ : XACT_SERIALIZABLE;
+
     SPI_connect_ext(SPI_OPT_NONATOMIC);
     MemoryContext current_mcxt = CurrentMemoryContext;
     PG_TRY();
     {
       bool found;
-      PreparedStatementEntry *entry = preparedstmthash_insert(
-          stmthash, MemoryContextStrdup(RetryPreparedStatementMemoryContext, cstmts), &found);
+
+      PreparedStatementEntry *entry = preparedstmthash_insert(stmthash, cstmts, &found);
       if (!found) {
         entry->plan = SPI_prepare(cstmts, paramsCount, paramsTypes);
         SPI_keepplan(entry->plan);
@@ -219,6 +254,7 @@ Datum retry(PG_FUNCTION_ARGS) {
           // start a new transaction
           SetCurrentStatementStartTimestamp();
           StartTransactionCommand();
+
           PushActiveSnapshot(GetTransactionSnapshot());
 
         } else {
@@ -231,6 +267,7 @@ Datum retry(PG_FUNCTION_ARGS) {
         }
       } else {
         retry_attempts = 0;
+        DefaultXactIsoLevel = original_default_iso_level;
         PG_RE_THROW();
       }
       CHECK_FOR_INTERRUPTS();
@@ -243,6 +280,14 @@ Datum retry(PG_FUNCTION_ARGS) {
   if (paramsTupDesc) {
     ReleaseTupleDesc(paramsTupDesc);
   }
+
+  if (ActiveSnapshotSet()) {
+    PopActiveSnapshot();
+  }
+  if (ActivePortal) {
+    ActivePortal->portalSnapshot = NULL;
+  }
+  DefaultXactIsoLevel = original_default_iso_level;
   PG_RETURN_VOID();
 }
 
@@ -326,3 +371,84 @@ Datum reset_retry_prepared_statements(PG_FUNCTION_ARGS) {
   init_preparedstmthash();
   PG_RETURN_VOID();
 }
+
+static bool initialized = false;
+static bool linearize_enabled = false;
+
+void linearize_executor_start(omni_hook_handle *handle, QueryDesc *queryDesc, int eflags) {
+  if (!linearize_enabled) {
+    return;
+  }
+  switch (queryDesc->operation) {
+  case CMD_INSERT:
+  case CMD_DELETE:
+#if PG_MAJORVERSION_NUM > 14
+  case CMD_MERGE:
+#endif
+  case CMD_UPDATE: {
+    if (IsA(queryDesc->plannedstmt->planTree, ModifyTable)) {
+      ModifyTable *node = castNode(ModifyTable, queryDesc->plannedstmt->planTree);
+      PredicateLockData *locks = GetPredicateLockStatusData();
+      for (int i = 0; i < locks->nelements; i++) {
+        PREDICATELOCKTARGETTAG *tag = &(locks->locktags[i]);
+        SERIALIZABLEXACT *xact = &(locks->xacts[i]);
+        if (xact->pid == MyProcPid) {
+          // Self-linearization failures are not possible
+          continue;
+        }
+
+        Oid rel = GET_PREDICATELOCKTARGETTAG_RELATION(*tag);
+
+        ListCell *lc;
+        foreach (lc, node->resultRelations) {
+          int index = lfirst_int(lc);
+          RangeTblEntry *entry =
+              list_nth_node(RangeTblEntry, queryDesc->plannedstmt->rtable, index - 1);
+          if (entry->relid == rel) {
+            ereport(
+                ERROR, errcode(ERRCODE_T_R_SERIALIZATION_FAILURE), errmsg("linearization failure"),
+                errdetail("backend %d has a predicate lock on `%s`", xact->pid, get_rel_name(rel)));
+          }
+        }
+      }
+    }
+    break;
+  }
+  default:
+    break;
+  }
+}
+
+static void linearize_disable(omni_hook_handle *handle, XactEvent event) {
+  linearize_enabled = false;
+}
+
+void _Omni_init(const omni_handle *handle) {
+  omni_hook linearize_hook = {.name = "omni_txn linearize hook",
+                              .type = omni_hook_executor_start,
+                              .fn = {.executor_start = linearize_executor_start}};
+  omni_hook xact_cleanup_hook = {.name = "omni_txn linearize cleanup hook",
+                                 .type = omni_hook_xact_callback,
+                                 .fn = {.xact_callback = linearize_disable}};
+  handle->register_hook(handle, &linearize_hook);
+  handle->register_hook(handle, &xact_cleanup_hook);
+  initialized = true;
+}
+
+PG_FUNCTION_INFO_V1(linearize);
+
+Datum linearize(PG_FUNCTION_ARGS) {
+  if (!initialized) {
+    ereport(ERROR, errmsg("this functionality requires `omni` to be preloaded"));
+  }
+  if (!IsolationIsSerializable()) {
+    ereport(ERROR, errmsg("current transaction is not serializable"));
+  }
+
+  linearize_enabled = true;
+  PG_RETURN_VOID();
+}
+
+PG_FUNCTION_INFO_V1(linearized);
+
+Datum linearized(PG_FUNCTION_ARGS) { PG_RETURN_BOOL(linearize_enabled); }
