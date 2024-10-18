@@ -5,7 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.4.0] - TBD
+
+### Fixed
+
+* `retry` was not setting up predicate locks to be tracked [#668](https://github.com/omnigres/omnigres/pull/668)
 
 ## [0.3.0] - 2024-10-17
 
@@ -43,3 +47,5 @@ Initial release following a few months of iterative development.
 [0.2.1]: [https://github.com/omnigres/omnigres/pull/650]
 
 [0.3.0]: [https://github.com/omnigres/omnigres/pull/661]
+
+[0.4.0]: [https://github.com/omnigres/omnigres/pull/665]
