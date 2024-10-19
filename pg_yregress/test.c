@@ -506,9 +506,8 @@ proceed:
 
   struct fy_node *notices_key = fy_node_create_scalar(doc, STRLIT("notices"));
 
-  // If there are notices and `notices` key is declared
-  if (!fy_node_sequence_is_empty(notices) &&
-      fy_node_mapping_lookup_key_by_key(test->node, notices_key) != NULL) {
+  // Merge notices
+  if (fy_node_mapping_lookup_key_by_key(test->node, notices_key) != NULL) {
     // Replace `notices` with received notices
     fy_node_mapping_remove_by_key(test->node, fy_node_copy(doc, notices_key));
     fy_node_mapping_append(test->node, notices_key, notices);

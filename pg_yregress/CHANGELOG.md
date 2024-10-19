@@ -12,6 +12,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Test query parameters (`params`) may have been passed with trailing data from the test suite because scalars were
   processed without their length. This could have led to sending superfluous trailing data to Postgres.
+* When no notices were received, any `notices` key was effectively ignored, leading to
+  potentially wrong tests [#667](https://github.com/omnigres/omnigres/pull/667).
 
 ## [0.3.0]
 

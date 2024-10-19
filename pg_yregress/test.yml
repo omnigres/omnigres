@@ -171,15 +171,16 @@ tests:
           raise notice 'test 1';
         end;
       $$ language plpgsql
+    notices:
+    - test 1
   - query: |
       do $$
         begin
           raise notice 'test 2';
         end;
       $$ language plpgsql
-  notices:
-  - test 1
-  - test 2
+    notices:
+    - test 2
 
 - name: multi-step notices (individual)
   steps:
