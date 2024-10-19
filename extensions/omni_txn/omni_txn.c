@@ -5,6 +5,7 @@
 #include <common/hashfn.h>
 #include <executor/spi.h>
 #include <miscadmin.h>
+#include <tcop/pquery.h>
 #include <utils/builtins.h>
 #include <utils/snapmgr.h>
 #if PG_MAJORVERSION_NUM < 17
@@ -114,6 +115,32 @@ Datum retry(PG_FUNCTION_ARGS) {
     collect_backoff_values = PG_GETARG_BOOL(3);
   }
 
+  text *stmts = PG_GETARG_TEXT_PP(0);
+  char *cstmts = MemoryContextStrdup(RetryPreparedStatementMemoryContext, text_to_cstring(stmts));
+
+  int original_default_iso_level = DefaultXactIsoLevel;
+
+  int intended_iso_level =
+      (!PG_ARGISNULL(2) && PG_GETARG_BOOL(2)) ? XACT_REPEATABLE_READ : XACT_SERIALIZABLE;
+
+  if (ActiveSnapshotSet() && XactIsoLevel != intended_iso_level) {
+    // We restart a transaction because there's a chance the planner took out a snapshot
+    // without having a new isolation level set. It is the code that looks like this:
+    // ```c
+    // if (analyze_requires_snapshot(parsetree))
+    // {
+    //    PushActiveSnapshot(GetTransactionSnapshot());
+    //    snapshot_set = true;
+    // }
+    // ```
+    PopActiveSnapshot();
+    AbortCurrentTransaction();
+    DefaultXactIsoLevel = XactIsoLevel = intended_iso_level;
+    SetCurrentStatementStartTimestamp();
+    StartTransactionCommand();
+    PushActiveSnapshot(GetTransactionSnapshot());
+  }
+
   // This indicates that `params` were set
   TupleDesc paramsTupDesc = NULL;
   // Default values are prepared for the case when no `params` are set
@@ -153,6 +180,7 @@ Datum retry(PG_FUNCTION_ARGS) {
         Oid att_type_oid = TupleDescAttr(paramsTupDesc, i)->atttypid; // Attribute type OID
         if (att_type_oid == UNKNOWNOID) {
           ReleaseTupleDesc(paramsTupDesc);
+          DefaultXactIsoLevel = original_default_iso_level;
           ereport(ERROR, errmsg("query parameter %d is of unknown type", i + 1));
         }
         paramsNullChars[i] = paramsNulls[i] ? 'n' : ' ';
@@ -168,20 +196,15 @@ Datum retry(PG_FUNCTION_ARGS) {
     list_free(backoff_values);
     backoff_values = NIL;
   }
-  text *stmts = PG_GETARG_TEXT_PP(0);
-  char *cstmts = text_to_cstring(stmts);
   bool retry = true;
   retry_attempts = 0;
   while (retry) {
-    XactIsoLevel =
-        (!PG_ARGISNULL(2) && PG_GETARG_BOOL(2)) ? XACT_REPEATABLE_READ : XACT_SERIALIZABLE;
     SPI_connect_ext(SPI_OPT_NONATOMIC);
     MemoryContext current_mcxt = CurrentMemoryContext;
     PG_TRY();
     {
       bool found;
-      PreparedStatementEntry *entry = preparedstmthash_insert(
-          stmthash, MemoryContextStrdup(RetryPreparedStatementMemoryContext, cstmts), &found);
+      PreparedStatementEntry *entry = preparedstmthash_insert(stmthash, cstmts, &found);
       if (!found) {
         entry->plan = SPI_prepare(cstmts, paramsCount, paramsTypes);
         SPI_keepplan(entry->plan);
@@ -226,11 +249,13 @@ Datum retry(PG_FUNCTION_ARGS) {
           if (paramsTupDesc) {
             ReleaseTupleDesc(paramsTupDesc);
           }
+          DefaultXactIsoLevel = original_default_iso_level;
           ereport(ERROR, errcode(err->sqlerrcode),
                   errmsg("maximum number of retries (%d) has been attempted", max_attempts));
         }
       } else {
         retry_attempts = 0;
+        DefaultXactIsoLevel = original_default_iso_level;
         PG_RE_THROW();
       }
       CHECK_FOR_INTERRUPTS();
@@ -243,6 +268,14 @@ Datum retry(PG_FUNCTION_ARGS) {
   if (paramsTupDesc) {
     ReleaseTupleDesc(paramsTupDesc);
   }
+
+  if (ActiveSnapshotSet()) {
+    PopActiveSnapshot();
+  }
+  if (ActivePortal) {
+    ActivePortal->portalSnapshot = NULL;
+  }
+  DefaultXactIsoLevel = original_default_iso_level;
   PG_RETURN_VOID();
 }
 
