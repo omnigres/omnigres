@@ -14,8 +14,10 @@ add_postgresql_extension(
         omni_txn
         SCHEMA omni_txn
         RELOCATABLE false
-        SOURCES omni_txn.c
+        SOURCES omni_txn.c retry.c linearization.c
         REQUIRES omni_var
+        DEPENDS_ON omni libomni
         TESTS_REQUIRE omni_edbg
 )
 
+target_link_libraries(omni_txn libomni)
