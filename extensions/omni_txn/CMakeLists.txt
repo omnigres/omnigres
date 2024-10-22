@@ -15,7 +15,6 @@ add_postgresql_extension(
         SCHEMA omni_txn
         RELOCATABLE false
         SOURCES omni_txn.c retry.c linearization.c
-        REQUIRES omni_var
         DEPENDS_ON omni libomni
         TESTS_REQUIRE omni_edbg
 )

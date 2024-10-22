@@ -16,6 +16,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `retry` was not setting up predicate locks to be tracked [#668](https://github.com/omnigres/omnigres/pull/668)
 
+### Removed
+
+* Deprecate variable functionality has been removed [#673](https://github.com/omnigres/omnigres/pull/673)
+
 ## [0.3.0] - 2024-10-17
 
 ### Added
