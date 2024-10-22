@@ -14,11 +14,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-* `retry` was not setting up predicate locks to be tracked [#666](https://github.com/omnigres/omnigres/pull/666)
-## [0.4.0] - TBD
-
-### Fixed
-
 * `retry` was not setting up predicate locks to be tracked [#668](https://github.com/omnigres/omnigres/pull/668)
 
 ## [0.3.0] - 2024-10-17
