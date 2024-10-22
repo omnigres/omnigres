@@ -44,7 +44,7 @@ begin
                     -- Handle JSON expression
                     if col_alias = col_expr then
                         -- Update the alias if it was not set
-                        with arr as (select regexp_split_to_array(col_expr, '->>?') data)
+                        with arr as (select regexp_split_to_array(col_expr, '->>?') as data)
                         select data[cardinality(data)]
                         from arr
                         into col_alias;
