@@ -187,3 +187,23 @@ tests:
       f: 1.2
       t: text
   - drop table tab
+
+- name: predicate locks set up
+  transaction: false
+  tests:
+  - create table tab
+    (
+    )
+  - name: ensure we are not in serializable mode yet
+    query: select current_setting('transaction_isolation')
+    results:
+    - current_setting: read committed
+  - |
+    call omni_txn.retry(
+            'select * from tab; create table locks as select * from pg_locks where mode = $$SIReadLock$$')
+  - query: select count(*)
+           from locks
+    results:
+    - count: 1
+  - drop table locks
+  - drop table tab
