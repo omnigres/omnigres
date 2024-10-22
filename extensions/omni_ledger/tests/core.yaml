@@ -1,0 +1,138 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+    max_worker_processes: 64
+  init:
+  - create extension omni_ledger cascade
+  - create extension omni_var
+  - insert into omni_ledger.ledgers default
+    values
+    returning omni_var.set_session('ledger_id', id)
+  - |
+    create function account_flags(daec bool, caed bool) returns text[]
+        immutable parallel safe
+        language sql as
+    $$
+    select array_remove(array [case
+                                   when daec
+                                       then
+                                       'debits_allowed_to_exceed_credits'
+                                   else null end,
+                            case
+                                when caed then
+                                    'credits_allowed_to_exceed_debits'
+                                else null end
+                            ], null)
+    $$
+
+  - insert into omni_ledger.accounts (ledger_id, debits_allowed_to_exceed_credits, credits_allowed_to_exceed_debits)
+    values (omni_var.get_session('ledger_id', null::omni_ledger.ledger_id),
+            true, false),
+           (omni_var.get_session('ledger_id', null::omni_ledger.ledger_id),
+            false, true),
+           (omni_var.get_session('ledger_id', null::omni_ledger.ledger_id),
+            true, true)
+    returning omni_var.set_session('account_id_' || concat_ws(',', variadic
+                                                              account_flags(debits_allowed_to_exceed_credits,
+                                                                            credits_allowed_to_exceed_debits)), id)
+
+tests:
+
+- name: If debits are not allowed to exceed credits, can't debit
+  steps:
+  - set transaction isolation level serializable
+  - query: |
+      insert into omni_ledger.transfers (debit_account_id, credit_account_id, amount)
+      values (omni_var.get_session('account_id_credits_allowed_to_exceed_debits', null::omni_ledger.account_id),
+              omni_var.get_session('account_id_debits_allowed_to_exceed_credits,credits_allowed_to_exceed_debits',
+                                   null::omni_ledger.account_id), 100)
+    error: debit exceeds credit
+
+- name: If credits are not allowed to exceed debits, can't credit
+  steps:
+  - set transaction isolation level serializable
+  - query: |
+      insert into omni_ledger.transfers (debit_account_id, credit_account_id, amount)
+      values (omni_var.get_session(
+                      'account_id_debits_allowed_to_exceed_credits,credits_allowed_to_exceed_debits',
+                      null::omni_ledger.account_id),
+              omni_var.get_session('account_id_debits_allowed_to_exceed_credits', null::omni_ledger.account_id), 100)
+    error: credit exceeds debit
+
+
+- name: Can't debit and credit the same account
+  steps:
+  - set transaction isolation level serializable
+  - query: |
+      insert into omni_ledger.transfers (debit_account_id, credit_account_id, amount)
+      values (omni_var.get_session('account_id_debits_allowed_to_exceed_credits', null::omni_ledger.account_id),
+              omni_var.get_session('account_id_debits_allowed_to_exceed_credits', null::omni_ledger.account_id), 100)
+    error: can't transfer from and to the same account
+
+- name: Closed accounts can't be debited
+  steps:
+  - set transaction isolation level serializable
+  - query: |
+      update omni_ledger.accounts
+      set closed = true
+      where id = omni_var.get_session('account_id_debits_allowed_to_exceed_credits', null::omni_ledger.account_id)
+  - query: |
+      insert into omni_ledger.transfers (debit_account_id, credit_account_id, amount)
+      values (omni_var.get_session('account_id_debits_allowed_to_exceed_credits', null::omni_ledger.account_id),
+              omni_var.get_session('account_id_credits_allowed_to_exceed_debits', null::omni_ledger.account_id), 100)
+    error: can't transfer from a closed account
+
+- name: Closed accounts can't be credited
+  steps:
+  - set transaction isolation level serializable
+  - query: |
+      update omni_ledger.accounts
+      set closed = true
+      where id = omni_var.get_session('account_id_credits_allowed_to_exceed_debits', null::omni_ledger.account_id)
+  - query: |
+      insert into omni_ledger.transfers (debit_account_id, credit_account_id, amount)
+      values (omni_var.get_session('account_id_debits_allowed_to_exceed_credits', null::omni_ledger.account_id),
+              omni_var.get_session('account_id_credits_allowed_to_exceed_debits', null::omni_ledger.account_id), 100)
+    error: can't transfer to a closed account
+
+- name: Balances are calculated correctly
+  steps:
+  - set transaction isolation level serializable
+  - name: Look at balances
+    query: select *
+           from omni_ledger.account_balances
+    results: [ ]
+  - name: Make a successful transfer
+    query: insert into omni_ledger.transfers (debit_account_id, credit_account_id, amount)
+           values (omni_var.get_session('account_id_debits_allowed_to_exceed_credits', null::omni_ledger.account_id),
+                   omni_var.get_session('account_id_credits_allowed_to_exceed_debits', null::omni_ledger.account_id),
+                   100)
+  - name: Look at balances
+    query: select case
+                      when (omni_var.get_session('account_id_debits_allowed_to_exceed_credits',
+                                                 null::omni_ledger.account_id) = account_id) then 'debit'
+                      else 'credit' end as type,
+                  debited,
+                  credited,
+                  balance
+           from omni_ledger.account_balances
+    results:
+    - type: debit
+      debited: 100
+      credited: 0
+      balance: -100
+    - type: credit
+      debited: 0
+      credited: 100
+      balance: 100
+
+- name: Negative transers are not allowed
+  steps:
+  - set transaction isolation level serializable
+  - name: Attempt a negative transfer
+    query: insert into omni_ledger.transfers (debit_account_id, credit_account_id, amount)
+           values (omni_var.get_session('account_id_debits_allowed_to_exceed_credits', null::omni_ledger.account_id),
+                   omni_var.get_session('account_id_credits_allowed_to_exceed_debits', null::omni_ledger.account_id),
+                   -100)
+    error: value for domain omni_ledger.amount violates check constraint "amount_check"

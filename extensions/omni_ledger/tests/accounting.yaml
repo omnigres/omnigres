@@ -1,0 +1,104 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+    max_worker_processes: 64
+  init:
+  - create extension omni_ledger cascade
+  - create extension omni_var
+  - insert into omni_ledger.ledgers default
+    values
+    returning omni_var.set_session('ledger_id', id)
+  - |
+    create function account_flags(daec bool, caed bool) returns text[]
+        immutable parallel safe
+        language sql as
+    $$
+    select array_remove(array [case
+                                   when daec
+                                       then
+                                       'debits_allowed_to_exceed_credits'
+                                   else null end,
+                            case
+                                when caed then
+                                    'credits_allowed_to_exceed_debits'
+                                else null end
+                            ], null)
+    $$
+
+  - insert into omni_ledger.accounts (ledger_id, debits_allowed_to_exceed_credits, credits_allowed_to_exceed_debits)
+    values (omni_var.get_session('ledger_id', null::omni_ledger.ledger_id),
+            true, false),
+           (omni_var.get_session('ledger_id', null::omni_ledger.ledger_id),
+            false, true),
+           (omni_var.get_session('ledger_id', null::omni_ledger.ledger_id),
+            true, true)
+    returning omni_var.set_session('account_id_' || concat_ws(',', variadic
+                                                              account_flags(debits_allowed_to_exceed_credits,
+                                                                            credits_allowed_to_exceed_debits)), id)
+  - |
+    insert into omni_ledger.account_categories (name, type, debit_normal)
+    values ('Assets', 'asset', true),
+           ('Owner''s equity', 'equity', false),
+           ('Liabilities', 'liability', false);
+  - |
+    insert into omni_ledger.account_categorizations (account_id, category_id)
+    values (omni_var.get_session('account_id_debits_allowed_to_exceed_credits', null::omni_ledger.account_id),
+            (select id from omni_ledger.account_categories where name = 'Assets')),
+           (omni_var.get_session('account_id_credits_allowed_to_exceed_debits', null::omni_ledger.account_id),
+            (select id from omni_ledger.account_categories where name = 'Owner''s equity')),
+           (omni_var.get_session('account_id_debits_allowed_to_exceed_credits,credits_allowed_to_exceed_debits',
+                                 null::omni_ledger.account_id),
+            (select id from omni_ledger.account_categories where name = 'Liabilities'))
+
+
+
+tests:
+
+- name: can't change category's type
+  query: update omni_ledger.account_categories
+         set type = 'liability'
+  error: cannot change the account category type once it has been set
+
+- name: can't change category's debit normalness
+  query: update omni_ledger.account_categories
+         set debit_normal = true
+  error: cannot change account category debit normalness once it has been set
+
+- name: can't categorize account more than once
+  query: |
+    insert into omni_ledger.account_categorizations (account_id, category_id)
+    values (omni_var.get_session('account_id_debits_allowed_to_exceed_credits', null::omni_ledger.account_id),
+            (select id from omni_ledger.account_categories where name = 'Assets'))
+  error: duplicate key value violates unique constraint "account_categorizations_account_id_category_id_key"
+
+- name: can't update categorizations
+  query: update omni_ledger.account_categorizations
+         set category_id = (select id from omni_ledger.account_categories where name = 'Liabilities')
+  error: records in this table are immutable
+
+- name: can't delete categorizations
+  query: delete
+         from omni_ledger.account_categorizations
+  error: records in this table are immutable
+
+- name: can't truncate categorizations
+  query: truncate omni_ledger.account_categorizations
+  error: records in this table are immutable
+
+- name: can't delete categories while there are categorizations
+  query: delete
+         from omni_ledger.account_categorizations
+  error: records in this table are immutable
+
+- name: can delete categories while there are no categorizations
+  steps:
+  - name: disable protective trigger
+    query: alter table omni_ledger.account_categorizations
+        disable trigger immutable_account_categorizations
+  - name: delete categorizations
+    query: delete
+           from omni_ledger.account_categorizations
+  - name: delete categories
+    query: delete
+           from omni_ledger.account_categorizations

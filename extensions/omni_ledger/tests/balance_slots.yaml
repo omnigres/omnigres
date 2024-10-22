@@ -1,0 +1,131 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+    max_worker_processes: 64
+    # so we don't have to change it
+    default_transaction_isolation: serializable
+  init:
+  - create extension omni_ledger cascade
+  - create extension omni_var
+  - insert into omni_ledger.ledgers default
+    values
+    returning omni_var.set_session('ledger_id', id)
+  - |
+    create function account_flags(daec bool, caed bool) returns text[]
+        immutable parallel safe
+        language sql as
+    $$
+    select array_remove(array [case
+                                   when daec
+                                       then
+                                       'debits_allowed_to_exceed_credits'
+                                   else null end,
+                            case
+                                when caed then
+                                    'credits_allowed_to_exceed_debits'
+                                else null end
+                            ], null)
+    $$
+
+  - insert into omni_ledger.accounts (ledger_id, debits_allowed_to_exceed_credits, credits_allowed_to_exceed_debits)
+    values (omni_var.get_session('ledger_id', null::omni_ledger.ledger_id),
+            true, false),
+           (omni_var.get_session('ledger_id', null::omni_ledger.ledger_id),
+            false, true),
+           (omni_var.get_session('ledger_id', null::omni_ledger.ledger_id),
+            true, true)
+    returning omni_var.set_session('account_id_' || concat_ws(',', variadic
+                                                              account_flags(debits_allowed_to_exceed_credits,
+                                                                            credits_allowed_to_exceed_debits)), id)
+  - create extension dblink
+  - select dblink_connect('session_' || i, 'hostaddr=127.0.0.1 dbname=yregress user=yregress port=' || (select setting
+                                                                                                        from pg_settings
+                                                                                                        where name = 'port'))
+    from generate_series(1, 10) i
+  - |
+    create procedure transact(credit omni_ledger.account_id, debit omni_ledger.account_id, amount omni_ledger.amount,
+                              int)
+        language plpgsql as
+    $$
+    begin
+        perform pg_advisory_lock(42, $4);
+        insert into omni_ledger.transfers(debit_account_id, credit_account_id, amount) values ($1, $2, $3);
+    end;
+    $$
+
+tests:
+
+- name: Balances are calculated correctly
+  transaction: false
+  steps:
+  - name: Look at balances
+    query: select *
+           from omni_ledger.account_balances
+    results: [ ]
+  - name: Don't let them run until we are ready
+    query: select pg_advisory_lock(42, i)
+           from generate_series(1, 10) i
+  - name: Make a few successful transfers
+    query: |
+      select dblink_send_query('session_' || i,
+                               format('call transact(%L, %L, 100, %L::int)',
+                             -- debit
+                                omni_var.get_session('account_id_debits_allowed_to_exceed_credits',
+                                                     null::omni_ledger.account_id),
+                             -- credit
+                                omni_var.get_session('account_id_credits_allowed_to_exceed_debits',
+                                                     null::omni_ledger.account_id),
+                                   -- backend id
+                                      i)) id
+      from generate_series(1, 10) i
+  - name: Let them run
+    query: select pg_advisory_unlock(42, i)
+           from generate_series(1, 10) i
+  - name: Wait for completion
+    query: |
+      do
+      $$
+          declare
+              c int;
+          begin
+              c := 10;
+              while c > 0
+                  loop
+                      select from generate_series(1, 10) i where dblink_is_busy('session_' || i) = 1 into c;
+                  end loop;
+          end;
+      $$
+  - query: select distinct dblink_error_message('session_' || i)
+           from generate_series(1, 10) i
+    results:
+    - dblink_error_message: OK
+  - query: select distinct dblink_get_result('session_' || i)
+           from generate_series(1, 10) i
+    results:
+    - dblink_get_result: (CALL)
+  - name: Look at balances
+    query: select case
+                      when (omni_var.get_session('account_id_debits_allowed_to_exceed_credits',
+                                                 null::omni_ledger.account_id) = account_id) then 'debit'
+                      else 'credit' end as type,
+                  debited,
+                  credited,
+                  balance
+           from omni_ledger.account_balances
+    results:
+    - type: debit
+      debited: 1000
+      credited: 0
+      balance: -1000
+    - type: credit
+      debited: 0
+      credited: 1000
+      balance: 1000
+  - name: Look at slot presence
+    query: select count(*)
+           from omni_ledger.account_balance_slots
+           group by account_id
+    results:
+    - count: 10
+    - count: 10
