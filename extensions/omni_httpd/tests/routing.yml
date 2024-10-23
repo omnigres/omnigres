@@ -1,15 +1,20 @@
 $schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
 instance:
   init:
-    - CREATE SCHEMA IF NOT EXISTS http_router_test
-    - SET search_path TO http_router_test, public
+    - create schema if not exists http_router_test
+    - set search_path to http_router_test, public
+
+    # Include the required extensions
+    - create extension if not exists omni_httpd cascade;
+    - create extension if not exists omni_regex;
+    
     - |
-      CREATE TYPE product_path AS (
+      create type product_path as (
           request omni_httpd.http_request,
           product_id text
       )
     - |
-      CREATE TYPE user_post_path AS (
+      create type user_post_path as (
           request omni_httpd.http_request,
           user_id text,
           post_id text
@@ -18,54 +23,54 @@ instance:
 tests:
   - name: "Test make_router basic functionality"
     query: |
-      SELECT make_router(
+      select make_router(
           'product_path',
           'product_path',
           '/product/(\d+)',
-          'GET'
+          'get'
       );
     results: []
 
   - name: "Test router with valid request"
     query: |
-      WITH test_request AS (
-          SELECT ROW(
-              'GET',
+      with test_request as (
+          select row(
+              'get',
               '/product/123',
               'example.com',
-              ARRAY[]::text[],
+              array[]::text[],
               '{}'::jsonb,
-              NULL::bytea
-          )::omni_httpd.http_request AS req
+              null::bytea
+          )::omni_httpd.http_request as req
       )
-      SELECT (product_path(req)).product_id = '123' AS matches
-      FROM test_request;
+      select (product_path(req)).product_id = '123' as matches
+      from test_request;
     results:
       - matches: true
 
   - name: "Test router with invalid method"
     query: |
-      WITH test_request AS (
-          SELECT ROW(
-              'POST',
+      with test_request as (
+          select row(
+              'post',
               '/product/123',
               'example.com',
-              ARRAY[]::text[],
+              array[]::text[],
               '{}'::jsonb,
-              NULL::bytea
-          )::omni_httpd.http_request AS req
+              null::bytea
+          )::omni_httpd.http_request as req
       )
-      SELECT product_path(req) IS NULL AS is_null
-      FROM test_request;
+      select product_path(req) is null as is_null
+      from test_request;
     results:
       - is_null: true
 
   - name: "Test url_pattern_to_regex conversion"
     query: |
-      SELECT 
-        url_pattern_to_regex('/product/:id') = '^/product/([^/]+)$' AS test1,
-        url_pattern_to_regex('/users/:userId/posts/:postId') = '^/users/([^/]+)/posts/([^/]+)$' AS test2,
-        url_pattern_to_regex('/static/file.txt') = '^/static/file\.txt$' AS test3;
+      select 
+        url_pattern_to_regex('/product/:id') = '^/product/([^/]+)$' as test1,
+        url_pattern_to_regex('/users/:userid/posts/:postid') = '^/users/([^/]+)/posts/([^/]+)$' as test2,
+        url_pattern_to_regex('/static/file.txt') = '^/static/file\.txt$' as test3;
     results:
       - test1: true
         test2: true
@@ -73,9 +78,9 @@ tests:
 
   - name: "Test regex matching with generated patterns"
     query: |
-      SELECT 
-        '/product/123' ~ url_pattern_to_regex('/product/:id') AS should_match,
-        '/product/' ~ url_pattern_to_regex('/product/:id') AS should_not_match;
+      select 
+        '/product/123' ~ url_pattern_to_regex('/product/:id') as should_match,
+        '/product/' ~ url_pattern_to_regex('/product/:id') as should_not_match;
     results:
       - should_match: true
         should_not_match: false
