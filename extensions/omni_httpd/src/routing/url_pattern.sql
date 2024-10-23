@@ -1,9 +1,9 @@
-CREATE OR REPLACE FUNCTION url_pattern_to_regex(
+create or replace function url_pattern_to_regex(
     pattern text
-) RETURNS text AS $$
-DECLARE
+) returns text as $$
+declare
     result text;
-BEGIN
+begin
     -- Basic conversion of URL pattern to regex
     result := pattern;
     
@@ -16,6 +16,6 @@ BEGIN
     -- Add start and end anchors
     result := '^' || result || '$';
     
-    RETURN result;
-END;
-$$ LANGUAGE plpgsql;
+    return result;
+end;
+$$ language plpgsql;

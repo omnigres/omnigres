@@ -1,5 +1,5 @@
 -- Types needed for routing functionality
-CREATE TYPE router_config AS (
+create type router_config as (
     router_name name,
     router_type name,
     route_regexp text,

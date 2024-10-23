@@ -1,6 +1,3 @@
--- Load types first
-\ir routing/types.sql
-
--- Load main functionality
-\ir routing/make_router.sql
-\ir routing/url_pattern.sql
+-- Include migrations using the proper syntax
+{% include 'sql/routing/migrations/01-router-types.sql' %}
+{% include 'sql/routing/migrations/02-make-router.sql' %}

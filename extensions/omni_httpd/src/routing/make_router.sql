@@ -1,65 +1,62 @@
-CREATE OR REPLACE FUNCTION make_router(
+create or replace function make_router(
     router_name name,
     router_type name,
-    route_regexp text DEFAULT '.*',
-    method text DEFAULT 'GET',
-    host_regexp text DEFAULT '.*'
-) RETURNS void AS $$
-DECLARE
+    route_regexp text default '.*',
+    method text default 'get',
+    host_regexp text default '.*'
+) returns void as $$
+declare
     type_columns text[];
     capture_count int;
     function_body text;
-    type_definition text;
-BEGIN
+    named_captures text[];
+begin
     -- Get the columns of the composite type
-    SELECT array_agg(attname::text)
-    INTO type_columns
-    FROM pg_attribute
-    WHERE attrelid = router_type::regclass
-    AND attnum > 0
-    AND NOT attisdropped;
-
-    -- Count capturing groups in route_regexp
-    SELECT regexp_matches(route_regexp, '\((?!\?:)', 'g')
-    INTO capture_count;
+    select array_agg(attname::text)
+    into type_columns
+    from pg_attribute
+    where attrelid = router_type::regclass
+    and attnum > 0
+    and not attisdropped;
 
     -- Generate function body
     function_body := format($func$
-CREATE OR REPLACE FUNCTION %I(omni_httpd.http_request) RETURNS %I
-    LANGUAGE plpgsql AS
-$body$
-DECLARE
-    matches text[];
-BEGIN
-    IF $1.method != %L THEN
-        RETURN NULL;
-    END IF;
+        create or replace function %I(omni_httpd.http_request) returns %I
+        language plpgsql as
+        $body$
+        declare
+            matches text[];
+            match_value text;
+        begin
+            if $1.method != %L then
+                return null;
+            end if;
 
-    IF NOT $1.path ~ %L THEN
-        RETURN NULL;
-    END IF;
+            if not $1.path ~ %L then
+                return null;
+            end if;
 
-    IF NOT $1.host ~ %L THEN
-        RETURN NULL;
-    END IF;
+            matches := regexp_match($1.path, %L);
+            if matches is null then
+                return null;
+            end if;
 
-    matches := regexp_match($1.path, %L);
-    IF matches IS NULL THEN
-        RETURN NULL;
-    END IF;
+            return row($1, matches[1:])::$body$, 
+                router_name, 
+                router_type,
+                method,
+                route_regexp,
+                -- Generate dynamic mapping from captures to columns
+                array_to_string(array(
+                    select format('%L := matches[%s]', 
+                                  name, index)
+                    from regex_named_groups(route_regexp)
+                    where name = any (type_columns)
+                ), ', ');
 
-    RETURN ROW($1, matches[1:])::$body$, 
-        router_name, 
-        router_type,
-        method,
-        route_regexp,
-        host_regexp,
-        route_regexp);
+        end body$
+    $func$, router_name, router_type, method, route_regexp);
 
-    EXECUTE function_body || router_type || ';
-END body$
-$func$';
-
-    EXECUTE function_body;
-END;
-$$ LANGUAGE plpgsql;
+    execute function_body;
+end;
+$$ language plpgsql;
