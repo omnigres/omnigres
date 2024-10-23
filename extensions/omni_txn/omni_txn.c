@@ -222,6 +222,8 @@ Datum retry(PG_FUNCTION_ARGS) {
             // go back to the context where we were
             MemoryContextSwitchTo(current_mcxt);
           }
+
+          bool TimestampDifferenceExceeds(TimestampTz start_time, TimestampTz current_time, int64 timeout_microsecs);
            // Check for timeout before retrying
            TimestampTz current_time = GetCurrentTimestamp();
              if (TimestampDifferenceExceeds(start_time, current_time, timeout_microsecs)) {
