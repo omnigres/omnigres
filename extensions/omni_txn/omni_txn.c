@@ -115,7 +115,10 @@ Datum retry(PG_FUNCTION_ARGS) {
   }
 
    // Timeout logic
-  int64 timeout_microsecs = 30000000; // Example: 30 seconds timeout
+  int64 timeout_microsecs = 30000000; // Default timeout value (30 seconds)
+  if (!PG_ARGISNULL(5)) {
+  timeout_microsecs = PG_GETARG_INT64(5); // Retrieve timeout from the argument
+  }
   TimestampTz start_time = GetCurrentTimestamp(); // Get start time
   bool retry = true;
   retry_attempts = 0;
@@ -332,7 +335,8 @@ Datum reset_retry_prepared_statements(PG_FUNCTION_ARGS) {
   PG_RETURN_VOID();
 }
 
-bool TimestampDifferenceExceeds(TimestampTz current, TimestampTz start, int64 timeout) {
-  int64 elapsed = TimestampDifferenceExceeds(current, start); // Get elapsed time in microseconds
-  return elapsed >= timeout;
+bool TimestampDifferenceExceeds(TimestampTz start, TimestampTz current, int64 timeout) {
+    int64 elapsed;
+    TimestampDifference(start, current, &elapsed);
+    return elapsed >= timeout;
 }
