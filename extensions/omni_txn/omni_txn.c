@@ -109,10 +109,6 @@ Datum retry(PG_FUNCTION_ARGS) {
   if (!PG_ARGISNULL(1)) {
     max_attempts = PG_GETARG_INT32(1);
   }
-  bool collect_backoff_values = false;
-  if (!PG_ARGISNULL(3)) {
-    collect_backoff_values = PG_GETARG_BOOL(3);
-  }
 
    // Timeout logic
   int64 timeout_microsecs = 30000000; // Default timeout value (30 seconds)
@@ -123,6 +119,13 @@ Datum retry(PG_FUNCTION_ARGS) {
                             (timeout_interval->month * 2592000000LL) + // Months to microseconds
                             (timeout_interval->day * 86400000000LL); // Days to microseconds
   }
+  
+  bool collect_backoff_values = false;
+  if (!PG_ARGISNULL(3)) {
+    collect_backoff_values = PG_GETARG_BOOL(3);
+  }
+
+  
   TimestampTz start_time = GetCurrentTimestamp(); // Get start time
   bool retry = true;
   retry_attempts = 0;
