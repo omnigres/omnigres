@@ -187,7 +187,7 @@ Datum retry(PG_FUNCTION_ARGS) {
   }
   text *stmts = PG_GETARG_TEXT_PP(0);
   char *cstmts = text_to_cstring(stmts);
-  bool retry = true;
+ 
   retry_attempts = 0;
   while (retry) {
     XactIsoLevel =
