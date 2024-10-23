@@ -114,6 +114,11 @@ Datum retry(PG_FUNCTION_ARGS) {
     collect_backoff_values = PG_GETARG_BOOL(3);
   }
 
+   // Timeout logic
+  int64 timeout_microsecs = 30000000; // Example: 30 seconds timeout
+  TimestampTz start_time = GetCurrentTimestamp(); // Get start time
+  bool retry = true;
+  retry_attempts = 0;
   // This indicates that `params` were set
   TupleDesc paramsTupDesc = NULL;
   // Default values are prepared for the case when no `params` are set
@@ -325,4 +330,9 @@ Datum reset_retry_prepared_statements(PG_FUNCTION_ARGS) {
   MemoryContextReset(RetryPreparedStatementMemoryContext);
   init_preparedstmthash();
   PG_RETURN_VOID();
+}
+
+bool TimestampDifferenceExceeds(TimestampTz current, TimestampTz start, int64 timeout) {
+  int64 elapsed = TimestampDifferenceExceeds(current, start); // Get elapsed time in microseconds
+  return elapsed >= timeout;
 }
