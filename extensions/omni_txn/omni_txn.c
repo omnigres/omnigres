@@ -228,7 +228,7 @@ Datum retry(PG_FUNCTION_ARGS) {
             MemoryContextSwitchTo(current_mcxt);
           }
 
-          bool TimestampDifferenceExceeds(TimestampTz start_time, TimestampTz current_time, int64 timeout_microsecs);
+          
            // Check for timeout before retrying
            TimestampTz current_time = GetCurrentTimestamp();
              if (TimestampDifferenceExceeds(start_time, current_time, timeout_microsecs)) {
@@ -354,8 +354,4 @@ Datum reset_retry_prepared_statements(PG_FUNCTION_ARGS) {
   PG_RETURN_VOID();
 }
 
-bool TimestampDifferenceExceeds(TimestampTz start, TimestampTz current, int64 timeout) {
-    int64 elapsed;
-    TimestampDifference(start, current, &elapsed);
-    return elapsed >= timeout;
-}
+
