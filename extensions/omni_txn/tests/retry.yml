@@ -117,14 +117,14 @@ tests:
     - count: 1
       iso_level: serializable
 
-- name: max attempts with timeout
+- name: max attempts
   transaction: false
   tests:
   - query: |
       call omni_txn.retry($$select quantity from inventory where product_name = 'Widget';
       select call_other_session() where omni_txn.current_retry_attempt() = 0;
       update inventory set quantity = quantity + 20 where product_name = 'Widget';
-      $$, max_attempts => 0 , timeout => '5 seconds');
+      $$, max_attempts => 0 );
     transaction: false
     error: maximum number of retries (0) has been attempted
   - rollback
@@ -143,7 +143,47 @@ tests:
            from omni_txn.retry_backoff_values()
     results:
     - count: 0
+- name: timeout behavior
+  transaction: false
+  tests:
+  - query: |
+      call omni_txn.retry($$select pg_sleep(5); -- Simulating a long-running transaction
+                          update inventory set quantity = quantity + 20 where product_name = 'Widget';
+                          $$, timeout => interval '3 seconds');
+    transaction: false
+    error: transaction aborted due to timeout
 
+- name: timeout and max attempts interaction
+  transaction: false
+  tests:
+  - query: |
+      call omni_txn.retry($$select pg_sleep(2); -- Simulating a long-running transaction
+                          update inventory set quantity = quantity + 20 where product_name = 'Widget';
+                          $$, max_attempts => 3, timeout => interval '1 second');
+    transaction: false
+    error: maximum number of retries (3) has been attempted
+
+- name: successful transaction within timeout
+  transaction: false
+  tests:
+  - query: |
+      call omni_txn.retry($$select update inventory set quantity = quantity - 10 where product_name = 'Widget';
+                          update inventory set quantity = quantity + 20 where product_name = 'Widget';
+                          $$, max_attempts => 5, timeout => interval '10 seconds');
+    transaction: false
+  - query: select quantity from inventory where product_name = 'Widget'
+    results:
+    - quantity: 110  # Ensure the final quantity is as expected
+
+- name: max_attempts should not affect timeout if specified
+  transaction: false
+  tests:
+  - query: |
+      call omni_txn.retry($$select pg_sleep(1); -- Simulating a long-running transaction
+                          update inventory set quantity = quantity + 20 where product_name = 'Widget';
+                          $$, max_attempts => 0, timeout => interval '5 seconds');
+    transaction: false
+    error: maximum number of retries (0) has been attempted
 - name: backoff values
   transaction: false
   tests:
