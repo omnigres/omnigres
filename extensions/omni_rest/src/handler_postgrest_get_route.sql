@@ -32,11 +32,39 @@ begin
     foreach col in array string_to_array(_select, ',')
         loop
             declare
+                col_name    text;
                 col_expr text;
                 col_alias text;
+                _match      text[];
+                is_col_name bool;
             begin
                 col_expr := split_part(col, ':', 1);
                 col_alias := split_part(col, ':', 2);
+
+                _match := regexp_match(col_expr, '^([[:alpha:] _][[:alnum:] _]*)(.*)');
+                col_name := _match[1];
+                if col_name is null then
+                    raise exception 'no column specified in %', col_expr;
+                end if;
+
+                -- Check if there is such an attribute
+                perform from pg_attribute where attname = col_name and attrelid = $1.relation and attnum > 0;
+                is_col_name := found;
+                -- If not...
+                if not is_col_name then
+                    -- Is it a function?
+                    perform
+                    from pg_proc
+                    where proargtypes[0] = $1.relation
+                      and proname = col_name
+                      and pronamespace::text = namespace;
+                    if found then
+                        -- It is a function
+                        col_name := col_name || '((' || $1.relation || '))';
+                    end if;
+                end if;
+                col_expr := col_name || _match[2];
+
                 if col_alias = '' then
                     col_alias := col_expr;
                 end if;
