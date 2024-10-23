@@ -18,6 +18,8 @@
 #endif
 #include <nodes/pg_list.h>
 #include <utils/memutils.h>
+#include "utils/timestamp.h"
+
 
 PG_MODULE_MAGIC;
 
