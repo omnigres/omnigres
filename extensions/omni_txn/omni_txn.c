@@ -218,6 +218,14 @@ Datum retry(PG_FUNCTION_ARGS) {
             // go back to the context where we were
             MemoryContextSwitchTo(current_mcxt);
           }
+           // Check for timeout before retrying
+           TimestampTz current_time = GetCurrentTimestamp();
+             if (TimestampDifferenceExceeds(start_time, current_time, timeout_microsecs)) {
+                  if (paramsTupDesc) {
+                      ReleaseTupleDesc(paramsTupDesc);
+                  }
+                   ereport(ERROR, errmsg("transaction aborted due to timeout"));
+              }
           // abort current transaction
           PopActiveSnapshot();
           AbortCurrentTransaction();
