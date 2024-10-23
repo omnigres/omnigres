@@ -117,7 +117,11 @@ Datum retry(PG_FUNCTION_ARGS) {
    // Timeout logic
   int64 timeout_microsecs = 30000000; // Default timeout value (30 seconds)
   if (!PG_ARGISNULL(5)) {
-  timeout_microsecs = PG_GETARG_INT64(5); // Retrieve timeout from the argument
+   Interval *timeout_interval = PG_GETARG_INTERVAL_P(5); // Retrieve timeout from the argument
+    // Convert interval to microseconds
+        timeout_microsecs = (timeout_interval->time / 1000) + // Convert from milliseconds to microseconds
+                            (timeout_interval->month * 2592000000LL) + // Months to microseconds
+                            (timeout_interval->day * 86400000000LL); // Days to microseconds
   }
   TimestampTz start_time = GetCurrentTimestamp(); // Get start time
   bool retry = true;
