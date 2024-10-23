@@ -46,6 +46,12 @@ instance:
                                     (select effective_port from omni_httpd.listeners) ||
                                     path, method => method))
     $$
+  - |
+    create function first_name(users) returns text
+        language sql as
+    $$
+    select split_part($1.name, ' ', 1)
+    $$;
 
 tests:
 
@@ -107,6 +113,23 @@ tests:
     - content-type: application/json
     body:
     - fullName: John Doe
+
+- name: computed field
+  query: |
+    with response as (select * from make_request('/users?select=first_name'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name not in ('server', 'content-length', 'connection')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-range: 0-1/*
+    - content-type: application/json
+    body:
+    - first_name: John
 
 - name: JSON access
   query: |
