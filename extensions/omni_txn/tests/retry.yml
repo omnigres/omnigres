@@ -150,7 +150,7 @@ tests:
       call omni_txn.retry($$select pg_sleep(5); -- Simulating a long-running transaction
                           update inventory set quantity = quantity + 20 where product_name = 'Widget';
                           $$, timeout => interval '3 seconds');
-    transaction: false
+  transaction: false
     error: transaction aborted due to timeout
 
 - name: timeout and max attempts interaction
@@ -160,7 +160,7 @@ tests:
       call omni_txn.retry($$select pg_sleep(2); -- Simulating a long-running transaction
                           update inventory set quantity = quantity + 20 where product_name = 'Widget';
                           $$, max_attempts => 3, timeout => interval '1 second');
-    transaction: false
+  transaction: false
     error: maximum number of retries (3) has been attempted
 
 - name: successful transaction within timeout
@@ -170,7 +170,7 @@ tests:
       call omni_txn.retry($$select update inventory set quantity = quantity - 10 where product_name = 'Widget';
                           update inventory set quantity = quantity + 20 where product_name = 'Widget';
                           $$, max_attempts => 5, timeout => interval '10 seconds');
-    transaction: false
+  transaction: false
   - query: select quantity from inventory where product_name = 'Widget'
     results:
     - quantity: 110  # Ensure the final quantity is as expected
@@ -182,7 +182,7 @@ tests:
       call omni_txn.retry($$select pg_sleep(1); -- Simulating a long-running transaction
                           update inventory set quantity = quantity + 20 where product_name = 'Widget';
                           $$, max_attempts => 0, timeout => interval '5 seconds');
-    transaction: false
+  transaction: false
     error: maximum number of retries (0) has been attempted
 - name: backoff values
   transaction: false
