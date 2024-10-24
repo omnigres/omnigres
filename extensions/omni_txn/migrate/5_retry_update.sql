@@ -15,8 +15,15 @@ create procedure retry(
 
 
 comment on procedure retry is $$
-Retry serializable transaction on statements `stmts`, retrying `max_attempt` number of times (10 by default).
-`collect_backoff_values` controls whether the backoff values used for sleeping will be recorded for debugging/testing purposes.
-You can also specify a `timeout` to control the total time the retry attempts will take. The `params` argument is optional for 
-passing parameters to the transaction.
+Retry serializable transaction on statements `stmts`, retrying up to `max_attempts` times or until `timeout` is reached,
+whichever occurs first. If both parameters are omitted, the procedure defaults to retrying 10 times with no time limit.
+
+Scenarios:
+1. If both `timeout` and `max_attempts` are provided, retries continue until the earlier of the two conditions.
+2. If only `timeout` is specified, retries continue until the timeout is reached.
+3. If only `max_attempts` is specified, retries continue up to that number of attempts.
+4. If neither is specified, the default behavior is to retry 10 times without a time limit.
+
+If a timeout is exceeded during a single attempt, retries are immediately aborted.
 $$;
+
