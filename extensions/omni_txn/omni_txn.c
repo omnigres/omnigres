@@ -18,6 +18,8 @@
 #endif
 #include <nodes/pg_list.h>
 #include <utils/memutils.h>
+#include "utils/timestamp.h"
+
 
 PG_MODULE_MAGIC;
 
@@ -109,11 +111,26 @@ Datum retry(PG_FUNCTION_ARGS) {
   if (!PG_ARGISNULL(1)) {
     max_attempts = PG_GETARG_INT32(1);
   }
+
+   // Timeout logic
+  int64 timeout_microsecs = 30000000; // Default timeout value (30 seconds)
+  if (!PG_ARGISNULL(5)) {
+   Interval *timeout_interval = PG_GETARG_INTERVAL_P(5); // Retrieve timeout from the argument
+    // Convert interval to microseconds
+        timeout_microsecs = (timeout_interval->time / 1000) + // Convert from milliseconds to microseconds
+                            (timeout_interval->month * 2592000000LL) + // Months to microseconds
+                            (timeout_interval->day * 86400000000LL); // Days to microseconds
+  }
+  
   bool collect_backoff_values = false;
   if (!PG_ARGISNULL(3)) {
     collect_backoff_values = PG_GETARG_BOOL(3);
   }
 
+  
+  TimestampTz start_time = GetCurrentTimestamp(); // Get start time
+  bool retry = true;
+  retry_attempts = 0;
   // This indicates that `params` were set
   TupleDesc paramsTupDesc = NULL;
   // Default values are prepared for the case when no `params` are set
@@ -170,7 +187,7 @@ Datum retry(PG_FUNCTION_ARGS) {
   }
   text *stmts = PG_GETARG_TEXT_PP(0);
   char *cstmts = text_to_cstring(stmts);
-  bool retry = true;
+ 
   retry_attempts = 0;
   while (retry) {
     XactIsoLevel =
@@ -210,6 +227,16 @@ Datum retry(PG_FUNCTION_ARGS) {
             // go back to the context where we were
             MemoryContextSwitchTo(current_mcxt);
           }
+
+          
+           // Check for timeout before retrying
+           TimestampTz current_time = GetCurrentTimestamp();
+             if (TimestampDifferenceExceeds(start_time, current_time, timeout_microsecs)) {
+                  if (paramsTupDesc) {
+                      ReleaseTupleDesc(paramsTupDesc);
+                  }
+                   ereport(ERROR, errmsg("transaction aborted due to timeout"));
+              }
           // abort current transaction
           PopActiveSnapshot();
           AbortCurrentTransaction();
@@ -326,3 +353,5 @@ Datum reset_retry_prepared_statements(PG_FUNCTION_ARGS) {
   init_preparedstmthash();
   PG_RETURN_VOID();
 }
+
+
