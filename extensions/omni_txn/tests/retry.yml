@@ -125,7 +125,7 @@ tests:
       select call_other_session() where omni_txn.current_retry_attempt() = 0;
       update inventory set quantity = quantity + 20 where product_name = 'Widget';
       $$, max_attempts => 0 );
-    transaction: false
+  transaction: false
     error: maximum number of retries (0) has been attempted
   - rollback
 
@@ -192,14 +192,14 @@ tests:
       select call_other_session() where omni_txn.current_retry_attempt() < 10;
       update inventory set quantity = quantity + 20 where product_name = 'Widget';
       $$, 10, collect_backoff_values => true);
-    transaction: false
+  transaction: false
   - query: |
       select count(*) = 10 as "count",
              max(amount) < 10000 as "max",
              min(amount) >= 1 as "min",
              avg(amount) > 1 as "avg" -- everything as 1 should indicate some underlying error. Highly unlikely to ever happen by itself.
       from omni_txn.retry_backoff_values() as amount;
-    results:
+  results:
       - count: true
         max: true
         min:  true
