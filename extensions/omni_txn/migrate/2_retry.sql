@@ -1,5 +1,5 @@
-create procedure retry(stmts text, max_attempts int default null, repeatable_read boolean default false,
-                       collect_backoff_values boolean default false , timeout interval default null )
+create procedure retry(stmts text, max_attempts int default 10, repeatable_read boolean default false,
+                       collect_backoff_values boolean default false )
     language c as
 'MODULE_PATHNAME';
 
