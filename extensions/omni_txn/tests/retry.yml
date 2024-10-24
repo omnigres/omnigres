@@ -36,14 +36,14 @@ tests:
 - name: other errors pass through
   transaction: false
   tests:
-  - query: call omni_txn.retry($$selec$$);
+  - query: call omni_txn.retry($$selec$$)
     transaction: false
     error: syntax error at or near "selec"
   - rollback
 
 - name: can't be used inside of a transaction block
   tests:
-  - query: call omni_txn.retry($$selec$$);
+  - query: call omni_txn.retry($$selec$$)
     transaction: false
     error: can't be used inside of a transaction block
 
