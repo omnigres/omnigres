@@ -37,7 +37,7 @@ tests:
   transaction: false
   tests:
   - query: call omni_txn.retry($$selec$$)
-    transaction: false
+    
     error: syntax error at or near "selec"
   - rollback
 
