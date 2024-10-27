@@ -198,14 +198,15 @@ MODULE_FUNCTION void extension_upgrade_hook(omni_hook_handle *handle, PlannedStm
               // Ensure to replace only those procedures that had a matching module_pathname
               // from the previous version of the extension (we recorded that in the context)
               bool isnull;
-              Datum probin = heap_getattr(tup, Anum_pg_proc_probin, pg_proc_tuple_desc, &isnull);
+              Datum probin =
+                  heap_getattr(tup, Anum_pg_proc_probin, RelationGetDescr(proc_rel), &isnull);
               if (!isnull && strcmp(old_module_pathname, TextDatumGetCString(probin)) == 0) {
                 // Get the new module_pathname in
                 values[Anum_pg_proc_probin - 1] = CStringGetTextDatum(module_pathname);
                 replaces[Anum_pg_proc_probin - 1] = true;
 
                 HeapTuple newtup =
-                    heap_modify_tuple(tup, pg_proc_tuple_desc, values, nulls, replaces);
+                    heap_modify_tuple(tup, RelationGetDescr(proc_rel), values, nulls, replaces);
 
                 // Update the record
                 CatalogTupleUpdate(proc_rel, &newtup->t_self, newtup);
