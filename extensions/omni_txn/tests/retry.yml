@@ -157,19 +157,17 @@ tests:
   transaction: false
   tests:
   - query: |
-      call omni_txn.retry($$select pg_sleep(2); -- Simulating a long-running transaction
-                          update inventory set quantity = quantity + 20 where product_name = 'Widget';
-                          $$, max_attempts => 3, timeout => interval '1 second');
-  
-    error: maximum number of retries (3) has been attempted
+      call omni_txn.retry($$select pg_sleep(2); update inventory set quantity = quantity + 20 where product_name = 'Widget'; $$, max_attempts => 3, timeout => interval '1 second');
+     
+  error: maximum number of retries (3) has been attempted
 
 - name: successful transaction within timeout
   transaction: false
   tests:
   - query: |
-      call omni_txn.retry($$select update inventory set quantity = quantity - 10 where product_name = 'Widget';
-                          update inventory set quantity = quantity + 20 where product_name = 'Widget';
-                          $$, max_attempts => 5, timeout => interval '10 seconds');
+      call omni_txn.retry($$update inventory set quantity = quantity - 10 where product_name = 'Widget';
+                    update inventory set quantity = quantity + 20 where product_name = 'Widget';
+                    $$, max_attempts => 5, timeout => interval '10 seconds');
   
   - query: select quantity from inventory where product_name = 'Widget'
     results:
