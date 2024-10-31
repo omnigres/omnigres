@@ -1,6 +1,8 @@
-create function api(path text, server text default 'https://kubernetes.default.svc',
-                    cacert text default null,
-                    token text default null,
+create function api(path text,
+                    server text default coalesce(current_setting('omni_kube.server', true),
+                                                 'https://kubernetes.default.svc'),
+                    cacert text default current_setting('omni_kube.cacert', true),
+                    token text default current_setting('omni_kube.token', true),
                     method omni_http.http_method default 'GET',
                     body jsonb default null) returns jsonb
     language plpgsql
