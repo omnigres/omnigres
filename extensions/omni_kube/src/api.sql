@@ -11,6 +11,7 @@ as
 $$
 declare
     response omni_httpc.http_response;
+    body jsonb;
 begin
     if cacert is null then
         select p.cacert into cacert from omni_kube.pod_credentials() p;
@@ -40,6 +41,10 @@ begin
     if response.error is not null then
         raise exception 'error: %', response.error;
     end if;
-    return convert_from(response.body, 'utf-8')::jsonb;
+    body := convert_from(response.body, 'utf-8')::jsonb;
+    if response.status >= 400 then
+        raise exception '%', body ->> 'reason' using detail = body ->> 'message';
+    end if;
+    return body;
 end;
 $$;
