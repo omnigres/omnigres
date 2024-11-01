@@ -1,0 +1,25 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_yaml
+
+tests:
+
+- name: from yaml
+  query: |
+    select omni_yaml.to_json($$
+    name:
+      - test: passed
+    $$)
+  results:
+  - to_json:
+      name:
+      - test: passed
+
+- name: to yaml
+  query: |
+    select omni_yaml.to_yaml('{"name": [{"test": "passed"}]}')
+  results:
+  - to_yaml: |
+      "name":
+      - "test": "passed"
