@@ -12,6 +12,12 @@ $$
 declare
     response omni_httpc.http_response;
 begin
+    if cacert is null then
+        select p.cacert into cacert from omni_kube.pod_credentials() p;
+    end if;
+    if token is null then
+        select p.token into token from omni_kube.pod_credentials() p;
+    end if;
     if substring(path, 1, 1) != '/' then
         raise exception 'path must start with a leading slash';
     end if;
