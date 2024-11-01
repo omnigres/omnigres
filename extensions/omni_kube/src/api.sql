@@ -12,6 +12,8 @@ $$
 declare
     response omni_httpc.http_response;
     body jsonb;
+    request_digest  text;
+    cached_response jsonb;
 begin
     if cacert is null then
         select p.cacert into cacert from omni_kube.pod_credentials() p;
@@ -21,6 +23,13 @@ begin
     end if;
     if substring(path, 1, 1) != '/' then
         raise exception 'path must start with a leading slash';
+    end if;
+
+    request_digest := encode(digest(method || ' ' || server || path || coalesce(cacert, 'NULL_CACERT') ||
+                                    coalesce(token, 'NULL_TOKEN') || coalesce(body, 'null'), 'sha256'), 'hex');
+    cached_response := omni_var.get_statement('omni_kube.request_' || request_digest, null::jsonb);
+    if cached_response is not null then
+        return cached_response;
     end if;
     select *
     into response
@@ -45,6 +54,6 @@ begin
     if response.status >= 400 then
         raise exception '%', body ->> 'reason' using detail = body ->> 'message';
     end if;
-    return body;
+    return omni_var.set_statement('omni_kube.request_' || request_digest, body);
 end;
 $$;

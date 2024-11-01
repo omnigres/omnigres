@@ -14,4 +14,4 @@ add_postgresql_extension(
         omni_kube
         SCHEMA omni_kube
         RELOCATABLE false
-        REQUIRES omni_httpc omni_web)
+        REQUIRES omni_httpc omni_web omni_var pgcrypto)
