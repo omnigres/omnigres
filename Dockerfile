@@ -168,3 +168,43 @@ FROM pg-slim AS pg
 #    psql -h /var/run/postgresql prime -c "create extension plrust; create function test () returns bool language plrust as 'Ok(Some(true))';" && \
 #    pg_ctl stop -D prime && rm -rf prime
 #USER root
+
+# Omnikube build
+FROM postgres:${PG}-${DEBIAN_VER_PG} AS omnikube
+ARG PG
+ENV PG=${PG}
+ENV POSTGRES_DB=omnikube
+ENV POSTGRES_USER=omnikube
+ENV POSTGRES_PASSWORD=omnikube
+COPY --from=build /build/packaged /omni
+COPY --from=build /build/python-index /python-packages
+COPY --from=build /build/python-wheels /python-wheels
+# clear it in case it already exists
+RUN rm -rf /docker-entrypoint-initdb.d
+# copy template files, substituted later
+COPY docker/initdb-omnikube/* /docker-entrypoint-initdb.d/
+RUN cp -R /omni/extension $(pg_config --sharedir)/ && cp -R /omni/*.so $(pg_config --pkglibdir)/
+RUN apt-get update && apt-get -y install libtclcl1 libpython3.11 libperl5.36 gettext
+# need versions.txt to pick omni version
+COPY --from=build /omni/versions.txt /omni/versions.txt
+# replace env variables in init scripts using envsubst
+RUN <<EOF
+# export variables used in template files
+export OMNI_SO_FILE="omni--$(grep "^omni=" /omni/versions.txt | cut -d "=" -f2).so"
+for file in $(ls /docker-entrypoint-initdb.d); do
+  # only substitute exported variables in template file to avoid accidental substitution
+  envsubst '$OMNI_SO_FILE' < /docker-entrypoint-initdb.d/$file > /docker-entrypoint-initdb.d/$(basename $file .templ)
+  # remove template file
+  rm /docker-entrypoint-initdb.d/$file
+done
+# unset exported variables after substitution
+unset OMNI_SO_FILE
+EOF
+RUN rm -rf /omni
+RUN PG_VER=${PG%.*} && apt-get update && apt-get -y install postgresql-pltcl-${PG_VER} postgresql-plperl-${PG_VER} postgresql-plpython3-${PG_VER} python3-dev python3-venv python3-pip
+RUN apt-get -y install curl
+COPY docker/entrypoint.sh /usr/local/bin/omnigres-entrypoint.sh
+ENTRYPOINT ["omnigres-entrypoint.sh"]
+CMD ["postgres"]
+EXPOSE 22
+EXPOSE 5432

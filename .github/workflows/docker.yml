@@ -141,6 +141,23 @@ jobs:
           platforms: linux/${{ matrix.platform }}
           target: builder
 
+      - name: Build and push omnikube Docker image
+        id: build-and-push-omnikube
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-kube:${{ github.sha }}-${{ matrix.platform }}
+          provenance: false
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,url=http://127.0.0.1:49160/
+          cache-to: type=gha,url=http://127.0.0.1:49160/
+          build-args: |
+            BUILD_PARALLEL_LEVEL=4
+          platforms: linux/${{ matrix.platform }}
+          target: omnikube
+
         #       # Sign the resulting Docker image digest except on PRs.
         #       # This will only write to the public Rekor transparency log when the Docker
         #       # repository is public to avoid leaking data.  If you would like to publish
@@ -156,7 +173,7 @@ jobs:
   manifest:
     strategy:
       matrix:
-        flavor: [ "", "-slim", "-dev" ]
+        flavor: [ "", "-slim", "-dev","-kube" ]
 
     if: github.event_name != 'pull_request' && github.repository == 'omnigres/omnigres'
     needs: build
