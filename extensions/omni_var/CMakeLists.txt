@@ -14,5 +14,5 @@ add_postgresql_extension(
         omni_var
         SCHEMA omni_var
         RELOCATABLE false
-        SOURCES omni_var.c
+        SOURCES omni_var.c txn.c session.c statement.c
 )

@@ -1,0 +1,51 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_var
+  - |
+    create function memoized_call(value text default null) returns text language plpgsql
+    as $$
+    declare
+      memoized text;
+    begin
+      memoized := omni_var.get_statement('memoized', null::text);
+      if value is null then
+         return memoized;
+      else
+         return omni_var.set_statement('memoized', value);
+      end if;
+    end;
+    $$
+
+tests:
+
+- name: sets variable within the statement
+  query: |
+    select memoized_call('hello') as one, memoized_call() as two
+  results:
+  - one: hello
+    two: hello
+
+- name: does not carry variable across statements
+  steps:
+  - query: |
+      select memoized_call('hello') as one, memoized_call() as two
+    results:
+    - one: hello
+      two: hello
+  - query: select memoized_call() as one
+    results:
+    - one: null
+
+- name: single procedural scope preserves the statement/portal
+  steps:
+  - query: |
+      do $$
+      begin
+        perform omni_var.set_statement('test', 1);
+        perform omni_var.set('test', omni_var.get_statement('test', null::integer));
+      end;
+      $$ language plpgsql
+  - query: select omni_var.get('test', null::integer)
+    results:
+    - get: 1
