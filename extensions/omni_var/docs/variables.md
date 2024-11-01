@@ -11,13 +11,15 @@ transaction, particularly with RLS (Row Level Security) policies in mind.
 
 ## Setting a variable
 
-Within a transaction's (or session's) context, one can set a named variable with its type
+Within a transaction's (session's, or statement's) context, one can set a named variable with its type
 specified through the type of the value:
 
 ```postgresql
 select omni_var.set('my_variable', true)
 -- or, for session
 select omni_var.set_session('my_variable', true)
+-- or, for statement
+select omni_var.set_statement('my_variable', true)
 ```
 
 This code above sets a boolean-typed variable called `my_variable`. In cases
@@ -35,13 +37,15 @@ Both value _and_ the type of the variable can be changed by subsequent calls to
 
 ## Getting a variable
 
-In order to get a variable from the transaction's context, one needs to specify
+In order to get a variable from the appropriate context, one needs to specify
 a default value with a type in order to get a value:
 
 ```postgresql
 select omni_var.get('my_variable', false)
 -- or, for session
 select omni_var.get_session('my_variable', false)
+-- or, for statement
+select omni_var.get_statement('my_variable', false)
 ```
 
 The above will return the value of `my_variable` or `false` if it is not found.
