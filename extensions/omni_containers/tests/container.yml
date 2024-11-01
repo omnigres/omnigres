@@ -59,3 +59,15 @@ tests:
 
 - name: Pull a container with a tag
   query: select true from omni_containers.docker_container_create('fedora:33', pull => true)
+
+- name: executing in a running container
+  steps:
+  - name: run container
+    query: |
+      create table new_container as select omni_containers.docker_container_create('alpine:latest',
+                                       cmd => $$sleep 360$$,
+                                       pull => true) as id
+  - name: exec
+    query: select omni_containers.docker_container_exec(id, cmd => $$echo -n hello$$, attach_stdout => true) from new_container
+    results:
+    - docker_container_exec: hello
