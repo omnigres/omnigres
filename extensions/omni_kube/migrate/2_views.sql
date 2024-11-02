@@ -144,6 +144,7 @@ from services_with_data,
 create view jobs_with_data as
 select (data -> 'metadata' ->> 'uid')::uuid       as uid,
        data -> 'metadata' ->> 'name'              as name,
+       data -> 'metadata' ->> 'namespace' as namespace,
        (data -> 'metadata' ->> 'creationTimestamp')::timestamptz as creation_timestamp,
        (data -> 'status' ->> 'startTime')::timestamptz           as start_time,
        (data -> 'status' ->> 'completionTime')::timestamptz      as completion_time,
@@ -161,6 +162,7 @@ from (select jsonb_array_elements((api('/apis/batch/v1/jobs'))::jsonb -> 'items'
 create view jobs as
 select uid,
        name,
+       namespace,
        creation_timestamp,
        start_time,
        completion_time,
