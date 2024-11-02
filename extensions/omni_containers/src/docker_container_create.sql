@@ -86,13 +86,20 @@ begin
             container_id = convert_from(response.body, 'UTF8')::jsonb ->> 'Id';
             when response.status = 404 then -- Not found
             if pull and not attempted_to_pull then -- Try to pull the image if allowed to
+                declare
+                    url text;
+                begin
                 raise notice 'Pulling image %', image;
+                url := 'http://%s/images/create?fromImage=%s';
+                if normalized_image not like '%:%' then
+                    url := url || '&tag=latest';
+                end if;
                 select *
                 into response
                 from
                     omni_httpc.http_execute(omni_httpc.http_request(
                             format(
-                                    'http://%s/images/create?fromImage=%s&tag=latest',
+                                    url,
                                     omni_containers.docker_api_base_url(),
                                     omni_web.url_encode(normalized_image)
                                 ),
@@ -107,6 +114,7 @@ begin
                     raise exception 'Failed to pull image %', image using
                         detail = format('Error code %s: %s', response.status, convert_from(response.body, 'UTF8'));
                 end if;
+                end;
             else
                 raise exception 'Docker image not found' using detail = format('%s', image); -- Attempted, wasn't found
             end if;
