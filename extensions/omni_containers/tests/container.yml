@@ -56,3 +56,6 @@ tests:
     severity: ERROR
     message: Docker image not found
     detail: cannotbefound
+
+- name: Pull a container with a tag
+  query: select true from omni_containers.docker_container_create('fedora:33', pull => true)
