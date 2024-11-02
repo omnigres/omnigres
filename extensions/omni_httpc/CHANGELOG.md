@@ -10,6 +10,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Addded
 
 * Support for custom CA certificates [#676](https://github.com/omnigres/omnigres/pull/676)
+* Support for custom client certificates [#676](https://github.com/omnigres/omnigres/pull/676)
 * An option to ignore self-signed certificates [#676](https://github.com/omnigres/omnigres/pull/676)
 
 ## [0.1.2] - 2024-09-27

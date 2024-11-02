@@ -491,6 +491,7 @@ Datum http_execute(PG_FUNCTION_ARGS) {
 
   bool allow_self_signed_cert = false;
   ArrayType *cacerts = NULL;
+  HeapTupleHeader clientcert = NULL;
 
   // Options
   {
@@ -565,6 +566,12 @@ Datum http_execute(PG_FUNCTION_ARGS) {
 
     if (!isnull) {
       cacerts = DatumGetArrayTypeP(cacerts_datum);
+    }
+
+    Datum clientcert_datum = GetAttributeByName(options, "clientcert", &isnull);
+
+    if (!isnull) {
+      clientcert = DatumGetHeapTupleHeader(clientcert_datum);
     }
   }
 
@@ -731,6 +738,35 @@ Datum http_execute(PG_FUNCTION_ARGS) {
         X509_free(ca_cert);
       }
       array_free_iterator(it);
+    }
+
+    if (clientcert != NULL) {
+      bool isnull;
+      Datum cert_datum = GetAttributeByName(clientcert, "certificate", &isnull);
+      if (isnull) {
+        ereport(ERROR, errmsg("client certificate must be supplied"));
+      }
+      Datum pkey_datum = GetAttributeByName(clientcert, "private_key", &isnull);
+      if (isnull) {
+        ereport(ERROR, errmsg("client private key must be supplied"));
+      }
+
+      text *cert = DatumGetTextPP(cert_datum);
+      BIO *cert_bio = BIO_new_mem_buf(VARDATA_ANY(cert), VARSIZE_ANY_EXHDR(cert));
+      X509 *client_cert = PEM_read_bio_X509(cert_bio, NULL, NULL, NULL);
+
+      text *pkey = DatumGetTextPP(pkey_datum);
+      BIO *pkey_bio = BIO_new_mem_buf(VARDATA_ANY(pkey), VARSIZE_ANY_EXHDR(pkey));
+      EVP_PKEY *client_pkey = PEM_read_bio_PrivateKey(pkey_bio, NULL, NULL, NULL);
+
+      SSL_CTX_use_certificate(ssl_ctx, client_cert);
+      SSL_CTX_use_PrivateKey(ssl_ctx, client_pkey);
+
+      BIO_free(cert_bio);
+      X509_free(client_cert);
+
+      BIO_free(pkey_bio);
+      EVP_PKEY_free(client_pkey);
     }
 
     SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT,
