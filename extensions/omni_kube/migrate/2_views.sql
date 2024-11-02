@@ -138,3 +138,42 @@ create view service_labels as
 select uid, name, key, value
 from services_with_data,
      lateral (select key, value from jsonb_each(data -> 'metadata' -> 'labels') as label(key, value));
+
+--- Jobs
+
+create view jobs_with_data as
+select (data -> 'metadata' ->> 'uid')::uuid       as uid,
+       data -> 'metadata' ->> 'name'              as name,
+       data -> 'metadata' ->> 'creationTimestamp' as creation_timestamp,
+       data -> 'status' ->> 'startTime'           as start_time,
+       data -> 'status' ->> 'completionTime'      as completion_time,
+       data -> 'spec' ->> 'completionMode'        as completion_mode,
+       (data -> 'spec' ->> 'completions')::int    as completions,
+       (data -> 'spec' ->> 'parallelism')::int    as parallelism,
+       (data -> 'status' ->> 'active')::int       as active_pods,
+       (data -> 'status' ->> 'failed')::int       as failed_pods,
+       (data -> 'status' ->> 'ready')::int        as ready_pods,
+       (data -> 'status' ->> 'succeeded')::int    as succeeded_pods,
+       data
+from (select jsonb_array_elements((api('/apis/batch/v1/jobs'))::jsonb -> 'items') as data)
+         as jobs;
+
+create view jobs as
+select uid,
+       name,
+       creation_timestamp,
+       start_time,
+       completion_time,
+       completion_mode,
+       completions,
+       parallelism,
+       active_pods,
+       failed_pods,
+       ready_pods,
+       succeeded_pods
+from jobs_with_data;
+
+create view job_labels as
+select uid, name, key, value
+from jobs_with_data,
+     lateral (select key, value from jsonb_each(data -> 'metadata' -> 'labels') as label(key, value));
