@@ -2,7 +2,7 @@
 create view namespaces_with_data as
 select (data -> 'metadata' ->> 'uid')::uuid       as uid,
        data -> 'metadata' ->> 'name'              as name,
-       data -> 'metadata' ->> 'creationTimestamp' as creation_timestamp,
+       (data -> 'metadata' ->> 'creationTimestamp')::timestamptz as creation_timestamp,
        data -> 'status' ->> 'phase'               as phase,
        data
 from (select jsonb_array_elements((api('/api/v1/namespaces'))::jsonb -> 'items') as data)
@@ -17,7 +17,7 @@ create view pods_with_data as
 select (data -> 'metadata' ->> 'uid')::uuid                                                                   as uid,
        data -> 'metadata' ->> 'name'                                                                          as name,
        data -> 'metadata' ->> 'namespace'                                                                     as namespace,
-       data -> 'metadata' ->> 'creationTimestamp' as creation_timestamp,
+       (data -> 'metadata' ->> 'creationTimestamp')::timestamptz as creation_timestamp,
        data -> 'status' ->> 'phase'                                                                           as phase,
        data -> 'spec' ->> 'nodeName'                                                                          as node,
        data
@@ -43,7 +43,7 @@ from pods_with_data,
 create view nodes_with_data as
 select (data -> 'metadata' ->> 'uid')::uuid          as uid,
        data -> 'metadata' ->> 'name'                 as name,
-       data -> 'metadata' ->> 'creationTimestamp'    as creation_timestamp,
+       (data -> 'metadata' ->> 'creationTimestamp')::timestamptz as creation_timestamp,
        (data -> 'spec' ->> 'unschedulable')::boolean as unschedulable,
        data
 from (select jsonb_array_elements((api('/api/v1/nodes'))::jsonb -> 'items') as data)
@@ -81,7 +81,7 @@ create view services_with_data as
 select (data -> 'metadata' ->> 'uid')::uuid       as uid,
        data -> 'metadata' ->> 'name'              as name,
        data -> 'metadata' ->> 'namespace'         as namespace,
-       data -> 'metadata' ->> 'creationTimestamp' as creation_timestamp,
+       (data -> 'metadata' ->> 'creationTimestamp')::timestamptz as creation_timestamp,
        data -> 'spec' ->> 'type'                  as type,
        data -> 'spec' ->> 'externalName'          as external_name,
        data -> 'spec' ->> 'internalTrafficPolicy' as internal_traffic_policy,
@@ -144,9 +144,9 @@ from services_with_data,
 create view jobs_with_data as
 select (data -> 'metadata' ->> 'uid')::uuid       as uid,
        data -> 'metadata' ->> 'name'              as name,
-       data -> 'metadata' ->> 'creationTimestamp' as creation_timestamp,
-       data -> 'status' ->> 'startTime'           as start_time,
-       data -> 'status' ->> 'completionTime'      as completion_time,
+       (data -> 'metadata' ->> 'creationTimestamp')::timestamptz as creation_timestamp,
+       (data -> 'status' ->> 'startTime')::timestamptz           as start_time,
+       (data -> 'status' ->> 'completionTime')::timestamptz      as completion_time,
        data -> 'spec' ->> 'completionMode'        as completion_mode,
        (data -> 'spec' ->> 'completions')::int    as completions,
        (data -> 'spec' ->> 'parallelism')::int    as parallelism,
