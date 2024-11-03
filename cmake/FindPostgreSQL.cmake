@@ -163,8 +163,12 @@ if(NOT DEFINED PG_CONFIG)
 
         file(READ "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}/src/port/pg_config_paths.h" FILE_CONTENTS)
         string(APPEND FILE_CONTENTS "
+#ifndef __old_sharedir
+#define __old_sharedir
+static const char *old_sharedir = PGSHAREDIR\;
+#endif
 #undef PGSHAREDIR
-#define PGSHAREDIR (getenv(\"PGSHAREDIR\") ? (const char *)getenv(\"PGSHAREDIR\") : \"${PGDIR_VERSION}/build/share/postgresql\")
+#define PGSHAREDIR (getenv(\"PGSHAREDIR\") ? (const char *)getenv(\"PGSHAREDIR\") : old_sharedir)
 ")
         file(WRITE "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}/src/port/pg_config_paths.h" ${FILE_CONTENTS})
 

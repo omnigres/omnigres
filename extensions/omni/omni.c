@@ -43,8 +43,6 @@ MODULE_VARIABLE(omni_handle_private *module_handles);
 
 MODULE_VARIABLE(LWLockPadded *locks);
 
-static TupleDesc pg_proc_tuple_desc;
-static TupleDesc pg_extension_tuple_desc;
 MODULE_VARIABLE(List *initialized_modules);
 
 MODULE_VARIABLE(int OMNI_DSA_TRANCHE);
@@ -169,20 +167,6 @@ static bool ensure_backend_initialized(void) {
   }
 
   LWLockRelease(&(locks + OMNI_LOCK_DSA)->lock);
-
-  {
-    // Get `pg_proc` TupleDesc
-    Relation rel = table_open(ProcedureRelationId, AccessShareLock);
-    pg_proc_tuple_desc = RelationGetDescr(rel);
-    table_close(rel, AccessShareLock);
-  }
-
-  {
-    // Get `pg_extension` TupleDesc
-    Relation rel = table_open(ExtensionRelationId, AccessShareLock);
-    pg_extension_tuple_desc = RelationGetDescr(rel);
-    table_close(rel, AccessShareLock);
-  }
 
   {
     HASHCTL ctl = {.keysize = sizeof(dsa_handle), .entrysize = sizeof(DSAHandleEntry)};
@@ -456,7 +440,7 @@ static omni_handle_private *load_module(const char *path,
   return result;
 }
 
-static List *consider_ext(HeapTuple tp) {
+static List *consider_ext(HeapTuple tp, TupleDesc pg_extension_tuple_desc) {
   Form_pg_extension ext = (Form_pg_extension)GETSTRUCT(tp);
   List *loaded = NIL;
   bool isnull;
@@ -508,7 +492,8 @@ MODULE_FUNCTION void load_pending_modules() {
         HeapTuple tup = heap_getnext(scan, ForwardScanDirection);
         if (tup == NULL)
           break;
-        loaded_modules = list_concat_unique_ptr(loaded_modules, consider_ext(tup));
+        loaded_modules =
+            list_concat_unique_ptr(loaded_modules, consider_ext(tup, RelationGetDescr(rel)));
       }
       if (scan->rs_rd->rd_tableam->scan_end) {
         scan->rs_rd->rd_tableam->scan_end(scan);

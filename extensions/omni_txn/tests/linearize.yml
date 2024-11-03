@@ -1,0 +1,198 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+  init:
+  - create extension omni_txn cascade
+  - create extension dblink
+  - create extension omni_edbg
+  - select dblink_connect('another_session', 'hostaddr=127.0.0.1 dbname=yregress user=yregress port=' || (select setting
+                                                                                                          from pg_settings
+                                                                                                          where name = 'port'))
+  - |
+    create table tab as
+    select 1 as i
+  - create table tab1
+    (
+        i int
+    );
+  - |
+    create or replace function call_other_session() returns void
+        language plpgsql as
+    $$
+    begin
+        perform dblink_exec('another_session',
+                            'begin transaction isolation level serializable; select omni_txn.linearize(); update tab set i = i + 1;',
+                            false);
+        return;
+    end;
+    $$
+  - |
+    create or replace function call_other_session_no_linearization() returns void
+        language plpgsql as
+    $$
+    begin
+        perform dblink_exec('another_session',
+                            'begin transaction isolation level serializable; update tab set i = i + 1; commit;',
+                            false);
+        return;
+    end;
+    $$
+
+tests:
+
+- name: linearization failure (T1 R -> T2 W)
+  steps:
+  - set transaction isolation level serializable
+  - query: |
+      do
+      $c$
+          declare
+              _i int;
+          begin
+              perform omni_txn.linearize();
+              select i from tab into _i;
+              perform call_other_session();
+              insert into tab1 values (_i);
+          end;
+      $c$
+    notices:
+    # IMPORTANT: this is emitted by the other session
+    - linearization failure
+  - name: clean up the other side
+    query: select dblink_exec('another_session', 'rollback');
+  - query: select i
+           from tab1
+    results:
+    - i: 1
+  - query: select i
+           from tab
+    results:
+    - i: 1
+
+- name: tab was not updated
+  query: select i
+         from tab
+  results:
+  - i: 1
+
+- name: reads on the same backend do not cause linearization failure
+  steps:
+  - set transaction isolation level serializable
+  - select omni_txn.linearize()
+  - select i
+    from tab
+  - insert into tab
+    values (2)
+
+- name: linearization failure (T2 W -> T1 R -> T2 C)
+  steps:
+  - set transaction isolation level serializable
+  - query: |
+      do
+      $c$
+          declare
+              _i int;
+          begin
+              perform omni_txn.linearize();
+              perform call_other_session();
+              select i from tab into _i;
+              perform dblink_exec('another_session',
+                                  'commit',
+                                  false);
+          end;
+      $c$
+    notices:
+    - linearization failure
+  - name: clean up the other side
+    query: select dblink_exec('another_session', 'rollback');
+
+- name: tab was not updated
+  query: select i
+         from tab
+  results:
+  - i: 1
+
+- name: linearization failure (T1 SI -> T2 W -> T2 C -> T1 R)
+  steps:
+  - set transaction isolation level serializable
+  - query: |
+      do
+      $c$
+          declare
+              _i int;
+              rec record;
+          begin
+              perform omni_txn.linearize();
+              -- ensure snapshot is taken
+              perform from pg_class;
+              -- write
+              perform dblink_exec('another_session',
+                                  'begin transaction isolation level serializable; select omni_txn.linearize(); update tab set i = i;',
+                                  false);
+              -- commit
+              perform dblink_exec('another_session',
+                                  'commit',
+                                  false);
+              -- read to cause the conflict
+              select i from tab into _i;
+          end;
+      $c$
+    error: linearization failure
+
+- name: absence of linearization failure (T1 SI -> T2 W -> T2 C -> T1 R -> T1 C) due to no conflict
+  steps:
+  - set transaction isolation level serializable
+  - query: |
+      do
+      $c$
+          declare
+              _i  int;
+              rec record;
+          begin
+              perform omni_txn.linearize();
+              -- ensure snapshot is taken
+              perform from pg_class;
+              -- write
+              perform dblink_exec('another_session',
+                                  'begin transaction isolation level serializable; select omni_txn.linearize(); update tab set i = i;',
+                                  false);
+              -- commit
+              perform dblink_exec('another_session',
+                                  'commit',
+                                  false);
+              -- read something else
+              select i from tab1 into _i;
+          end;
+      $c$
+  - query: commit
+
+
+- name: clean up the other side
+  query: select dblink_exec('another_session', 'rollback');
+
+- name: smoke test without linearization
+  steps:
+  - set transaction isolation level serializable
+  - query: |
+      do
+      $c$
+          declare
+              _i int;
+          begin
+              select i from tab into _i;
+              perform call_other_session_no_linearization();
+              insert into tab1 values (_i);
+          end;
+      $c$
+    notices: [ ]
+  - query: select i
+           from tab1
+    results:
+    - i: 1
+
+- name: tab was updated
+  query: select i
+         from tab
+  results:
+  - i: 2

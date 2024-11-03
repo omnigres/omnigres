@@ -30,7 +30,7 @@ jobs:
         platform: [ amd64, arm64 ]
 
     if: github.repository == 'omnigres/omnigres'
-    runs-on: ${{ fromJSON('["warp-ubuntu-latest-x64-4x", "warp-ubuntu-latest-arm64-16x"]')[matrix.platform == 'arm64'] }}
+    runs-on: ${{ fromJSON('["warp-ubuntu-2204-x64-4x", "warp-ubuntu-2204-arm64-16x"]')[matrix.platform == 'arm64'] }}
 
     permissions:
       contents: read
