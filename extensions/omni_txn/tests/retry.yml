@@ -158,9 +158,8 @@ tests:
   tests:
   - query: |
       call omni_txn.retry($$select pg_sleep(2); update inventory set quantity = quantity + 20 where product_name = 'Widget'; $$, max_attempts => 3, timeout => interval '1 second');
-     
+    
   error: maximum number of retries (3) has been attempted
-
 - name: successful transaction within timeout
   transaction: false
   tests:
@@ -172,7 +171,6 @@ tests:
   - query: select quantity from inventory where product_name = 'Widget'
     results:
     - quantity: 110  # Ensure the final quantity is as expected
-
 - name: max_attempts should not affect timeout if specified
   transaction: false
   tests:
