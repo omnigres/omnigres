@@ -372,7 +372,7 @@ $command $@
     )
 
 
-    if(_ext_SOURCES)
+    if (_ext_SOURCES AND NOT ${_ext_PRIVATE})
         add_custom_target(package_${_ext_TARGET}_extension
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 DEPENDS omni_check_symbol_conflict_${_ext_TARGET}
@@ -388,9 +388,11 @@ $command $@
                 COMMAND ${Python_EXECUTABLE} ${CMAKE_CURRENT_FUNCTION_LIST_DIR}/check_symbol_conflict.py ${PG_BINARY} "$<TARGET_FILE:${_ext_TARGET}>")
     endif()
 
-    add_custom_target(package_${_ext_TARGET}_migrations
-            WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-            COMMAND ${CMAKE_BINARY_DIR}/script_${_ext_TARGET} ${_pkg_dir}/extension)
+    if (NOT ${_ext_PRIVATE})
+        add_custom_target(package_${_ext_TARGET}_migrations
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                COMMAND ${CMAKE_BINARY_DIR}/script_${_ext_TARGET} ${_pkg_dir}/extension)
+    endif ()
 
     if(NOT TARGET package_extensions)
         add_custom_target(package_extensions)
