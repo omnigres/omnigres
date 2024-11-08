@@ -165,6 +165,32 @@ tests:
         min:  true
         avg: true
 
+- name: timeout exceeds allowed duration
+  transaction: false
+  tests:
+  - query: |
+      call omni_txn.retry($$select quantity from inventory where product_name = 'Widget';
+      select call_other_session() where omni_txn.current_retry_attempt() < 10;
+      update inventory set quantity = quantity + 20 where product_name = 'Widget';
+      $$, timeout => 1);  # Set a short timeout of 1 second
+    transaction: false
+    error: transaction timed out after 1 seconds
+
+- name: timeout not exceeded
+  transaction: false
+  tests:
+  - query: |
+      call omni_txn.retry($$select quantity from inventory where product_name = 'Widget';
+      select call_other_session() where omni_txn.current_retry_attempt() < 10;
+      update inventory set quantity = quantity + 20 where product_name = 'Widget';
+      $$, timeout => 10);  # Set a longer timeout of 10 seconds
+    transaction: false
+  - query: select quantity
+           from inventory
+           where product_name = 'Widget'
+    results:
+    - quantity: 110
+
 - name: params
   transaction: false
   tests:

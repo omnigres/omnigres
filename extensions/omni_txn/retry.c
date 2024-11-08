@@ -83,6 +83,7 @@ typedef struct {
 #define SH_DECLARE
 #define SH_DEFINE
 #include <lib/simplehash.h>
+#include <utils/timestamp.h>
 
 static preparedstmthash_hash *stmthash = NULL;
 static MemoryContext RetryPreparedStatementMemoryContext;
@@ -111,6 +112,10 @@ Datum retry(PG_FUNCTION_ARGS) {
   int max_attempts = 10;
   if (!PG_ARGISNULL(1)) {
     max_attempts = PG_GETARG_INT32(1);
+  }
+  int timeout = 60; // Default timeout in seconds
+  if (!PG_ARGISNULL(4)) {
+    timeout = PG_GETARG_INT32(4);
   }
   bool collect_backoff_values = false;
   if (!PG_ARGISNULL(3)) {
@@ -205,6 +210,7 @@ Datum retry(PG_FUNCTION_ARGS) {
   }
   bool retry = true;
   retry_attempts = 0;
+  TimestampTz start_time = GetCurrentTimestamp(); // Get the start time
   while (retry) {
     SPI_connect_ext(SPI_OPT_NONATOMIC);
     MemoryContext current_mcxt = CurrentMemoryContext;
@@ -227,6 +233,10 @@ Datum retry(PG_FUNCTION_ARGS) {
       ErrorData *err = CopyErrorData();
       if (err->sqlerrcode == ERRCODE_T_R_SERIALIZATION_FAILURE) {
         if (++retry_attempts <= max_attempts) {
+          TimestampTz current_time = GetCurrentTimestamp();
+            if (TimestampDifferenceExceeds(current_time, start_time, timeout * 1000000)) {
+                ereport(ERROR, errmsg("transaction timed out after %d seconds", timeout));
+             }
           int64 backoff_with_jitter_in_microsecs =
               backoff_jitter(cap_sleep_microsecs, base_sleep_microsecs, retry_attempts);
 
@@ -365,4 +375,8 @@ Datum reset_retry_prepared_statements(PG_FUNCTION_ARGS) {
   MemoryContextReset(RetryPreparedStatementMemoryContext);
   init_preparedstmthash();
   PG_RETURN_VOID();
+}
+
+static bool TimestampDifferenceExceeds(TimestampTz end_time, TimestampTz start_time, int64 timeout_microsecs) {
+    return (end_time - start_time) > timeout_microsecs;
 }
