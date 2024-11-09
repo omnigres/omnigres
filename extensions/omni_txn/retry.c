@@ -377,6 +377,6 @@ Datum reset_retry_prepared_statements(PG_FUNCTION_ARGS) {
   PG_RETURN_VOID();
 }
 
-static bool TimestampDifferenceExceeds(TimestampTz end_time, TimestampTz start_time, int64 timeout_microsecs) {
+bool TimestampDifferenceExceeds(TimestampTz end_time, TimestampTz start_time, int64 timeout_microsecs) {
     return (end_time - start_time) > timeout_microsecs;
 }
