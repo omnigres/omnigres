@@ -672,6 +672,14 @@ static inline void extract_information_json_types(ExecCtx *call_ctx, ArrayType *
       continue;
     }
     Oid id = DatumGetObjectId(type_val);
+    if (call_ctx->types[i] == TEXTOID && id != TEXTOID) {
+      Oid typioparam;
+      Oid input_func;
+
+      getTypeInputInfo(id, &input_func, &typioparam);
+      call_ctx->values[i] = OidInputFunctionCall(
+          input_func, text_to_cstring(DatumGetTextPP(call_ctx->values[i])), typioparam, -1);
+    }
     // Handle numeric type specialization
     if (call_ctx->types[i] == NUMERICOID) {
       switch (id) {
