@@ -24,6 +24,21 @@ tests:
       first: 1
       second: hello
 
+- name: string parameter to type conversion (using "char")
+  steps:
+  - create domain code as "char"
+  - query: select * from omni_sql.execute('select $1 as value', parameters => jsonb_build_array('T'), types => '{code}')
+    results:
+    - stmt_row:
+        value: T
+
+- name: string parameter to type conversion (using uuid)
+  steps:
+  - query: select * from omni_sql.execute('select $1 as value', parameters => jsonb_build_array('8a0f43cd-a640-4426-94ca-f33955195a1f'), types => '{uuid}')
+    results:
+    - stmt_row:
+        value: 8a0f43cd-a640-4426-94ca-f33955195a1f
+
 - name: non-array parameters
   query: select *
          from omni_sql.execute('select $1', parameters => jsonb_build_object('a', 1))
