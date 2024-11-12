@@ -1,4 +1,4 @@
-drop procedure if exists retry(stmts text, max_attempts int, repeatable_read boolean,
+drop procedure retry(stmts text, max_attempts int, repeatable_read boolean,
                                collect_backoff_values boolean, params record);
 
 
