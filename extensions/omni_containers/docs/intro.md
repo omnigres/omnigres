@@ -78,6 +78,22 @@ exit_code |     logs
 (1 row)
 ```
 
+## Executing a command in a container
+
+A function similar to `docker exec` is `docker_container_exec`. It can execute a command inside a running
+container and (optionally) capture the output.
+
+If the neither `stdout` or `stderr` are attached to, the output will be captured and returned; otherwise, `null` is
+returned.
+
+|         Parameter | Type    | Description                 | Default |
+|------------------:|---------|-----------------------------|---------|
+|            **id** | text    | container ID                | None    |
+|           **cmd** | text    | command to run              | None    |
+| **attach_stdout** | boolean | attach and capture `stdout` | false   |
+| **attach_stderr** | boolean | attach and capture `stderr` | false   |
+|       **options** | jsonb   | extra options               | {}      |
+
 ## Stop container
 Stop the container with given id
 ```postgresql
