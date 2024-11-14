@@ -61,11 +61,11 @@ if(NOT DEFINED PG_CONFIG)
     endif()
 
     # If the version is not known, try resolving the alias
-    set(PGVER_ALIAS_17 17.0)
-    set(PGVER_ALIAS_16 16.4)
-    set(PGVER_ALIAS_15 15.8)
-    set(PGVER_ALIAS_14 14.13)
-    set(PGVER_ALIAS_13 13.16)
+    set(PGVER_ALIAS_17 17.1)
+    set(PGVER_ALIAS_16 16.5)
+    set(PGVER_ALIAS_15 15.9)
+    set(PGVER_ALIAS_14 14.14)
+    set(PGVER_ALIAS_13 13.17)
 
     if("${PGVER}" MATCHES "[0-9]+.[0-9]+")
         set(PGVER_ALIAS "${PGVER}")
