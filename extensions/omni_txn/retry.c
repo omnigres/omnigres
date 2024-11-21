@@ -145,8 +145,6 @@ Datum retry(PG_FUNCTION_ARGS) {
     PushActiveSnapshot(GetTransactionSnapshot());
   }
 
-  // This indicates that `params` were set
-  TupleDesc paramsTupDesc = NULL;
   // Default values are prepared for the case when no `params` are set
   int paramsCount = 0;
   Datum *paramsValues;
@@ -164,7 +162,7 @@ Datum retry(PG_FUNCTION_ARGS) {
       Oid tuple_type_id = HeapTupleHeaderGetTypeId(td);
       int32 tuple_typmod = HeapTupleHeaderGetTypMod(td);
 
-      paramsTupDesc = lookup_rowtype_tupdesc(tuple_type_id, tuple_typmod);
+      TupleDesc paramsTupDesc = lookup_rowtype_tupdesc(tuple_type_id, tuple_typmod);
 
       paramsCount = paramsTupDesc->natts;
 
@@ -190,6 +188,8 @@ Datum retry(PG_FUNCTION_ARGS) {
         paramsNullChars[i] = paramsNulls[i] ? 'n' : ' ';
         paramsTypes[i] = att_type_oid;
       }
+
+      ReleaseTupleDesc(paramsTupDesc);
     }
   }
 
@@ -255,9 +255,6 @@ Datum retry(PG_FUNCTION_ARGS) {
 
         } else {
           // abort the attempt to run the code.
-          if (paramsTupDesc) {
-            ReleaseTupleDesc(paramsTupDesc);
-          }
           DefaultXactIsoLevel = original_default_iso_level;
           ereport(ERROR, errcode(err->sqlerrcode),
                   errmsg("maximum number of retries (%d) has been attempted", max_attempts));
@@ -272,10 +269,6 @@ Datum retry(PG_FUNCTION_ARGS) {
     }
 
     PG_END_TRY();
-  }
-
-  if (paramsTupDesc) {
-    ReleaseTupleDesc(paramsTupDesc);
   }
 
   if (ActiveSnapshotSet()) {
