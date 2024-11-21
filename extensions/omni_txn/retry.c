@@ -126,7 +126,7 @@ Datum retry(PG_FUNCTION_ARGS) {
       (!PG_ARGISNULL(2) && PG_GETARG_BOOL(2)) ? XACT_REPEATABLE_READ : XACT_SERIALIZABLE;
 
   if (ActiveSnapshotSet() && XactIsoLevel != intended_iso_level) {
-    // We restart a transaction because there's a chance the planner took out a snapshot
+    // We redo the snapshots because there's a chance the planner took out a snapshot
     // without having a new isolation level set. It is the code that looks like this:
     // ```c
     // if (analyze_requires_snapshot(parsetree))
@@ -135,11 +135,13 @@ Datum retry(PG_FUNCTION_ARGS) {
     //    snapshot_set = true;
     // }
     // ```
-    PopActiveSnapshot();
-    AbortCurrentTransaction();
+    //    MemoryContext oldcontext = CurrentMemoryContext;
+    while (ActiveSnapshotSet()) {
+      PopActiveSnapshot();
+    }
+    // Ensures the new iso level is picked up
+    FirstSnapshotSet = false;
     DefaultXactIsoLevel = XactIsoLevel = intended_iso_level;
-    SetCurrentStatementStartTimestamp();
-    StartTransactionCommand();
     PushActiveSnapshot(GetTransactionSnapshot());
   }
 
