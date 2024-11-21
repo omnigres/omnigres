@@ -212,6 +212,12 @@ To build and run Omnigres, you would need:
 * (optionally, to use omni_containers or run a full set of tests) a recent
   version of Docker
 
+<details>
+<summary>Dependencies for Fedora</summary>
+* Packages: `git cmake gcc g++ cpan openssl-devel openssl-devel-engine python-devel openssl bison flex readline-devel zlib-devel netcat`
+* CMake flags: `-DOPENSSL_CONFIGURED=1`
+</details>
+
 ```shell
 cmake -S . -B build
 cmake --build build --parallel
