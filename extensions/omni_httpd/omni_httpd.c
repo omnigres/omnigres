@@ -440,6 +440,8 @@ typedef struct {
   uint32 status;
 } SocketHashEntry;
 
+struct sockethash_hash;
+
 static inline uint32 sh_uuid_hash(struct sockethash_hash *tb, const pg_uuid_t uuid) {
   return hash_bytes(uuid.data, sizeof(uuid.data));
 }

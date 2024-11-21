@@ -446,7 +446,7 @@ static void on_ws_relay_message(h2o_socket_t *sock, const char *err) {
     struct {
       int8_t kind;
       size_t length;
-    } __attribute__((packed)) *hdr = sock->input->bytes;
+    } __attribute__((packed)) *hdr = (typeof(hdr))sock->input->bytes;
 
     if (sock->input->size < sizeof(*hdr)) {
       break;
