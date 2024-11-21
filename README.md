@@ -214,8 +214,10 @@ To build and run Omnigres, you would need:
 
 <details>
 <summary>Dependencies for Fedora</summary>
+
 * Packages: `git cmake gcc g++ cpan openssl-devel openssl-devel-engine python-devel openssl bison flex readline-devel zlib-devel netcat`
 * CMake flags: `-DOPENSSL_CONFIGURED=1`
+
 </details>
 
 ```shell
