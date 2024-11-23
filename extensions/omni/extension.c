@@ -129,34 +129,51 @@ MODULE_FUNCTION void extension_upgrade_hook(omni_hook_handle *handle, PlannedStm
                                             ProcessUtilityContext context, ParamListInfo params,
                                             QueryEnvironment *queryEnv, DestReceiver *dest,
                                             QueryCompletion *qc) {
-  switch (nodeTag(pstmt->utilityStmt)) {
+  struct ExtensionUpgradeHookState {
+    NodeTag nodeTag;
+    char *extname;
+    char *module_pathname;
+  };
+  struct ExtensionUpgradeHookState *state = (struct ExtensionUpgradeHookState *)handle->ctx;
+  if (state == NULL) {
+    handle->ctx = state = (struct ExtensionUpgradeHookState *)MemoryContextAllocZero(
+        TopTransactionContext, sizeof(*state));
+    Assert(state->extname == NULL);
+    Assert(state->module_pathname == NULL);
+    state->nodeTag = nodeTag(pstmt->utilityStmt);
+  }
+  bool IsFirstInvocation = state->extname == NULL;
+
+  switch (state->nodeTag) {
   case T_CreateExtensionStmt:
   case T_AlterExtensionStmt:
     backend_force_reload = true;
     break;
   case T_DropStmt:
-    if (castNode(DropStmt, pstmt->utilityStmt)->removeType == OBJECT_EXTENSION) {
+    if (IsFirstInvocation &&
+        castNode(DropStmt, pstmt->utilityStmt)->removeType == OBJECT_EXTENSION) {
       backend_force_reload = true;
     }
   default:
     break;
   }
-  if (nodeTag(pstmt->utilityStmt) == T_AlterExtensionStmt) {
+  if (state->nodeTag == T_AlterExtensionStmt) {
     static Oid extoid = InvalidOid;
-    char *extname = castNode(AlterExtensionStmt, pstmt->utilityStmt)->extname;
-    if (handle->ctx == NULL) {
+    if (IsFirstInvocation) {
+      char *extname = pstrdup(castNode(AlterExtensionStmt, pstmt->utilityStmt)->extname);
       extoid = get_extension_oid(extname, true);
       // Indicate that we're past the first pass with the context
       char *extver = get_extension_version(extname, true);
       char *module_pathname = get_extension_module_pathname(extname, extver);
-      handle->ctx = module_pathname;
+      state->extname = extname;
+      state->module_pathname = module_pathname;
     } else {
-      char *old_module_pathname = (char *)handle->ctx;
+      char *old_module_pathname = state->module_pathname;
       // Second pass
 
       // Get necessary extension information
-      char *extver = get_extension_version(extname, true);
-      char *module_pathname = get_extension_module_pathname(extname, extver);
+      char *extver = get_extension_version(state->extname, true);
+      char *module_pathname = get_extension_module_pathname(state->extname, extver);
 
       // Obtain a lock on pg_proc
       Relation proc_rel = table_open(ProcedureRelationId, RowExclusiveLock);
@@ -229,5 +246,9 @@ MODULE_FUNCTION void extension_upgrade_hook(omni_hook_handle *handle, PlannedStm
       table_close(depend_rel, AccessShareLock);
       table_close(proc_rel, RowExclusiveLock);
     }
+  }
+  if (!IsFirstInvocation) {
+    pfree(state);
+    handle->ctx = NULL;
   }
 }

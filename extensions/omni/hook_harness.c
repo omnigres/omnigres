@@ -202,6 +202,10 @@ MODULE_FUNCTION void omni_process_utility_hook(PlannedStmt *pstmt, const char *q
   bool readOnlyTree = false;
 #endif
 
+  // Prepare this before processing hooks as it may not be available
+  // after `PreparedStatement` has been freed.
+  bool is_transaction_stmt = nodeTag(pstmt->utilityStmt) != T_TransactionStmt;
+
   iterate_hooks(process_utility, pstmt, queryString, readOnlyTree, context, params, queryEnv, dest,
                 qc);
 
@@ -209,7 +213,7 @@ MODULE_FUNCTION void omni_process_utility_hook(PlannedStmt *pstmt, const char *q
   // processing a transaction statement as we may be not having valid invariants for
   // any substantial transactional work (especially if init/deinit callbacks do something
   // with the database). We rely on the next statements to allow us to catch up.
-  if (nodeTag(pstmt->utilityStmt) != T_TransactionStmt) {
+  if (is_transaction_stmt) {
     load_pending_modules();
   }
 }
