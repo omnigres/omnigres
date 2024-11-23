@@ -44,8 +44,6 @@ jobs:
 
     runs-on: ${{ matrix.os.image }}
 
-    environment: ${{ (github.event_name == 'push' || contains(fromJSON(vars.AUTO_APPROVED_CONTRIBUTORS), github.event.pull_request.user.login) || contains(fromJSON('["OWNER", "MEMBER"]'), github.event.pull_request.author_association)) && 'master' || 'Integrate Pull Request' }}
-
     steps:
 
       - uses: actions/checkout@v3
