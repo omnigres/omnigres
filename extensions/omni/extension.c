@@ -160,11 +160,13 @@ MODULE_FUNCTION void extension_upgrade_hook(omni_hook_handle *handle, PlannedStm
   if (state->nodeTag == T_AlterExtensionStmt) {
     static Oid extoid = InvalidOid;
     if (IsFirstInvocation) {
-      char *extname = pstrdup(castNode(AlterExtensionStmt, pstmt->utilityStmt)->extname);
+      char *extname = MemoryContextStrdup(
+          TopTransactionContext, castNode(AlterExtensionStmt, pstmt->utilityStmt)->extname);
       extoid = get_extension_oid(extname, true);
       // Indicate that we're past the first pass with the context
       char *extver = get_extension_version(extname, true);
-      char *module_pathname = get_extension_module_pathname(extname, extver);
+      char *module_pathname = MemoryContextStrdup(TopTransactionContext,
+                                                  get_extension_module_pathname(extname, extver));
       state->extname = extname;
       state->module_pathname = module_pathname;
     } else {

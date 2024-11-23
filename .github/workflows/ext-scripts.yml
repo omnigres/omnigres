@@ -2,9 +2,7 @@ name: Extension scripts
 
 on:
   push:
-    branches: [ "master" ]
-    paths:
-      - versions.txt
+    branches: [ "master", "test-gh-workflows" ]
   pull_request:
     branches: [ "master" ]
   workflow_dispatch:
@@ -103,6 +101,7 @@ jobs:
         id: new_ext_releases
         working-directory: ${{ github.workspace }}/build
         run: |
+          ulimit -c unlimited
           S3_FILES_DIR=packaged/s3
           mkdir -p $S3_FILES_DIR
           
@@ -221,3 +220,9 @@ jobs:
           
           # this will be the post body for creating new extension versions in omnigres-index after s3 upload
           echo "POST_BODY=$new_ext_releases" >> "$GITHUB_OUTPUT"
+
+      - name: Setup debug session
+        if: failure()
+        uses: Warpbuilds/action-debugger@v1.3
+        with:
+          limit-access-to-actor: true
