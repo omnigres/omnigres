@@ -4,25 +4,15 @@ on:
   push:
     # one can merge their branch to test-gh-workflows for testing changes of current workflow before merging them to master
     branches: [ "master", "test-gh-workflows" ]
-  pull_request_target:
+  pull_request:
     branches: [ "master", "next/*" ]
   schedule:
     - cron: '33 13 * * *'
 
 env:
   CPM_SOURCE_CACHE: ${{ github.workspace }}/cpm_modules
-  # Advises omni_containers where Docker is
-  DOCKER_HOST: ci-docker:2375
-  # Advises tests as to where the Docker host is
-  DOCKER_CI_HOST: ci-docker
 
 jobs:
-  approve:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Approve
-      run: echo For security reasons, all pull requests need to be approved first before running any automated CI.
 
   build:
     strategy:
@@ -45,36 +35,25 @@ jobs:
           pgver: 11
       fail-fast: false
 
-    needs: [ approve ] # Require the first step to finish
-    environment: ${{ (github.event_name == 'push' || github.event_name == 'schedule' || contains(fromJSON(vars.AUTO_APPROVED_CONTRIBUTORS), github.event.pull_request.user.login) || contains(fromJSON('["OWNER", "MEMBER"]'), github.event.pull_request.author_association)) && 'master' || 'Integrate Pull Request' }}
-
     runs-on: ${{ matrix.os }}
 
     timeout-minutes: 20
 
     steps:
-    - run: |
-        echo "Author association: ${{ github.event.pull_request.author_association }}"
 
     - uses: actions/checkout@v3
-      if: github.event_name == 'push'
-
-    - uses: actions/checkout@v3
-      if: github.event_name != 'push'
-      with:
-        ref: ${{ github.event.pull_request.head.sha }}
 
     # This is done to address the problem on macOS where .pg built in a directory of one
     # GitHub Action runner won't work when restored in another one since dylds have install_name pointing
     # to the original location. We include the hash of their path into the cache name.
     - name: Get path hash
-      if: matrix.os == 'macos'
+      if: matrix.os == 'warp-macos-14-arm64-6x'
       run: |
         echo "PATH_SUFFIX=-$(pwd | sha256sum | awk '{print $1}')" >> $GITHUB_ENV
 
     # On other systems, make it explicitly empty
     - name: Get path hash
-      if: matrix.os != 'macos'
+      if: matrix.os != 'warp-macos-14-arm64-6x'
       run: |
         echo "PATH_SUFFIX=" >> $GITHUB_ENV
 
@@ -88,13 +67,6 @@ jobs:
         path: ${{github.workspace}}/build/_deps
         key: ${{ github.workflow }}-cpm-modules-${{ hashFiles('extensions/**/CMakeLists.txt', '*/CMakeLists.txt', 'cmake/*.cmake') }}
 
-    - name: Tailscale
-      uses: omnigres/tailscale-github-action@edd5af71746bf5fac8654fa4b41f30da57c5858a #tailscale/github-action@v2
-      with:
-        oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
-        oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-        tags: tag:ci
-
     - name: Configure
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
@@ -105,7 +77,13 @@ jobs:
 
     - name: Test
       working-directory: ${{github.workspace}}/build
-      run: TMPDIR=$RUNNER_TEMP DOCKER_HOST_IP=$(tailscale ip -4) USER=$(whoami) ctest --timeout 1000 --force-new-ctest-process  --repeat until-pass:10 --output-on-failure -j $(nproc) -C ${{matrix.build_type}}
+      if: matrix.os != 'warp-macos-14-arm64-6x'
+      run: TMPDIR=$RUNNER_TEMP USER=$(whoami) ctest --timeout 1000 --force-new-ctest-process  --repeat until-pass:10 --output-on-failure -j $(nproc) -C ${{matrix.build_type}}
+
+    - name: Test (without docker)
+      working-directory: ${{github.workspace}}/build
+      if: matrix.os == 'warp-macos-14-arm64-6x'
+      run: TMPDIR=$RUNNER_TEMP USER=$(whoami) ctest --timeout 1000 --force-new-ctest-process  --repeat until-pass:10 --output-on-failure -j $(nproc) -C ${{matrix.build_type}} -E '(minio|containers)'
 
     - uses: actions/upload-artifact@v3
       if: failure()
