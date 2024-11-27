@@ -14,7 +14,7 @@ for dir in "${script_dir}/../extensions"/*; do
        	rm -rf "build/_${dir}"
        	{
        	  cmake -S "${dir}" -B "build/_${dir}"
-       	  cmake --build "build/_${dir}" --parallel --target all --target package
+       	  cmake --build "build/_${dir}" --parallel --target all --target package_extensions
        	} &
   fi
 done
