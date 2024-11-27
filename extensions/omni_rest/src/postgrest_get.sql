@@ -1,25 +1,36 @@
-create function handler(postgrest_get_route) returns omni_httpd.http_outcome
-    strict
+create procedure postgrest_get(request omni_httpd.http_request, outcome inout omni_httpd.http_outcome)
     language plpgsql as
 $$
 declare
     namespace text;
     columns   text[];
     query     text;
-    response  jsonb;
+    result   jsonb;
     params    text[];
     col       text;
     _select   text;
     _offset numeric;
+    relation regclass;
 begin
+    if outcome is distinct from null then
+        return;
+    end if;
+    if request.method = 'GET' then
+        relation := to_regclass(split_part(request.path, '/', 2));
+        if relation is null or relation::text like 'pg_%' then
+            return; -- terminate
+        end if;
+    else
+        return; -- terminate;
+    end if;
     -- Prepare the naming
     select n.nspname as schema_name
     from pg_class c
              join pg_namespace n on c.relnamespace = n.oid
-    where c.oid = $1.relation
+    where c.oid = relation
     into namespace;
 
-    params := omni_web.parse_query_string($1.request.query_string);
+    params := omni_web.parse_query_string(request.query_string);
 
     -- Columns (vertical filtering)
     columns := array ['*'];
@@ -48,19 +59,19 @@ begin
                 end if;
 
                 -- Check if there is such an attribute
-                perform from pg_attribute where attname = col_name and attrelid = $1.relation and attnum > 0;
+                perform from pg_attribute where attname = col_name and attrelid = relation and attnum > 0;
                 is_col_name := found;
                 -- If not...
                 if not is_col_name then
                     -- Is it a function?
                     perform
                     from pg_proc
-                    where proargtypes[0] = $1.relation
+                    where proargtypes[0] = relation
                       and proname = col_name
                       and pronamespace::text = namespace;
                     if found then
                         -- It is a function
-                        col_name := col_name || '((' || $1.relation || '))';
+                        col_name := col_name || '((' || relation || '))';
                     end if;
                 end if;
                 col_expr := col_name || _match[2];
@@ -83,7 +94,7 @@ begin
                     -- TODO: record access using ->
                 end if;
                 -- TODO: sanitize col_expr
-                columns := columns || ($1.relation || '.' || col_expr || ' as "' || col_alias || '"');
+                columns := columns || (relation || '.' || col_expr || ' as "' || col_alias || '"');
             end;
         end loop;
     end if;
@@ -91,17 +102,17 @@ begin
     _offset := 0;
 
     -- Finalize the query
-    query := format('select %3$s from %1$I.%2$I', namespace, $1.relation, concat_ws(', ', variadic columns));
+    query := format('select %3$s from %1$I.%2$I', namespace, relation, concat_ws(', ', variadic columns));
 
     -- Run it
     select jsonb_agg(stmt_row)
-    into response
+    into result
     from omni_sql.execute(query);
 
-    return omni_httpd.http_response(response,
-                                    headers => array [omni_http.http_header('Content-Range',
+    outcome := omni_httpd.http_response(result,
+                                        headers => array [omni_http.http_header('Content-Range',
                                                                             _offset || '-' ||
-                                                                            jsonb_array_length(response) ||
+                                                                            jsonb_array_length(result) ||
                                                                             '/*')]);
 end;
 $$;
