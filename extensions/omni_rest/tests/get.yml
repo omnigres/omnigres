@@ -19,10 +19,14 @@ instance:
     $$
     declare
         req omni_httpd.http_request;
+        resp omni_httpd.http_outcome;
     begin
         req := $2;
-        return coalesce(omni_rest.postgrest(req),
-                        omni_rest.handler(omni_rest.fallback_route(req)));
+        call omni_rest.postgrest(req, resp);
+        if resp is not distinct from null then
+            resp := omni_httpd.http_response(status => 404);
+        end if;
+        return resp;
     end;
     $$
   - |
