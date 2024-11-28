@@ -117,7 +117,15 @@ jobs:
 
   # Ensure every extension can be built independently
   build-extensions-independently:
-    runs-on: warp-ubuntu-2204-x64-4x
+
+    strategy:
+      matrix:
+        pgver: [ 17 ]
+        os: [ warp-ubuntu-2204-x64-4x ]
+        build_type: [ Debug ]
+      fail-fast: false
+
+    runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v3
