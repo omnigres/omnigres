@@ -701,7 +701,7 @@ static struct dsa_ref {
       dsa_area *dsa = dsa_handle_to_area(shared_info->dsa);
       uint32 interrupt_holdoff = InterruptHoldoffCount;
       PG_TRY();
-      { alloc->dsa_pointer = dsa_allocate(dsa, size); }
+      { alloc->dsa_pointer = dsa_allocate0(dsa, size); }
       PG_CATCH();
       {
         // errfinish sets `InterruptHoldoffCount` to zero as part of its cleanup
