@@ -1,0 +1,53 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+    max_worker_processes: 64
+  init:
+  - create extension omni_httpd cascade
+  - create extension omni_httpc cascade
+  - call omni_httpd.wait_for_configuration_reloads(1)
+  - create extension dblink
+  - create database anotherdb
+  - select dblink_connect('anotherdb', 'hostaddr=127.0.0.1 dbname=anotherdb user=yregress port=' || (select setting
+                                                                                                     from pg_settings
+                                                                                                     where name = 'port'))
+  - select dblink_exec('anotherdb', 'create extension omni_httpd cascade')
+  - select dblink_exec('anotherdb', 'call omni_httpd.wait_for_configuration_reloads(1)')
+
+tests:
+
+- query: select count(*)
+         from omni_httpd.listeners
+  results:
+  - count: 1
+
+- query: select *
+         from dblink('anotherdb', $$select count(*)
+         from omni_httpd.listeners$$) as t(count int)
+  results:
+  - count: 1
+
+- name: non-zero effective port
+  query: select count(*)
+         from omni_httpd.listeners
+         where effective_port = 0
+  results:
+  - count: 0
+
+- name: non-zero effective port in another database
+  query: select *
+         from dblink('anotherdb', $$select count(*)
+         from omni_httpd.listeners
+         where effective_port = 0$$) as t(count int)
+  results:
+  - count: 0
+
+- name: ports should not match up
+  query: select count(*)
+         from omni_httpd.listeners
+                  inner join dblink('anotherdb',
+                                    $$select effective_port from omni_httpd.listeners$$) t(effective_port int)
+                             on t.effective_port = listeners.effective_port
+  results:
+  - count: 0

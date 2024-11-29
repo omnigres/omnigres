@@ -234,10 +234,12 @@ void master_worker(Datum db_oid) {
       // We do this by inspecting all processes
       worker_present = false; // tentatively
       for (int i = 0; i < ProcGlobal->allProcCount; i++) {
-        pid_t pid = ProcGlobal->allProcs[i].pid;
+        PGPROC proc = ProcGlobal->allProcs[i];
+        pid_t pid = proc.pid;
         const char *worker_type = GetBackgroundWorkerTypeByPid(pid);
         if (worker_type &&
-            strncmp(worker_type, "omni_httpd worker", sizeof("omni_httpd worker")) == 0) {
+            strncmp(worker_type, "omni_httpd worker", sizeof("omni_httpd worker")) == 0 &&
+            proc.databaseId == MyDatabaseId) {
           worker_present = true;
           if (!reported[i]) {
             ereport(DEBUG2,

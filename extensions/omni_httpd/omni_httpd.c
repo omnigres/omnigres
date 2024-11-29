@@ -17,6 +17,7 @@
 // clang-format on
 
 #include <catalog/pg_cast.h>
+#include <commands/dbcommands.h>
 #include <common/int.h>
 #include <executor/spi.h>
 #include <funcapi.h>
@@ -73,7 +74,7 @@ OMNI_MODULE_INFO(.name = "omni_httpd", .version = EXT_VERSION,
 #error "Extension version (VERSION) is not defined!"
 #endif
 
-#define MASTER_WORKER_START 1 << 0
+#define MASTER_WORKER_START (1 << 0)
 
 CACHED_OID(omni_http, http_header);
 CACHED_OID(omni_http, http_method);
@@ -119,6 +120,7 @@ static void init_httpd_master_worker_pid(void *ptr, void *data) {
 }
 
 omni_bgworker_handle *master_worker_bgw;
+pg_atomic_uint64 *master_worker_leader;
 
 static int num_http_workers_holder;
 
@@ -130,8 +132,9 @@ static void init_semaphore(const omni_handle *handle, void *ptr, void *arg, bool
 
 static void register_start_master_worker(const omni_handle *handle, void *ptr, void *arg,
                                          bool allocated) {
-  if ((handle->atomic_switch(handle, omni_switch_on, 0, MASTER_WORKER_START) &
-       MASTER_WORKER_START) == MASTER_WORKER_START) {
+  uint64 m = pg_atomic_fetch_or_u64(master_worker_leader, MASTER_WORKER_START);
+  m = (m ^ MASTER_WORKER_START) & MASTER_WORKER_START;
+  if ((m & MASTER_WORKER_START) == MASTER_WORKER_START) {
     // Prepares and registers the main background worker
     BackgroundWorker bgw = {
         .bgw_name = "omni_httpd",
@@ -191,13 +194,25 @@ void _Omni_init(const omni_handle *handle) {
   num_http_workers = guc_num_http_workers.typed.int_val.value;
 
   bool semaphore_found;
-  semaphore =
-      handle->allocate_shmem(handle, OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE,
-                             sizeof(pg_atomic_uint32), init_semaphore, NULL, &semaphore_found);
+  const char *semaphore_mem_name =
+      psprintf(OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE, get_database_name(MyDatabaseId));
+
+  semaphore = handle->allocate_shmem(handle, semaphore_mem_name, sizeof(pg_atomic_uint32),
+                                     init_semaphore, NULL, &semaphore_found);
+
+  bool worker_leader_found;
+  const char *master_worker_leader_mem_name =
+      psprintf(OMNI_HTTPD_MASTER_WORKER_LEADER, get_database_name(MyDatabaseId));
+
+  master_worker_leader =
+      handle->allocate_shmem(handle, master_worker_leader_mem_name, sizeof(*master_worker_leader),
+                             NULL, NULL, &worker_leader_found);
 
   bool worker_bgw_found;
+  const char *master_worker_mem_name =
+      psprintf(OMNI_HTTPD_MASTER_WORKER, get_database_name(MyDatabaseId));
   master_worker_bgw =
-      handle->allocate_shmem(handle, OMNI_HTTPD_MASTER_WORKER, sizeof(*master_worker_bgw),
+      handle->allocate_shmem(handle, master_worker_mem_name, sizeof(*master_worker_bgw),
                              register_start_master_worker, NULL, &worker_bgw_found);
 }
 
@@ -208,13 +223,28 @@ void _Omni_deinit(const omni_handle *handle) {
         IsTransactionState() ? TopTransactionContext : TopMemoryContext,
         sizeof(*master_worker_bgw));
     memcpy(bgw_handle, master_worker_bgw, sizeof(*master_worker_bgw));
-    handle->deallocate_shmem(handle, OMNI_HTTPD_MASTER_WORKER, &found);
-    handle->deallocate_shmem(handle, OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE, &found);
-    if ((handle->atomic_switch(handle, omni_switch_off, 0, MASTER_WORKER_START) &
-         MASTER_WORKER_START) == MASTER_WORKER_START) {
+
+    const char *master_worker_mem_name =
+        psprintf(OMNI_HTTPD_MASTER_WORKER, get_database_name(MyDatabaseId));
+
+    handle->deallocate_shmem(handle, master_worker_mem_name, &found);
+
+    const char *semaphore_mem_name =
+        psprintf(OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE, get_database_name(MyDatabaseId));
+
+    handle->deallocate_shmem(handle, semaphore_mem_name, &found);
+
+    uint64 m =
+        pg_atomic_fetch_and_u64(master_worker_leader, ~MASTER_WORKER_START) & MASTER_WORKER_START;
+    if ((m & MASTER_WORKER_START) == MASTER_WORKER_START) {
       handle->request_bgworker_termination(
           handle, bgw_handle, (omni_bgworker_options){.timing = omni_timing_after_commit});
     }
+
+    const char *master_worker_leader_mem_name =
+        psprintf(OMNI_HTTPD_MASTER_WORKER_LEADER, get_database_name(MyDatabaseId));
+
+    handle->deallocate_shmem(handle, master_worker_leader_mem_name, &found);
   }
 }
 

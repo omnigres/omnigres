@@ -35,9 +35,12 @@ extern char **temp_dir;
 static const char *OMNI_HTTPD_CONFIGURATION_NOTIFY_CHANNEL = "omni_httpd_configuration";
 
 static const char *OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE =
-    "omni_httpd:" EXT_VERSION ":_configuration_reload_semaphore";
+    "omni_httpd(%s):" EXT_VERSION ":_configuration_reload_semaphore";
 
-static const char *OMNI_HTTPD_MASTER_WORKER = "omni_httpd:" EXT_VERSION ":_master_worker";
+static const char *OMNI_HTTPD_MASTER_WORKER = "omni_httpd(%s):" EXT_VERSION ":_master_worker";
+
+static const char *OMNI_HTTPD_MASTER_WORKER_LEADER =
+    "omni_httpd(%s):" EXT_VERSION ":_master_worker_leader";
 
 static const char *OMNI_HTTPD_GUC_NUM_HTTP_WORKERS =
     "omni_httpd:" EXT_VERSION ":_guc_num_http_workers";
@@ -56,6 +59,7 @@ extern bool IsOmniHttpdWorker;
 
 extern pg_atomic_uint32 *semaphore;
 extern omni_bgworker_handle *master_worker_bgw;
+extern pg_atomic_uint64 *master_worker_leader;
 
 extern bool BackendInitialized;
 

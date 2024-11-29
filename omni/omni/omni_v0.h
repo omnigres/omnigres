@@ -116,6 +116,8 @@ typedef void (*omni_allocate_shmem_callback_function)(const omni_handle *handle,
 /**
  * @brief Shared memory allocation function
  *
+ * Allocated memory is zero-initialized.
+ *
  * @param handle Handle passed by the loader
  * @param name Name to register this allocation under. It is advised to include
  *             version information into the name to facilitate easier upgrades
