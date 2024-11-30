@@ -458,6 +458,19 @@ static h2o_httpclient_head_cb on_connect(h2o_httpclient_t *client, const char *e
   return on_head;
 }
 
+int allow_self_signed_cert_cb(int preverify_ok, X509_STORE_CTX *ctx) {
+  if (!preverify_ok) {
+    X509 *cert = X509_STORE_CTX_get_current_cert(ctx);
+    int err = X509_STORE_CTX_get_error(ctx);
+
+    // Allow self-signed certificates if this is the specific error
+    if (err == X509_V_ERR_SELF_SIGNED_CERT_IN_CHAIN) {
+      return 1;
+    }
+  }
+  return preverify_ok;
+}
+
 PG_FUNCTION_INFO_V1(http_execute);
 
 Datum http_execute(PG_FUNCTION_ARGS) {
@@ -475,6 +488,10 @@ Datum http_execute(PG_FUNCTION_ARGS) {
   h2o_mem_init_pool(pool);
 
   bool follow_redirects = true;
+
+  bool allow_self_signed_cert = false;
+  ArrayType *cacerts = NULL;
+  HeapTupleHeader clientcert = NULL;
 
   // Options
   {
@@ -537,6 +554,25 @@ Datum http_execute(PG_FUNCTION_ARGS) {
       timeout = DatumGetInt32(option_timeout);
     }
     ctx.connect_timeout = ctx.io_timeout = ctx.keepalive_timeout = timeout;
+
+    Datum allow_self_signed_cert_datum =
+        GetAttributeByName(options, "allow_self_signed_cert", &isnull);
+
+    if (!isnull) {
+      allow_self_signed_cert = DatumGetBool(allow_self_signed_cert_datum);
+    }
+
+    Datum cacerts_datum = GetAttributeByName(options, "cacerts", &isnull);
+
+    if (!isnull) {
+      cacerts = DatumGetArrayTypeP(cacerts_datum);
+    }
+
+    Datum clientcert_datum = GetAttributeByName(options, "clientcert", &isnull);
+
+    if (!isnull) {
+      clientcert = DatumGetHeapTupleHeader(clientcert_datum);
+    }
   }
 
   if (PG_ARGISNULL(1)) {
@@ -683,7 +719,58 @@ Datum http_execute(PG_FUNCTION_ARGS) {
     SSL_CTX *ssl_ctx = SSL_CTX_new(TLS_client_method());
     int bundle_loaded = load_ca_bundle(ssl_ctx, ca_bundle);
     assert(bundle_loaded == 1);
-    SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, NULL);
+
+    if (cacerts != NULL) {
+      ArrayIterator it = array_create_iterator(cacerts, 0, NULL);
+      Datum value;
+      bool isnull;
+      while (array_iterate(it, &value, &isnull)) {
+        text *cert = DatumGetTextPP(value);
+        BIO *cert_bio = BIO_new_mem_buf(VARDATA_ANY(cert), VARSIZE_ANY_EXHDR(cert));
+        X509 *ca_cert = PEM_read_bio_X509(cert_bio, NULL, NULL, NULL);
+        X509_STORE *store = SSL_CTX_get_cert_store(ssl_ctx);
+
+        if (X509_STORE_add_cert(store, ca_cert) != 1) {
+          ereport(ERROR, errmsg("error loading CA certificate"));
+        };
+
+        BIO_free(cert_bio);
+        X509_free(ca_cert);
+      }
+      array_free_iterator(it);
+    }
+
+    if (clientcert != NULL) {
+      bool isnull;
+      Datum cert_datum = GetAttributeByName(clientcert, "certificate", &isnull);
+      if (isnull) {
+        ereport(ERROR, errmsg("client certificate must be supplied"));
+      }
+      Datum pkey_datum = GetAttributeByName(clientcert, "private_key", &isnull);
+      if (isnull) {
+        ereport(ERROR, errmsg("client private key must be supplied"));
+      }
+
+      text *cert = DatumGetTextPP(cert_datum);
+      BIO *cert_bio = BIO_new_mem_buf(VARDATA_ANY(cert), VARSIZE_ANY_EXHDR(cert));
+      X509 *client_cert = PEM_read_bio_X509(cert_bio, NULL, NULL, NULL);
+
+      text *pkey = DatumGetTextPP(pkey_datum);
+      BIO *pkey_bio = BIO_new_mem_buf(VARDATA_ANY(pkey), VARSIZE_ANY_EXHDR(pkey));
+      EVP_PKEY *client_pkey = PEM_read_bio_PrivateKey(pkey_bio, NULL, NULL, NULL);
+
+      SSL_CTX_use_certificate(ssl_ctx, client_cert);
+      SSL_CTX_use_PrivateKey(ssl_ctx, client_pkey);
+
+      BIO_free(cert_bio);
+      X509_free(client_cert);
+
+      BIO_free(pkey_bio);
+      EVP_PKEY_free(client_pkey);
+    }
+
+    SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT,
+                       allow_self_signed_cert ? allow_self_signed_cert_cb : NULL);
     h2o_socketpool_set_ssl_ctx(sockpool, ssl_ctx);
     SSL_CTX_free(ssl_ctx);
   }
