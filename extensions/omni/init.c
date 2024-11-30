@@ -272,9 +272,9 @@ MODULE_FUNCTION void init_backend(void *arg) {
     PopActiveSnapshot();
 
     if (MyBackendType == B_BACKEND) {
-      // We only abort a transaction if it is a backend. Background worker is already
+      // We only commit transaction if it is a backend. Background worker is already
       // in a transaction (pre-commit).
-      AbortCurrentTransaction();
+      CommitTransactionCommand();
     }
   }
   // Ensure we can clean up when the backend is exiting

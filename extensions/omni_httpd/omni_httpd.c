@@ -130,8 +130,8 @@ static void init_semaphore(const omni_handle *handle, void *ptr, void *arg, bool
   }
 }
 
-static void register_start_master_worker(const omni_handle *handle, void *ptr, void *arg,
-                                         bool allocated) {
+static void start_master_worker(const omni_handle *handle, omni_bgworker_handle *bgw_handle,
+                                omni_timing timing) {
   uint64 m = pg_atomic_fetch_or_u64(master_worker_leader, MASTER_WORKER_START);
   m = (m ^ MASTER_WORKER_START) & MASTER_WORKER_START;
   if ((m & MASTER_WORKER_START) == MASTER_WORKER_START) {
@@ -150,14 +150,22 @@ static void register_start_master_worker(const omni_handle *handle, void *ptr, v
         .bgw_start_time = BgWorkerStart_RecoveryFinished};
     strncpy(bgw.bgw_library_name, handle->get_library_name(handle), BGW_MAXLEN);
 
-    handle->request_bgworker_start(handle, &bgw, (omni_bgworker_handle *)ptr,
-                                   (omni_bgworker_options){.timing = omni_timing_after_commit});
+    handle->request_bgworker_start(handle, &bgw, bgw_handle,
+                                   (omni_bgworker_options){.timing = timing});
   }
+}
+
+static void register_start_master_worker(const omni_handle *handle, void *ptr, void *arg,
+                                         bool allocated) {
+  start_master_worker(handle, (omni_bgworker_handle *)ptr, omni_timing_after_commit);
 }
 
 bool BackendInitialized = false;
 
+static const omni_handle *module_handle;
+
 void _Omni_init(const omni_handle *handle) {
+  module_handle = handle;
   BackendInitialized = true;
 
   IsOmniHttpdWorker = false;
@@ -542,3 +550,35 @@ Datum websocket_send_text(PG_FUNCTION_ARGS) { return websocket_send(fcinfo, 0); 
 
 PG_FUNCTION_INFO_V1(websocket_send_bytea);
 Datum websocket_send_bytea(PG_FUNCTION_ARGS) { return websocket_send(fcinfo, 1); }
+
+PG_FUNCTION_INFO_V1(stop);
+Datum stop(PG_FUNCTION_ARGS) {
+  bool immediate = false;
+  if (!PG_ARGISNULL(0)) {
+    immediate = PG_GETARG_BOOL(0);
+  }
+  omni_bgworker_handle *bgw_handle = (omni_bgworker_handle *)MemoryContextAlloc(
+      IsTransactionState() ? TopTransactionContext : TopMemoryContext, sizeof(*master_worker_bgw));
+  memcpy(bgw_handle, master_worker_bgw, sizeof(*master_worker_bgw));
+
+  uint64 m =
+      pg_atomic_fetch_and_u64(master_worker_leader, ~MASTER_WORKER_START) & MASTER_WORKER_START;
+  if ((m & MASTER_WORKER_START) == MASTER_WORKER_START) {
+    module_handle->request_bgworker_termination(
+        module_handle, bgw_handle,
+        (omni_bgworker_options){.timing = immediate ? omni_timing_immediately
+                                                    : omni_timing_after_commit});
+  }
+  PG_RETURN_VOID();
+}
+
+PG_FUNCTION_INFO_V1(start);
+Datum start(PG_FUNCTION_ARGS) {
+  bool immediate = false;
+  if (!PG_ARGISNULL(0)) {
+    immediate = PG_GETARG_BOOL(0);
+  }
+  start_master_worker(module_handle, master_worker_bgw,
+                      immediate ? omni_timing_immediately : omni_timing_after_commit);
+  PG_RETURN_VOID();
+}
