@@ -123,6 +123,9 @@ RUN curl -fsSL https://pkgs.tailscale.com/stable/debian/bookworm.noarmor.gpg | t
 RUN apt-get update && apt-get -y install tailscale
 RUN apt-get install -y lldb-16 libc6-dbg vim valgrind # Ultimate debug toolkit
 COPY docker/entrypoint.sh /usr/local/bin/omnigres-entrypoint.sh
+RUN curl -fsSL https://repo.pigsty.io/key | gpg --dearmor -o /etc/apt/keyrings/pigsty.gpg
+COPY docker/pigsty-io.list /etc/apt/sources.list.d/pigsty-io.list
+RUN apt-get update
 ENTRYPOINT ["omnigres-entrypoint.sh"]
 CMD ["postgres"]
 EXPOSE 22
