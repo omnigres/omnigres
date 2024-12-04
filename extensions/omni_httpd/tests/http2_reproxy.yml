@@ -118,3 +118,7 @@ tests:
     - query: select count(*) from omni_httpc.http_connections()
       results:
       - count: 1
+    - query: select distinct pid from your_backend_logs  -- Replace with actual logs table
+      results:
+      - pid: 1
+      - pid: 2
