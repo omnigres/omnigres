@@ -237,12 +237,6 @@ static void on_xact_dealloc(void *arg) {
 MODULE_FUNCTION void omni_xact_callback_hook(XactEvent event, void *arg) {
   iterate_hooks(xact_callback, event);
 
-  // In the event of a rollback, ensure we review the list of extensions
-  // as we may have created an extension during a transaction and it may be gone now.
-  if (event == XACT_EVENT_ABORT) {
-    backend_force_reload = true;
-  }
-
   // Hard-coded single-shot hooks
   // TODO: these are a bit of a hack and we should find ways to get rid of them
 
