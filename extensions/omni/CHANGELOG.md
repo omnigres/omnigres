@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.2.4] - TBD
 
+### Fixed
+
+* Occassional crash while handling `CALL`/`DO` statements [#696](https://github.com/omnigres/omnigres/pull/696)
+
 ## [0.2.3] - 2024-11-30
 
 ### Changed
