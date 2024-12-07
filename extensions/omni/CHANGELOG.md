@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.4] - 2024-12-06
+
+### Fixed
+
+* Occassional crash while handling `CALL`/`DO` statements [#696](https://github.com/omnigres/omnigres/pull/696)
+* Unnecessary extension rescanning on all transaction rollbacks [#696](https://github.com/omnigres/omnigres/pull/696)
+
 ## [0.2.3] - 2024-11-30
 
 ### Changed
@@ -104,3 +111,5 @@ Initial release following a few months of iterative development.
 [0.2.2]: [https://github.com/omnigres/omnigres/pull/698]
 
 [0.2.3]: [https://github.com/omnigres/omnigres/pull/699]
+
+[0.2.4]: [https://github.com/omnigres/omnigres/pull/696]

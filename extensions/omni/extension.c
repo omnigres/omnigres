@@ -124,39 +124,79 @@ static char *get_extension_version(char *extname, bool missing_ok) {
   return result;
 }
 
+// In the event of a rollback, ensure we review the list of extensions
+// as we created an extension, and it may have created hooks and functions
+// we will no longer have after the rollback
+static void force_backend_reload_on_rollback(XactEvent event, void *arg) {
+  if (event == XACT_EVENT_ABORT) {
+    backend_force_reload = true;
+  }
+}
+
 MODULE_FUNCTION void extension_upgrade_hook(omni_hook_handle *handle, PlannedStmt *pstmt,
                                             const char *queryString, bool readOnlyTree,
                                             ProcessUtilityContext context, ParamListInfo params,
                                             QueryEnvironment *queryEnv, DestReceiver *dest,
                                             QueryCompletion *qc) {
-  switch (nodeTag(pstmt->utilityStmt)) {
+  struct ExtensionUpgradeHookState {
+    NodeTag nodeTag;
+    char *extname;
+    char *module_pathname;
+  };
+  struct ExtensionUpgradeHookState *state = (struct ExtensionUpgradeHookState *)handle->ctx;
+  bool IsFirstInvocation = state == NULL;
+  MemoryContext memcxt = TopTransactionContext;
+  if (state == NULL) {
+    handle->ctx = state =
+        (struct ExtensionUpgradeHookState *)MemoryContextAllocZero(memcxt, sizeof(*state));
+    Assert(state->extname == NULL);
+    Assert(state->module_pathname == NULL);
+    state->nodeTag = nodeTag(pstmt->utilityStmt);
+  }
+
+  switch (state->nodeTag) {
   case T_CreateExtensionStmt:
   case T_AlterExtensionStmt:
     backend_force_reload = true;
     break;
   case T_DropStmt:
-    if (castNode(DropStmt, pstmt->utilityStmt)->removeType == OBJECT_EXTENSION) {
+    if (IsFirstInvocation &&
+        castNode(DropStmt, pstmt->utilityStmt)->removeType == OBJECT_EXTENSION) {
       backend_force_reload = true;
     }
   default:
     break;
   }
-  if (nodeTag(pstmt->utilityStmt) == T_AlterExtensionStmt) {
+  // Once done, set up a callback that ensures we force cleanup
+  // upon rollback.
+  if (backend_force_reload && !IsFirstInvocation) {
+    MemoryContext oldcontext = MemoryContextSwitchTo(TopTransactionContext);
+    struct xact_oneshot_callback *cb = palloc(sizeof(*cb));
+    cb->fn = force_backend_reload_on_rollback;
+    cb->arg = cb;
+    xact_oneshot_callbacks = list_append_unique_ptr(xact_oneshot_callbacks, cb);
+    MemoryContextSwitchTo(oldcontext);
+  }
+
+  if (state->nodeTag == T_AlterExtensionStmt) {
     static Oid extoid = InvalidOid;
-    char *extname = castNode(AlterExtensionStmt, pstmt->utilityStmt)->extname;
-    if (handle->ctx == NULL) {
+    if (IsFirstInvocation) {
+      char *extname =
+          MemoryContextStrdup(memcxt, castNode(AlterExtensionStmt, pstmt->utilityStmt)->extname);
       extoid = get_extension_oid(extname, true);
       // Indicate that we're past the first pass with the context
       char *extver = get_extension_version(extname, true);
-      char *module_pathname = get_extension_module_pathname(extname, extver);
-      handle->ctx = module_pathname;
+      char *module_pathname =
+          MemoryContextStrdup(memcxt, get_extension_module_pathname(extname, extver));
+      state->extname = extname;
+      state->module_pathname = module_pathname;
     } else {
-      char *old_module_pathname = (char *)handle->ctx;
+      char *old_module_pathname = state->module_pathname;
       // Second pass
 
       // Get necessary extension information
-      char *extver = get_extension_version(extname, true);
-      char *module_pathname = get_extension_module_pathname(extname, extver);
+      char *extver = get_extension_version(state->extname, true);
+      char *module_pathname = get_extension_module_pathname(state->extname, extver);
 
       // Obtain a lock on pg_proc
       Relation proc_rel = table_open(ProcedureRelationId, RowExclusiveLock);
@@ -229,5 +269,8 @@ MODULE_FUNCTION void extension_upgrade_hook(omni_hook_handle *handle, PlannedStm
       table_close(depend_rel, AccessShareLock);
       table_close(proc_rel, RowExclusiveLock);
     }
+  }
+  if (!IsFirstInvocation) {
+    handle->ctx = NULL;
   }
 }
