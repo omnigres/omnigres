@@ -10,6 +10,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 * Occassional crash while handling `CALL`/`DO` statements [#696](https://github.com/omnigres/omnigres/pull/696)
+* Unnecessary extension rescanning on all transaction rollbacks [#696](https://github.com/omnigres/omnigres/pull/696)
 
 ## [0.2.3] - 2024-11-30
 
