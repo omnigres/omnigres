@@ -1,0 +1,63 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_txn cascade
+  - create extension dblink
+  - create extension omni_edbg
+  - select dblink_connect('session_' || i, 'hostaddr=127.0.0.1 dbname=yregress user=yregress port=' || (select setting
+                                                                                                        from pg_settings
+                                                                                                        where name = 'port'))
+    from generate_series(1, 5) i
+  - create table inventory
+    (
+        id           serial primary key,
+        product_name text,
+        quantity     int
+    )
+  - insert into inventory (product_name, quantity)
+    values ('Widget', 100)
+  - create table retries
+    (
+        count     int,
+        iso_level text
+    )
+  - |
+    create procedure firehose(result inout bool)
+        language plpgsql as
+    $$
+    declare
+        i int;
+    begin
+        for i in 1..1000
+            loop
+                call omni_txn.retry($sql$
+        select quantity from inventory where product_name = 'Widget';
+        update inventory set quantity = quantity + 20 where product_name = 'Widget';
+        $sql$, max_attempts => 1000);
+            end loop;
+        result := true;
+    end;
+    $$;
+
+tests:
+
+- name: start parallel workloads
+  query: |
+    select dblink_send_query(conn, 'call firehose(false)')
+    from unnest(dblink_get_connections()) t(conn)
+
+- name: results
+  query: |
+    select distinct result
+    from (select dblink_error_message(conn) err, conn from unnest(dblink_get_connections()) t(conn)) as errors
+             inner join lateral (select * from dblink_get_result(conn) t(result bool)) result
+                        on errors.err = 'OK'
+  results:
+  - result: true
+
+
+- name: inventory
+  query: select quantity
+         from inventory
+  results:
+  - quantity: 100100
