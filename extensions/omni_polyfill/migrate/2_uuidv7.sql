@@ -26,7 +26,7 @@ $$
             -- Don't create if it is already defined
         exception
             when others then
-                create function uuid_extract_version() returns uuid
+                create function uuid_extract_version(uuid) returns smallint
                     immutable
                     language c as
                 'MODULE_PATHNAME';
