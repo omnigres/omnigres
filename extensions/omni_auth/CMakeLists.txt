@@ -12,5 +12,5 @@ find_package(PostgreSQL REQUIRED)
 add_postgresql_extension(
         omni_auth
         SCHEMA omni_auth
-        REQUIRES omni_types omni_id pgcrypto btree_gist
+        REQUIRES omni_types omni_id pgcrypto btree_gist omni_polyfill
         RELOCATABLE false)

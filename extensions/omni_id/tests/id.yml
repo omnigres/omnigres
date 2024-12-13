@@ -3,6 +3,8 @@ instance:
   init:
   - create extension omni_id
   - create extension omni_polyfill
+  - alter role yregress set search_path to omni_polyfill, pg_catalog, '$user', public
+  - set search_path to omni_polyfill, pg_catalog, '$user', public
   - select identity_type('my_id')
   - select identity_type('my_id1')
   - select identity_type('my_uuid', type => 'uuid', nextval => 'uuidv7')

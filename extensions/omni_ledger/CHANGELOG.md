@@ -11,12 +11,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Depends on omni_polyfill for uuidv7 [#707](https://github.com/omnigres/omnigres/pull/707)
 
-## [0.1.0] - 2024-08-29
+## [0.1.0] - 2024-10-20
 
 Initial release
 
-[Unreleased]: https://github.com/omnigres/omnigres/commits/next/omni_httpd
+[Unreleased]: https://github.com/omnigres/omnigres/commits/next/omni_ledger
 
-[0.1.0]: [https://github.com/omnigres/omnigres/pull/641]
+[0.1.0]: [https://github.com/omnigres/omnigres/pull/670]
 
 [0.1.1]: [https://github.com/omnigres/omnigres/pull/707]
