@@ -56,6 +56,7 @@ typedef enum {
   default_instance_ambiguous = 2
 } default_yinstance_result;
 
+void yinstance_prepare(yinstance *instance);
 void yinstance_start(yinstance *instance);
 
 typedef enum {
