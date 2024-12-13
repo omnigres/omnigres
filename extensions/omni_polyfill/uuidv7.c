@@ -37,10 +37,10 @@
 #include "utils/timestamp.h"
 #include "utils/uuid.h"
 
-PG_FUNCTION_INFO_V1(uuidv7);
-PG_FUNCTION_INFO_V1(uuidv7_interval);
-PG_FUNCTION_INFO_V1(uuid_extract_timestamp);
-PG_FUNCTION_INFO_V1(uuid_extract_version);
+PG_FUNCTION_INFO_V1(uuidv7_);
+PG_FUNCTION_INFO_V1(uuidv7_interval_);
+PG_FUNCTION_INFO_V1(uuid_extract_timestamp_);
+PG_FUNCTION_INFO_V1(uuid_extract_version_);
 
 /* helper macros */
 #define NS_PER_S INT64CONST(1000000000)
@@ -198,7 +198,7 @@ static pg_uuid_t *generate_uuidv7(int64 ns) {
 /*
  * Generate UUID version 7 with the current timestamp.
  */
-Datum uuidv7(PG_FUNCTION_ARGS) {
+Datum uuidv7_(PG_FUNCTION_ARGS) {
   pg_uuid_t *uuid = generate_uuidv7(get_real_time_ns_ascending());
 
   PG_RETURN_UUID_P(uuid);
@@ -207,7 +207,7 @@ Datum uuidv7(PG_FUNCTION_ARGS) {
 /*
  * Similar to uuidv7() but with the timestamp adjusted by the given interval.
  */
-Datum uuidv7_interval(PG_FUNCTION_ARGS) {
+Datum uuidv7_interval_(PG_FUNCTION_ARGS) {
   Interval *shift = PG_GETARG_INTERVAL_P(0);
   TimestampTz ts;
   pg_uuid_t *uuid;
@@ -251,7 +251,7 @@ Datum uuidv7_interval(PG_FUNCTION_ARGS) {
  *
  * Returns null if not RFC 9562 variant or not a version that has a timestamp.
  */
-Datum uuid_extract_timestamp(PG_FUNCTION_ARGS) {
+Datum uuid_extract_timestamp_(PG_FUNCTION_ARGS) {
   pg_uuid_t *uuid = PG_GETARG_UUID_P(0);
   int version;
   uint64 tms;
@@ -296,7 +296,7 @@ Datum uuid_extract_timestamp(PG_FUNCTION_ARGS) {
  *
  * Returns null if not RFC 9562 variant.
  */
-Datum uuid_extract_version(PG_FUNCTION_ARGS) {
+Datum uuid_extract_version_(PG_FUNCTION_ARGS) {
   pg_uuid_t *uuid = PG_GETARG_UUID_P(0);
   uint16 version;
 
