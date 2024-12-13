@@ -7,6 +7,7 @@ declare
     result regtype;
     proc   regprocedure;
 begin
+    set local search_path to omni_polyfill, '$user', public, pg_catalog;
     begin
         proc = func::regprocedure;
     exception
