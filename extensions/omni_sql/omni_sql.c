@@ -643,12 +643,16 @@ static inline void extract_information_json_parameters(ExecCtx *call_ctx, FuncCa
         call_ctx->types[i] = NUMERICOID;
         call_ctx->values[i] = NumericGetDatum(val.val.numeric);
         break;
+      case jbvNull:
+        // Handle null as if it was text, because we'd just need to
+        // cast it (explicitly or implicitly)
+        call_ctx->types[i] = TEXTOID;
+        call_ctx->values[i] = PointerGetDatum(NULL);
+        break;
       case jbvString:
         call_ctx->types[i] = TEXTOID;
         call_ctx->values[i] =
             PointerGetDatum(cstring_to_text_with_len(val.val.string.val, val.val.string.len));
-        break;
-      case jbvNull:
         break;
       default:
         ereport(ERROR, errmsg("unsupported parameter type at index %i", i));
