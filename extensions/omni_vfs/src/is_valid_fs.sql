@@ -51,6 +51,23 @@ begin
         raise warning '%s does not define valid `omni_vfs.read` function', type::text;
         return false;
     end if;
+
+    select into result
+    from pg_proc
+             inner join pg_namespace on pg_namespace.nspname = 'omni_vfs' and pg_proc.pronamespace = pg_namespace.oid
+    where pg_proc.proname = 'write'
+      and pg_proc.proargtypes[0] = type::oid
+      and pg_proc.proargtypes[1] = 'text'::regtype
+      and pg_proc.proargtypes[2] = 'bytea'::regtype
+      and pg_proc.proargtypes[3] = 'bool'::regtype
+      and pg_proc.proargtypes[4] = 'bool'::regtype
+      and not pg_proc.proretset
+      and pg_proc.prorettype = 'bigint'::regtype;
+    if not found then
+        raise warning '%s does not define valid `omni_vfs.write` function', type::text;
+        return false;
+    end if;
+
     return true;
 end;
 $$ language plpgsql;

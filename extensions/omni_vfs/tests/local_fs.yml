@@ -2,6 +2,7 @@ $schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress
 instance:
   init:
   - create extension omni_vfs cascade
+  - create extension omni_os cascade
 
 tests:
 
@@ -111,3 +112,31 @@ tests:
   - set role another_user
   - query: select omni_vfs.local_fs('.')
     error: new row violates row-level security policy for table "local_fs_mounts"
+
+- name: creating a file in a local filesystem
+  query: |
+    with filesystems as (select 'omni_vfs_local_fs_test_' || gen_random_uuid() || '/test'                    as filename,
+                                omni_vfs.local_fs((select value from omni_os.env where variable = 'TMPDIR')) as fs),
+         written as (select fs, filename, omni_vfs.write(fs, filename, 'hello world', create_file => true) as bytes
+                     from filesystems)
+    select convert_from(omni_vfs.read(fs, filename), 'utf-8') as content,
+           bytes = octet_length('hello world')                as fully_written
+    from written
+  results:
+  - content: hello world
+    fully_written: true
+
+- name: appending a file in a local filesystem
+  query: |
+    with filesystems as (select 'omni_vfs_local_fs_test_' || gen_random_uuid() || '/test'                    as filename,
+                                omni_vfs.local_fs((select value from omni_os.env where variable = 'TMPDIR')) as fs),
+         written as (select fs, filename, omni_vfs.write(fs, filename, 'hello world', create_file => true) as bytes
+                     from filesystems),
+         appended as (select fs, filename, omni_vfs.write(fs, filename, '!', append => true) + bytes as bytes
+                      from written)
+    select convert_from(omni_vfs.read(fs, filename), 'utf-8') as content,
+           bytes = octet_length('hello world!')               as fully_written
+    from appended
+  results:
+  - content: hello world!
+    fully_written: true
