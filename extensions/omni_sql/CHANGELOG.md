@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.3.5] - TBD
 
+### Fixed
+
+* SQL execution with typeless `null`-valued parameters [#709](https://github.com/omnigres/omnigres/pull/709)
+
 ## [0.3.4] - 2024-11-09
 
 ### Fixed
