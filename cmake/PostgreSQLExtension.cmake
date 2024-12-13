@@ -217,6 +217,11 @@ function(add_postgresql_extension NAME)
         target_compile_definitions(${_ext_TARGET} PUBLIC "EXT_SCHEMA=\"${_ext_SCHEMA}\"")
     endif()
 
+    if(DEFINED _ext_SOURCES)
+        target_compile_options(${_ext_TARGET} PRIVATE -fsanitize=undefined -fsanitize=address -fno-omit-frame-pointer)
+        target_link_options(${_ext_TARGET} BEFORE PUBLIC -fsanitize=undefined PUBLIC -fsanitize=address)
+    endif()
+
     set(_link_flags "${PostgreSQL_SHARED_LINK_OPTIONS}")
 
     foreach(_dir ${PostgreSQL_SERVER_LIBRARY_DIRS})
