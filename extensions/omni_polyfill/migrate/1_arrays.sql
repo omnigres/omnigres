@@ -12,4 +12,4 @@ $$
             comment on function trim_array(anyarray, integer) is 'remove last N elements of array';
         end if;
     end;
-$$
+$$;

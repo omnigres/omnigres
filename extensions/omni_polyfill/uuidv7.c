@@ -37,9 +37,10 @@
 #include "utils/timestamp.h"
 #include "utils/uuid.h"
 
-PG_MODULE_MAGIC;
-
 PG_FUNCTION_INFO_V1(uuidv7);
+PG_FUNCTION_INFO_V1(uuidv7_interval);
+PG_FUNCTION_INFO_V1(uuid_extract_timestamp);
+PG_FUNCTION_INFO_V1(uuid_extract_version);
 
 /* helper macros */
 #define NS_PER_S INT64CONST(1000000000)

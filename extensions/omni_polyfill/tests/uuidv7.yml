@@ -1,9 +1,16 @@
 $schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
 instance:
   init:
-  - create extension omni_id
+  - create extension omni_polyfill
+  - alter role yregress set search_path to omni_polyfill, pg_catalog, '$user', public
+  - set search_path to omni_polyfill, pg_catalog, '$user', public
 
 tests:
+
+- name: version
+  query: select uuid_extract_version(uuidv7()) as version
+  results:
+  - version: 7
 
 - name: smoke test
   steps:
@@ -28,3 +35,21 @@ tests:
            where res = true
     results:
     - res: true
+
+- name: extract timestamp
+  query: |
+    select uuid_extract_timestamp(uuidv7()) is not null as result
+  results:
+  - result: true
+
+- name: extract timestamp
+  query: |
+    select uuid_extract_timestamp(uuidv7_interval(interval '1 minute')) >
+           uuid_extract_timestamp(uuidv7()) as result
+  results:
+  - result: true
+
+- name: interval
+  query: select uuidv7_interval(interval '1 minute') is not null as result
+  results:
+  - result: true
