@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.2.0] - TBD
 
+### Added
+
+* Filesystem writing capabilities (`omni_vfs.write`) [#712](https://github.com/omnigres/omnigres/pull/712)
+
 ## [0.1.2] - 2024-09-27
 
 ### Added
