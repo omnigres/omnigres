@@ -1,4 +1,5 @@
-create procedure postgrest_cors(request omni_httpd.http_request, response inout omni_httpd.http_outcome)
+create procedure postgrest_cors(request omni_httpd.http_request, response inout omni_httpd.http_outcome,
+                                settings postgrest_settings default postgrest_settings())
     language plpgsql as
 $$
 declare

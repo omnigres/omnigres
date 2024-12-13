@@ -10,6 +10,8 @@ instance:
   # FIXME: waiting for two reloads is working around a startup bug in omni_httpd
   - call omni_httpd.wait_for_configuration_reloads(2)
   - create extension omni_rest cascade
+  - create schema app
+  - create schema app1
   - |
     create
         or
@@ -23,7 +25,7 @@ instance:
     begin
         req := $2;
         raise notice '%', req;
-        call omni_rest.postgrest(req, resp);
+        call omni_rest.postgrest(req, resp, omni_rest.postgrest_settings(schemas => '{app,app1}'));
         if resp is not distinct from null then
             resp := omni_httpd.http_response(status => 404);
         end if;
@@ -31,12 +33,18 @@ instance:
     end;
     $$
   - |
-    create table users
+    create table app.users
     (
         id           serial primary key,
         name         text,
         email        text,
         profile_info jsonb
+    )
+  - |
+    create table app1.users
+    (
+        id       serial primary key,
+        username text
     )
   - |
     create function make_request(path text, headers omni_http.http_headers default array []::omni_http.http_headers,
@@ -63,7 +71,7 @@ tests:
                                               array [omni_http.http_header('content-type', 'application/json')],
                                           body =>
                                               convert_to(
-                                                      jsonb_build_object('id', nextval('users_id_seq'), 'name',
+                                                      jsonb_build_object('id', nextval('app.users_id_seq'), 'name',
                                                                          'John Doe',
                                                                          'email',
                                                                          'john@doe.com',
@@ -78,7 +86,7 @@ tests:
     results:
     - status: 201
   - query: select name, email, profile_info
-           from users
+           from app.users
     results:
     - name: John Doe
       email: john@doe.com
@@ -87,7 +95,7 @@ tests:
         tags: [ ci, postgres ]
   - name: cleanup
     query: delete
-           from users
+           from app.users
 
 - name: simple JSON insert (use of defaults)
   transaction: false
@@ -115,7 +123,7 @@ tests:
     results:
     - status: 201
   - query: select name, email, profile_info
-           from users
+           from app.users
     results:
     - name: John Doe
       email: john@doe.com
@@ -124,7 +132,7 @@ tests:
         tags: [ ci, postgres ]
   - name: cleanup
     query: delete
-           from users
+           from app.users
 
 - name: bulk JSON insert
   transaction: false
@@ -137,7 +145,8 @@ tests:
                                           body =>
                                               convert_to(
                                                       (select jsonb_agg(
-                                                                      jsonb_build_object('id', nextval('users_id_seq'),
+                                                                      jsonb_build_object('id',
+                                                                                         nextval('app.users_id_seq'),
                                                                                          'name',
                                                                                          'John Doe ' || i,
                                                                                          'email',
@@ -154,7 +163,7 @@ tests:
     results:
     - status: 201
   - query: select name, email, profile_info
-           from users
+           from app.users
     results:
     - name: John Doe 1
       email: john@doe.com
@@ -168,7 +177,7 @@ tests:
         tags: [ ci, postgres ]
   - name: cleanup
     query: delete
-           from users
+           from app.users
 
 - name: bulk JSON insert (use of defaults)
   transaction: false
@@ -200,7 +209,7 @@ tests:
     results:
     - status: 201
   - query: select name, email, profile_info
-           from users
+           from app.users
     results:
     - name: John Doe 1
       email: john@doe.com
@@ -214,7 +223,7 @@ tests:
         tags: [ ci, postgres ]
   - name: cleanup
     query: delete
-           from users
+           from app.users
 
 
 - name: return representation
@@ -230,7 +239,7 @@ tests:
                                                   ],
                                           body =>
                                               convert_to(
-                                                      jsonb_build_object('id', nextval('users_id_seq'), 'name',
+                                                      jsonb_build_object('id', nextval('app.users_id_seq'), 'name',
                                                                          'John Doe',
                                                                          'email',
                                                                          'john@doe.com',
@@ -242,7 +251,7 @@ tests:
                                                       'utf8')))
       select response.status, rec.name, rec.email, rec.profile_info
       from response,
-           lateral jsonb_populate_recordset(null::users, convert_from(response.body, 'utf8')::jsonb) rec
+           lateral jsonb_populate_recordset(null::app.users, convert_from(response.body, 'utf8')::jsonb) rec
     results:
     - status: 201
       name: John Doe
@@ -251,7 +260,7 @@ tests:
         bio: Software industry veteran
         tags: [ ci, postgres ]
   - query: select name, email, profile_info
-           from users
+           from app.users
     results:
     - name: John Doe
       email: john@doe.com
@@ -260,7 +269,7 @@ tests:
         tags: [ ci, postgres ]
   - name: cleanup
     query: delete
-           from users
+           from app.users
 
 - name: tx-end rollback
   transaction: false
@@ -274,7 +283,7 @@ tests:
                                                   omni_http.http_header('prefer', 'tx=rollback')],
                                           body =>
                                               convert_to(
-                                                      jsonb_build_object('id', nextval('users_id_seq'), 'name',
+                                                      jsonb_build_object('id', nextval('app.users_id_seq'), 'name',
                                                                          'John Doe',
                                                                          'email',
                                                                          'john@doe.com',
@@ -289,5 +298,57 @@ tests:
     results:
     - status: 201
   - query: select name, email, profile_info
-           from users
+           from app.users
+    results: [ ]
+
+- name: JSON insert into a different schema (using headers)
+  transaction: false
+  steps:
+  - query: |
+      with response as (select *
+                        from make_request('/users', method => 'POST',
+                                          headers =>
+                                              array [
+                                                  omni_http.http_header('content-type', 'application/json'),
+                                                  omni_http.http_header('content-profile', 'app1')
+                                                  ],
+                                          body =>
+                                              convert_to(
+                                                      jsonb_build_object('id', nextval('app1.users_id_seq'), 'username',
+                                                                         'John Doe')::text,
+                                                      'utf8')))
+      select response.status
+      from response
+    results:
+    - status: 201
+  - query: select username
+           from app1.users
+    results:
+    - username: John Doe
+  - name: cleanup
+    query: delete
+           from app1.users
+
+- name: JSON insert into an invalid schema (using headers)
+  transaction: false
+  steps:
+  - query: |
+      with response as (select *
+                        from make_request('/users', method => 'POST',
+                                          headers =>
+                                              array [
+                                                  omni_http.http_header('content-type', 'application/json'),
+                                                  omni_http.http_header('content-profile', 'public')
+                                                  ],
+                                          body =>
+                                              convert_to(
+                                                      jsonb_build_object('id', nextval('app1.users_id_seq'), 'username',
+                                                                         'John Doe')::text,
+                                                      'utf8')))
+      select response.status
+      from response
+    results:
+    - status: 404
+  - query: select username
+           from app1.users
     results: [ ]

@@ -1,4 +1,5 @@
-create procedure postgrest_insert(request omni_httpd.http_request, outcome inout omni_httpd.http_outcome)
+create procedure postgrest_insert(request omni_httpd.http_request, outcome inout omni_httpd.http_outcome,
+                                  settings postgrest_settings default postgrest_settings())
     language plpgsql as
 $$
 declare
@@ -14,20 +15,15 @@ begin
     if outcome is distinct from null then
         return;
     end if;
+
     if request.method = 'POST' then
-        relation := to_regclass(split_part(request.path, '/', 2));
-        if relation is null or relation::text like 'pg_%' then
+        call omni_rest._postgrest_relation(request, relation, namespace, settings);
+        if relation is null then
             return; -- terminate
         end if;
     else
         return; -- terminate;
     end if;
-    -- Prepare the naming
-    select n.nspname as schema_name
-    from pg_class c
-             join pg_namespace n on c.relnamespace = n.oid
-    where c.oid = relation
-    into namespace;
 
     for preference in select regexp_split_to_table(omni_http.http_header_get(request.headers, 'prefer'), ',\s+')
         loop
@@ -91,7 +87,8 @@ begin
                     format(
                             'insert into %1$I.%2$I select * from jsonb_populate_recordset(null::%1$I.%2$I, %3$L::jsonb) %4$s',
                            namespace,
-                            relation, payload::json,
+                            (select relname from pg_class where oid = relation),
+                            payload::json,
                             case when _return = 'representation' then 'returning *' else '' end);
         end;
     end if;

@@ -10,6 +10,8 @@ instance:
   # FIXME: waiting for two reloads is working around a startup bug in omni_httpd
   - call omni_httpd.wait_for_configuration_reloads(2)
   - create extension omni_rest cascade
+  - create schema app
+  - create schema app1
   - |
     create
         or
@@ -22,7 +24,7 @@ instance:
         resp omni_httpd.http_outcome;
     begin
         req := $2;
-        call omni_rest.postgrest(req, resp);
+        call omni_rest.postgrest(req, resp, omni_rest.postgrest_settings(schemas => '{app, app1}'));
         if resp is not distinct from null then
             resp := omni_httpd.http_response(status => 404);
         end if;
@@ -30,28 +32,42 @@ instance:
     end;
     $$
   - |
-    create table users
+    create table app.users
     (
         id           serial primary key,
         name         text,
         email        text,
         profile_info jsonb
     )
-  - insert into users (id, name, email, profile_info)
+  - insert into app.users (id, name, email, profile_info)
     values (1, 'John Doe', 'john@doe.com',
             jsonb_build_object('bio', 'Software industry veteran', 'tags', jsonb_build_array('ci', 'postgres')))
   - |
-    create function make_request(path text, method omni_http.http_method default 'GET') returns setof omni_httpc.http_response
+    create table app1.users
+    (
+        id           serial primary key,
+        username text
+    )
+  - insert into app1.users (id, username)
+    values (1, 'John Doe')
+  - |
+    create table public.users
+    (
+        id       serial primary key,
+        username text
+    )
+  - |
+    create function make_request(path text, headers omni_http.http_headers default array []::omni_http.http_headers, method omni_http.http_method default 'GET') returns setof omni_httpc.http_response
         language sql as
     $$
     select *
     from omni_httpc.http_execute(
             omni_httpc.http_request('http://127.0.0.1:' ||
                                     (select effective_port from omni_httpd.listeners) ||
-                                    path, method => method))
+                                    path, headers => headers, method => method))
     $$
   - |
-    create function first_name(users) returns text
+    create function first_name(app.users) returns text
         language sql as
     $$
     select split_part($1.name, ' ', 1)
@@ -152,3 +168,52 @@ tests:
     body:
     - bio: Software industry veteran
       firstTag: ci
+
+- name: schema selection using header
+  query: |
+    with response as (select * from make_request('/users',  
+                                               headers => array [omni_http.http_header('accept-profile', 'app1')]))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name not in ('server', 'content-length', 'connection')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-range: 0-1/*
+    - content-type: application/json
+    body:
+    - id: 1
+      username: John Doe
+
+- name: invalid schema selection using header
+  query: |
+    with response as (select *
+                      from make_request('/users',
+                                        headers => array [omni_http.http_header('accept-profile', 'public')]))
+    select response.status
+    from response
+  results:
+  - status: 404
+
+- name: invalid schema selection using dot
+  query: |
+    with response as (select *
+                      from make_request('/public.users',
+                                        headers => array [omni_http.http_header('accept-profile', 'public')]))
+    select response.status
+    from response
+  results:
+  - status: 404
+
+- name: valid schema selection using dot
+  query: |
+    with response as (select *
+                      from make_request('/app.users',
+                                        headers => array [omni_http.http_header('accept-profile', 'public')]))
+    select response.status
+    from response
+  results:
+  - status: 404
