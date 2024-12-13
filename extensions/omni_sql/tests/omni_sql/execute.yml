@@ -39,6 +39,15 @@ tests:
     - stmt_row:
         value: 8a0f43cd-a640-4426-94ca-f33955195a1f
 
+- name: typed null parameters
+  steps:
+  - create type kind as enum ('this', 'that')
+  - query: select *
+           from omni_sql.execute('select $1::kind', parameters => jsonb_build_array(null))
+    results:
+    - stmt_row:
+        kind: null
+
 - name: non-array parameters
   query: select *
          from omni_sql.execute('select $1', parameters => jsonb_build_object('a', 1))
