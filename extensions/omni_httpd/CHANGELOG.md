@@ -11,6 +11,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `Omnigres-Connecting-IP` header [#714](https://github.com/omnigres/omnigres/pull/714)
 
+### Changed
+
+* omni_httpd.handler is no longer a function but a procedure [#715](https://github.com/omnigres/omnigres/pull/715)
+
 ## [0.2.9] - 2025-01-17
 
 ### Fixed
@@ -34,7 +38,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 * Don't start omni_httpd in a template database [#743](https://github.com/omnigres/omnigres/pull/743)
-
 
 ## [0.2.5] - 2024-12-23
 
