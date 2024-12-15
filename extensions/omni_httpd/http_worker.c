@@ -778,11 +778,53 @@ static int handler(handler_message_t *msg) {
           TupleDesc header_tupledesc = TypeGetTupleDesc(http_header_oid(), NULL);
           BlessTupleDesc(header_tupledesc);
 
-          Datum *elems = (Datum *)palloc(sizeof(Datum) * req->headers.size);
-          bool *header_nulls = (bool *)palloc(sizeof(bool) * req->headers.size);
+          // We are adding 1 because we prepend Omnigres-Connecting-IP
+          // (see below)
+          size_t headers_num = req->headers.size + 1;
+          Datum *elems = (Datum *)palloc(sizeof(Datum) * headers_num);
+          bool *header_nulls = (bool *)palloc(sizeof(bool) * headers_num);
+
+          {
+            // Provision 'Omnigres-Connecting-IP' header, as the first one
+            // so that when `omni_http.http_header_get` is called, this is
+            // the value we return; and it still preserves further attempts
+            // to override
+            struct sockaddr sa;
+            Assert(req->conn->callbacks->get_peername);
+            socklen_t socklen = req->conn->callbacks->get_peername(req->conn, &sa);
+            char ip_str[INET6_ADDRSTRLEN] = "Unknown";
+
+            switch (sa.sa_family) {
+            case AF_INET: {
+              struct sockaddr_in *addr_in = (struct sockaddr_in *)&sa;
+              inet_ntop(AF_INET, &(addr_in->sin_addr), ip_str, sizeof(ip_str));
+              break;
+            }
+            case AF_INET6: {
+              struct sockaddr_in6 *addr_in6 = (struct sockaddr_in6 *)&sa;
+              inet_ntop(AF_INET6, &(addr_in6->sin6_addr), ip_str, sizeof(ip_str));
+              break;
+            }
+            default:
+              break;
+            }
+            header_nulls[0] = 0;
+            HeapTuple header_tuple =
+                heap_form_tuple(header_tupledesc,
+                                (Datum[2]){
+                                    PointerGetDatum(cstring_to_text("omnigres-connecting-ip")),
+                                    PointerGetDatum(cstring_to_text(ip_str)),
+                                },
+                                (bool[2]){false, false});
+            elems[0] = HeapTupleGetDatum(header_tuple);
+          }
+
           for (int i = 0; i < req->headers.size; i++) {
             h2o_header_t header = req->headers.entries[i];
-            header_nulls[i] = 0;
+            // We move the position by one to save space for Omnigres-Connecting-IP
+            // as we prepended it
+            int pos = i + 1;
+            header_nulls[pos] = 0;
             HeapTuple header_tuple = heap_form_tuple(
                 header_tupledesc,
                 (Datum[2]){
@@ -790,10 +832,11 @@ static int handler(handler_message_t *msg) {
                     PointerGetDatum(cstring_to_text_with_len(header.value.base, header.value.len)),
                 },
                 (bool[2]){false, false});
-            elems[i] = HeapTupleGetDatum(header_tuple);
+            elems[pos] = HeapTupleGetDatum(header_tuple);
           }
+
           ArrayType *result =
-              construct_md_array(elems, header_nulls, 1, (int[1]){req->headers.size}, (int[1]){1},
+              construct_md_array(elems, header_nulls, 1, (int[1]){headers_num}, (int[1]){1},
                                  http_header_oid(), -1, false, TYPALIGN_DOUBLE);
           PointerGetDatum(result);
         })};

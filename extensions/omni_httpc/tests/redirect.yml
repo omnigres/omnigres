@@ -19,7 +19,7 @@ instance:
                             json_agg(json_build_object(h.name, h.value))
                             from
                                 unnest(request.headers) h
-                            where h.name not in ('user-agent')
+                            where h.name not in ('user-agent','omnigres-connecting-ip')
                             ),
         'body', convert_from(request.body, 'utf-8')
         ), 

@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.3.0] - TBD
 
+### Added
+
+* `Omnigres-Connecting-IP` header [#714](https://github.com/omnigres/omnigres/pull/714)
+
 ## [0.2.4] - 2024-11-30
 
 ### Added
