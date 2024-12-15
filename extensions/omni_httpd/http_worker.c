@@ -234,10 +234,17 @@ void http_worker(Datum db_oid) {
     http_outcome_oid();
 
     {
-      // omni_httpd.handler(int,http_request)
-      List *handler_func = list_make2(makeString("omni_httpd"), makeString("handler"));
-      handler_oid = LookupFuncName(handler_func, -1, (Oid[2]){INT4OID, http_request_oid()}, false);
-      list_free(handler_func);
+      // omni_httpd.handler(int,http_request,http_outcome)
+      List *handler_proc = list_make2(makeString("omni_httpd"), makeString("handler"));
+      List *handler_inputs = list_make3(makeNode(TypeName), makeNode(TypeName), makeNode(TypeName));
+      list_nth_node(TypeName, handler_inputs, 0)->typeOid = INT4OID;
+      list_nth_node(TypeName, handler_inputs, 1)->typeOid = http_request_oid();
+      list_nth_node(TypeName, handler_inputs, 2)->typeOid = http_outcome_oid();
+      ObjectWithArgs args = {.objname = handler_proc, .objargs = handler_inputs};
+      handler_oid = LookupFuncWithArgs(OBJECT_PROCEDURE, &args, false);
+      Assert(OidIsValid(handler_oid));
+      list_free(handler_proc);
+      list_free(handler_inputs);
     }
 
     {
@@ -877,9 +884,11 @@ static int handler(handler_message_t *msg) {
         fcinfo->args[0].isnull = false;
         fcinfo->args[1].value = HeapTupleGetDatum(request_tuple);
         fcinfo->args[1].isnull = false;
+        fcinfo->args[2].isnull = true; // initial outcome is always null
         fcinfo->context = (fmNodePtr)non_atomic_call_context;
-        outcome = FunctionCallInvoke(fcinfo);
-        isnull = fcinfo->isnull;
+        Datum record = FunctionCallInvoke(fcinfo);
+        HeapTupleHeader th = DatumGetHeapTupleHeader(record);
+        outcome = GetAttributeByNum(th, 1, &isnull);
       }
 
       PopActiveSnapshot();
