@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.3.0] - TBD
 
+### Added
+
+* `Omnigres-Connecting-IP` header [#714](https://github.com/omnigres/omnigres/pull/714)
+
 ## [0.2.9] - 2025-01-17
 
 ### Fixed
@@ -31,9 +35,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Don't start omni_httpd in a template database [#743](https://github.com/omnigres/omnigres/pull/743)
 
+
 ## [0.2.5] - 2024-12-23
 
-### Changed
+## Changed
 
 * Using a newer version of [h2o](h2o/h2o: H2O - the optimized HTTP/1, HTTP/2, HTTP/3
   server) [#719](https://github.com/omnigres/omnigres/pull/719)

@@ -52,11 +52,13 @@ instance:
                    from request where request.path = '/0-content-length'$$, 1),
                   ('headers',
                    $$SELECT omni_httpd.http_response(body => (select
-                              json_agg(json_build_object(h.name, h.value))
+                              json_object_agg(h.name, h.value)
                           from
                               unnest(request.headers) h
                           )) FROM request WHERE request.path = '/headers'$$,
                    1),
+                  ('connecting-ip', $$select omni_httpd.http_response(omni_http.http_header_get(request.headers,'Omnigres-Connecting-IP')) from request
+                    where request.path = '/connecting-ip' $$, 1),
                   ('echo',
                    $$SELECT omni_httpd.http_response(body => request.body) FROM request WHERE request.path = '/echo'$$,
                    1),
@@ -142,7 +144,7 @@ tests:
     headers:
     - content-type: application/octet-stream
     body: hello world
-- name: headers
+- name: client request's headers
   query: |
     with response as (select * from omni_httpc.http_execute(
       omni_httpc.http_request('http://127.0.0.1:' ||
@@ -151,12 +153,39 @@ tests:
           )))
     select
     response.status,
-    convert_from(response.body, 'utf-8')::json -> 0 as test_hdr
+    convert_from(response.body, 'utf-8')::json ->> 'test' as test_hdr
     from response
   results:
   - status: 200
-    test_hdr:
-      test: Val
+    test_hdr: Val
+- name: Omnigres-Connecting-IP header
+  query: |
+    with response as (select *
+                      from omni_httpc.http_execute(
+                              omni_httpc.http_request('http://127.0.0.1:' ||
+                                                      (select effective_port from omni_httpd.listeners where port = 0) ||
+                                                      '/connecting-ip')))
+    select response.status,
+           convert_from(response.body, 'utf-8') as ip
+    from response
+  results:
+  - status: 200
+    ip: 127.0.0.1
+- name: attempting to override Omnigres-Connecting-IP header
+  query: |
+    with response as (select *
+                      from omni_httpc.http_execute(
+                              omni_httpc.http_request('http://127.0.0.1:' ||
+                                                      (select effective_port from omni_httpd.listeners where port = 0) ||
+                                                      '/connecting-ip',
+                                                      headers => array [omni_http.http_header('omnigres-connecting-ip', '255.255.255.255')]
+                              )))
+    select response.status,
+           convert_from(response.body, 'utf-8') as ip
+    from response
+  results:
+  - status: 200
+    ip: 127.0.0.1
 - name: should not duplicate content-length if it is set
   query: |
     with response as (select * from omni_httpc.http_execute(
