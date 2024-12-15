@@ -11,7 +11,7 @@ instance:
     (
     )
   - |
-    create or replace function omni_httpd.handler(int, omni_httpd.http_request) returns omni_httpd.http_outcome
+    create or replace procedure omni_httpd.handler(int, omni_httpd.http_request, out omni_httpd.http_outcome)
         language plpgsql as
     $$
     begin
@@ -34,7 +34,7 @@ instance:
                 set transaction_timeout to '1s'; perform pg_sleep(10);
             end if;
         end if;
-        return omni_httpd.http_response('OK');
+        $3 := omni_httpd.http_response('OK');
     end;
     $$;
 
