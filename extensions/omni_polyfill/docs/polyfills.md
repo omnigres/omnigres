@@ -6,7 +6,7 @@
     in order to ensure polyfills are attempted in the right order.
 
     ```postgresql
-    set search_path to omni_polyfill, pg_catalog, '$user', public
+    set search_path to '$user', public, omni_polyfill, pg_catalog
     ```
 
 ## Polyfilled functions
