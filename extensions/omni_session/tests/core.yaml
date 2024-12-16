@@ -2,6 +2,8 @@ $schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress
 instance:
   init:
   - create extension omni_session cascade
+  - alter role yregress set search_path to omni_polyfill, pg_catalog, '$user', public
+  - set search_path to omni_polyfill, pg_catalog, '$user', public
 
 tests:
 

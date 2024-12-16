@@ -14,7 +14,7 @@ add_postgresql_extension(
         omni_ledger
         SCHEMA omni_ledger
         SOURCES omni_ledger.c
-        REQUIRES omni_id
+        REQUIRES omni_id omni_polyfill
         TESTS_REQUIRE omni_var
         DEPENDS_ON omni
 )

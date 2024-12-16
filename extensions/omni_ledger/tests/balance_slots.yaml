@@ -7,6 +7,8 @@ instance:
     default_transaction_isolation: serializable
   init:
   - create extension omni_ledger cascade
+  - alter role yregress set search_path to omni_polyfill, pg_catalog, '$user', public
+  - set search_path to omni_polyfill, pg_catalog, '$user', public
   - create extension omni_var
   - insert into omni_ledger.ledgers default
     values

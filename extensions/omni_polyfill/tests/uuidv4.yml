@@ -1,12 +1,14 @@
 $schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
 instance:
   init:
-  - create extension omni_polyfill cascade
+  - create extension omni_polyfill
   - alter role yregress set search_path to omni_polyfill, pg_catalog, '$user', public
   - set search_path to omni_polyfill, pg_catalog, '$user', public
 
+
 tests:
 
-- query: select trim_array(array [1,2,3]::int[], 1) = array [1,2] res
+- name: smoke test
+  query: select uuidv4() is not null as result
   results:
-  - res: true
+  - result: true

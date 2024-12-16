@@ -12,6 +12,6 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_id
-        SOURCES uuidv7.c
+        SOURCES uuidv7_stub.c
         RELOCATABLE true
 )

@@ -9,6 +9,7 @@ declare
     omni_types_library text;
     rec record;
 begin
+    set local search_path to omni_polyfill, '$user', public, pg_catalog;
 
     for rec in select typ, arguments, return from omni_types.function_signature_types where typ::name = name
         loop
