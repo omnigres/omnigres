@@ -672,6 +672,9 @@ static inline void extract_information_json_types(ExecCtx *call_ctx, ArrayType *
   Datum type_val;
   bool isnull;
   while (array_iterate(iter, &type_val, &isnull)) {
+    if (call_ctx->nulls[i] == 'n') {
+      continue;
+    }
     if (isnull) {
       continue;
     }
