@@ -672,13 +672,13 @@ static inline void extract_information_json_types(ExecCtx *call_ctx, ArrayType *
   Datum type_val;
   bool isnull;
   while (array_iterate(iter, &type_val, &isnull)) {
-    if (call_ctx->nulls[i] == 'n') {
-      continue;
-    }
     if (isnull) {
-      continue;
+      goto next;
     }
     Oid id = DatumGetObjectId(type_val);
+    if (call_ctx->nulls[i] == 'n') {
+      goto complete;
+    }
     if (call_ctx->types[i] == TEXTOID && id != TEXTOID) {
       Oid typioparam;
       Oid input_func;
@@ -727,7 +727,9 @@ static inline void extract_information_json_types(ExecCtx *call_ctx, ArrayType *
       }
       }
     }
+  complete:
     call_ctx->types[i] = id;
+  next:
     i++;
   }
   array_free_iterator(iter);
