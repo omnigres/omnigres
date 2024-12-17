@@ -57,6 +57,24 @@ tests:
     - stmt_row:
         kind: null
 
+- name: query-typed null parameters with expected type
+  steps:
+  - create type kind as enum ('this', 'that')
+  - create table test
+    (
+        value kind
+    )
+  - query: select *
+           from omni_sql.execute('insert into test values ($1)', parameters => jsonb_build_array(null),
+                                 types => '{kind}')
+    results:
+    - stmt_row:
+        rows: 1
+  - query: select *
+           from test
+    results:
+    - value: null
+
 - name: non-array parameters
   query: select *
          from omni_sql.execute('select $1', parameters => jsonb_build_object('a', 1))

@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.7] - 2024-11-17
+
+### Fixed
+
+* SQL execution with typed `null`-valued parameters where different type
+  expected [#717](https://github.com/omnigres/omnigres/pull/718)
+
 ## [0.3.6] - 2024-11-16
 
 ### Fixed
@@ -105,3 +112,5 @@ Initial release following a few months of iterative development.
 [0.3.5]: [https://github.com/omnigres/omnigres/pull/708]
 
 [0.3.6]: [https://github.com/omnigres/omnigres/pull/717]
+
+[0.3.7]: [https://github.com/omnigres/omnigres/pull/718]
