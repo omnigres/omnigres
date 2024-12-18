@@ -23,6 +23,7 @@ add_postgresql_extension(
         RELOCATABLE false
         DEPENDS_ON libpgaug
         REQUIRES omni_vfs_types_v1
+        TESTS_REQUIRE omni_os
         SOURCES omni_vfs.c local_fs.c pg_path_v15.c)
 
 target_link_libraries(omni_vfs libpgaug)
