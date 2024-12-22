@@ -576,6 +576,9 @@ static char compress_hint_to_enum(const char *val, size_t len)
     if (h2o_lcstris(val, len, H2O_STRLIT("br"))) {
         return H2O_COMPRESS_HINT_ENABLE_BR;
     }
+    if (h2o_lcstris(val, len, H2O_STRLIT("zstd"))) {
+        return H2O_COMPRESS_HINT_ENABLE_ZSTD;
+    }
     return H2O_COMPRESS_HINT_AUTO;
 }
 
@@ -749,12 +752,13 @@ static int on_informational(h2o_httpclient_t *client, int version, int status, h
 
     assert(status != 101 && "101 has to be notified as final");
 
-    if (status == 100) {
-        /* we don't need to forward 100 since protocol handlers have already done */
-    } else {
+    if (status != 100 ||
+        (self->src_req->overrides != NULL && self->src_req->overrides->proxy_expect_mode == H2O_PROXY_EXPECT_FORWARD)) {
         self->src_req->res.status = status;
         self->src_req->res.headers = (h2o_headers_t){headers, num_headers, num_headers};
         h2o_send_informational(self->src_req);
+    } else {
+        /* we don't need to forward 100 since protocol handlers have already done */
     }
 
     return 0;
@@ -815,7 +819,7 @@ static h2o_httpclient_head_cb on_connect(h2o_httpclient_t *client, const char *e
 
     if (req->overrides != NULL) {
         use_proxy_protocol = req->overrides->use_proxy_protocol;
-        props->use_expect = req->overrides->proxy_use_expect;
+        props->send_own_expect = req->overrides->proxy_expect_mode == H2O_PROXY_EXPECT_ON;
         req->overrides->location_rewrite.match = origin;
         if (!req->overrides->proxy_preserve_host) {
             req->scheme = origin->scheme;

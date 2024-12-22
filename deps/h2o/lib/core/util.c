@@ -718,6 +718,8 @@ int h2o_get_compressible_types(const h2o_headers_t *headers)
                     compressible_types |= H2O_COMPRESSIBLE_GZIP;
                 else if (h2o_lcstris(token, token_len, H2O_STRLIT("br")))
                     compressible_types |= H2O_COMPRESSIBLE_BROTLI;
+                else if (h2o_lcstris(token, token_len, H2O_STRLIT("zstd")))
+                    compressible_types |= H2O_COMPRESSIBLE_ZSTD;
             }
         }
     }
@@ -917,10 +919,7 @@ h2o_iovec_t h2o_build_server_timing_trailer(h2o_req_t *req, const char *prefix, 
 #undef DELIMITER
 
 /* h2-14 and h2-16 are kept for backwards compatibility, as they are often used */
-#define ALPN_ENTRY(s)                                                                                                              \
-    {                                                                                                                              \
-        H2O_STRLIT(s)                                                                                                              \
-    }
+#define ALPN_ENTRY(s) {H2O_STRLIT(s)}
 #define ALPN_PROTOCOLS_CORE ALPN_ENTRY("h2"), ALPN_ENTRY("h2-16"), ALPN_ENTRY("h2-14")
 #define NPN_PROTOCOLS_CORE                                                                                                         \
     "\x02"                                                                                                                         \
