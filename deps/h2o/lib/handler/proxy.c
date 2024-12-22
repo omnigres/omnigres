@@ -52,7 +52,7 @@ static int on_req(h2o_handler_t *_self, h2o_req_t *req)
     overrides->client_ctx = handler_ctx->client_ctx;
     overrides->headers_cmds = self->config.headers_cmds;
     overrides->proxy_preserve_host = self->config.preserve_host;
-    overrides->proxy_use_expect = self->config.use_expect;
+    overrides->proxy_expect_mode = self->config.expect_mode;
     overrides->forward_close_connection = self->config.forward_close_connection;
 
     /* request reprocess (note: path may become an empty string, to which one of the target URL within the socketpool will be
@@ -107,7 +107,7 @@ static h2o_http3client_ctx_t *create_http3_context(h2o_context_t *ctx, int use_g
         h2o_fatal("failed to bind default address to UDP socket: %s", h2o_strerror_r(errno, buf, sizeof(buf)));
     }
     h2o_socket_t *sock = h2o_evloop_socket_create(ctx->loop, sockfd, H2O_SOCKET_FLAG_DONT_READ);
-    h2o_http3_server_init_context(ctx, &h3ctx->h3, ctx->loop, sock, &h3ctx->quic, NULL,
+    h2o_http3_server_init_context(ctx, &h3ctx->h3, ctx->loop, sock, &h3ctx->quic, &ctx->http3.next_cid, NULL,
                                   h2o_httpclient_http3_notify_connection_update, use_gso);
 
     h3ctx->load_session = NULL; /* TODO reuse session? */
@@ -201,6 +201,7 @@ void h2o_proxy_register_reverse_proxy(h2o_pathconf_t *pathconf, h2o_proxy_config
     self->super.dispose = on_handler_dispose;
     self->super.on_req = on_req;
     self->super.supports_request_streaming = 1;
+    self->super.handles_expect = config->expect_mode == H2O_PROXY_EXPECT_FORWARD;
     self->config = *config;
     self->sockpool = sockpool;
 }

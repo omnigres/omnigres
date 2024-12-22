@@ -34,6 +34,9 @@ mquicly_context_t mquicly_context;
 struct st_quicly_conn_t {
     struct _st_quicly_conn_public_t super;
     khash_t(quicly_stream_t) * streams;
+    struct {
+        quicly_address_t local, remote;
+    } address;
 };
 
 struct st_quicly_send_context_t {
@@ -58,8 +61,8 @@ static quicly_conn_t *create_connection(quicly_context_t *ctx, int is_client, st
     }
     conn->streams = kh_init(quicly_stream_t);
 
-    conn->super.local.address.sa = *local_addr;
-    conn->super.remote.address.sa = *remote_addr;
+    conn->address.local.sa = *local_addr;
+    conn->address.remote.sa = *remote_addr;
 
     return conn;
 }
@@ -109,6 +112,16 @@ ptls_t *quicly_get_tls(quicly_conn_t *conn)
 int quicly_is_blocked(quicly_conn_t *conn)
 {
     return 0;
+}
+
+struct sockaddr *quicly_get_sockname(quicly_conn_t *conn)
+{
+    return &conn->address.local.sa;
+}
+
+struct sockaddr *quicly_get_peername(quicly_conn_t *conn)
+{
+    return &conn->address.remote.sa;
 }
 
 void quicly_request_stop(quicly_stream_t *stream, int err)
@@ -466,6 +479,21 @@ quicly_stream_t *quicly_get_stream(quicly_conn_t *conn, quicly_stream_id_t strea
 void quicly_send_datagram_frames(quicly_conn_t *conn, ptls_iovec_t *datagrams, size_t num_datagrams)
 {
     assert(0 && "unimplemented");
+}
+
+void quicly_get_max_data(quicly_conn_t *conn, uint64_t *send_permitted, uint64_t *sent, uint64_t *consumed)
+{
+    if (send_permitted != NULL)
+        *send_permitted = 0xdeadbeef;
+    if (sent != NULL)
+        *sent = 0xdeadbeef;
+    if (consumed != NULL)
+        *consumed = 0xdeadbeef;
+}
+
+int quicly_send_resumption_token(quicly_conn_t *conn)
+{
+    return 0;
 }
 
 const uint32_t quicly_supported_versions[] = {QUICLY_PROTOCOL_VERSION_1, QUICLY_PROTOCOL_VERSION_DRAFT29,

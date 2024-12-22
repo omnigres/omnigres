@@ -640,6 +640,8 @@ path of a PEM file containing the Diffie-Hellman parameters to be used.
 Use of the file is recommended for servers using Diffie-Hellman key agreement.
 (optional)
 
+key-exchange-tls1.3:
+list of TLS 1.3 key exchange algorithms to use; the list must be a YAML sequence of algorithms. x25519 and secp256r1 are supported and enabled by default. In addition, secp384r1, secp521r1, and x25519mlkem768 might be available if they are supported by libcrypto.
 ocsp-update-interval:
 
 interval for updating the OCSP stapling data (in seconds), or set to zero to disable OCSP stapling.
@@ -649,6 +651,11 @@ ocsp-max-failures:
 
 number of consecutive OCSP query failures before stopping to send OCSP stapling data to the client.
 Default is 3.
+
+max-tickets:
+
+maximum number of TLS/1.3 session tickets to send, when the client requests for them using the ticket_request extension.
+Default is 4.
 
 ech:
 
@@ -2176,16 +2183,26 @@ The quic attribute accepts following parameters.
 
 amp-limit
 Amount of data that can be sent to the client before the client address is validated; see section 8.1 of RFC 9000. Default is 3.
+ecn
+A boolean flag (either ON or OFF) indicating whether the server should use ECN signals to detect congestion. The default setting is ON. This flag affects the server's sending behavior. Regardless of this configuration, the server sends back ECN signals it receives using ACK_ECN frames.
 handshake-timeout-rtt-multiplier
 Handshake timeout in the unit of round-trip time. Default is 400.
+jumpstart-default
+Jumpstart enhances the slow start phase of congestion control by pacing a large number of packets for an entire round-trip time (RTT), allowing the server to assess the network's capacity sooner. This parameter specifies the number of packets sent during the jumpstart phase. The default value is zero, indicating that jumpstart is disabled for new connections.
+jumpstart-max
+Upon resuming QUIC connections, clients present tokens issued by the server that contain the bandwidth of the previous connection. This information enables the server to instantly match the previous send rate by adjusting the jumpstart window accordingly. This parameter sets a cap on the maximum size of the jumpstart window. If set to zero (the default), the server disregards the bandwidth values in the tokens. Nonetheless, the server may still initiate a jumpstart without using previous information, based on the jumpstart-default parameter.
 max-initial-handshake-packets
 Maximum number of Initial packets to be sent before the handshake is deemed to have failed. Default is 1,000.
 max-streams-bidi
 Maximum number of client-initated bi-directional streams. This parameter controls the HTTP request concurrency of a HTTP/3 connection. Default is 100.
 max-udp-payload-size
 See Section 18.2 of RFC 9000. Default is 1,472.
+pacing
+A boolean flag (either OFF or ON) indicating whether sent packets should be paced. The default setting is OFF.
 qpack-encoder-table-capacity
 Size of the QPACK encoder table. Default is 4,096.
+respect-app-limited
+This boolean flag (either OFF or ON) indicates whether the server should respect the notion of rate limited traffic when adjusting the size of the congestion window, as detailed in RFC 7661. The default setting is ON.
 retry
 A boolean flag (OFF or ON) indicating if a Retry packet should be used for validating the client address. Use of Retry packets mitigate denial-of-service attacks at the cost of incurring one additional round-trip for processing the handshake.
 sndbuf, rcvbuf
@@ -3037,8 +3054,9 @@ A flag indicating how a pre-compressed file should be served.
 .PP
 
 
-If set to ON, the handler looks for a file with .br or .gz appended and sends the file, if the client is capable of transparently decoding a brotli or gzip-encoded response.
+If set to ON, the handler looks for a file with .br, .zstd, or .gz appended and sends the file, if the client is capable of transparently decoding a brotli, zstd, or gzip-encoded response.
 For example, if a client requests a file named index.html with Accept-Encoding: gzip header and if index.html.gz exists, the .gz file is sent as a response together with a Content-Encoding: gzip response header.
+When both the client and the server support multiple content encodings, the encoding chosen is the first one listed in the following order: brotli, zstd, gzip.
 
 
 If set to OFF, the handler always serves the file specified by the client.

@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] - 2024-12-23
+
+### Changed
+
+* Using a newer version of [h2o](h2o/h2o: H2O - the optimized HTTP/1, HTTP/2, HTTP/3
+  server) [#719](https://github.com/omnigres/omnigres/pull/719)
+
 ## [0.1.3] - 2024-12-16
 
 ### Addded
@@ -38,3 +45,5 @@ Initial release following a few months of iterative development.
 [0.1.2]: [https://github.com/omnigres/omnigres/pull/650]
 
 [0.1.3]: [https://github.com/omnigres/omnigres/pull/676]
+
+[0.1.4]: [https://github.com/omnigres/omnigres/pull/719]

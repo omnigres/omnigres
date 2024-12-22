@@ -189,11 +189,35 @@ typedef struct st_h2o_quic_stats_t {
     func(num_packets.lost_time_threshold, "num-packets.lost-time-threshold") \
     func(num_packets.ack_received, "num-packets.ack-received") \
     func(num_packets.late_acked, "num-packets.late-acked") \
+    func(num_packets.initial_received, "num-packets.initial-received") \
+    func(num_packets.zero_rtt_received, "num-packets.zero-rtt-received") \
+    func(num_packets.handshake_received, "num-packets.handshake-received") \
+    func(num_packets.initial_sent, "num-packets.initial-sent") \
+    func(num_packets.zero_rtt_sent, "num-packets.zero-rtt-sent") \
+    func(num_packets.handshake_sent, "num-packets.handshake-sent") \
+    func(num_packets.received_out_of_order, "num-packets.received-out-of-order") \
+    func(num_packets.received_ecn_counts[0], "num-packets.received-ecn-ect0") \
+    func(num_packets.received_ecn_counts[1], "num-packets.received-ecn-ect1") \
+    func(num_packets.received_ecn_counts[2], "num-packets.received-ecn-ce") \
+    func(num_packets.acked_ecn_counts[0], "num-packets.acked-ecn-ect0") \
+    func(num_packets.acked_ecn_counts[1], "num-packets.acked-ecn-ect1") \
+    func(num_packets.acked_ecn_counts[2], "num-packets.acked-ecn-ce") \
+    func(num_packets.sent_promoted_paths, "num-packets.sent-promoted-paths") \
+    func(num_packets.ack_received_promoted_paths, "num-packets.ack-received-promoted-paths") \
     func(num_bytes.received, "num-bytes.received") \
     func(num_bytes.sent, "num-bytes.sent") \
     func(num_bytes.lost, "num-bytes.lost") \
+    func(num_bytes.ack_received, "num-bytes.ack-received") \
     func(num_bytes.stream_data_sent, "num-bytes.stream-data-sent") \
     func(num_bytes.stream_data_resent, "num-bytes.stream-data-resent") \
+    func(num_paths.created, "num-paths.created") \
+    func(num_paths.validated, "num-paths.validated") \
+    func(num_paths.validation_failed, "num-paths.validation-failed") \
+    func(num_paths.migration_elicited, "num-paths.migration-elicited") \
+    func(num_paths.promoted, "num-paths.promoted") \
+    func(num_paths.closed_no_dcid, "num-paths.closed-no-dcid") \
+    func(num_paths.ecn_validated, "num-paths.ecn-validated") \
+    func(num_paths.ecn_failed, "num-paths.ecn_failed") \
     func(num_frames_sent.padding, "num-frames-sent.padding") \
     func(num_frames_sent.ping, "num-frames-sent.ping") \
     func(num_frames_sent.ack, "num-frames-sent.ack") \
@@ -266,9 +290,10 @@ struct st_h2o_quic_ctx_t {
      */
     quicly_context_t *quic;
     /**
-     *
+     * Retains the next CID to be used for a connection being associated to this context. Also, `thread_id` and `node_id` are
+     * constants that contain the identity of the current thread / node; packets targetted to other theads / nodes are forwarded.
      */
-    quicly_cid_plaintext_t next_cid;
+    quicly_cid_plaintext_t *next_cid;
     /**
      * hashmap of connections by quicly_cid_plaintext_t::master_id.
      */
@@ -441,19 +466,24 @@ void h2o_http3_on_create_unidirectional_stream(quicly_stream_t *qs);
 int h2o_http3_read_frame(h2o_http3_read_frame_t *frame, int is_client, uint64_t stream_type, size_t max_frame_payload_size,
                          const uint8_t **src, const uint8_t *src_end, const char **err_desc);
 
+/**
+ * Initializes the QUIC context, binding the event loop, socket, quic, and other properties. `next_cid` should be a thread-local
+ * that contains the CID seed to be used; see `h2o_quic_ctx_t::next_cid` for more information.
+ */
 void h2o_quic_init_context(h2o_quic_ctx_t *ctx, h2o_loop_t *loop, h2o_socket_t *sock, quicly_context_t *quic,
-                           h2o_quic_accept_cb acceptor, h2o_quic_notify_connection_update_cb notify_conn_update, uint8_t use_gso,
-                           h2o_quic_stats_t *quic_stats);
+                           quicly_cid_plaintext_t *next_cid, h2o_quic_accept_cb acceptor,
+                           h2o_quic_notify_connection_update_cb notify_conn_update, uint8_t use_gso, h2o_quic_stats_t *quic_stats);
 /**
  *
  */
 void h2o_quic_dispose_context(h2o_quic_ctx_t *ctx);
 /**
- *
+ * When running QUIC on multiple threads / nodes, it becomes necessary to forward incoming packets between those threads / nodes
+ * with encapsulation. This function makes adjustments to the context initialized by `h2o_quic_init_context` and registers the
+ * callbacks necessary for forwarding with en(de)capsulation.
  */
-void h2o_quic_set_context_identifier(h2o_quic_ctx_t *ctx, uint32_t accept_thread_divisor, uint32_t thread_id, uint64_t node_id,
-                                     uint8_t ttl, h2o_quic_forward_packets_cb forward_cb,
-                                     h2o_quic_preprocess_packet_cb preprocess_cb);
+void h2o_quic_set_forwarding_context(h2o_quic_ctx_t *ctx, uint32_t accept_thread_divisor, uint8_t ttl,
+                                     h2o_quic_forward_packets_cb forward_cb, h2o_quic_preprocess_packet_cb preprocess_cb);
 /**
  *
  */
