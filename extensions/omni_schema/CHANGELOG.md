@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.2.1] - TBD
 
+### Fixed
+
+* `assemble_schema` handles syntax errors now [#722](https://github.com/omnigres/omnigres/pull/722)
+
 ## [0.2.0] - 2024-04-19
 
 ### Added
