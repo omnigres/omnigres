@@ -280,3 +280,16 @@ tests:
         results:
           - id: 1
             product_id: 1
+
+  - name: error handling
+    query: |
+      select migration_filename,
+             execution_error
+      from omni_schema.assemble_schema('dbname=test user=yregress host=localhost port=' ||
+                                       (select setting from pg_settings where name = 'port'),
+                                       omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/syntax_error')
+           )
+      order by execution_position
+    results:
+    - migration_filename: /test.sql
+      execution_error: syntax error at or near "tab"

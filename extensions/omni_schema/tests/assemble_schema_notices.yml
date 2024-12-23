@@ -1,0 +1,29 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_schema cascade
+  - create database test
+
+tests:
+
+- name: notice progress reporting
+  query: |
+    select migration_filename,
+           execution_error
+    from omni_schema.assemble_schema('dbname=test user=yregress host=localhost port=' ||
+                                     (select setting from pg_settings where name = 'port'),
+                                     omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/assemble')
+         )
+    order by execution_position
+  notices:
+  - "{\"type\" : \"info\", \"message\" : \"Executing\", \"code\" : \"create table orders\\n(\\n    id         int primary key,\\n    product_id int references products (id)\\n)\", \"file\" : \"/order.sql\", \"line\" : 1, \"col\" : 1}"
+  - "{\"type\" : \"info\", \"message\" : \"Executing\", \"code\" : \"insert\\ninto orders\\nvalues (1, 1)\", \"file\" : \"/order.sql\", \"line\" : 7, \"col\" : 1}"
+  - "{\"type\" : \"info\", \"message\" : \"Executing\", \"code\" : \"create table products\\n(\\n    id   int primary key,\\n    name text\\n)\", \"file\" : \"/product.sql\", \"line\" : 1, \"col\" : 1}"
+  - "{\"type\" : \"info\", \"message\" : \"Executing\", \"code\" : \"insert\\ninto products\\nvalues (1, 'bat')\", \"file\" : \"/product.sql\", \"line\" : 7, \"col\" : 1}"
+  - "{\"type\" : \"info\", \"message\" : \"Executing\", \"code\" : \"insert\\ninto products\\nvalues (2, 'ball')\", \"file\" : \"/product.sql\", \"line\" : 11, \"col\" : 1}"
+  - "{\"type\" : \"error\", \"message\" : \"Completed\", \"code\" : \"create table orders\\n(\\n    id         int primary key,\\n    product_id int references products (id)\\n)\", \"file\" : \"/order.sql\"}"
+  - "{\"type\" : \"info\", \"message\" : \"Completed\", \"code\" : \"create table products\\n(\\n    id   int primary key,\\n    name text\\n)\", \"file\" : \"/product.sql\"}"
+  - "{\"type\" : \"info\", \"message\" : \"Completed\", \"code\" : \"insert\\ninto products\\nvalues (1, 'bat')\", \"file\" : \"/product.sql\"}"
+  - "{\"type\" : \"info\", \"message\" : \"Completed\", \"code\" : \"insert\\ninto products\\nvalues (2, 'ball')\", \"file\" : \"/product.sql\"}"
+  - "{\"type\" : \"info\", \"message\" : \"Completed\", \"code\" : \"create table orders\\n(\\n    id         int primary key,\\n    product_id int references products (id)\\n)\", \"file\" : \"/order.sql\"}"
+  - "{\"type\" : \"info\", \"message\" : \"Completed\", \"code\" : \"insert\\ninto orders\\nvalues (1, 1)\", \"file\" : \"/order.sql\"}"
