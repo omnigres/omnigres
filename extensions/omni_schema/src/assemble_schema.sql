@@ -14,7 +14,6 @@ declare
     remote_table_fs                 omni_vfs.table_fs;
     remote_table_fs_name            text    = 'omni_schema_migration_fs';
     current_filename                text;
-    current_statement               text;
     successful_statement_executions int     = 0;
     error_message                   text;
     try_again                       boolean = false;
@@ -109,17 +108,24 @@ begin
                     -- process sql language files statement by statement
                     declare
                         code text := convert_from(omni_vfs.read(fs, rec.name), 'UTF-8');
+                        code_rec record;
                     begin
-                        for current_statement in select source
+                        for code_rec in select source as current_statement, line, col
                                                  from
                                                      omni_sql.raw_statements(code::cstring)
                             loop
+                                raise notice '%', json_build_object('type', 'info', 'message', 'Executing', 'code',
+                                                                    code_rec.current_statement,
+                                                                    'file', rec.name, 'line', code_rec.line, 'col',
+                                                                    code_rec.col);
                                 insert
                                 into omni_schema_execution_status(filepath, language, code)
-                                values (rec.name, rec.language, current_statement);
+                                values (rec.name, rec.language, code_rec.current_statement);
                             end loop;
                     exception
                         when syntax_error then
+                            raise notice '%', json_build_object('type', 'error', 'message', sqlerrm,
+                                                                'file', rec.name);
                             insert
                             into omni_schema_execution_status(filepath, language, code, last_execution_error)
                             values (rec.name, rec.language, code, sqlerrm);
@@ -157,6 +163,9 @@ begin
                                      and filepath = current_filename
                                    order by id
                             loop
+                                declare
+                                    _filepath text;
+                                    _code     text;
                                 begin
                                     if rec.language is null and rec.processor is not null then
                                         if not exists(select *
@@ -226,7 +235,11 @@ begin
                                     set execution_number     = successful_statement_executions,
                                         execution_successful = true,
                                         last_execution_error = null
-                                    where id = rec.id;
+                                    where id = rec.id
+                                    returning filepath, code into _filepath, _code;
+                                    raise notice '%', json_build_object('type', 'info', 'message',
+                                                                        'Completed', 'code', _code,
+                                                                        'file', _filepath);
                                     -- at least one succeeded, worth trying again
                                     try_again = true;
                                 exception
@@ -234,7 +247,11 @@ begin
                                         get stacked diagnostics error_message = message_text;
                                         update omni_schema_execution_status
                                         set last_execution_error = error_message
-                                        where id = rec.id;
+                                        where id = rec.id
+                                        returning filepath, code into _filepath, _code;
+                                        raise notice '%', json_build_object('type', 'error', 'message',
+                                                                            'Completed', 'code', _code,
+                                                                            'file', _filepath);
                                         -- go to next file if statement execution fails to preserve serial execution of statements in a file
                                         continue file;
                                 end;

@@ -11,6 +11,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * `assemble_schema` handles syntax errors now [#722](https://github.com/omnigres/omnigres/pull/722)
 
+### Added
+
+* `assemble_schema` will now emit progress notices [#724](https://github.com/omnigres/omnigres/pull/724)
+
 ## [0.2.0] - 2024-04-19
 
 ### Added
