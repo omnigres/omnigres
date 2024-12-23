@@ -1,2 +1,5 @@
 alter system set max_worker_processes = 64;
 alter system set shared_preload_libraries = '$OMNI_SO_FILE';
+alter system set log_destination = 'stderr,csvlog';
+alter system set log_filename = 'postgresql.log';
+alter system set logging_collector = 'on';
