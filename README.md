@@ -174,6 +174,7 @@ Below is the current list of components being worked on, experimented with and d
 | Name                                                                                     | Status                                       | Description                                           |
 |------------------------------------------------------------------------------------------|----------------------------------------------|-------------------------------------------------------|
 | [omni](extensions/omni/README.md) and [Omni interface](omni/README.md)                   | :white_check_mark: First release candidate   | Advanced adapter for Postgres extensions              |
+| [omni_service](extensions/omni_service/README.md)                                        | :white_check_mark: First release candidate   | Uniform service management bus                        |
 | [omni_schema](extensions/omni_schema/README.md)                                          | :white_check_mark: First release candidate   | Application schema management                         |
 | [omni_id](extensions/omni_id/README.md)                                                  | :white_check_mark: First release candidate   | Identity types                                        |
 | [omni_aws](extensions/omni_aws/README.md)                                                | :white_check_mark: First release candidate   | AWS APIs                                              |
