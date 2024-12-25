@@ -17,4 +17,5 @@ add_postgresql_extension(
         RELOCATABLE false
         REQUIRES omni_httpc pgcrypto omni_xml omni_web
         TESTS_REQUIRE omni_containers omni_os
+        SUPERUSER false
         SHARED_PRELOAD ON)

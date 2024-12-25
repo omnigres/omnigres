@@ -165,6 +165,10 @@ function(add_postgresql_extension NAME)
         add_library(${_ext_TARGET} MODULE ${_ext_SOURCES})
     endif()
 
+    if(NOT DEFINED _ext_SUPERUSER)
+        set(_ext_SUPERUSER true)
+    endif ()
+
     # inja ia a default target dependency for all extensions
     if(NOT TARGET inja)
         add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../../misc/inja" "${CMAKE_CURRENT_BINARY_DIR}/inja")
@@ -281,7 +285,7 @@ $<$<NOT:$<BOOL:${_ext_ENCODING}>>:#>encoding = '${_ext_ENCODING}'
 $<$<NOT:$<BOOL:${_ext_REQUIRES}>>:#>requires = '$<JOIN:${_ext_REQUIRES},$<COMMA>>'
 $<$<NOT:$<BOOL:${_ext_SCHEMA}>>:#>schema = ${_ext_SCHEMA}
 $<$<NOT:$<BOOL:${_ext_RELOCATABLE}>>:#>relocatable = ${_ext_RELOCATABLE}
-$<$<NOT:$<BOOL:${_ext_SUPERUSER}>>:#>superuser = ${_ext_SUPERUSER}
+$<$<BOOL:${_ext_SUPERUSER}>:#>superuser = ${_ext_SUPERUSER}
             ")
     # Packaged control file
     if(NOT ${_ext_PRIVATE})
@@ -296,7 +300,7 @@ $<$<NOT:$<BOOL:${_ext_ENCODING}>>:#>encoding = '${_ext_ENCODING}'
 $<$<NOT:$<BOOL:${_ext_REQUIRES}>>:#>requires = '$<JOIN:${_ext_REQUIRES},$<COMMA>>'
 $<$<NOT:$<BOOL:${_ext_SCHEMA}>>:#>schema = ${_ext_SCHEMA}
 $<$<NOT:$<BOOL:${_ext_RELOCATABLE}>>:#>relocatable = ${_ext_RELOCATABLE}
-$<$<NOT:$<BOOL:${_ext_SUPERUSER}>>:#>superuser = ${_ext_SUPERUSER}
+$<$<BOOL:${_ext_SUPERUSER}>:#>superuser = ${_ext_SUPERUSER}
               ")
     endif()
 
