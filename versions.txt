@@ -1,12 +1,12 @@
 omni=0.2.4
-omni_aws=0.1.1
+omni_aws=0.1.2
 omni_auth=0.1.2
 omni_containers=0.2.0
 omni_http=0.1.0
 omni_httpc=0.1.4
 omni_httpd=0.2.5
 omni_id=0.4.0
-omni_json=0.1.0
+omni_json=0.1.1
 omni_kube=0.1.0
 omni_ledger=0.1.1
 omni_manifest=0.1.1
