@@ -12,4 +12,5 @@ find_package(PostgreSQL REQUIRED)
 add_postgresql_extension(
         omni_json
         SCHEMA omni_json
+        SUPERUSER false
         RELOCATABLE false)
