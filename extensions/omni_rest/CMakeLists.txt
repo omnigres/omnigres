@@ -13,5 +13,5 @@ find_package(PostgreSQL REQUIRED)
 add_postgresql_extension(
         omni_rest
         SCHEMA omni_rest
-        REQUIRES omni_httpd omni_sql omni_web
+        REQUIRES omni_httpd omni_sql omni_web omni_var pgcrypto
 )

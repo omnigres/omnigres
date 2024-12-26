@@ -200,6 +200,7 @@ declare
     _order   text;
     _offset numeric;
     relation regclass;
+    request_cache text;
 begin
     if outcome is distinct from null then
         return;
@@ -213,96 +214,103 @@ begin
         return; -- terminate;
     end if;
 
-    params := omni_web.parse_query_string(request.query_string);
+    request_cache := 'omni_rest.query_' ||
+                     encode(digest(relation || ' ' || coalesce(request.query_string, ''), 'sha256'), 'hex');
+    query := omni_var.get_session(request_cache, null::text);
+    if query is null then
 
-    -- Columns (vertical filtering)
-    query_columns := array ['*'];
+        params := omni_web.parse_query_string(request.query_string);
 
-    _select = omni_web.param_get(params, 'select');
+        -- Columns (vertical filtering)
+        query_columns := array ['*'];
 
-    if _select is not null and _select != '' then
-        query_columns := array []::text[];
+        _select = omni_web.param_get(params, 'select');
 
-    foreach col in array string_to_array(_select, ',')
-        loop
-            declare
-                col_name    text;
-                col_expr text;
-                col_alias text;
-                _match      text[];
-                is_col_name bool;
-            begin
-                col_expr := split_part(col, ':', 1);
-                col_alias := split_part(col, ':', 2);
+        if _select is not null and _select != '' then
+            query_columns := array []::text[];
 
-                _match := regexp_match(col_expr, '^([[:alpha:] _][[:alnum:] _]*)(.*)');
-                col_name := _match[1];
-                if col_name is null then
-                    raise exception 'no column specified in %', col_expr;
-                end if;
+            foreach col in array string_to_array(_select, ',')
+                loop
+                    declare
+                        col_name    text;
+                        col_expr    text;
+                        col_alias   text;
+                        _match      text[];
+                        is_col_name bool;
+                    begin
+                        col_expr := split_part(col, ':', 1);
+                        col_alias := split_part(col, ':', 2);
 
-                -- Check if there is such an attribute
-                perform from pg_attribute where attname = col_name and attrelid = relation and attnum > 0;
-                is_col_name := found;
-                -- If not...
-                if not is_col_name then
-                    -- Is it a function?
-                    perform
-                    from pg_proc
-                    where proargtypes[0] = relation
-                      and proname = col_name
-                      and pronamespace::text = namespace;
-                    if found then
-                        -- It is a function
-                        col_name := col_name || '((' || relation || '))';
-                    end if;
-                end if;
-                col_expr := col_name || _match[2];
+                        _match := regexp_match(col_expr, '^([[:alpha:] _][[:alnum:] _]*)(.*)');
+                        col_name := _match[1];
+                        if col_name is null then
+                            raise exception 'no column specified in %', col_expr;
+                        end if;
 
-                if col_alias = '' then
-                    col_alias := col_expr;
-                end if;
-                if col_expr ~ '->' then
-                    -- Handle JSON expression
-                    if col_alias = col_expr then
-                        -- Update the alias if it was not set
-                        with arr as (select regexp_split_to_array(col_expr, '->>?') as data)
-                        select data[cardinality(data)]
-                        from arr
-                        into col_alias;
-                    end if;
-                    -- Rewrite the expression to match its actual syntax
-                    col_expr :=
-                            regexp_replace(col_expr, '(->>?)([[:alpha:]_][[:alnum:]_]*)(?=(->|$))', '\1''\2''', 'g');
-                    -- TODO: record access using ->
-                end if;
-                -- TODO: sanitize col_expr
-                query_columns := query_columns || (relation || '.' || col_expr || ' as "' || col_alias || '"');
-            end;
-        end loop;
-    end if;
+                        -- Check if there is such an attribute
+                        perform from pg_attribute where attname = col_name and attrelid = relation and attnum > 0;
+                        is_col_name := found;
+                        -- If not...
+                        if not is_col_name then
+                            -- Is it a function?
+                            perform
+                            from pg_proc
+                            where proargtypes[0] = relation
+                              and proname = col_name
+                              and pronamespace::text = namespace;
+                            if found then
+                                -- It is a function
+                                col_name := col_name || '((' || relation || '))';
+                            end if;
+                        end if;
+                        col_expr := col_name || _match[2];
 
-    _where := omni_rest.postgrest_format_get_param(omni_rest.postgrest_parse_get_param(params));
+                        if col_alias = '' then
+                            col_alias := col_expr;
+                        end if;
+                        if col_expr ~ '->' then
+                            -- Handle JSON expression
+                            if col_alias = col_expr then
+                                -- Update the alias if it was not set
+                                with arr as (select regexp_split_to_array(col_expr, '->>?') as data)
+                                select data[cardinality(data)]
+                                from arr
+                                into col_alias;
+                            end if;
+                            -- Rewrite the expression to match its actual syntax
+                            col_expr :=
+                                    regexp_replace(col_expr, '(->>?)([[:alpha:]_][[:alnum:]_]*)(?=(->|$))', '\1''\2''',
+                                                   'g');
+                            -- TODO: record access using ->
+                        end if;
+                        -- TODO: sanitize col_expr
+                        query_columns := query_columns || (relation || '.' || col_expr || ' as "' || col_alias || '"');
+                    end;
+                end loop;
+        end if;
 
-    _offset := 0;
-    select
-        'ORDER BY ' || string_agg(format('%1$I %2$s', split_part(o, '.', 1),
-                -- FIXME: we should error instead of using a default on invalid ordering clauses
-                case lower(split_part(o, '.', 2))
-                when 'desc' then
-                    'desc'
-                else
-                    'asc'
-                end), ',')
-    from
-        unnest(regexp_split_to_array(omni_web.param_get (params, 'order'), ',')) o into _order;
-    -- Finalize the query
-    query := format('select %3$s from %1$I.%2$I where %4$s %5$s', namespace, (
+        _where := omni_rest.postgrest_format_get_param(omni_rest.postgrest_parse_get_param(params));
+
+        _offset := 0;
+        select 'ORDER BY ' || string_agg(format('%1$I %2$s', split_part(o, '.', 1),
+                                             -- FIXME: we should error instead of using a default on invalid ordering clauses
+                                                case lower(split_part(o, '.', 2))
+                                                    when 'desc' then
+                                                        'desc'
+                                                    else
+                                                        'asc'
+                                                    end), ',')
+        from unnest(regexp_split_to_array(omni_web.param_get(params, 'order'), ',')) o
+        into _order;
+        -- Finalize the query
+        query := format('select %3$s from %1$I.%2$I where %4$s %5$s', namespace, (
             select
                 relname
             from pg_class
             where
                 oid = relation), concat_ws(', ', variadic query_columns), coalesce(_where, 'true'), _order);
+        perform omni_var.set_session(request_cache, query);
+    end if;
     -- Run it
     declare
       message text;
