@@ -221,6 +221,14 @@ To build and run Omnigres, you would need:
 
 </details>
 
+<details>
+<summary>Dependencies for macOS</summary>
+
+* XCode Command Line Tools: `xcode-select --install`
+* Homebrew packages: `cmake openssl python`
+
+</details>
+
 ```shell
 cmake -S . -B build
 cmake --build build --parallel
