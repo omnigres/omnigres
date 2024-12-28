@@ -5,6 +5,7 @@ as
 $$
 declare
 begin
+    call omni_rest.postgrest_rpc(request, response, settings);
     call omni_rest.postgrest_get(request, response, settings);
     call omni_rest.postgrest_insert(request, response, settings);
     call omni_rest.postgrest_cors(request, response, settings);

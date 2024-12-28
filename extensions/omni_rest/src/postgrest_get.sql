@@ -42,7 +42,6 @@ declare
     current_production text := '';
     depth int := 0;
     token text;
-    sublist text[];
 begin
     -- no nesting, just split and return
     if input !~ '[()]' then
