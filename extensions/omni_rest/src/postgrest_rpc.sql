@@ -105,7 +105,7 @@ begin
             (
                 select
                     convert_from(request.body, 'utf-8')::jsonb)
-    end into argument_values;
+        into argument_values;
 end if;
         -- Run it
         declare message text;

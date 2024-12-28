@@ -53,9 +53,19 @@ instance:
   - |
     create function app.side_effect() returns void language sql as $$ insert into app.users values (gen_random_uuid() || '@bar.com', 'foobar'); $$;
   - |
-    create function app.return_composite() returns app.users language sql as $$ select * from (values ('john@doe.com', 'John Doe')); $$;
+    create function app.return_composite() returns app.users
+        language sql as
+    $$
+    select *
+    from (values ('john@doe.com', 'John Doe')) t;
+    $$;
   - |
-    create function app.srf() returns setof app.users language sql as $$ select * from (values ('jane@doe.com', 'Jane Doe'), ('john@doe.com', 'John Doe')); $$;
+    create function app.srf() returns setof app.users
+        language sql as
+    $$
+    select *
+    from (values ('jane@doe.com', 'Jane Doe'), ('john@doe.com', 'John Doe')) t;
+    $$;
 
 tests:
 
