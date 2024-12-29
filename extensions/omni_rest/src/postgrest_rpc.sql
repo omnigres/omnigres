@@ -1,3 +1,9 @@
+/*
+ * Given a function reference and an array of argument names,
+ * it builds a string with placeholders for each argument cast to its type.
+ * The placeholders are in the order of the function argument list.
+ * This can be used with _postgrest_function_ordered_argument_values to build a SQL command that will call the referenced function.
+ */ 
 create or replace function _postgrest_function_call_arguments(fn regproc, passed_arguments text[])
     returns text
     immutable
@@ -14,6 +20,11 @@ where type is not null
   and name::text = any (passed_arguments)
 $$;
 
+/*
+ * Given a function reference and an array of argument names and a jsonb object in the shape of {[argument_name]:argument_value},
+ * it returns a jsonb array with the argument values in the same order as the array inn passed_arguments.
+ * This can be used with postgrest_function_call_arguments to build a SQL command that will call the referenced function.
+ */ 
 create or replace function _postgrest_function_ordered_argument_values(fn regproc, passed_arguments text[], passed_values jsonb)
     returns jsonb
     immutable
@@ -63,11 +74,13 @@ begin
     end if;
     select case request.method
                when 'GET' then
+                     -- get the list of passed argument names from the query string
                    (select array_agg(name)
                     from unnest(omni_web.parse_query_string(request.query_string))
                              with ordinality as _ (name, i)
                     where i % 2 = 1)
                when 'POST' then
+                     -- get the list of passed argument names from the request body (assume it's a json object)
                    (select array_agg(jsonb_object_keys)
                     from
                         jsonb_object_keys(convert_from(request.body, 'utf-8')::jsonb))

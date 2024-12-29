@@ -1,3 +1,12 @@
+/*
+ * Given a schema name, a function name and an array of argument names,
+ * it finds all functions that could be called taking into account required and optional arguments.
+ * For example, if you have 2 function
+ *  1. public.say_hello(message text default 'hello') 
+ *  2. public.say_hello() 
+ * The call  _postgrest_function_by_arguments('public', 'say_hello', '{}') would return an array with a reference to each.
+ * Meanwhile a call _postgrest_function_by_arguments('public', 'say_hello', '{message}') would return an array with only one reference to function 1.
+ */ 
 create or replace function _postgrest_function_by_arguments(namespace text, function_name text, function_arguments text[])
     returns regproc[]
     language sql
