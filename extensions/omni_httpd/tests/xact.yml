@@ -12,7 +12,7 @@ instance:
     values ('127.0.0.1', 0)
   - call omni_httpd.wait_for_configuration_reloads(1)
   - |
-    create or replace function omni_httpd.handler(int, omni_httpd.http_request) returns omni_httpd.http_outcome
+    create or replace procedure omni_httpd.handler(int, omni_httpd.http_request, inout omni_httpd.http_outcome)
         language plpgsql as
     $$
     begin
@@ -24,7 +24,7 @@ instance:
         insert into test (val) values (0);
         rollback;
         insert into test (val) values (1);
-        return omni_httpd.http_response((select val::text from test limit 1));
+        $3 := omni_httpd.http_response((select val::text from test limit 1));
     end;
     $$
 
