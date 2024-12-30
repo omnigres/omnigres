@@ -35,10 +35,13 @@ The fastest way to try Omnigres out is by using its [container image](https://gi
 ```shell
 docker volume create omnigres
 docker run --name omnigres --mount source=omnigres,target=/var/lib/postgresql/data \
-           -p 127.0.0.1:5432:5432 -p 127.0.0.1:8080:8080 --rm ghcr.io/omnigres/omnigres:latest
+           -p 127.0.0.1:5432:5432 -p 127.0.0.1:8080:8080 --rm ghcr.io/omnigres/omnigres-17:latest
 # Now you can connect to it:
 psql -h localhost -p 5432 -U omnigres omnigres # password is `omnigres`
 ```
+
+> [!TIP]
+> Replace `ghcr.io/omnigres/omnigres-17` with `ghcr.io/omnigres/omnigres-slim-17` if you want a smaller image.
 
 Postgres parameters such as database, user or password can be overridden as per the
 "Environment Variables" section in [postgres image instructions](https://hub.docker.com/_/postgres/)
