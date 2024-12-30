@@ -1,0 +1,9 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_kube cascade
+
+tests:
+
+# TODO: no real tests yet but we have to make sure we can at least install the extension
+- select
