@@ -31,7 +31,7 @@ from pods_with_data;
 create view pod_labels as
 select uid, name, key, value
 from pods_with_data,
-     lateral (select key, value from jsonb_each(data -> 'metadata' -> 'labels') as label(key, value));
+     lateral (select key, value from jsonb_each(data -> 'metadata' -> 'labels') as label(key, value)) as labels;
 
 create view pod_ip_addresses as
 select uid, name, ip_address
@@ -68,12 +68,12 @@ select data -> 'metadata' ->> 'name'                            as node,
        image_data ->> 'sizeBytes' as size_bytes
 from (select jsonb_array_elements((api('/api/v1/nodes'))::jsonb -> 'items') as data)
          as codes,
-     lateral (select jsonb_path_query(data, '$.status.images[*]') as image_data ) images;
+     lateral (select jsonb_path_query(data, '$.status.images[*]') as image_data ) as images;
 
 create view node_labels as
 select uid, name, key, value
 from nodes_with_data,
-     lateral (select key, value from jsonb_each(data -> 'metadata' -> 'labels') as label(key, value));
+     lateral (select key, value from jsonb_each(data -> 'metadata' -> 'labels') as label(key, value)) as labels;
 
 -- Services
 
@@ -137,7 +137,7 @@ from services_with_data,
 create view service_labels as
 select uid, name, key, value
 from services_with_data,
-     lateral (select key, value from jsonb_each(data -> 'metadata' -> 'labels') as label(key, value));
+     lateral (select key, value from jsonb_each(data -> 'metadata' -> 'labels') as label(key, value)) as labels;
 
 --- Jobs
 
@@ -178,4 +178,4 @@ from jobs_with_data;
 create view job_labels as
 select uid, name, key, value
 from jobs_with_data,
-     lateral (select key, value from jsonb_each(data -> 'metadata' -> 'labels') as label(key, value));
+     lateral (select key, value from jsonb_each(data -> 'metadata' -> 'labels') as label(key, value)) as labels;
