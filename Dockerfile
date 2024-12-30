@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1.5
 
 # Version of PostgreSQL
-ARG PG=17.2
+ARG PG=17
 # Build type
 ARG BUILD_TYPE=RelWithDebInfo
 # User name to be used for builder
@@ -134,6 +134,8 @@ EXPOSE 5432
 
 # Official PostgreSQL build
 FROM pg-slim AS pg
+ENV PG=${PG}
+RUN apt-get -y install $(apt-cache search  "^postgresql-${PG}-*" | cut -d' ' -f1 | grep -v 'hunspell' | grep -v 'citus')
 #COPY --from=plrust /var/lib/postgresql/plrust/target/release /plrust-release
 ## clear it in case it already exists
 #RUN rm -rf /docker-entrypoint-initdb.d
