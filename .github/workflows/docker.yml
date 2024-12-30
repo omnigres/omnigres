@@ -28,6 +28,7 @@ jobs:
     strategy:
       matrix:
         platform: [ amd64, arm64 ]
+        pg: [ 17, 16, 15, 14, 13 ]
 
     if: github.repository == 'omnigres/omnigres'
     runs-on: ${{ fromJSON('["warp-ubuntu-2204-x64-4x", "warp-ubuntu-2204-arm64-16x"]')[matrix.platform == 'arm64'] }}
@@ -96,7 +97,7 @@ jobs:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-${{ matrix.platform }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.pg }}:${{ github.sha }}-${{ matrix.platform }}-${{ matrix.pg }}
           provenance: false
           labels: ${{ steps.meta.outputs.labels }}
           # Currently using S3 in EU as BuildJet is in the EU and going to the U.S. may be slow
@@ -104,6 +105,7 @@ jobs:
           cache-to: type=gha,url=http://127.0.0.1:49160/
           build-args: |
             BUILD_PARALLEL_LEVEL=4
+            PG=${{ matrix.pg }}
           platforms: linux/${{ matrix.platform }}
           target: pg
 
@@ -114,13 +116,14 @@ jobs:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-slim:${{ github.sha }}-${{ matrix.platform }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-slim-${{ matrix.pg }}:${{ github.sha }}-${{ matrix.platform }}-${{ matrix.pg }}
           provenance: false
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,url=http://127.0.0.1:49160/
           cache-to: type=gha,url=http://127.0.0.1:49160/
           build-args: |
             BUILD_PARALLEL_LEVEL=4
+            PG=${{ matrix.pg }}
           platforms: linux/${{ matrix.platform }}
           target: pg-slim
 
@@ -131,13 +134,14 @@ jobs:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-dev:${{ github.sha }}-${{ matrix.platform }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-dev-${{ matrix.pg }}:${{ github.sha }}-${{ matrix.platform }}-${{ matrix.pg }}
           provenance: false
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,url=http://127.0.0.1:49160/
           cache-to: type=gha,url=http://127.0.0.1:49160/
           build-args: |
             BUILD_PARALLEL_LEVEL=4
+            PG=${{ matrix.pg }}
           platforms: linux/${{ matrix.platform }}
           target: builder
 
@@ -148,13 +152,14 @@ jobs:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
           tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-kube:${{ github.sha }}-${{ matrix.platform }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-kube-${{ matrix.pg }}:${{ github.sha }}-${{ matrix.platform }}-${{ matrix.pg }}
           provenance: false
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,url=http://127.0.0.1:49160/
           cache-to: type=gha,url=http://127.0.0.1:49160/
           build-args: |
             BUILD_PARALLEL_LEVEL=4
+            PG=${{ matrix.pg }}
           platforms: linux/${{ matrix.platform }}
           target: omnikube
 
@@ -173,6 +178,7 @@ jobs:
   manifest:
     strategy:
       matrix:
+        pg: [ 17, 16, 15, 14, 13 ]
         flavor: [ "", "-slim", "-dev","-kube" ]
 
     if: github.event_name != 'pull_request' && github.repository == 'omnigres/omnigres'
@@ -197,19 +203,19 @@ jobs:
         uses: docker/metadata-action@98669ae865ea3cffbcbaa878cf57c20bbf1c6c38
         with:
           images: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}-${{ matrix.pg }}
 
       - name: Create and push manifest images (rev)
         uses: Noelware/docker-manifest-action@master # or use a pinned version in the Releases tab
         with:
           inputs:
-            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}:${{ github.sha }}
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}:${{ github.sha }}-amd64,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}:${{ github.sha }}-arm64
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}-${{ matrix.pg }}:${{ github.sha }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}-${{ matrix.pg }}:${{ github.sha }}-amd64-${{ matrix.pg }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}-${{ matrix.pg }}:${{ github.sha }}-arm64-${{ matrix.pg }}
           push: true
 
       - name: Create and push manifest images (latest)
         uses: Noelware/docker-manifest-action@master # or use a pinned version in the Releases tab
         with:
-          inputs: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}:latest
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}:${{ github.sha }}-amd64,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}:${{ github.sha }}-arm64
+          inputs: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}-${{ matrix.pg }}:latest
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}-${{ matrix.pg }}:${{ github.sha }}-amd64-${{ matrix.pg }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}-${{ matrix.pg }}:${{ github.sha }}-arm64-${{ matrix.pg }}
           push: true
