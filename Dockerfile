@@ -135,7 +135,8 @@ EXPOSE 5432
 # Official PostgreSQL build
 FROM pg-slim AS pg
 ENV PG=${PG}
-RUN apt-get -y install $(apt-cache search  "^postgresql-${PG}-*" | cut -d' ' -f1 | grep -v 'hunspell' | grep -v 'citus')
+COPY docker/apt-pin /etc/apt/preferences.d/99-pin
+RUN apt-get -y install $(apt-cache search  "^postgresql-${PG}-*" | cut -d' ' -f1 | grep -v 'hunspell' | grep -v 'citus' | grep -v 'pgdg' | grep -v 'dbgsym')
 #COPY --from=plrust /var/lib/postgresql/plrust/target/release /plrust-release
 ## clear it in case it already exists
 #RUN rm -rf /docker-entrypoint-initdb.d
