@@ -12,5 +12,6 @@ create type postgrest_settings as
 /*{% include "../src/postgrest_get.sql" %}*/
 /*{% include "../src/postgrest_rpc.sql" %}*/
 /*{% include "../src/postgrest_insert.sql" %}*/
+/*{% include "../src/postgrest_update.sql" %}*/
 /*{% include "../src/postgrest_cors.sql" %}*/
 /*{% include "../src/postgrest.sql" %}*/

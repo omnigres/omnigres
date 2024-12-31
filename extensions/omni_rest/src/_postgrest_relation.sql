@@ -13,7 +13,7 @@ begin
         namespace := omni_http.http_header_get(request.headers, 'accept-profile');
     end if;
 
-    if request.method = 'POST' then
+    if request.method in ('POST', 'PATCH') then
         namespace := omni_http.http_header_get(request.headers, 'content-profile');
     end if;
 

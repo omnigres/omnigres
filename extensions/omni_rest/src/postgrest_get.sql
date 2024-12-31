@@ -141,7 +141,7 @@ select
                 when first_operator = 'not' then
                     jsonb_build_object('operator', 'not', 'operands', jsonb_build_array(jsonb_build_object('operator', second_operator, 'operands', jsonb_build_array(key, split_part(value, '.', 3)))))
                 when first_operator is not null then
-                    jsonb_build_object('operator', first_operator, 'operands', jsonb_build_array(key, split_part(value, '.', 2)))
+                    jsonb_build_object('operator', first_operator, 'operands', jsonb_build_array(key, (regexp_match(value, '\.(.*)'))[1]))
                 else
                     jsonb_build_object('operator', 'invalid_operator', 'operands', '[]'::jsonb)
                 end), '[]'::jsonb))
@@ -183,6 +183,89 @@ begin
 end;
 $$;
 
+/*
+ * Given a namespace, reference to a relation and a text of comma separated field names
+ * It returns an array of expressions to be used for vertical filtering.
+ */
+create function postgrest_select_columns (namespace text, relation regclass, _select text)
+    returns text[] immutable
+    language plpgsql
+    as $$
+declare
+    query_columns   text[] := array ['*'];
+    col             text;
+begin
+    if _select is not null and _select <> '' then
+        query_columns := array []::text[];
+
+
+        foreach col in array string_to_array(_select, ',')
+        loop
+
+            declare
+                col_name    text;
+                col_expr    text;
+                col_alias   text;
+                _match      text[];
+                is_col_name bool;
+            begin
+                col_expr := split_part(col, ':', 1);
+                col_alias := split_part(col, ':', 2);
+
+                _match := regexp_match(col_expr, '^([[:alpha:] _][[:alnum:] _]*)(.*)');
+                col_name := _match[1];
+                if col_name is null then
+                    raise exception 'no column specified in %', col_expr;
+                end if;
+
+                -- Check if there is such an attribute
+                perform from pg_attribute where attname = col_name and attrelid = relation and attnum > 0;
+                is_col_name := found;
+                -- If not...
+                if not is_col_name then
+                    -- Is it a function?
+                    perform
+                    from pg_proc
+                    where proargtypes[0] = relation
+                      and proname = col_name
+                      and pronamespace::text = namespace;
+                    if found then
+                        -- It is a function
+                        col_name := col_name || '((' || relation || '))';
+                    end if;
+                end if;
+                col_expr := col_name || _match[2];
+
+                if col_alias = '' then
+                    col_alias := col_expr;
+                end if;
+                if col_expr ~ '->' then
+                    -- Handle JSON expression
+                    if col_alias = col_expr then
+                        -- Update the alias if it was not set
+                        with arr as (select regexp_split_to_array(col_expr, '->>?') as data)
+                        select data[cardinality(data)]
+                        from arr
+                        into col_alias;
+                    end if;
+                    -- Rewrite the expression to match its actual syntax
+                    col_expr :=
+                            regexp_replace(col_expr, '(->>?)([[:alpha:]_][[:alnum:]_]*)(?=(->|$))', '\1''\2''',
+                                           'g');
+                    -- TODO: record access using ->
+                end if;
+                -- TODO: sanitize col_expr
+                query_columns := query_columns || (relation || '.' || col_expr || ' as "' || col_alias || '"');
+
+
+            end;
+        end loop;
+
+    end if;
+    return query_columns;
+end;
+$$;
+
 create procedure postgrest_get(request omni_httpd.http_request, outcome inout omni_httpd.http_outcome,
                                settings postgrest_settings default postgrest_settings())
     language plpgsql as
@@ -190,6 +273,7 @@ $$
 declare
     namespace text;
     query_columns   text[];
+    new_query_columns   text[];
     query     text;
     result   jsonb;
     params    text[];
@@ -217,76 +301,11 @@ begin
                      encode(digest(relation || ' ' || coalesce(request.query_string, ''), 'sha256'), 'hex');
     query := omni_var.get_session(request_cache, null::text);
     if query is null then
-
         params := omni_web.parse_query_string(request.query_string);
 
         -- Columns (vertical filtering)
-        query_columns := array ['*'];
-
         _select = omni_web.param_get(params, 'select');
-
-        if _select is not null and _select != '' then
-            query_columns := array []::text[];
-
-            foreach col in array string_to_array(_select, ',')
-                loop
-                    declare
-                        col_name    text;
-                        col_expr    text;
-                        col_alias   text;
-                        _match      text[];
-                        is_col_name bool;
-                    begin
-                        col_expr := split_part(col, ':', 1);
-                        col_alias := split_part(col, ':', 2);
-
-                        _match := regexp_match(col_expr, '^([[:alpha:] _][[:alnum:] _]*)(.*)');
-                        col_name := _match[1];
-                        if col_name is null then
-                            raise exception 'no column specified in %', col_expr;
-                        end if;
-
-                        -- Check if there is such an attribute
-                        perform from pg_attribute where attname = col_name and attrelid = relation and attnum > 0;
-                        is_col_name := found;
-                        -- If not...
-                        if not is_col_name then
-                            -- Is it a function?
-                            perform
-                            from pg_proc
-                            where proargtypes[0] = relation
-                              and proname = col_name
-                              and pronamespace::text = namespace;
-                            if found then
-                                -- It is a function
-                                col_name := col_name || '((' || relation || '))';
-                            end if;
-                        end if;
-                        col_expr := col_name || _match[2];
-
-                        if col_alias = '' then
-                            col_alias := col_expr;
-                        end if;
-                        if col_expr ~ '->' then
-                            -- Handle JSON expression
-                            if col_alias = col_expr then
-                                -- Update the alias if it was not set
-                                with arr as (select regexp_split_to_array(col_expr, '->>?') as data)
-                                select data[cardinality(data)]
-                                from arr
-                                into col_alias;
-                            end if;
-                            -- Rewrite the expression to match its actual syntax
-                            col_expr :=
-                                    regexp_replace(col_expr, '(->>?)([[:alpha:]_][[:alnum:]_]*)(?=(->|$))', '\1''\2''',
-                                                   'g');
-                            -- TODO: record access using ->
-                        end if;
-                        -- TODO: sanitize col_expr
-                        query_columns := query_columns || (relation || '.' || col_expr || ' as "' || col_alias || '"');
-                    end;
-                end loop;
-        end if;
+        query_columns := omni_rest.postgrest_select_columns(namespace, relation, _select);
 
         _where := omni_rest.postgrest_format_get_param(omni_rest.postgrest_parse_get_param(params));
 
