@@ -6,7 +6,7 @@
  *  2. public.say_hello() 
  * The call  _postgrest_function_by_arguments('public', 'say_hello', '{}') would return an array with a reference to each.
  * Meanwhile a call _postgrest_function_by_arguments('public', 'say_hello', '{message}') would return an array with only one reference to function 1.
- */ 
+ */
 create or replace function _postgrest_function_by_arguments(namespace text, function_name text, function_arguments text[])
     returns regproc[]
     language sql

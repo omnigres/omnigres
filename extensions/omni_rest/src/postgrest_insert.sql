@@ -86,7 +86,7 @@ begin
             query :=
                     format(
                             'insert into %1$I.%2$I select * from jsonb_populate_recordset(null::%1$I.%2$I, %3$L::jsonb) %4$s',
-                           namespace,
+                            namespace,
                             (select relname from pg_class where oid = relation),
                             payload::json,
                             case when _return = 'representation' then 'returning *' else '' end);
