@@ -1,0 +1,3 @@
+Package: postgresql-*
+Pin: release o=Pigsty
+Pin-Priority: 700
