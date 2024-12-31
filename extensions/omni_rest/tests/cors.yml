@@ -1,0 +1,61 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+    max_worker_processes: 64
+  init:
+  - set session omni_httpd.init_port = 0
+  - create extension omni_httpd cascade
+  - create extension omni_httpc cascade
+  # FIXME: waiting for two reloads is working around a startup bug in omni_httpd
+  - call omni_httpd.wait_for_configuration_reloads(2)
+  - create extension omni_rest cascade
+  - |
+    create
+        or
+        replace function omni_httpd.handler(int, omni_httpd.http_request) returns omni_httpd.http_outcome
+        language plpgsql
+    as
+    $$
+    declare
+        req omni_httpd.http_request;
+        resp omni_httpd.http_outcome;
+    begin
+        req := $2;
+        call omni_rest.postgrest(req, resp);
+        if resp is not distinct from null then
+            resp := omni_httpd.http_response(status => 404);
+        end if;
+        return resp;
+    end;
+    $$
+  - |
+    create function make_request(path text, method omni_http.http_method default 'GET') returns setof omni_httpc.http_response
+        language sql as
+    $$
+    select *
+    from omni_httpc.http_execute(
+            omni_httpc.http_request('http://127.0.0.1:' ||
+                                    (select effective_port from omni_httpd.listeners) ||
+                                    path, method => method,
+                                    headers => array [omni_http.http_header('origin', 'http://example.com')]))
+    $$
+
+tests:
+
+- name: simple listing
+  query: |
+    with response as (select * from make_request('/', method => 'OPTIONS'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name not in ('server', 'content-length', 'connection', 'transfer-encoding')) as headers
+    from response
+  results:
+  - status: 200
+    headers:
+    - access-control-allow-origin: http://example.com
+    - access-control-allow-credentials: true
+    - access-control-allow-methods: GET, POST, PATCH, PUT, DELETE, OPTIONS, HEAD
+    - access-control-allow-headers: Authorization, Content-Type, Accept, Accept-Language, Content-Language
+    - access-control-max-age: 86400

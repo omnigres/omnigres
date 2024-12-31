@@ -1,0 +1,474 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+    max_worker_processes: 64
+  init:
+  - set session omni_httpd.init_port = 0
+  - create extension omni_httpd cascade
+  - create extension omni_httpc cascade
+  # FIXME: waiting for two reloads is working around a startup bug in omni_httpd
+  - call omni_httpd.wait_for_configuration_reloads(2)
+  - create extension omni_rest cascade
+  - create schema app
+  - create schema app1
+  - |
+    create
+        or
+        replace function omni_httpd.handler(int, omni_httpd.http_request) returns omni_httpd.http_outcome
+        language plpgsql
+    as
+    $$
+    declare
+        req omni_httpd.http_request;
+        resp omni_httpd.http_outcome;
+    begin
+        req := $2;
+        call omni_rest.postgrest(req, resp, omni_rest.postgrest_settings(schemas => '{app, app1}'));
+        if resp is not distinct from null then
+            resp := omni_httpd.http_response(status => 404);
+        end if;
+        return resp;
+    end;
+    $$
+  - |
+    create function make_request(path text, headers omni_http.http_headers default array []::omni_http.http_headers, method omni_http.http_method default 'GET') returns setof omni_httpc.http_response
+        language sql as
+    $$
+    select *
+    from omni_httpc.http_execute(
+            omni_httpc.http_request('http://127.0.0.1:' ||
+                                    (select effective_port from omni_httpd.listeners) ||
+                                    path, headers => headers, method => method))
+    $$
+  - |
+    create table app.users
+    (
+        id           serial primary key,
+        name         text,
+        email        text,
+        profile_info jsonb
+    )
+  - insert into app.users (id, name, email)
+    values (1, 'John Doe', 'john@doe.com')
+  - insert into app.users (id, name, email)
+    values (2, 'Jane Doe', 'jane@doe.com')
+
+tests:
+
+- name: Error case for invalid operator
+  query: |
+    with response as (select * from make_request('/users?id=non_existing_operator.1'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name not in ('server', 'content-length', 'connection')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 400
+    headers:
+    - content-type: application/json
+    body:
+     hint: ""
+     detail: ""
+     message: "syntax error at or near \"invalid_operator\""
+
+- name: Error case for filtering on non existing attributte
+  query: |
+    with response as (select * from make_request('/users?non_existing=eq.1'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name not in ('server', 'content-length', 'connection')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 400
+    headers:
+    - content-type: application/json
+    body:
+     hint: ""
+     detail: ""
+     message: "column \"non_existing\" does not exist"
+
+- name: Empty result
+  query: |
+    with response as (select * from make_request('/users?id=eq.3'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name not in ('server', 'content-length', 'connection')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-range: 0-0/*
+    - content-type: application/json
+    body: []
+
+- name: Equality operator
+  query: |
+    with response as (select * from make_request('/users?id=eq.1'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name not in ('server', 'content-length', 'connection')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-range: 0-1/*
+    - content-type: application/json
+    body:
+    - id: 1
+      name: John Doe
+      email: john@doe.com
+      profile_info: null
+
+- name: Multiple comparisons
+  query: |
+    with response as (select * from make_request('/users?id=eq.1&name=eq.John+Doe'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name not in ('server', 'content-length', 'connection')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-range: 0-1/*
+    - content-type: application/json
+    body:
+    - id: 1
+      name: John Doe
+      email: john@doe.com
+      profile_info: null
+
+- name: Not equal
+  query: |
+    with response as (select * from make_request('/users?id=neq.1'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name not in ('server', 'content-length', 'connection')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-range: 0-1/*
+    - content-type: application/json
+    body:
+    - id: 2
+      name: Jane Doe
+      email: jane@doe.com
+      profile_info: null
+
+- name: Is distinct from
+  query: |
+    with response as (select * from make_request('/users?id=isdistinct.1'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name not in ('server', 'content-length', 'connection')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-range: 0-1/*
+    - content-type: application/json
+    body:
+    - id: 2
+      name: Jane Doe
+      email: jane@doe.com
+      profile_info: null
+
+- name: Inequality operators (lt & gt)
+  query: |
+    with response as (select * from make_request('/users?id=gt.1&name=lt.John+Doe'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name not in ('server', 'content-length', 'connection')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-range: 0-1/*
+    - content-type: application/json
+    body:
+    - id: 2
+      name: Jane Doe
+      email: jane@doe.com
+      profile_info: null
+
+- name: Inequality operators (lte & gte)
+  query: |
+    with response as (select * from make_request('/users?id=gte.1&name=lte.John+Doe&order=id'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name not in ('server', 'content-length', 'connection')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-range: 0-2/*
+    - content-type: application/json
+    body:
+    - id: 1
+      name: John Doe
+      email: john@doe.com
+      profile_info: null
+    - id: 2
+      name: Jane Doe
+      email: jane@doe.com
+      profile_info: null
+
+          
+- name: Like operator
+  query: |
+    with response as (select * from make_request('/users?name=like.%Doe%&order=id'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name not in ('server', 'content-length', 'connection')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-range: 0-2/*
+    - content-type: application/json
+    body:
+    - id: 1
+      name: John Doe
+      email: john@doe.com
+      profile_info: null
+    - id: 2
+      name: Jane Doe
+      email: jane@doe.com
+      profile_info: null
+
+- name: Ilike operator
+  query: |
+    with response as (select * from make_request('/users?name=ilike.%doe%&order=id'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name not in ('server', 'content-length', 'connection')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-range: 0-2/*
+    - content-type: application/json
+    body:
+    - id: 1
+      name: John Doe
+      email: john@doe.com
+      profile_info: null
+    - id: 2
+      name: Jane Doe
+      email: jane@doe.com
+      profile_info: null
+
+- name: Match operator
+  query: |
+    with response as (select * from make_request('/users?name=match.Doe&order=id'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name not in ('server', 'content-length', 'connection')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-range: 0-2/*
+    - content-type: application/json
+    body:
+    - id: 1
+      name: John Doe
+      email: john@doe.com
+      profile_info: null
+    - id: 2
+      name: Jane Doe
+      email: jane@doe.com
+      profile_info: null
+
+- name: Imatch operator
+  query: |
+    with response as (select * from make_request('/users?name=imatch.doe&order=id'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name not in ('server', 'content-length', 'connection')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-range: 0-2/*
+    - content-type: application/json
+    body:
+    - id: 1
+      name: John Doe
+      email: john@doe.com
+      profile_info: null
+    - id: 2
+      name: Jane Doe
+      email: jane@doe.com
+      profile_info: null
+
+- name: Logical not operator
+  query: |
+    with response as (select * from make_request('/users?id=not.eq.1'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name not in ('server', 'content-length', 'connection')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-range: 0-1/*
+    - content-type: application/json
+    body:
+    - id: 2
+      name: Jane Doe
+      email: jane@doe.com
+      profile_info: null
+
+- name: Logical or operator
+  query: |
+    with response as (select * from make_request('/users?or=(id.eq.1,id.eq.2)'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name not in ('server', 'content-length', 'connection')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-range: 0-2/*
+    - content-type: application/json
+    body:
+    - id: 1
+      name: John Doe
+      email: john@doe.com
+      profile_info: null
+    - id: 2
+      name: Jane Doe
+      email: jane@doe.com
+      profile_info: null
+
+- name: Logical and operator
+  query: |
+    with response as (select * from make_request('/users?and=(id.eq.1,name.imatch.doe)'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name not in ('server', 'content-length', 'connection')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-range: 0-1/*
+    - content-type: application/json
+    body:
+    - id: 1
+      name: John Doe
+      email: john@doe.com
+      profile_info: null
+
+- name: Logical not.and operator
+  query: |
+    with response as (select * from make_request('/users?not.and=(id.eq.1,name.imatch.doe)'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name not in ('server', 'content-length', 'connection')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-range: 0-1/*
+    - content-type: application/json
+    body:
+    - id: 2
+      name: Jane Doe
+      email: jane@doe.com
+      profile_info: null
+
+- name: Logical not.or operator
+  query: |
+    with response as (select * from make_request('/users?not.or=(id.eq.1,name.imatch.doe)'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name not in ('server', 'content-length', 'connection')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-range: 0-0/*
+    - content-type: application/json
+    body: []
+
+- name: Logical operator nesting
+  query: |
+    with response as (select * from make_request('/users?order=id&or=(or(id.eq.1,id.eq.2),not.or(id.eq.1,name.imatch.doe))'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name not in ('server', 'content-length', 'connection')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-range: 0-2/*
+    - content-type: application/json
+    body:
+    - id: 1
+      name: John Doe
+      email: john@doe.com
+      profile_info: null
+    - id: 2
+      name: Jane Doe
+      email: jane@doe.com
+      profile_info: null
+
+- name: Filter by value containing a dot '.'
+  query: |
+    with response as (select * from make_request('/users?email=eq.john@doe.com'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name not in ('server', 'content-length', 'connection')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-range: 0-1/*
+    - content-type: application/json
+    body:
+    - id: 1
+      name: John Doe
+      email: john@doe.com
+      profile_info: null

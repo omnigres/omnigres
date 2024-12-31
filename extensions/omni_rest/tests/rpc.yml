@@ -1,0 +1,279 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+    max_worker_processes: 64
+  init:
+  - set session omni_httpd.init_port = 0
+  - create extension omni_httpd cascade
+  - create extension omni_httpc cascade
+  # FIXME: waiting for two reloads is working around a startup bug in omni_httpd
+  - call omni_httpd.wait_for_configuration_reloads(2)
+  - create extension omni_rest cascade
+  - create schema app
+  - |
+    create
+        or
+        replace function omni_httpd.handler(int, omni_httpd.http_request) returns omni_httpd.http_outcome
+        language plpgsql
+    as
+    $$
+    declare
+        req omni_httpd.http_request;
+        resp omni_httpd.http_outcome;
+    begin
+        req := $2;
+        call omni_rest.postgrest(req, resp, omni_rest.postgrest_settings(schemas => '{app}'));
+        if resp is not distinct from null then
+            resp := omni_httpd.http_response(status => 404);
+        end if;
+        return resp;
+    end;
+    $$
+  - |
+      create function make_request(path text, headers omni_http.http_headers default array []::omni_http.http_headers, method omni_http.http_method default 'GET', body jsonb default null::jsonb) returns setof omni_httpc.http_response
+        language sql as
+      $$
+      select *
+      from omni_httpc.http_execute(
+              omni_httpc.http_request('http://127.0.0.1:' ||
+                                      (select effective_port from omni_httpd.listeners) ||
+      path, headers => headers, method => method, body => convert_to(body::text, 'utf8')))
+      $$
+  - |
+    create function app.ping() returns text language sql as $$ SELECT 'pong'; $$;
+  - |
+    create function app.two_parameters(a int, b text) returns text language sql as $$ SELECT format('int %1$L and text %2$L', a, b); $$;
+  - |
+    create function app.two_or_three_parameters(a int, b text) returns text language sql as $$ SELECT format('int %1$L and text %2$L and optional missing', a, b); $$;
+  - |
+    create function app.two_or_three_parameters(a int, b text, c text default 'three') returns text language sql as $$ SELECT format('int %1$L and text %2$L and optional %3$L', a, b, c); $$;
+  - |
+    create table app.users (email text primary key, name text not null);
+  - |
+    create function app.side_effect() returns void language sql as $$ insert into app.users values (gen_random_uuid() || '@bar.com', 'foobar'); $$;
+  - |
+    create function app.return_composite() returns app.users
+        language sql as
+    $$
+    select *
+    from (values ('john@doe.com', 'John Doe')) t;
+    $$;
+  - |
+    create function app.srf() returns setof app.users
+        language sql as
+    $$
+    select *
+    from (values ('jane@doe.com', 'Jane Doe'), ('john@doe.com', 'John Doe')) t;
+    $$;
+
+tests:
+
+- name: Error case for function not found
+  query: |
+    with response as (select * from make_request('/rpc/non_existing_function'))
+    select response.status
+    from response
+  results:
+  - status: 404
+
+- name: Single text result
+  query: |
+    with response as (select * from make_request('/rpc/ping'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name in ('content-type')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-type: application/json
+    body: "pong"
+
+- name: No match when adding spurious parameters
+  query: |
+    with response as (select * from make_request('/rpc/ping?non_existing_parameter=true'))
+    select response.status
+    from response
+  results:
+  - status: 404
+
+- name: Two mandatory parameters
+  query: |
+    with response as (select * from make_request('/rpc/two_parameters?a=1&b=two'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name in ('content-type')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-type: application/json
+    body: "int '1' and text 'two'"
+
+- name: Two mandatory parameters and one optional missing when function is overloaded
+  query: |
+    with response as (select * from make_request('/rpc/two_or_three_parameters?a=1&b=two'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name in ('content-type')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 400
+    headers:
+    - content-type: application/json
+    body:
+      hint: "Could not choose a best candidate function. You might need to add explicit type casts."
+      detail: ""
+      message: "function app.two_or_three_parameters(a => integer, b => text) is not unique"
+
+- name: Two mandatory parameters and one optional passed when function is overloaded
+  query: |
+    with response as (select * from make_request('/rpc/two_or_three_parameters?a=1&b=two&c=three'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name in ('content-type')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-type: application/json
+    body: "int '1' and text 'two' and optional 'three'"
+
+- name: Two mandatory parameters and one optional passed out of order when function is overloaded
+  query: |
+    with response as (select * from make_request('/rpc/two_or_three_parameters?b=two&a=1&c=three'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name in ('content-type')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-type: application/json
+    body: "int '1' and text 'two' and optional 'three'"
+
+- name: Two mandatory parameters and one optional in a POST request
+  query: |
+      with response as (select * from make_request('/rpc/two_or_three_parameters', method => 'POST', body => '{"b": "two", "a": 1, "c": "three"}'))
+      select response.status,
+             (select json_agg(json_build_object(h.name, h.value))
+              from unnest(response.headers) h
+              where h.name in ('content-type')) as headers,
+             convert_from(response.body, 'utf-8')::json                       as body
+      from response
+  results:
+  - status: 200
+    headers:
+    - content-type: application/json
+    body: "int '1' and text 'two' and optional 'three'"
+
+- name: Try to execute function with side effects in a GET request
+  query: |
+    with response as (select * from make_request('/rpc/side_effect'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name in ('content-type')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 400
+    headers:
+    - content-type: application/json
+    body: 
+      hint: ""
+      detail: ""
+      message: "cannot execute INSERT in a read-only transaction"
+
+- name: Try to execute function with side effects in a POST request
+  query: |
+    with response as (select * from make_request('/rpc/side_effect', method => 'POST', body => '{}'))
+    select response.status
+    from response
+  results:
+  - status: 200
+
+- name: Return composite values from GET
+  query: |
+    with response as (select * from make_request('/rpc/return_composite'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name in ('content-type')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-type: application/json
+    body: 
+      name: "John Doe"
+      email: "john@doe.com"
+
+- name: Return composite values from POST
+  query: |
+    with response as (select * from make_request('/rpc/return_composite', method => 'POST', body => '{}'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name in ('content-type')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-type: application/json
+    body: 
+      name: "John Doe"
+      email: "john@doe.com"
+
+- name: Return set of values from GET
+  query: |
+    with response as (select * from make_request('/rpc/srf'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name in ('content-type', 'content-range')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-range: 0-2/*
+    - content-type: application/json
+    body:
+    - name: Jane Doe
+      email: jane@doe.com
+    - name: John Doe
+      email: john@doe.com
+
+- name: Return set of values from POST
+  query: |
+    with response as (select * from make_request('/rpc/srf', method => 'POST', body => '{}'))
+    select response.status,
+           (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name in ('content-type', 'content-range')) as headers,
+           convert_from(response.body, 'utf-8')::json                       as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-range: 0-2/*
+    - content-type: application/json
+    body:
+    - name: Jane Doe
+      email: jane@doe.com
+    - name: John Doe
+      email: john@doe.com

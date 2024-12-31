@@ -186,6 +186,7 @@ Below is the current list of components being worked on, experimented with and d
 | [omni_xml](extensions/omni_xml/README.md)                                                | :white_check_mark: First release candidate   | XML toolkit                                           |
 | [omni_http](extensions/omni_http/README.md)                                              | :white_check_mark: First release candidate   | Common HTTP types library                             |
 | [omni_httpd](extensions/omni_httpd/README.md), [omni_web](extensions/omni_web/README.md) | :white_check_mark: First release candidate   | Serving HTTP in Postgres and building services in SQL |
+| [omni_rest](extensions/omni_rest/README.md)                                              | :white_check_mark: First release candidate   | Out-of-the-box REST API provider                      |
 | [omni_session](extensions/omni_session/README.md)                                        | :white_check_mark: First release candidate   | Session management                                    |
 | [omni_mimetypes](extensions/omni_mimetypes/README.md)                                    | :white_check_mark: First release candidate   | MIME types and file extensions                        |
 | [omni_httpc](extensions/omni_httpc/README.md)                                            | :white_check_mark: First release candidate   | HTTP client                                           |
