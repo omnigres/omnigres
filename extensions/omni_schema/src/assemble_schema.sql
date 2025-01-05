@@ -250,7 +250,7 @@ begin
                                         where id = rec.id
                                         returning filepath, code into _filepath, _code;
                                         raise notice '%', json_build_object('type', 'error', 'message',
-                                                                            'Completed', 'code', _code,
+                                                                            sqlerrm, 'code', _code,
                                                                             'file', _filepath);
                                         -- go to next file if statement execution fails to preserve serial execution of statements in a file
                                         continue file;
