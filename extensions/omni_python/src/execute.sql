@@ -3,6 +3,7 @@ create function execute(code text) returns void
 as
 $$
     import os
+    import importlib
     site_packages = os.path.expanduser(
         plpy.execute(plpy.prepare("""
                      select coalesce(
@@ -11,8 +12,12 @@ $$
                         as value
        """))[0]['value'])
     import sys
-    sys.path.insert(0, site_packages)
+
+    if sys.path[0] != site_packages:
+        sys.path.insert(0, site_packages)
+    importlib.invalidate_caches()
     del sys
     del os
+    del importlib
     exec(compile(code, 'unnamed.py', 'exec'), globals(), locals())
 $$;

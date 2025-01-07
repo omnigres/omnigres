@@ -5,6 +5,7 @@ import typing
 import types
 import sys
 import hashlib
+import importlib
 
 # types.UnionType has only been available since Python 3.10
 if sys.version_info >= (3, 10):
@@ -20,7 +21,11 @@ site_packages = os.path.expanduser(
                         as value
        """))[0]['value'])
 
-sys.path.insert(0, site_packages)
+if sys.path[0] != site_packages:
+    sys.path.insert(0, site_packages)
+
+importlib.invalidate_caches()
+
 import omni_python
 
 have_omni_vfs = False
