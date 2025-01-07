@@ -16,6 +16,7 @@ declare
     current_filename                text;
     successful_statement_executions int     = 0;
     error_message                   text;
+    error_detail text;
     try_again                       boolean = false;
 begin
     -- statement execution status
@@ -244,13 +245,14 @@ begin
                                     try_again = true;
                                 exception
                                     when others then
-                                        get stacked diagnostics error_message = message_text;
+                                        get stacked diagnostics error_message = message_text, error_detail = pg_exception_detail;
                                         update omni_schema_execution_status
                                         set last_execution_error = error_message
                                         where id = rec.id
                                         returning filepath, code into _filepath, _code;
                                         raise notice '%', json_build_object('type', 'error', 'message',
-                                                                            sqlerrm, 'code', _code,
+                                                                            sqlerrm, 'detail', error_detail, 'code',
+                                                                            _code,
                                                                             'file', _filepath);
                                         -- go to next file if statement execution fails to preserve serial execution of statements in a file
                                         continue file;
