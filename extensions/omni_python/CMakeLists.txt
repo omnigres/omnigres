@@ -15,5 +15,6 @@ add_postgresql_extension(
         SCHEMA omni_python
         RELOCATABLE false
         REQUIRES plpython3u
+        SOURCES omni_python.c
         TESTS_REQUIRE omni_httpd
 )

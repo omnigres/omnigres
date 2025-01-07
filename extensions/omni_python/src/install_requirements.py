@@ -21,7 +21,8 @@ index = plpy.execute(
 
 find_links = plpy.execute(
     plpy.prepare(
-        "select array_agg(value) as value from omni_python.config where name = 'pip_find_links'"))[0][
+        "select array_agg(value) as value from (select value from omni_python.config where name = 'pip_find_links' union all select * from omni_python.wheel_paths()) t"))[
+                 0][
                  'value'] or []
 
 requirements_txt = tempfile.mktemp()
