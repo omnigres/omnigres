@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.1.1] - TBD
 
+### Changed
+
+* Bundle Python wheels into the pkglibdir [#736](https://github.com/omnigres/omnigres/pull/736)
+
 ## [0.1.0] - 2024-03-05
 
 Initial release following a few months of iterative development.

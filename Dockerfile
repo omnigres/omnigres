@@ -92,16 +92,18 @@ ENV POSTGRES_DB=omnigres
 ENV POSTGRES_USER=omnigres
 ENV POSTGRES_PASSWORD=omnigres
 COPY --from=build /build/packaged /omni
+# need versions.txt to pick versions
+COPY --from=build /omni/versions.txt /omni/versions.txt
 COPY --from=build /build/python-index /python-packages
 COPY --from=build /build/python-wheels /python-wheels
+RUN mkdir -p $(pg_config --pkglibdir)/omni_python--$(grep "^omni_python=" /omni/versions.txt | cut -d "=" -f2)
+RUN mv /python-wheels/* $(pg_config --pkglibdir)/omni_python--$(grep "^omni_python=" /omni/versions.txt | cut -d "=" -f2)
 # clear it in case it already exists
 RUN rm -rf /docker-entrypoint-initdb.d
 # copy template files, substituted later
 COPY docker/initdb-slim/* /docker-entrypoint-initdb.d/
 RUN cp -R /omni/extension $(pg_config --sharedir)/ && cp -R /omni/*.so $(pg_config --pkglibdir)/
 RUN apt-get update && apt-get -y install libtclcl1 libpython3.11 libperl5.36 gettext
-# need versions.txt to pick omni version
-COPY --from=build /omni/versions.txt /omni/versions.txt
 # replace env variables in init scripts using envsubst
 RUN <<EOF
 # export variables used in template files
