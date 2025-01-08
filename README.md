@@ -35,7 +35,7 @@ The fastest way to try Omnigres out is by using its [container image](https://gi
 ```shell
 docker volume create omnigres
 docker run --name omnigres --mount source=omnigres,target=/var/lib/postgresql/data \
-           -p 127.0.0.1:5432:5432 -p 127.0.0.1:8080:8080 --rm ghcr.io/omnigres/omnigres-17:latest
+           -p 127.0.0.1:5432:5432 -p 127.0.0.1:8080:8080 -p 127.0.0.1:8081:8081 --rm ghcr.io/omnigres/omnigres-17:latest
 # Now you can connect to it:
 psql -h localhost -p 5432 -U omnigres omnigres # password is `omnigres`
 ```
@@ -46,7 +46,7 @@ psql -h localhost -p 5432 -U omnigres omnigres # password is `omnigres`
 Postgres parameters such as database, user or password can be overridden as per the
 "Environment Variables" section in [postgres image instructions](https://hub.docker.com/_/postgres/)
 
-You can access the HTTP server at [localhost:8080](http://localhost:8080)
+You can access the default HTTP server at [localhost:8081](http://localhost:8081)
 
 ### Building your own image
 
@@ -76,7 +76,7 @@ Below, we'll show examples in Python and plain SQL (or PL/pgSQL). Support for
 more languages is coming!
 
 ```shell
-$ curl localhost:8080
+$ curl localhost:8081
 Hello, world!
 ```
 
@@ -131,7 +131,7 @@ set
 Now, let's make it more personal and let it greet the requester by name.
 
 ```shell
-$ curl "localhost:8080?name=John"
+$ curl "localhost:8081?name=John"
 Hello, John!
 ```
 
