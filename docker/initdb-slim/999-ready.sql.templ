@@ -1,0 +1,3 @@
+update omni_httpd.listeners set port = 8081;
+
+create function is_omnigres_ready() returns boolean language sql as $$ select effective_port is not null from omni_httpd.listeners  $$;

@@ -216,3 +216,4 @@ ENTRYPOINT ["omnigres-entrypoint.sh"]
 CMD ["postgres"]
 EXPOSE 22
 EXPOSE 5432
+EXPOSE 8081
