@@ -3,4 +3,4 @@ create function install_requirements(requirements text) returns void
 as
 $$
 /*{% include "../src/install_requirements.py" %}*/
-$$
+$$;
