@@ -16,14 +16,22 @@ psql -h localhost -p 5432 -U omnigres omnigres # password is `omnigres`
 
 You can access the HTTP server at [localhost:8080](http://localhost:8080)
 
-??? warning "Why is the container image so large?"
+??? tip "What if I need other extensions?"
 
-    We included a significant amount extension, currently sourced from [Pigsty](https://pigsty.io/)
+    Currently, the image ships only base and Omnigres extensions and we're planning to add more
+    "import" extensions pre-installed.
 
-    However, if you want a smaller image and don't need all of them, use the __slim__ flavor:
+    We included a significant amount of extensions, currently sourced from [Pigsty](https://pigsty.io/)
+    into the "extra" image: 
 
     ```
-    ghcr.io/omnigres/omnigres-slim-17:latest
+    ghcr.io/omnigres/omnigres-extra-17:latest
+    ```
+
+    You can also use `apt` to install more extensions by executing in the running container:
+
+    ```shell
+    docker exec -ti <container name> apt-get -y install postgresql-17-<extension name>
     ```
 
 ### Building your own image

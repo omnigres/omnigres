@@ -87,7 +87,7 @@ docker run --name omnigres \
            -e POSTGRES_USER=omnigres \
            -e POSTGRES_DB=omnigres \
            --mount source=omnigres,target=/var/lib/postgresql/data -v $(pwd)/python-files:/python-files \
-           -p 127.0.0.1:5433:5432 --rm ghcr.io/omnigres/omnigres-slim-17:latest
+           -p 127.0.0.1:5433:5432 --rm ghcr.io/omnigres/omnigres-17:latest
 ```
 
 Let's try it out!
@@ -207,7 +207,7 @@ docker run --name omnigres \
            -e POSTGRES_DB=omnigres \
            --mount source=omnigres,target=/var/lib/postgresql/data -v $(pwd)/python-files:/python-files \
            -p 127.0.0.1:5450:5432 -p 127.0.0.1:8000:8000 \
-           --rm ghcr.io/omnigres/omnigres-slim-17:latest
+           --rm ghcr.io/omnigres/omnigres-17:latest
 ```
 
 Setup HTTP handler for out Flask application:
