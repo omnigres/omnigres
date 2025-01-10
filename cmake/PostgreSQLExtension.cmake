@@ -143,7 +143,7 @@ endfunction()
 
 function(add_postgresql_extension NAME)
     set(_optional SHARED_PRELOAD PRIVATE UNVERSIONED_SO NO_DEFAULT_CONTROL)
-    set(_single VERSION ENCODING SCHEMA RELOCATABLE TESTS SUPERUSER TARGET)
+    set(_single VERSION ENCODING SCHEMA RELOCATABLE TESTS SUPERUSER TARGET COMMENT)
     set(_multi SOURCES REQUIRES TESTS_REQUIRE REGRESS DEPENDS_ON UPGRADE_SCRIPTS)
     cmake_parse_arguments(_ext "${_optional}" "${_single}" "${_multi}" ${ARGN})
 
@@ -313,6 +313,7 @@ $<$<BOOL:${_ext_SUPERUSER}>:#>superuser = ${_ext_SUPERUSER}
         OUTPUT ${_default_control_file}
         CONTENT
         "default_version = '${_ext_VERSION}'
+$<$<NOT:$<BOOL:${_ext_COMMENT}>>:#>comment = '${_ext_COMMENT}'
 ")
     # Packaged default control file
     if(NOT ${_ext_PRIVATE})

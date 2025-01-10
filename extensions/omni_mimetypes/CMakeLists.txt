@@ -13,5 +13,6 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_mimetypes
+        COMMENT "MIME types"
         SCHEMA omni_mimetypes
         RELOCATABLE false)

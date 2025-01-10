@@ -13,5 +13,6 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_service
+        COMMENT "Service management"
         SCHEMA omni_service
         RELOCATABLE false)

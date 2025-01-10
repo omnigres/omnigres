@@ -12,6 +12,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_os
+        COMMENT "Operating system integration"
         SCHEMA omni_os
         RELOCATABLE false
         SUPERUSER true

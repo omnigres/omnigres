@@ -45,6 +45,7 @@ add_postgresql_extension(
 
 add_postgresql_extension(
         omni_manifest
+        COMMENT "Package installation manifests"
         SCHEMA omni_manifest
         TESTS_REQUIRE omni_manifest_test_1 omni_manifest_test_2 omni_manifest_test_1_2 omni_manifest_test_2_2
         RELOCATABLE false)

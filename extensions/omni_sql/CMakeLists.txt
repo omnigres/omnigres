@@ -23,6 +23,7 @@ if(NOT DEFINED ENV{OMNI_SQL_ALREADY_INCLUDED})
 
     add_postgresql_extension(
             omni_sql
+            COMMENT "Programmatic SQL manipulation"
             SCHEMA omni_sql
             RELOCATABLE false
             SOURCES omni_sql.c

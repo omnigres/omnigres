@@ -13,6 +13,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_schema
+        COMMENT "Advanced schema management tooling"
         SCHEMA omni_schema
         RELOCATABLE false
         REQUIRES omni_sql omni_vfs dblink

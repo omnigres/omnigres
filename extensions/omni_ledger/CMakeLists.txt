@@ -12,6 +12,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_ledger
+        COMMENT "Financial ledger"
         SCHEMA omni_ledger
         SOURCES omni_ledger.c
         REQUIRES omni_id omni_polyfill

@@ -12,6 +12,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_var
+        COMMENT "Scoped variables"
         SCHEMA omni_var
         RELOCATABLE false
         SOURCES omni_var.c txn.c session.c statement.c

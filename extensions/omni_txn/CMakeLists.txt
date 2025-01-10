@@ -12,6 +12,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_txn
+        COMMENT "Transaction management"
         SCHEMA omni_txn
         RELOCATABLE false
         SOURCES omni_txn.c retry.c linearization.c

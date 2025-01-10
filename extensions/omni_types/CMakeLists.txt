@@ -16,6 +16,7 @@ endif ()
 
 add_postgresql_extension(
         omni_types
+        COMMENT "Advanced types"
         SCHEMA omni_types
         RELOCATABLE false
         SOURCES omni_types.c unit.c sum_type.c funsig_type.c
