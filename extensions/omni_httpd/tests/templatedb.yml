@@ -1,0 +1,20 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+    max_worker_processes: 64
+  init:
+  - create database testdb
+  - update pg_database set datistemplate = true where datname = 'testdb'
+  - query: create extension omni_httpd cascade
+    database: testdb
+  # Give it some time to avoid missing the wrong behavior
+  - query: select pg_sleep(0.5)
+    database: testdb
+
+tests:
+- name: no effective port (because we're not listening)
+  database: testdb
+  query: select count(*) from omni_httpd.listeners where effective_port != 0
+  results:
+  - count: 0
