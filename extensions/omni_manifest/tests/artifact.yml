@@ -10,20 +10,20 @@ tests:
   - name: text to artifact
     query: |
       with
-          artifact as (select ('omni_test=1.2#req=2'::text::omni_manifest.artifact).*)
+          artifact as (select ('omni__test=1.2#req=2'::text::omni_manifest.artifact).*)
       select
           (self).*,
           requirements::text
       from
           artifact
     results:
-    - name: omni_test
+    - name: omni__test
       version: 1.2
       requirements: req=2
   - name: text to artifacts
     query: |
       with
-          artifact as (select * from unnest(e'omni_test=1.2#req=2\nreq=2#base=0'::text::omni_manifest.artifact[]))
+          artifact as (select * from unnest(e'omni__test=1.2#req=2\nreq=2#base=0'::text::omni_manifest.artifact[]))
       select
           (self).*,
           requirements::text
@@ -32,7 +32,7 @@ tests:
       order by
           name
     results:
-    - name: omni_test
+    - name: omni__test
       version: 1.2
       requirements: req=2
     - name: req
@@ -41,7 +41,7 @@ tests:
   - name: text to artifacts
     query: |
       with
-          artifact as (select * from unnest(e'omni_test=1.2#req=2\nreq=2#base=0'::text::omni_manifest.artifact[]))
+          artifact as (select * from unnest(e'omni__test=1.2#req=2\nreq=2#base=0'::text::omni_manifest.artifact[]))
       select
           (self).*,
           requirements::text
@@ -50,7 +50,7 @@ tests:
       order by
           name
     results:
-    - name: omni_test
+    - name: omni__test
       version: 1.2
       requirements: req=2
     - name: req
@@ -60,7 +60,7 @@ tests:
   - name: text to artifacts (semicolon instead of newline)
     query: |
       with
-          artifact as (select * from unnest('omni_test=1.2#req=2;req=2#base=0'::text::omni_manifest.artifact[]))
+          artifact as (select * from unnest('omni__test=1.2#req=2;req=2#base=0'::text::omni_manifest.artifact[]))
       select
           (self).*,
           requirements::text
@@ -69,7 +69,7 @@ tests:
       order by
           name
     results:
-    - name: omni_test
+    - name: omni__test
       version: 1.2
       requirements: req=2
     - name: req
@@ -79,7 +79,7 @@ tests:
   - name: text to artifacts (superfluous newline tolerance)
     query: |
       with
-          artifact as (select * from unnest(e'omni_test=1.2#req=2\nreq=2#base=0\n'::text::omni_manifest.artifact[]))
+          artifact as (select * from unnest(e'omni__test=1.2#req=2\nreq=2#base=0\n'::text::omni_manifest.artifact[]))
       select
           (self).*,
           requirements::text
@@ -88,7 +88,7 @@ tests:
       order by
           name
     results:
-    - name: omni_test
+    - name: omni__test
       version: 1.2
       requirements: req=2
     - name: req
@@ -96,17 +96,17 @@ tests:
       requirements: base=0
 
   - name: artifact to text
-    query: select 'omni_test=1.2#req=2'::text::omni_manifest.artifact::text as artifact
+    query: select 'omni__test=1.2#req=2'::text::omni_manifest.artifact::text as artifact
     results:
-    - artifact: omni_test=1.2#req=2
+    - artifact: omni__test=1.2#req=2
   - name: artifacts to text
-    query: select e'omni_test=1.2#req=2\nreq=2#base=0'::text::omni_manifest.artifact[]::text as artifact
+    query: select e'omni__test=1.2#req=2\nreq=2#base=0'::text::omni_manifest.artifact[]::text as artifact
     results:
-    - artifact: omni_test=1.2#req=2;req=2#base=0
+    - artifact: omni__test=1.2#req=2;req=2#base=0
   - name: artifacts to text
-    query: select e'omni_test=1.2#req=2\nreq=2'::text::omni_manifest.artifact[]::text as artifact
+    query: select e'omni__test=1.2#req=2\nreq=2'::text::omni_manifest.artifact[]::text as artifact
     results:
-    - artifact: omni_test=1.2#req=2;req=2
+    - artifact: omni__test=1.2#req=2;req=2
 
 - name: JSON conversion
   tests:
@@ -114,14 +114,14 @@ tests:
     query: |
       with
           artifact as (select
-                           ('{"target": {"omni_test": "1.2"}, "requirements": {"req": "2"}}'::json::omni_manifest.artifact).*)
+                           ('{"target": {"omni__test": "1.2"}, "requirements": {"req": "2"}}'::json::omni_manifest.artifact).*)
       select
           (self).*,
           requirements::text
       from
           artifact
     results:
-    - name: omni_test
+    - name: omni__test
       version: 1.2
       requirements: req=2
   - name: JSON to artifacts
@@ -129,7 +129,7 @@ tests:
       with
           artifact as (select *
                        from
-                           unnest('[{"target": {"omni_test": "1.2"}, "requirements": {"req": "2"}}, {"target": {"req": "2"}, "requirements": {"base": "0"}}]'::json::omni_manifest.artifact[]))
+                           unnest('[{"target": {"omni__test": "1.2"}, "requirements": {"req": "2"}}, {"target": {"req": "2"}, "requirements": {"base": "0"}}]'::json::omni_manifest.artifact[]))
       select
           (self).*,
           requirements::text
@@ -138,27 +138,27 @@ tests:
       order by
           name
     results:
-    - name: omni_test
+    - name: omni__test
       version: 1.2
       requirements: req=2
     - name: req
       version: 2
       requirements: base=0
   - name: artifact to JSON
-    query: select 'omni_test=1.2#req=2'::text::omni_manifest.artifact::json as artifact
+    query: select 'omni__test=1.2#req=2'::text::omni_manifest.artifact::json as artifact
     results:
     - artifact:
         target:
-          omni_test: 1.2
+          omni__test: 1.2
         requirements:
           req: 2
   - name: artifacts to JSON
     query: select
-               json_array_elements(e'omni_test=1.2#req=2\nreq=2#base=0'::text::omni_manifest.artifact[]::json) as artifact
+               json_array_elements(e'omni__test=1.2#req=2\nreq=2#base=0'::text::omni_manifest.artifact[]::json) as artifact
     results:
     - artifact:
         target:
-          omni_test: 1.2
+          omni__test: 1.2
         requirements:
           req: 2
     - artifact:
@@ -173,14 +173,14 @@ tests:
     query: |
       with
           artifact as (select
-                           ('{"target": {"omni_test": "1.2"}, "requirements": {"req": "2"}}'::jsonb::omni_manifest.artifact).*)
+                           ('{"target": {"omni__test": "1.2"}, "requirements": {"req": "2"}}'::jsonb::omni_manifest.artifact).*)
       select
           (self).*,
           requirements::text
       from
           artifact
     results:
-    - name: omni_test
+    - name: omni__test
       version: 1.2
       requirements: req=2
   - name: JSONB to artifacts
@@ -188,7 +188,7 @@ tests:
       with
           artifact as (select *
                        from
-                           unnest('[{"target": {"omni_test": "1.2"}, "requirements": {"req": "2"}}, {"target": {"req": "2"}, "requirements": {"base": "0"}}]'::jsonb::omni_manifest.artifact[]))
+                           unnest('[{"target": {"omni__test": "1.2"}, "requirements": {"req": "2"}}, {"target": {"req": "2"}, "requirements": {"base": "0"}}]'::jsonb::omni_manifest.artifact[]))
       select
           (self).*,
           requirements::text
@@ -197,27 +197,27 @@ tests:
       order by
           name
     results:
-    - name: omni_test
+    - name: omni__test
       version: 1.2
       requirements: req=2
     - name: req
       version: 2
       requirements: base=0
   - name: artifact to JSONB
-    query: select 'omni_test=1.2#req=2'::text::omni_manifest.artifact::jsonb as artifact
+    query: select 'omni__test=1.2#req=2'::text::omni_manifest.artifact::jsonb as artifact
     results:
     - artifact:
         target:
-          omni_test: 1.2
+          omni__test: 1.2
         requirements:
           req: 2
   - name: artifacts to JSONB
     query: select
-               jsonb_array_elements(e'omni_test=1.2#req=2\nreq=2#base=0'::text::omni_manifest.artifact[]::jsonb) as artifact
+               jsonb_array_elements(e'omni__test=1.2#req=2\nreq=2#base=0'::text::omni_manifest.artifact[]::jsonb) as artifact
     results:
     - artifact:
         target:
-          omni_test: 1.2
+          omni__test: 1.2
         requirements:
           req: 2
     - artifact:

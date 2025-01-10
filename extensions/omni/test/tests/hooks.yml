@@ -8,7 +8,7 @@ tests:
 - name: load hooks in a transaction
   tests:
   - steps:
-    - create extension omni_test
+    - create extension omni__test
     - query: select 1
       notices:
       - run_hook
@@ -18,7 +18,7 @@ tests:
       notices: [ ]
 
 - name: commit creating the extension
-  query: create extension omni_test
+  query: create extension omni__test
   commit: true
 
 - name: the hook should stay
@@ -28,7 +28,7 @@ tests:
 
 - name: drop extension in an uncommitted transaction
   steps:
-  - drop extension omni_test
+  - drop extension omni__test
   - query: select 1
     # Hook is not running
     notices: [ ]

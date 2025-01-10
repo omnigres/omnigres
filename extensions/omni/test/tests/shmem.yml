@@ -4,32 +4,32 @@ instance:
     shared_preload_libraries: */env/OMNI_SO
   init:
   # We create the extension here
-  - create extension omni_test
+  - create extension omni__test
   - create extension omni
 
 tests:
 
 - name: initial value
-  query: select omni_test.get_shmem()
+  query: select omni__test.get_shmem()
   results:
   - get_shmem: hello
 
 - name: set value
   steps:
-  - select omni_test.set_shmem('test')
-  - query: select omni_test.get_shmem()
+  - select omni__test.set_shmem('test')
+  - query: select omni__test.get_shmem()
     results:
     - get_shmem: test
 
 - name: value is set after a reconnect (new backend)
   reset: true
   steps:
-  - query: select omni_test.get_shmem()
+  - query: select omni__test.get_shmem()
     results:
     - get_shmem: test
   # This one below is testing a particular scenario of having to re-attach
   # to a DSA that is already attached (or, the after-effects of _Omni_init, rather)
-  - query: select omni_test.get_shmem1()
+  - query: select omni__test.get_shmem1()
     results:
     - get_shmem1: hello
 
@@ -41,18 +41,18 @@ tests:
   database: db1
   commit: true
   steps:
-  - create extension omni_test
-  - query: select omni_test.get_shmem()
+  - create extension omni__test
+  - query: select omni__test.get_shmem()
     results:
     - get_shmem: hello
 
 - name: lookup shmem that was not allocated
-  query: select omni_test.lookup_shmem('not-allocated')
+  query: select omni__test.lookup_shmem('not-allocated')
   results:
   - lookup_shmem: null
 
 - name: lookup shmem that was allocated
-  query: select omni_test.lookup_shmem('test:db1')
+  query: select omni__test.lookup_shmem('test:db1')
   results:
   - lookup_shmem: hello
 
@@ -79,7 +79,7 @@ tests:
 
 - name: bad shared memory allocation doesn't get recorded
   steps:
-  - query: select omni_test.bad_shmalloc()
+  - query: select omni__test.bad_shmalloc()
     error: invalid DSA memory alloc request size 18446744073709551615
   - query: select
                count(*)
@@ -92,10 +92,10 @@ tests:
 
 - name: shmem refcounting
   steps:
-  - query: select omni_test.alloc_shmem('refc', 100);
+  - query: select omni__test.alloc_shmem('refc', 100);
     results:
     - alloc_shmem: false
-  - query: select omni_test.alloc_shmem('refc', 100);
+  - query: select omni__test.alloc_shmem('refc', 100);
     results:
     - alloc_shmem: true
   - query: select
@@ -106,7 +106,7 @@ tests:
                name = 'refc'
     results:
     - refcounter: 2
-  - query: select omni_test.dealloc_shmem('refc');
+  - query: select omni__test.dealloc_shmem('refc');
     results:
     - dealloc_shmem: true
   - query: select
@@ -117,7 +117,7 @@ tests:
                name = 'refc'
     results:
     - refcounter: 1
-  - query: select omni_test.dealloc_shmem('refc');
+  - query: select omni__test.dealloc_shmem('refc');
     results:
     - dealloc_shmem: true
   - query: select
@@ -127,6 +127,6 @@ tests:
            where
                name = 'refc'
     results: [ ]
-  - query: select omni_test.dealloc_shmem('refc');
+  - query: select omni__test.dealloc_shmem('refc');
     results:
     - dealloc_shmem: false

@@ -24,7 +24,7 @@
 PG_MODULE_MAGIC;
 OMNI_MAGIC;
 
-OMNI_MODULE_INFO(.name = "omni_test", .version = EXT_VERSION,
+OMNI_MODULE_INFO(.name = "omni__test", .version = EXT_VERSION,
                  .identity = "ed0aaa35-54c6-426e-a69d-2c74a836053b");
 
 static bool omni_loaded = false;
@@ -173,7 +173,7 @@ void _Omni_init(const omni_handle *handle) {
         &found);
   }
 
-  omni_guc_variable guc_bool = {.name = "omni_test.bool",
+  omni_guc_variable guc_bool = {.name = "omni__test.bool",
                                 .type = PGC_BOOL,
                                 .typed = {.bool_val = {.boot_value = false}},
                                 .context = PGC_USERSET};
@@ -181,7 +181,7 @@ void _Omni_init(const omni_handle *handle) {
   GUC_bool = guc_bool.typed.bool_val.value;
 
   omni_guc_variable guc_int = {
-      .name = "omni_test.int",
+      .name = "omni__test.int",
       .type = PGC_INT,
       .typed = {.int_val = {.boot_value = 1, .min_value = 1, .max_value = INT_MAX}},
       .context = PGC_USERSET};
@@ -189,14 +189,14 @@ void _Omni_init(const omni_handle *handle) {
   GUC_int = guc_int.typed.int_val.value;
 
   omni_guc_variable guc_real = {
-      .name = "omni_test.real",
+      .name = "omni__test.real",
       .type = PGC_REAL,
       .typed = {.real_val = {.boot_value = 1.23, .min_value = 1, .max_value = 100}},
       .context = PGC_USERSET};
   handle->declare_guc_variable(handle, &guc_real);
   GUC_real = guc_real.typed.real_val.value;
 
-  omni_guc_variable guc_string = {.name = "omni_test.string",
+  omni_guc_variable guc_string = {.name = "omni__test.string",
                                   .type = PGC_STRING,
                                   .typed = {.string_val = {.boot_value = ""}},
                                   .context = PGC_USERSET};
@@ -204,7 +204,7 @@ void _Omni_init(const omni_handle *handle) {
   GUC_string = guc_string.typed.string_val.value;
 
   omni_guc_variable guc_enum = {
-      .name = "omni_test.enum",
+      .name = "omni__test.enum",
       .type = PGC_ENUM,
       .typed = {.enum_val = {.boot_value = 1, .options = GUC_enum_options}},
       .context = PGC_USERSET};
