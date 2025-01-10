@@ -14,6 +14,7 @@ CPMAddPackage(NAME libfyaml SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/../../deps/libf
 
 add_postgresql_extension(
         omni_yaml
+        COMMENT "YAML toolkit"
         SCHEMA omni_yaml
         SOURCES omni_yaml.c
         RELOCATABLE false)

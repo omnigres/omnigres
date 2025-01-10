@@ -23,6 +23,7 @@ pkg_check_modules(BROTLI_ENC libbrotlienc)
 
 add_postgresql_extension(
         omni_httpd
+        COMMENT "HTTP server"
         SCHEMA omni_httpd
         RELOCATABLE false
         SOURCES omni_httpd.c master_worker.c http_worker.c event_loop.c fd.c cascading_query.c

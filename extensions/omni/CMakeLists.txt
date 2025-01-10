@@ -15,6 +15,7 @@ check_symbol_exists(dladdr "dlfcn.h" HAVE_DLADDR)
 
 add_postgresql_extension(
         omni
+        COMMENT "Advanced adapter for Postgres extensions"
         SCHEMA omni
         RELOCATABLE false
         SOURCES init.c omni.c hook_harness.c module.c extension.c workers.c utils.c dshash.c

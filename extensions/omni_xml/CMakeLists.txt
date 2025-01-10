@@ -16,6 +16,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_xml
+        COMMENT "XML toolkit"
         SCHEMA omni_xml
         RELOCATABLE false
         SOURCES omni_xml.cc)

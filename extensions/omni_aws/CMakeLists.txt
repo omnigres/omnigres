@@ -13,6 +13,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_aws
+        COMMENT "Amazon Web Services APIs (S3)"
         SCHEMA omni_aws
         RELOCATABLE false
         REQUIRES omni_httpc pgcrypto omni_xml omni_web

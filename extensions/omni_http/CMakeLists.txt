@@ -10,6 +10,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_http
+        COMMENT "Basic HTTP types"
         SCHEMA omni_http
         RELOCATABLE false)
 

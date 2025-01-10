@@ -12,6 +12,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_containers
+        COMMENT "Docker container management"
         SCHEMA omni_containers
         RELOCATABLE false
         SOURCES omni_containers.c

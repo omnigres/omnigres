@@ -17,6 +17,7 @@ CPMAddPackage(NAME pcre2 SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/../../deps/pcre2 V
 
 add_postgresql_extension(
         omni_regex
+        COMMENT "PCRE-compatible regular expressions"
         SOURCES omni_regex.c pcre2.c
         RELOCATABLE true
 )

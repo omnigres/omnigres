@@ -12,6 +12,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_polyfill
+        COMMENT "Postgres API polyfills"
         SCHEMA omni_polyfill
         RELOCATABLE NO
         SOURCES omni_polyfill.c arrays.c uuidv7.c
