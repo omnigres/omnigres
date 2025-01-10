@@ -17,6 +17,7 @@
 // clang-format on
 
 #include <catalog/pg_cast.h>
+#include <catalog/pg_database.h>
 #include <commands/dbcommands.h>
 #include <common/int.h>
 #include <executor/spi.h>
@@ -130,8 +131,25 @@ static void init_semaphore(const omni_handle *handle, void *ptr, void *arg, bool
   }
 }
 
+bool is_template_database() {
+  HeapTuple tuple = SearchSysCache1(DATABASEOID, ObjectIdGetDatum(MyDatabaseId));
+  Assert(HeapTupleIsValid(tuple)); // should not happen
+
+  Form_pg_database db = (Form_pg_database)GETSTRUCT(tuple);
+  bool is_template = db->datistemplate;
+  ReleaseSysCache(tuple);
+
+  return is_template;
+}
+
 static void start_master_worker(const omni_handle *handle, omni_bgworker_handle *bgw_handle,
                                 omni_timing timing) {
+
+  // If this is a template database, we don't start
+  if (is_template_database()) {
+    return;
+  }
+
   uint64 m = pg_atomic_fetch_or_u64(master_worker_leader, MASTER_WORKER_START);
   m = (m ^ MASTER_WORKER_START) & MASTER_WORKER_START;
   if ((m & MASTER_WORKER_START) == MASTER_WORKER_START) {
