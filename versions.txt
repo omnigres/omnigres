@@ -19,6 +19,7 @@ omni_regex=0.1.0
 omni_rest=0.1.0
 omni_schema=0.2.3
 omni_seq=0.1.1
+omni_service=0.1.0
 omni_session=0.1.1
 omni_sql=0.3.7
 omni_txn=0.5.0
