@@ -128,6 +128,13 @@ COPY docker/entrypoint.sh /usr/local/bin/omnigres-entrypoint.sh
 RUN curl -fsSL https://repo.pigsty.io/key | gpg --dearmor -o /etc/apt/keyrings/pigsty.gpg
 COPY docker/pigsty-io.list /etc/apt/sources.list.d/pigsty-io.list
 RUN apt-get update
+# Install the "must have" extension. Subjective.
+RUN apt-get -y install \
+    postgresql-${PG%.*}-plpgsql-check \
+    postgresql-${PG%.*}-cron \
+    postgresql-${PG%.*}-repack \
+    postgresql-${PG%.*}-wal2json \
+    postgresql-${PG%.*}-pgvector postgresql-${PG%.*}-pgvectorscale
 ENTRYPOINT ["omnigres-entrypoint.sh"]
 CMD ["postgres"]
 EXPOSE 22
@@ -138,7 +145,7 @@ EXPOSE 5432
 FROM pg-slim AS pg
 ENV PG=${PG}
 COPY docker/apt-pin /etc/apt/preferences.d/99-pin
-RUN apt-get -y install $(apt-cache search  "^postgresql-${PG}-*" | cut -d' ' -f1 | grep -v 'hunspell' | grep -v 'citus' | grep -v 'pgdg' | grep -v 'timescaledb-tsl' | grep -v 'anonymizer' | grep -v 'dbgsym')
+RUN apt-get -y install $(apt-cache search  "^postgresql-${PG%.*}-*" | cut -d' ' -f1 | grep -v 'hunspell' | grep -v 'citus' | grep -v 'pgdg' | grep -v 'timescaledb-tsl' | grep -v 'anonymizer' | grep -v 'dbgsym')
 #COPY --from=plrust /var/lib/postgresql/plrust/target/release /plrust-release
 ## clear it in case it already exists
 #RUN rm -rf /docker-entrypoint-initdb.d

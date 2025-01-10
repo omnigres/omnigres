@@ -41,7 +41,7 @@ psql -h localhost -p 5432 -U omnigres omnigres # password is `omnigres`
 ```
 
 > [!TIP]
-> Replace `ghcr.io/omnigres/omnigres-17` with `ghcr.io/omnigres/omnigres-slim-17` if you want a smaller image.
+> Replace `ghcr.io/omnigres/omnigres-17` with `ghcr.io/omnigres/omnigres-extra-17` if you want an image with a lot more batteries included.
 
 Postgres parameters such as database, user or password can be overridden as per the
 "Environment Variables" section in [postgres image instructions](https://hub.docker.com/_/postgres/)
