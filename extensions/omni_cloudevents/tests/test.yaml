@@ -1,0 +1,121 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    timezone: UTC
+  init:
+  - create extension omni_cloudevents cascade
+  - set search_path to omni_cloudevents, public
+
+tests:
+
+- name: cloudevent creation
+  query: select id, source, specversion, type, datacontenttype, datschema,subject,time,data,datatype from cloudevent(id => '1', source => 'a.b.c', type => 'org.omnigres.test', ts => '4713-01-01 00:00:00+00 BC')
+  results:
+  - id: 1
+    source: a.b.c
+    specversion: 1.0
+    type: org.omnigres.test
+    datacontenttype: null
+    datschema: null
+    subject: null
+    time: 4713-01-01 00:00:00+00 BC
+    data: null
+    datatype: bytea
+
+- name: cloudevent creation (JSON)
+  query: select id, source, specversion, type, datacontenttype, datschema,subject,time,data,datatype from cloudevent(id => 'f67cb6ad-7c1b-4582-ad7b-c8f9c0dc15a2'::uuid, source => 'a.b.c', type => 'org.omnigres.test', ts => '4713-01-01 00:00:00+00 BC')
+  results:
+    - id: f67cb6ad-7c1b-4582-ad7b-c8f9c0dc15a2
+      source: a.b.c
+      specversion: 1.0
+      type: org.omnigres.test
+      datacontenttype: null
+      datschema: null
+      subject: null
+      time: 4713-01-01 00:00:00+00 BC
+      data: null
+      datatype: bytea
+
+- name: cloudevent to JSON
+  query: select to_json(cloudevent(id => '1', source => 'a.b.c', type => 'org.omnigres.test', ts => '4713-01-01 00:00:00+00 BC')) as json
+  results:
+    - json:
+        id: 1
+        source: a.b.c
+        specversion: 1.0
+        type: org.omnigres.test
+        time: 4713-01-01T00:00:00+00:00 BC
+
+- name: cloudevent to JSON (JSON data)
+  query: select to_json(cloudevent(id => '1', source => 'a.b.c', type => 'org.omnigres.test', data => json_build_object('a','b'), ts => '4713-01-01 00:00:00+00 BC')) as json
+  results:
+    - json:
+        id: 1
+        source: a.b.c
+        specversion: 1.0
+        type: org.omnigres.test
+        time: 4713-01-01T00:00:00+00:00 BC
+        data:
+          a: b
+
+- name: cloudevent to JSON (String data)
+  query: select to_json(cloudevent(id => '1', source => 'a.b.c', type => 'org.omnigres.test', data => 'hello'::text, ts => '4713-01-01 00:00:00+00 BC')) as json
+  results:
+    - json:
+        id: 1
+        source: a.b.c
+        specversion: 1.0
+        type: org.omnigres.test
+        time: 4713-01-01T00:00:00+00:00 BC
+        data: hello
+
+- name: cloudevent to JSON (binary data)
+  query: select to_json(cloudevent(id => '1', source => 'a.b.c', type => 'org.omnigres.test', data => convert_to('hello', 'utf8'), ts => '4713-01-01 00:00:00+00 BC')) as json
+  results:
+    - json:
+        id: 1
+        source: a.b.c
+        specversion: 1.0
+        type: org.omnigres.test
+        time: 4713-01-01T00:00:00+00:00 BC
+        data: XHg2ODY1NmM2YzZm
+
+- name: cloudevent to JSONB
+  query: select to_jsonb(cloudevent(id => '1', source => 'a.b.c', type => 'org.omnigres.test', ts => '4713-01-01 00:00:00+00 BC')) as json
+  results:
+    - json:
+        id: 1
+        source: a.b.c
+        specversion: 1.0
+        type: org.omnigres.test
+        time: 4713-01-01T00:00:00+00:00 BC
+
+- name: publish
+  steps:
+    - select publish(cloudevent(id => '1', source => 'a.b.c', type => 'org.omnigres.test', ts => '4713-01-01 00:00:00+00 BC'))
+    - query: select * from cloudevents_egress
+      results:
+      - id: 1
+        source: a.b.c
+        specversion: 1.0
+        type: org.omnigres.test
+        datacontenttype: null
+        datschema: null
+        subject: null
+        time: 4713-01-01 00:00:00+00 BC
+        data: null
+        datatype: bytea
+
+- name: duplicate
+  steps:
+    - select publish(cloudevent(id => '1', source => 'a.b.c', type => 'org.omnigres.test', ts => '4713-01-01 00:00:00+00 BC'))
+    - select publish(cloudevent(id => '1', source => 'a.b.c.d', type => 'org.omnigres.test', ts => '4713-01-01 00:00:00+00 BC'))
+    - query: select publish(cloudevent(id => '1', source => 'a.b.c', type => 'org.omnigres.test', ts => '4713-01-01 00:00:00+00 BC'))
+      error: duplicate key value violates unique constraint "cloudevents_egress_pkey"
+
+- name: notice publisher
+  steps:
+    - select create_notice_publisher()
+    - query: select publish(cloudevent(id => '1', source => 'a.b.c', type => 'org.omnigres.test', ts => '4713-01-01 00:00:00+00 BC'))
+      notices:
+      - "{\"id\":\"1\",\"source\":\"a.b.c\",\"specversion\":\"1.0\",\"type\":\"org.omnigres.test\",\"time\":\"4713-01-01T00:00:00+00:00 BC\"}"
