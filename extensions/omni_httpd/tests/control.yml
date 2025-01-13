@@ -6,6 +6,7 @@ instance:
   init:
   - create extension omni_httpd cascade
   - create extension omni_httpc cascade
+  - create extension dblink
   - call omni_httpd.wait_for_configuration_reloads(1)
 
 tests:
@@ -41,6 +42,11 @@ tests:
   transaction: false
   tests:
   - call omni_httpd.stop()
+  # Start a different backend to see if that will restart the server
+  # (should not)
+  - query: |
+    select from dblink('hostaddr=127.0.0.1 dbname=yregress user=yregress port=' || current_setting('port'),
+    'select true') as t(r bool)
   - select pg_sleep(0.5)
   - query: |
       select error from omni_httpc.http_execute(
