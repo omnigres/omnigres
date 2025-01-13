@@ -221,14 +221,14 @@ void _Omni_init(const omni_handle *handle) {
 
   bool semaphore_found;
   const char *semaphore_mem_name =
-      psprintf(OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE, get_database_name(MyDatabaseId));
+      psprintf(OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE, MyDatabaseId);
 
   semaphore = handle->allocate_shmem(handle, semaphore_mem_name, sizeof(pg_atomic_uint32),
                                      init_semaphore, NULL, &semaphore_found);
 
   bool worker_leader_found;
   const char *master_worker_leader_mem_name =
-      psprintf(OMNI_HTTPD_MASTER_WORKER_LEADER, get_database_name(MyDatabaseId));
+      psprintf(OMNI_HTTPD_MASTER_WORKER_LEADER, MyDatabaseId);
 
   master_worker_leader =
       handle->allocate_shmem(handle, master_worker_leader_mem_name, sizeof(*master_worker_leader),
@@ -256,7 +256,7 @@ void _Omni_deinit(const omni_handle *handle) {
     handle->deallocate_shmem(handle, master_worker_mem_name, &found);
 
     const char *semaphore_mem_name =
-        psprintf(OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE, get_database_name(MyDatabaseId));
+        psprintf(OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE, MyDatabaseId);
 
     handle->deallocate_shmem(handle, semaphore_mem_name, &found);
 
@@ -268,7 +268,7 @@ void _Omni_deinit(const omni_handle *handle) {
     }
 
     const char *master_worker_leader_mem_name =
-        psprintf(OMNI_HTTPD_MASTER_WORKER_LEADER, get_database_name(MyDatabaseId));
+        psprintf(OMNI_HTTPD_MASTER_WORKER_LEADER, MyDatabaseId);
 
     handle->deallocate_shmem(handle, master_worker_leader_mem_name, &found);
   }
@@ -575,18 +575,18 @@ Datum stop(PG_FUNCTION_ARGS) {
   if (!PG_ARGISNULL(0)) {
     immediate = PG_GETARG_BOOL(0);
   }
+
   omni_bgworker_handle *bgw_handle = (omni_bgworker_handle *)MemoryContextAlloc(
       IsTransactionState() ? TopTransactionContext : TopMemoryContext, sizeof(*master_worker_bgw));
   memcpy(bgw_handle, master_worker_bgw, sizeof(*master_worker_bgw));
 
-  uint64 m =
-      pg_atomic_fetch_and_u64(master_worker_leader, ~MASTER_WORKER_START) & MASTER_WORKER_START;
-  if ((m & MASTER_WORKER_START) == MASTER_WORKER_START) {
-    module_handle->request_bgworker_termination(
-        module_handle, bgw_handle,
-        (omni_bgworker_options){.timing = immediate ? omni_timing_immediately
-                                                    : omni_timing_after_commit});
-  }
+  // We don't flip the MASTER_WORKER_START flag back because that will cause a newly operating
+  // backend to eagerly start the worker again.
+  module_handle->request_bgworker_termination(
+      module_handle, bgw_handle,
+      (omni_bgworker_options){.timing =
+                                  immediate ? omni_timing_immediately : omni_timing_after_commit});
+
   PG_RETURN_VOID();
 }
 
@@ -596,7 +596,14 @@ Datum start(PG_FUNCTION_ARGS) {
   if (!PG_ARGISNULL(0)) {
     immediate = PG_GETARG_BOOL(0);
   }
-  start_master_worker(module_handle, master_worker_bgw,
-                      immediate ? omni_timing_immediately : omni_timing_after_commit);
+
+  // Ensure there's only one attempt at starting, and clear previously started flag
+  // if it was set
+  uint64 m =
+      pg_atomic_fetch_and_u64(master_worker_leader, ~MASTER_WORKER_START) & MASTER_WORKER_START;
+  if ((m & MASTER_WORKER_START) == MASTER_WORKER_START) {
+    start_master_worker(module_handle, master_worker_bgw,
+                        immediate ? omni_timing_immediately : omni_timing_after_commit);
+  }
   PG_RETURN_VOID();
 }
