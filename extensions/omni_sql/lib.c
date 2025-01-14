@@ -11,11 +11,16 @@
 #include <funcapi.h>
 #include <parser/analyze.h>
 #include <parser/parser.h>
+#include <stdbool.h>
 #include <utils/builtins.h>
 
 #include <nodes/nodeFuncs.h>
 
 #include "deparse.h"
+#include "nodes/nodes.h"
+#include "nodes/parsenodes.h"
+#include "nodes/pg_list.h"
+#include "utils/elog.h"
 
 List *omni_sql_parse_statement(char *statement) {
 #if PG_MAJORVERSION_NUM == 13
@@ -209,4 +214,50 @@ bool omni_sql_is_returning_statement(List *stmts) {
   default:
     return false;
   }
+}
+
+/*
+ * Is the statement capable of replacing the object being defined?
+ * When given multiple statements returns true only when all of them have the OR REPLACE clause.
+ */
+bool omni_sql_is_replace_statement(List *stmts) {
+  bool all_stmts_replace = true;
+  int len = list_length(stmts);
+  if (len == 0) {
+    return false;
+  }
+
+  ListCell *lc = NULL;
+  foreach (lc, stmts) {
+    Node *stmt = castNode(RawStmt, lfirst(lc))->stmt;
+    switch (nodeTag(stmt)) {
+    // we cast on each branch for the sake of type-safety
+    case T_CreateTransformStmt:
+      all_stmts_replace = all_stmts_replace && ((const CreateTransformStmt *)(stmt))->replace;
+      break;
+    case T_CreatePLangStmt:
+      all_stmts_replace = all_stmts_replace && ((const CreatePLangStmt *)(stmt))->replace;
+      break;
+    case T_CreateFunctionStmt:
+      all_stmts_replace = all_stmts_replace && ((const CreateFunctionStmt *)(stmt))->replace;
+      break;
+#if PG_MAJORVERSION_NUM > 13
+    case T_CreateTrigStmt:
+      all_stmts_replace = all_stmts_replace && ((const CreateTrigStmt *)(stmt))->replace;
+      break;
+#endif
+    case T_RuleStmt:
+      all_stmts_replace = all_stmts_replace && ((const RuleStmt *)(stmt))->replace;
+      break;
+    case T_ViewStmt:
+      all_stmts_replace = all_stmts_replace && ((const ViewStmt *)(stmt))->replace;
+      break;
+    case T_DefineStmt:
+      all_stmts_replace = all_stmts_replace && ((const DefineStmt *)(stmt))->replace;
+      break;
+    default:
+      all_stmts_replace = all_stmts_replace && false;
+    }
+  }
+  return all_stmts_replace;
 }

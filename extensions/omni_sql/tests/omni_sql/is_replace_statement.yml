@@ -1,0 +1,86 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_sql cascade
+
+tests:
+
+- query: select omni_sql.is_replace_statement('select')
+  results:
+  - is_replace_statement: false
+
+- query: select omni_sql.is_replace_statement('update tab set a = 1')
+  results:
+  - is_replace_statement: false
+
+- query: select omni_sql.is_replace_statement('insert into tab (i) values (1)')
+  results:
+  - is_replace_statement: false
+
+- query: select omni_sql.is_replace_statement('delete from tab')
+  results:
+  - is_replace_statement: false
+
+- query: select omni_sql.is_replace_statement('create view v as select version();')
+  results:
+  - is_replace_statement: false
+
+- query: select omni_sql.is_replace_statement('create or replace view v as select version();')
+  results:
+  - is_replace_statement: true
+
+- query: select omni_sql.is_replace_statement('create function f() returns boolean language sql as $$select true;$$;')
+  results:
+  - is_replace_statement: false
+
+- query: select omni_sql.is_replace_statement('create or replace function f() returns boolean language sql as $$select true;$$;')
+  results:
+  - is_replace_statement: true
+
+- query: select omni_sql.is_replace_statement('create rule r as on insert to a_table do nothing;')
+  results:
+  - is_replace_statement: false
+
+- query: select omni_sql.is_replace_statement('create or replace rule r as on insert to a_table do nothing;')
+  results:
+  - is_replace_statement: true
+
+- query: select omni_sql.is_replace_statement('create language plpsql handler handle_a_language;')
+  results:
+  - is_replace_statement: false
+
+- query: select omni_sql.is_replace_statement('create or replace language plpsql handler handle_a_language;')
+  results:
+  - is_replace_statement: true
+
+- query: select omni_sql.is_replace_statement('create transform for a_type language plpgsql (from sql with function from_sql_function_name, to sql with function to_sql_function_name);')
+  results:
+  - is_replace_statement: false
+
+- query: select omni_sql.is_replace_statement('create or replace transform for a_type language plpgsql (from sql with function from_sql_function_name, to sql with function to_sql_function_name);')
+  results:
+  - is_replace_statement: true
+
+- query: select omni_sql.is_replace_statement('create aggregate a (a_type)(sfunc = a_function, stype = another_type)')
+  results:
+  - is_replace_statement: false
+
+- query: select omni_sql.is_replace_statement('create or replace aggregate a (a_type)(sfunc = a_function, stype = another_type)')
+  results:
+  - is_replace_statement: true
+
+- query: select omni_sql.is_replace_statement('create procedure p() language sql as $$select version()$$;')
+  results:
+  - is_replace_statement: false
+
+- query: select omni_sql.is_replace_statement('create or replace procedure p() language sql as $$select version()$$;')
+  results:
+  - is_replace_statement: true
+
+- query: select omni_sql.is_replace_statement('select version(); create procedure p() language sql as $$select version()$$;')
+  results:
+  - is_replace_statement: false
+
+- query: select omni_sql.is_replace_statement('create or replace procedure first_p() language sql as $$select version()$$; create or replace procedure second_p() language sql as $$select version()$$;')
+  results:
+  - is_replace_statement: true

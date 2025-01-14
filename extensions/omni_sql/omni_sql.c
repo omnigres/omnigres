@@ -583,6 +583,20 @@ Datum is_returning_statement(PG_FUNCTION_ARGS) {
   PG_RETURN_BOOL(omni_sql_is_returning_statement(stmts));
 }
 
+PG_FUNCTION_INFO_V1(is_replace_statement);
+
+Datum is_replace_statement(PG_FUNCTION_ARGS) {
+  if (PG_ARGISNULL(0)) {
+    ereport(ERROR, errmsg("statement should not be NULL"));
+  }
+
+  text *statement = PG_GETARG_TEXT_PP(0);
+  char *cstatement = text_to_cstring(statement);
+  List *stmts = omni_sql_parse_statement(cstatement);
+
+  PG_RETURN_BOOL(omni_sql_is_replace_statement(stmts));
+}
+
 PG_FUNCTION_INFO_V1(execute_parameterized);
 
 /**
