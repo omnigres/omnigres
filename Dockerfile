@@ -91,33 +91,7 @@ ENV PG=${PG}
 ENV POSTGRES_DB=omnigres
 ENV POSTGRES_USER=omnigres
 ENV POSTGRES_PASSWORD=omnigres
-COPY --from=build /build/packaged /omni
-# need versions.txt to pick versions
-COPY --from=build /omni/versions.txt /omni/versions.txt
-COPY --from=build /build/python-index /python-packages
-COPY --from=build /build/python-wheels /python-wheels
-RUN mkdir -p $(pg_config --pkglibdir)/omni_python--$(grep "^omni_python=" /omni/versions.txt | cut -d "=" -f2)
-RUN mv /python-wheels/* $(pg_config --pkglibdir)/omni_python--$(grep "^omni_python=" /omni/versions.txt | cut -d "=" -f2)
-# clear it in case it already exists
-RUN rm -rf /docker-entrypoint-initdb.d
-# copy template files, substituted later
-COPY docker/initdb-slim/* /docker-entrypoint-initdb.d/
-RUN cp -R /omni/extension $(pg_config --sharedir)/ && cp -R /omni/*.so $(pg_config --pkglibdir)/
 RUN apt-get update && apt-get -y install libtclcl1 libpython3.11 libperl5.36 gettext
-# replace env variables in init scripts using envsubst
-RUN <<EOF
-# export variables used in template files
-export OMNI_SO_FILE="omni--$(grep "^omni=" /omni/versions.txt | cut -d "=" -f2).so"
-for file in $(ls /docker-entrypoint-initdb.d); do
-  # only substitute exported variables in template file to avoid accidental substitution
-  envsubst '$OMNI_SO_FILE' < /docker-entrypoint-initdb.d/$file > /docker-entrypoint-initdb.d/$(basename $file .templ)
-  # remove template file
-  rm /docker-entrypoint-initdb.d/$file
-done
-# unset exported variables after substitution
-unset OMNI_SO_FILE
-EOF
-RUN rm -rf /omni
 RUN PG_VER=${PG%.*} && apt-get update && apt-get -y install postgresql-pltcl-${PG_VER} postgresql-plperl-${PG_VER} postgresql-plpython3-${PG_VER} python3-dev python3-venv python3-pip
 RUN apt-get -y install curl
 RUN curl -fsSL https://pkgs.tailscale.com/stable/debian/bookworm.noarmor.gpg | tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null && \
@@ -135,6 +109,32 @@ RUN apt-get -y install \
     postgresql-${PG%.*}-repack \
     postgresql-${PG%.*}-wal2json \
     postgresql-${PG%.*}-pgvector postgresql-${PG%.*}-pgvectorscale
+COPY --from=build /build/packaged /omni
+# need versions.txt to pick versions
+COPY --from=build /omni/versions.txt /omni/versions.txt
+COPY --from=build /build/python-index /python-packages
+COPY --from=build /build/python-wheels /python-wheels
+RUN mkdir -p $(pg_config --pkglibdir)/omni_python--$(grep "^omni_python=" /omni/versions.txt | cut -d "=" -f2)
+RUN mv /python-wheels/* $(pg_config --pkglibdir)/omni_python--$(grep "^omni_python=" /omni/versions.txt | cut -d "=" -f2)
+# clear it in case it already exists
+RUN rm -rf /docker-entrypoint-initdb.d
+# copy template files, substituted later
+COPY docker/initdb-slim/* /docker-entrypoint-initdb.d/
+RUN cp -R /omni/extension $(pg_config --sharedir)/ && cp -R /omni/*.so $(pg_config --pkglibdir)/
+# replace env variables in init scripts using envsubst
+RUN <<EOF
+# export variables used in template files
+export OMNI_SO_FILE="omni--$(grep "^omni=" /omni/versions.txt | cut -d "=" -f2).so"
+for file in $(ls /docker-entrypoint-initdb.d); do
+  # only substitute exported variables in template file to avoid accidental substitution
+  envsubst '$OMNI_SO_FILE' < /docker-entrypoint-initdb.d/$file > /docker-entrypoint-initdb.d/$(basename $file .templ)
+  # remove template file
+  rm /docker-entrypoint-initdb.d/$file
+done
+# unset exported variables after substitution
+unset OMNI_SO_FILE
+EOF
+RUN rm -rf /omni
 ENTRYPOINT ["omnigres-entrypoint.sh"]
 CMD ["postgres"]
 EXPOSE 22
@@ -191,6 +191,10 @@ ENV PG=${PG}
 ENV POSTGRES_DB=omnikube
 ENV POSTGRES_USER=omnikube
 ENV POSTGRES_PASSWORD=omnikube
+RUN apt-get update && apt-get -y install libtclcl1 libpython3.11 libperl5.36 gettext
+RUN PG_VER=${PG%.*} && apt-get update && apt-get -y install postgresql-pltcl-${PG_VER} postgresql-plperl-${PG_VER} postgresql-plpython3-${PG_VER} python3-dev python3-venv python3-pip
+RUN apt-get -y install curl
+COPY docker/entrypoint.sh /usr/local/bin/omnigres-entrypoint.sh
 COPY --from=build /build/packaged /omni
 COPY --from=build /build/python-index /python-packages
 COPY --from=build /build/python-wheels /python-wheels
@@ -199,7 +203,6 @@ RUN rm -rf /docker-entrypoint-initdb.d
 # copy template files, substituted later
 COPY docker/initdb-omnikube/* /docker-entrypoint-initdb.d/
 RUN cp -R /omni/extension $(pg_config --sharedir)/ && cp -R /omni/*.so $(pg_config --pkglibdir)/
-RUN apt-get update && apt-get -y install libtclcl1 libpython3.11 libperl5.36 gettext
 # need versions.txt to pick omni version
 COPY --from=build /omni/versions.txt /omni/versions.txt
 # replace env variables in init scripts using envsubst
@@ -216,9 +219,6 @@ done
 unset OMNI_SO_FILE
 EOF
 RUN rm -rf /omni
-RUN PG_VER=${PG%.*} && apt-get update && apt-get -y install postgresql-pltcl-${PG_VER} postgresql-plperl-${PG_VER} postgresql-plpython3-${PG_VER} python3-dev python3-venv python3-pip
-RUN apt-get -y install curl
-COPY docker/entrypoint.sh /usr/local/bin/omnigres-entrypoint.sh
 ENTRYPOINT ["omnigres-entrypoint.sh"]
 CMD ["postgres"]
 EXPOSE 22
