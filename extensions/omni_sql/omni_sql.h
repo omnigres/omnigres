@@ -25,4 +25,6 @@ bool omni_sql_is_valid(List *stmts, char **error);
 
 bool omni_sql_is_returning_statement(List *stmts);
 
+bool omni_sql_is_replace_statement(List *stmts);
+
 #endif // OMNI_SQL_H
