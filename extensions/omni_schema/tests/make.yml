@@ -1,0 +1,58 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    logging_collector: on
+    log_directory: /tmp/
+  init:
+    - create extension omni_schema cascade
+
+tests:
+- name: Return statements ordered according to dependencies
+  query: select * from omni_schema.make('../../../../extensions/omni_schema/tests/fixture/migrations_and_src');
+  results:
+  - migration_filename: /migrations/1_migration_no_dependency.sql
+    migration_statement: CREATE TABLE test (data text NOT NULL)
+  - migration_filename: /migrations/1_migration_no_dependency.sql
+    migration_statement: CREATE TABLE another_test (another_data text NOT NULL)
+  - migration_filename: /src/function_depends_migration_1.sql
+    migration_statement: "CREATE OR REPLACE FUNCTION get_test_data() RETURNS SETOF test LANGUAGE plpgsql AS $$\nbegin\n    return query select * from test;\nend;\n$$"
+  - migration_filename: /src/function_no_dependency.sql
+    migration_statement: "CREATE OR REPLACE FUNCTION always_true() RETURNS boolean LANGUAGE plpgsql AS $$\nbegin\n    return true;\nend;\n$$"
+  - migration_filename: /migrations/2_migration_depends_function.sql
+    migration_statement: CREATE TABLE test_when_true (data text NOT NULL CHECK (always_true()))
+  - migration_filename: /migrations/3_another_migration_no_dependency.sql
+    migration_statement: CREATE TABLE third_test (data text NOT NULL CHECK (always_true()))
+
+- name: Execute all statements
+  steps:
+      - query: select * from omni_schema.make('../../../../extensions/omni_schema/tests/fixture/migrations_and_src');
+      - query: select table_name from information_schema.tables where table_schema = 'public' order by table_name;
+        results:
+        - table_name: another_test
+        - table_name: test
+        - table_name: test_when_true
+        - table_name: third_test    
+      - query: select routine_name from information_schema.routines where routine_schema = 'public' and routine_name in ('get_test_data', 'always_true');
+        results:
+        - routine_name: always_true
+        - routine_name: get_test_data   
+
+- name: Is idempotent
+  steps:
+      - query: select * from omni_schema.make('../../../../extensions/omni_schema/tests/fixture/migrations_and_src');
+      - query: select * from omni_schema.make('../../../../extensions/omni_schema/tests/fixture/migrations_and_src'); -- execute again
+      - query: select table_name from information_schema.tables where table_schema = 'public' order by table_name;
+        results:
+        - table_name: another_test
+        - table_name: test
+        - table_name: test_when_true
+        - table_name: third_test    
+      - query: select routine_name from information_schema.routines where routine_schema = 'public' and routine_name in ('get_test_data', 'always_true');
+        results:
+        - routine_name: always_true
+        - routine_name: get_test_data   
+
+- name: Surfaces migration errors on execution
+  steps:
+      - query: select * from omni_schema.make('../../../../extensions/omni_schema/tests/fixture/migrations_missing_dependency');
+        error: Error "function always_true() does not exist" in /migrations/1_migration_depends_function.sql

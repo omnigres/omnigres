@@ -1,0 +1,46 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    logging_collector: on
+    log_directory: /tmp/
+  init:
+    - create extension omni_schema cascade
+
+tests:
+- name: Errors when we have statements without OR REPLACE in src directory
+  query: select * from omni_schema.make_plan('../../../../extensions/omni_schema/tests/fixture/non_replaceable_src');
+  error: Non replace statement found outside migrations directory in /src/function_no_dependency.sql
+
+- name: Return statements ordered according to dependencies
+  query: select * from omni_schema.make_plan('../../../../extensions/omni_schema/tests/fixture/migrations_and_src');
+  results:
+  - migration_filename: /migrations/1_migration_no_dependency.sql
+    migration_statement: CREATE TABLE test (data text NOT NULL)
+  - migration_filename: /migrations/1_migration_no_dependency.sql
+    migration_statement: CREATE TABLE another_test (another_data text NOT NULL)
+  - migration_filename: /src/function_depends_migration_1.sql
+    migration_statement: "CREATE OR REPLACE FUNCTION get_test_data() RETURNS SETOF test LANGUAGE plpgsql AS $$\nbegin\n    return query select * from test;\nend;\n$$"
+  - migration_filename: /src/function_no_dependency.sql
+    migration_statement: "CREATE OR REPLACE FUNCTION always_true() RETURNS boolean LANGUAGE plpgsql AS $$\nbegin\n    return true;\nend;\n$$"
+  - migration_filename: /migrations/2_migration_depends_function.sql
+    migration_statement: CREATE TABLE test_when_true (data text NOT NULL CHECK (always_true()))
+  - migration_filename: /migrations/3_another_migration_no_dependency.sql
+    migration_statement: CREATE TABLE third_test (data text NOT NULL CHECK (always_true()))
+
+- name: Skips statements in already applied migrations
+  steps:
+  - query: insert into omni_schema.migrations (name, migration, applied_at) values ('1_migration_no_dependency.sql', '', current_timestamp);
+  - query: select * from omni_schema.make_plan('../../../../extensions/omni_schema/tests/fixture/migrations_and_src');
+    results:
+    - migration_filename: /src/function_depends_migration_1.sql
+      migration_statement: "CREATE OR REPLACE FUNCTION get_test_data() RETURNS SETOF test LANGUAGE plpgsql AS $$\nbegin\n    return query select * from test;\nend;\n$$"
+    - migration_filename: /src/function_no_dependency.sql
+      migration_statement: "CREATE OR REPLACE FUNCTION always_true() RETURNS boolean LANGUAGE plpgsql AS $$\nbegin\n    return true;\nend;\n$$"
+    - migration_filename: /migrations/2_migration_depends_function.sql
+      migration_statement: CREATE TABLE test_when_true (data text NOT NULL CHECK (always_true()))
+    - migration_filename: /migrations/3_another_migration_no_dependency.sql
+      migration_statement: CREATE TABLE third_test (data text NOT NULL CHECK (always_true()))
+
+- name: Surfaces migration errors with file name
+  query: select * from omni_schema.make_plan('../../../../extensions/omni_schema/tests/fixture/syntax_error');
+  error: Error "syntax error at or near "tab"" in /test.sql

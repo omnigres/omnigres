@@ -161,3 +161,49 @@ The support for languages is configurable through `omni_schema.languages` table:
 [^sql-languages-table]: SQL language is always supported, even if corresponding
 entry is removed from `omni_schema.languages`. This behavior may change in the
 future.
+
+## Maintaining schemas with migrations and object replacement
+
+The `make` function is a utility that combines the strategies of 
+migration and reload operations using separate directories. It simplifies the 
+workflow by handling these tasks in a unified manner.
+
+```postgresql
+select *
+from
+    omni_schema.make('/path/to/project')
+```
+
+Assuming the directory structure:
+
+```
+/path/to/project/
+              ├── migrations/
+              └── src/
+```
+
+The function `make` will execute everything inside `migrations` only once, keeping track of migrations just as `migrate_from_fs` would.
+While any `.sql` file in `src` will be processed as the source of an object that can be replaced without changes to database dependencies.
+
+A **caveat** for SQL commands in `src` is that they should have an `OR REPLACE` clause, with the exception of policies. [Policies do not have dependencies](https://www.postgresql.org/docs/current/sql-droppolicy.html) so they can be easily recreated by `make`.
+The only statements allowed are the following DDL ones:
+
+* `CREATE OR REPLACE VIEW`
+* `CREATE OR REPLACE FUNCTION`
+* `CREATE OR REPLACE RULE`
+* `CREATE OR REPLACE LANGUAGE`
+* `CREATE OR REPLACE TRANSFORM`
+* `CREATE OR REPLACE AGGREGATE`
+* `CREATE OR REPLACE PROCEDURE`
+* `CREATE POLICY`
+
+This implies that **any object removal has to be done in a migration**, since `make` will not drop any objects even when files in `src` have been removed.
+
+It is also important to note that a temporary database is created in the current cluster (and using the same credentials as the caller) in order to plan the statements to be used by `make`.
+Therefore the user executing this should have all appropriate system privileges.
+Create a blank temporary database to run assemble_schema. 
+
+!!! tip "Checking the execution plan"
+
+    `make` always start by creating a plan using the function `make_plan`, also part of `omni_schema`.
+    You can see a list of all commands that will be executed by calling `SELECT * FROM omni_schema.make_plan('/path/to/project')`
