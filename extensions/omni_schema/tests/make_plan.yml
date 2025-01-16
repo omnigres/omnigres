@@ -43,4 +43,14 @@ tests:
 
 - name: Surfaces migration errors with file name
   query: select * from omni_schema.make_plan('../../../../extensions/omni_schema/tests/fixture/syntax_error');
-  error: Error "syntax error at or near "tab"" in /test.sql
+  error: syntax error at or near "tab" in /test.sql
+
+- name: omni_python projects without omni_python
+  query: select * from omni_schema.make_plan('../../../../extensions/omni_schema/tests/fixture/omni_python');
+  error: Extension plpython3u required for language plpython3u (required for /a_load_time_test.py) is not installed in /a_load_time_test.py
+
+- name: omni_python projects with omni_python
+  steps:
+  - query: create extension omni_python cascade;
+  - query: select * from omni_schema.make_plan('../../../../extensions/omni_schema/tests/fixture/omni_python');
+    error: "ModuleNotFoundError: No module named 'omni_python' in /a_load_time_test.py"

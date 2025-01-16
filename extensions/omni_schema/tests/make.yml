@@ -1,8 +1,5 @@
 $schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
 instance:
-  config:
-    logging_collector: on
-    log_directory: /tmp/
   init:
     - create extension omni_schema cascade
 
@@ -55,4 +52,4 @@ tests:
 - name: Surfaces migration errors on execution
   steps:
       - query: select * from omni_schema.make('../../../../extensions/omni_schema/tests/fixture/migrations_missing_dependency');
-        error: Error "function always_true() does not exist" in /migrations/1_migration_depends_function.sql
+        error: function always_true() does not exist in /migrations/1_migration_depends_function.sql
