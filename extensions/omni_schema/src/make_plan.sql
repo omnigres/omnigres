@@ -42,6 +42,7 @@ begin
         format('select migration_filename, executed_statement, migration_statement, execution_error from omni_schema.assemble_schema(%L, omni_vfs.local_fs(%L))', plan_db_conn, path)
     ) migrations (migration_filename text, executed_statement text, migration_statement text, execution_error text)
     loop
+        -- first we have to handle errors coming from assemble_schema
         if migration.executed_statement is not null and migration.execution_error is null then
             begin
                 stmt := migration.executed_statement::omni_sql.statement;
@@ -60,22 +61,53 @@ begin
                     detail = migration.migration_statement;
         end if;
 
-        if not (
-            migration.migration_filename ~* 'migrations' 
-            or migration.executed_statement ~* 'select omni_python.install_requirements'
-            or omni_sql.is_replace_statement(migration.executed_statement::omni_sql.statement) 
-        )
-        then
-            raise exception 'Non replace statement found outside migrations directory in %', migration.migration_filename
-                using 
-                    detail = migration.executed_statement,
-                    hint = 'Move file into migrations or ensure it contains only statements with OR REPLACE';
-        end if;
+        -- now we branch between 2 execution modes: migration or source
+        if migration.migration_filename ~* 'migrations' then
+            -- migrations always execute only once
+            if not exists(select from omni_schema.migrations m where lower(m.name) = lower(omni_vfs.basename(migration.migration_filename))) 
+            then
+                return query select migration.migration_filename, migration.executed_statement::omni_sql.statement;
+            end if;
+        else
+            -- Non-migrations are picky, we error unless conditions are met
+            if not (
+                migration.executed_statement ~* 'select omni_python.install_requirements'
+                or omni_sql.is_replace_statement(migration.executed_statement::omni_sql.statement) 
+                or omni_sql.statement_type(migration.executed_statement::omni_sql.statement) = 'CreatePolicyStmt'
+            )
+            then
+                raise exception 'Non replace statement found outside migrations directory in %', migration.migration_filename
+                    using 
+                        detail = migration.executed_statement,
+                        hint = 'Move file into migrations or ensure it contains only statements with OR REPLACE';
+            end if;
 
-        if not exists(select from omni_schema.migrations m where lower(m.name) = lower(omni_vfs.basename(migration.migration_filename))) 
-        then
+            -- policies have to be dropped first
+            declare
+                drop_stmt text;
+            begin
+                if omni_sql.statement_type(migration.executed_statement::omni_sql.statement) = 'CreatePolicyStmt' then
+                    with m as (
+                        select regexp_match(
+                            migration.executed_statement,
+                            'CREATE POLICY (.*) ON (.*) TO '
+                        )
+                    ) 
+                    select format(
+                        'DROP POLICY IF EXISTS %s ON %s',
+                        m.regexp_match[1],
+                        m.regexp_match[2]
+                    ) from m into drop_stmt;
+
+                    return query select migration.migration_filename, drop_stmt::omni_sql.statement;
+                end if;
+
+            end;
+
+            -- non-migration always execute
             return query select migration.migration_filename, migration.executed_statement::omni_sql.statement;
         end if;
+
     end loop;
 
     -- PG 15 & 16 have issues with DROP DATABASE over dblink 

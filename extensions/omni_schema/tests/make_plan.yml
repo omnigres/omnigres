@@ -54,3 +54,16 @@ tests:
   - query: create extension omni_python cascade;
   - query: select * from omni_schema.make_plan('../../../../extensions/omni_schema/tests/fixture/omni_python');
     error: "ModuleNotFoundError: No module named 'omni_python' in /a_load_time_test.py"
+
+- name: policies in non-migration directory
+  steps:
+  - query: select * from omni_schema.make_plan('../../../../extensions/omni_schema/tests/fixture/policy_recreate');
+    results:
+    - migration_filename: /migrations/table_and_role.sql
+      migration_statement: CREATE ROLE test
+    - migration_filename: /migrations/table_and_role.sql
+      migration_statement: CREATE TABLE test (data text)
+    - migration_filename: /src/policy.sql
+      migration_statement: DROP POLICY IF EXISTS test_policy ON test
+    - migration_filename: /src/policy.sql
+      migration_statement: CREATE POLICY test_policy ON test TO test USING (false)
