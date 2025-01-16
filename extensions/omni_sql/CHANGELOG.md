@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2025-01-17
+
+### Added
+
+* `raw_statements` now has a second boolean argument indicating whether the function should preserve transaction blocks in a single result row or split them into separate rows.The boolean defaults to false to perserve backwards compatibility. [#753](https://github.com/omnigres/omnigres/pull/753)
+
 ## [0.4.0] - 2025-01-14
 
 ### Added

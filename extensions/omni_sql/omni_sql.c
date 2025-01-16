@@ -149,26 +149,58 @@ Datum raw_statements(PG_FUNCTION_ARGS) {
   rsinfo->setResult = tupstore;
 
   char *statement = PG_GETARG_CSTRING(0);
+  bool preserve_transactions = PG_GETARG_BOOL(1);
 
   List *stmts = omni_sql_parse_statement(statement);
 
   ListCell *lc;
+  text *cmd;
+  text *tx = NULL;
   foreach (lc, stmts) {
     switch (nodeTag(lfirst(lc))) {
     case T_RawStmt: {
       RawStmt *raw_stmt = lfirst_node(RawStmt, lc);
-      int line, col;
+
+      int line, col, tx_line, tx_col;
       int actual_start = find_non_whitespace(statement + raw_stmt->stmt_location);
       find_line_col(statement, raw_stmt->stmt_location + actual_start, &line, &col);
-      Datum values[3] = {
-          PointerGetDatum(
-              raw_stmt->stmt_len == 0
-                  ? cstring_to_text(statement + raw_stmt->stmt_location + actual_start)
-                  : cstring_to_text_with_len(statement + raw_stmt->stmt_location + actual_start,
-                                             raw_stmt->stmt_len - actual_start)),
-          Int32GetDatum(line), Int32GetDatum(col)};
-      bool isnull[3] = {false, false, false};
-      tuplestore_putvalues(tupstore, rsinfo->expectedDesc, values, isnull);
+      cmd = raw_stmt->stmt_len == 0
+                ? cstring_to_text(statement + raw_stmt->stmt_location + actual_start)
+                : cstring_to_text_with_len(statement + raw_stmt->stmt_location + actual_start,
+                                           raw_stmt->stmt_len - actual_start);
+
+      if (preserve_transactions) {
+        // begin transaction
+        if (nodeTag(raw_stmt->stmt) == T_TransactionStmt && tx == NULL) {
+          tx = cmd;
+          tx_line = line;
+          tx_col = col;
+          // end transaction
+        } else if (nodeTag(raw_stmt->stmt) == T_TransactionStmt) {
+          Datum values[3] = {DirectFunctionCall2(textcat,
+                                                 DirectFunctionCall2(textcat, PointerGetDatum(tx),
+                                                                     CStringGetTextDatum("; ")),
+                                                 PointerGetDatum(cmd)),
+                             Int32GetDatum(tx_line), Int32GetDatum(tx_col)};
+          tx = NULL;
+          bool isnull[3] = {false, false, false};
+          tuplestore_putvalues(tupstore, rsinfo->expectedDesc, values, isnull);
+          // within transaction
+        } else if (tx != NULL) {
+          // no transaction
+          tx = DatumGetTextPP(DirectFunctionCall2(
+              textcat, DirectFunctionCall2(textcat, PointerGetDatum(tx), CStringGetTextDatum("; ")),
+              PointerGetDatum(cmd)));
+        } else {
+          Datum values[3] = {PointerGetDatum(cmd), Int32GetDatum(line), Int32GetDatum(col)};
+          bool isnull[3] = {false, false, false};
+          tuplestore_putvalues(tupstore, rsinfo->expectedDesc, values, isnull);
+        }
+      } else {
+        Datum values[3] = {PointerGetDatum(cmd), Int32GetDatum(line), Int32GetDatum(col)};
+        bool isnull[3] = {false, false, false};
+        tuplestore_putvalues(tupstore, rsinfo->expectedDesc, values, isnull);
+      }
       break;
     }
     default:

@@ -26,3 +26,33 @@ tests:
   - source: select 1
     line: 2
     col: 2 # intentional
+
+- name: with preserve transactions = true but no transaction
+  query: select *
+         from omni_sql.raw_statements(E' Select True;\n select 1', true)
+  results:
+  - source: Select True
+    line: 1
+    col: 2
+  - source: select 1
+    line: 2
+    col: 2
+
+- name: with preserve transactions = true and a transaction
+  query: select *
+         from omni_sql.raw_statements(E'begin; Select True;\n select 1; end;', true)
+  results:
+  - source: begin; Select True; select 1; end
+    line: 1
+    col: 1
+
+- name: with preserve transactions = true, a transaction and another statement
+  query: select *
+         from omni_sql.raw_statements(E'begin;Select True;select 1;end;select version()', true)
+  results:
+  - source: begin; Select True; select 1; end
+    line: 1
+    col: 1
+  - source: select version()
+    line: 1
+    col: 32
