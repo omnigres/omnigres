@@ -201,7 +201,6 @@ This implies that **any object removal has to be done in a migration**, since `m
 
 It is also important to note that a temporary database is created in the current cluster (and using the same credentials as the caller) in order to plan the statements to be used by `make`.
 Therefore the user executing this should have all appropriate system privileges.
-Create a blank temporary database to run assemble_schema. 
 
 !!! tip "Checking the execution plan"
 

@@ -4,6 +4,7 @@ create function assemble_schema(conn_info text, fs anyelement, path text default
                 execution_position  int,
                 migration_filename  text,
                 migration_statement text,
+                executed_statement  text,
                 execution_error     text
             )
     language plpgsql
@@ -35,6 +36,8 @@ begin
         execution_number         int,
         -- whether statement is executed successfully
         execution_successful     boolean not null default false,
+        -- what statement was actually executed
+        executed_code            text,
         -- error for last execution of the statement
         last_execution_error     text
     ) on commit drop;
@@ -180,6 +183,10 @@ begin
                                             from dblink(rec.filepath,
                                                         format('with cte as (%s) select true from cte',
                                                                format('select %s(%L::text)', rec.processor, rec.code))) as t(b boolean);
+                                            -- we can ignore the CTE since it is only used to format the result
+                                            update omni_schema_execution_status
+                                            set executed_code = format('select %s(%L::text)', rec.processor, rec.code)
+                                            where id = rec.id;
                                         end if;
                                     elsif rec.language = 'sql' then
                                         -- normalize sql statement like removing whitespace
@@ -196,6 +203,10 @@ begin
                                         else
                                             perform dblink(rec.filepath, rec.code);
                                         end if;
+                                        -- we can ignore the CTE since it is only used to format the result
+                                        update omni_schema_execution_status
+                                        set executed_code = rec.code
+                                        where id = rec.id;
                                     else
                                         if not exists(select *
                                                       from dblink(rec.filepath,
@@ -220,6 +231,13 @@ begin
                                                             rec.file_processor,
                                                             rec.code, rec.filepath, remote_table_fs::text,
                                                             pg_typeof(remote_table_fs))) as t(b boolean);
+                                                    update omni_schema_execution_status
+                                                    set executed_code = format(
+                                                                'with cte as (select %s(%L::text, filename => %L::text, replace => true, fs => %L::%s)) select true from cte',
+                                                                rec.file_processor,
+                                                                rec.code, rec.filepath, remote_table_fs::text,
+                                                                pg_typeof(remote_table_fs))
+                                                    where id = rec.id;
                                                 end if;
                                             end if;
                                             if rec.code ~ 'SQL\[\[.*\]\]' then
@@ -227,6 +245,12 @@ begin
                                                                                     substring(rec.code from 'SQL\[\[(.*?)\]\]'),
                                                                                     rec.language,
                                                                                     rec.code));
+                                                update omni_schema_execution_status
+                                                set executed_code = coalesce(executed_code || ';', '') || format('%s language %I as %L',
+                                                                                    substring(rec.code from 'SQL\[\[(.*?)\]\]'),
+                                                                                    rec.language,
+                                                                                    rec.code)
+                                                where id = rec.id;
                                             end if;
                                         end if;
                                     end if;
@@ -278,6 +302,7 @@ begin
     return query select execution_number,
                         filepath,
                         code,
+                        executed_code,
                         last_execution_error
                  from omni_schema_execution_status
                  order by execution_number;
