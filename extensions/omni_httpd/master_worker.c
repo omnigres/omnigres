@@ -192,7 +192,7 @@ static void sigusr1_handler(int signo) {
 #define i_tag port
 #include <stc/cset.h>
 
-pg_atomic_uint32 *semaphore;
+pg_atomic_uint32 *semaphore = NULL;
 
 /**
  * @brief Master httpd worker
@@ -601,6 +601,7 @@ void master_worker(Datum db_oid) {
         }
       }
 
+      http_workers_started = true;
       // Ensure all workers have indeed started their loops
       uint32 expected = cvec_bgwhandle_size(&http_workers);
       ereport(LOG, errmsg("Started %d omni_httpd workers", expected));
@@ -612,7 +613,6 @@ void master_worker(Datum db_oid) {
           goto terminate;
         }
       }
-      http_workers_started = true;
     }
 
     // Share the socket over a unix socket until terminated

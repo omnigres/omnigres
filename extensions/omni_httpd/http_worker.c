@@ -171,7 +171,8 @@ static int exit_code = 0;
 static void sigterm() {
   atomic_store(&worker_running, false);
   // master_worker sets semaphore to INT32_MAX to signal normal termination
-  exit_code = pg_atomic_read_u32(semaphore) == INT32_MAX ? 0 : 1;
+  // NULL semaphore means we're not being started anymore
+  exit_code = (semaphore == NULL || pg_atomic_read_u32(semaphore) == INT32_MAX) ? 0 : 1;
   h2o_multithread_send_message(&event_loop_receiver, NULL);
   h2o_multithread_send_message(&handler_receiver, NULL);
 }
@@ -678,16 +679,13 @@ static cvec_fd_fd accept_fds(char *socket_name) {
 try_connect:
   if (connect(socket_fd, (struct sockaddr *)&address, sizeof(struct sockaddr_un)) != 0) {
     int e = errno;
-    if (e == EAGAIN || e == EWOULDBLOCK) {
-      if (atomic_load(&worker_reload)) {
+    if (e == EAGAIN || e == EWOULDBLOCK || e == ECONNREFUSED || e == ECONNRESET) {
+      if (atomic_load(&worker_reload) || !atomic_load(&worker_running)) {
         // Don't try to get fds, roll with the reload
         return cvec_fd_fd_init();
       } else {
         goto try_connect;
       }
-    }
-    if (e == ECONNREFUSED) {
-      goto try_connect;
     }
     ereport(ERROR, errmsg("error connecting to sharing socket: %s", strerror(e)));
   }
@@ -696,7 +694,7 @@ try_connect:
 
   do {
     errno = 0;
-    if (atomic_load(&worker_reload)) {
+    if (atomic_load(&worker_reload) || !atomic_load(&worker_running)) {
       result = cvec_fd_fd_init();
       break;
     }

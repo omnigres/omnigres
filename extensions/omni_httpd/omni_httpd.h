@@ -37,10 +37,9 @@ static const char *OMNI_HTTPD_CONFIGURATION_NOTIFY_CHANNEL = "omni_httpd_configu
 static const char *OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE =
     "omni_httpd(%d):" EXT_VERSION ":_configuration_reload_semaphore";
 
-static const char *OMNI_HTTPD_MASTER_WORKER = "omni_httpd(%s):" EXT_VERSION ":_master_worker";
+static const char *OMNI_HTTPD_CONFIGURATION_CONTROL = "omni_httpd(%d):" EXT_VERSION ":_control";
 
-static const char *OMNI_HTTPD_MASTER_WORKER_LEADER =
-    "omni_httpd(%d):" EXT_VERSION ":_master_worker_leader";
+static const char *OMNI_HTTPD_MASTER_WORKER = "omni_httpd(%s):" EXT_VERSION ":_master_worker";
 
 static const char *OMNI_HTTPD_GUC_NUM_HTTP_WORKERS =
     "omni_httpd:" EXT_VERSION ":_guc_num_http_workers";
