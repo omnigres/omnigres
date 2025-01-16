@@ -271,4 +271,9 @@ rm -rf .pg build
 CTEST_PARALLEL_LEVEL=$(nproc) make -j $(nproc) all test
 ```
 
+### Contributing
+
+Once you are ready to contribute, please check out the [contribution guidelines](CONTRIBUTING.md).
+
+
 [Discord]: https://discord.omnigr.es
