@@ -2,34 +2,34 @@ $schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress
 instance:
   config:
     shared_preload_libraries: */env/OMNI_SO
-    omni_test.int: 10
-    omni_test.bool: true
-    omni_test.real: 3.14
-    omni_test.string: hello
-    omni_test.enum: test1
+    omni__test.int: 10
+    omni__test.bool: true
+    omni__test.real: 3.14
+    omni__test.string: hello
+    omni__test.enum: test1
   init:
   # We create the extension here
-  - create extension omni_test
+  - create extension omni__test
 
 tests:
 
 - name: int
   tests:
   - name: int value after boot
-    query: select omni_test.guc_int()
+    query: select omni__test.guc_int()
     results:
     - guc_int: 10
 
   - name: int value after change
     steps:
-    - select set_config('omni_test.int', '100', true)
-    - query: select omni_test.guc_int()
+    - select set_config('omni__test.int', '100', true)
+    - query: select omni__test.guc_int()
       results:
       - guc_int: 100
 
   - name: int value after reset
     reset: true
-    query: select omni_test.guc_int()
+    query: select omni__test.guc_int()
     results:
     # because it is user-set
     - guc_int: 10
@@ -37,20 +37,20 @@ tests:
 - name: bool
   tests:
   - name: bool value after boot
-    query: select omni_test.guc_bool()
+    query: select omni__test.guc_bool()
     results:
     - guc_bool: true
 
   - name: bool value after change
     steps:
-    - select set_config('omni_test.bool', 'false', true)
-    - query: select omni_test.guc_bool()
+    - select set_config('omni__test.bool', 'false', true)
+    - query: select omni__test.guc_bool()
       results:
       - guc_bool: false
 
   - name: bool value after reset
     reset: true
-    query: select omni_test.guc_bool()
+    query: select omni__test.guc_bool()
     results:
     # because it is user-set
     - guc_bool: true
@@ -59,20 +59,20 @@ tests:
   tests:
 
   - name: real value after boot
-    query: select omni_test.guc_real()
+    query: select omni__test.guc_real()
     results:
     - guc_real: 3.14
 
   - name: real value after change
     steps:
-    - select set_config('omni_test.real', '21.22', true)
-    - query: select omni_test.guc_real()
+    - select set_config('omni__test.real', '21.22', true)
+    - query: select omni__test.guc_real()
       results:
       - guc_real: 21.22
 
   - name: real value after reset
     reset: true
-    query: select omni_test.guc_real()
+    query: select omni__test.guc_real()
     results:
     # because it is user-set
     - guc_real: 3.14
@@ -81,20 +81,20 @@ tests:
   tests:
 
   - name: string value after boot
-    query: select omni_test.guc_string()
+    query: select omni__test.guc_string()
     results:
     - guc_string: hello
 
   - name: string value after change
     steps:
-    - select set_config('omni_test.string', 'bye', true)
-    - query: select omni_test.guc_string()
+    - select set_config('omni__test.string', 'bye', true)
+    - query: select omni__test.guc_string()
       results:
       - guc_string: bye
 
   - name: string value after reset
     reset: true
-    query: select omni_test.guc_string()
+    query: select omni__test.guc_string()
     results:
     # because it is user-set
     - guc_string: hello
@@ -103,20 +103,20 @@ tests:
   tests:
 
   - name: enum value after boot
-    query: select omni_test.guc_enum()
+    query: select omni__test.guc_enum()
     results:
     - guc_enum: 2
 
   - name: enum value after change
     steps:
-    - select set_config('omni_test.enum', 'test', true)
-    - query: select omni_test.guc_enum()
+    - select set_config('omni__test.enum', 'test', true)
+    - query: select omni__test.guc_enum()
       results:
       - guc_enum: 1
 
   - name: enum value after reset
     reset: true
-    query: select omni_test.guc_enum()
+    query: select omni__test.guc_enum()
     results:
     # because it is user-set
     - guc_enum: 2

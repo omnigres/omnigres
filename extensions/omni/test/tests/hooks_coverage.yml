@@ -3,16 +3,16 @@ instance:
   config:
     shared_preload_libraries: */env/OMNI_SO
   init:
-  - create extension omni_test
+  - create extension omni__test
 
 tests:
 
 - name: xact_callback
-  query: select omni_test.was_hook_called('xact_callback') as result
+  query: select omni__test.was_hook_called('xact_callback') as result
   results:
   - result: true
 
 - name: planner_hook
-  query: select omni_test.was_hook_called('planner') as result
+  query: select omni__test.was_hook_called('planner') as result
   results:
   - result: true

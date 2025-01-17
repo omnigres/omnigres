@@ -5,7 +5,7 @@ instance:
     max_worker_processes: 4
   init:
   # We create the extension here
-  - create extension omni_test
+  - create extension omni__test
   - create extension omni
 # This is silly, but pg_yregress is not programmable (yet)
 # so we just repeat the same thing a lot of times...name:

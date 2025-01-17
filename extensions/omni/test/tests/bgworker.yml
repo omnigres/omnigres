@@ -4,7 +4,7 @@ instance:
     shared_preload_libraries: */env/OMNI_SO
   init:
   # We create the extension here
-  - create extension omni_test
+  - create extension omni__test
 
 tests:
 
@@ -47,7 +47,7 @@ tests:
 - name: with a new database, there's going to be more local workers
   database: db1
   tests:
-  - create extension omni_test
+  - create extension omni__test
   - query: select
                count(*)
            from
@@ -58,7 +58,7 @@ tests:
     - count: 2
 
 - name: omni's own background worker handle
-  query: select omni_test.local_worker_pid() is not null as result
+  query: select omni__test.local_worker_pid() is not null as result
   results:
   - result: true
 

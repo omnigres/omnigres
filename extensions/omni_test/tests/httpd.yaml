@@ -1,0 +1,42 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+    max_worker_processes: 64
+  init:
+    - create extension omni_test cascade
+    - create extension omni_schema cascade
+    - create extension omni_httpd cascade
+    - create database db_http
+    - update pg_database set datistemplate = true where datname = 'db_http'
+
+tests:
+
+- name: prepare db_http
+  commit: true
+  steps:
+  - query: |
+      select migration_filename,
+      execution_error
+      from omni_schema.assemble_schema('dbname=db_http user=yregress host=localhost port=' ||
+      (select setting from pg_settings where name = 'port'),
+      omni_vfs.local_fs('../../../../extensions/omni_test/tests/fixture/db_http')
+      )
+      order by execution_position
+
+- name: run db_http tests
+  steps:
+  - query: select name, description, error_message from omni_test.run_tests('db_http') order by name
+    results:
+      - name: public.err
+        description: Error test
+        error_message: failed test
+      - name: public.test1
+        description: Test 1
+        error_message: null
+      - name: public.test2
+        description: Test 2
+        error_message: null
+      - name: public.test_fun
+        description: Test function
+        error_message: null

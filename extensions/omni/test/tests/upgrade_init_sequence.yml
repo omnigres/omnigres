@@ -4,7 +4,7 @@ instance:
     shared_preload_libraries: */env/OMNI_SO
   init:
   # We create the extension here
-  - create extension omni_test version '1' cascade
+  - create extension omni__test version '1' cascade
 
 tests:
 
@@ -25,7 +25,7 @@ tests:
   - delete
     from
         events
-  - alter extension omni_test update to '2'
+  - alter extension omni__test update to '2'
   - query: select
                event
            from
