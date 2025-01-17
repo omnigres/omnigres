@@ -172,7 +172,9 @@ static void sigterm() {
   atomic_store(&worker_running, false);
   // master_worker sets semaphore to INT32_MAX to signal normal termination
   // NULL semaphore means we're not being started anymore
-  exit_code = (semaphore == NULL || pg_atomic_read_u32(semaphore) == INT32_MAX) ? 0 : 1;
+  exit_code =
+      (!BackendInitialized || semaphore == NULL || pg_atomic_read_u32(semaphore) == INT32_MAX) ? 0
+                                                                                               : 1;
   h2o_multithread_send_message(&event_loop_receiver, NULL);
   h2o_multithread_send_message(&handler_receiver, NULL);
 }
@@ -206,13 +208,17 @@ void http_worker(Datum db_oid) {
   event_loop_register_receiver();
   pthread_create(&event_loop_thread, NULL, event_loop, NULL);
 
-  BackgroundWorkerUnblockSignals();
-
   // Connect worker to the database
   BackgroundWorkerInitializeConnectionByOid(db_oid, InvalidOid, 0);
+  BackgroundWorkerUnblockSignals();
 
   if (MyBgworkerEntry->bgw_notify_pid == 0) {
     // We are being restarted when somebody crashed. We would otherwise have master's PID here
+    return;
+  }
+
+  if (!BackendInitialized) {
+    // omni_httpd is being shut down
     return;
   }
 
@@ -222,6 +228,7 @@ void http_worker(Datum db_oid) {
   }
 
   // Get necessary OIDs and tuple descriptors
+  PG_TRY();
   {
     SetCurrentStatementStartTimestamp();
     StartTransactionCommand();
@@ -299,6 +306,20 @@ void http_worker(Datum db_oid) {
     PopActiveSnapshot();
     AbortCurrentTransaction();
   }
+  // This is important to catch because `StartBackgroundWorker` catches the error
+  // and eventually goes to `proc_exit(1)` which cleans up shared memory and our
+  // signal handlers try to access it.
+  // This is not a very common path, it's primarily related to quick succession of
+  // omni_httpd termination after startup.
+  // Instead, we simply admit we can't initialize the worker, we concede to it and
+  // gracefully exit.
+  PG_CATCH();
+  {
+    ereport(WARNING, errmsg("omni_httpd is not ready, shutting omni_httpd down"));
+    BackendInitialized = false;
+    proc_exit(0);
+  }
+  PG_END_TRY();
 
   {
     // Prepare the persistent portal
@@ -544,6 +565,7 @@ void http_worker(Datum db_oid) {
   if (IsPostmasterBeingShutdown()) {
     exit_code = 0;
   }
+  BackendInitialized = false;
   proc_exit(exit_code);
 }
 
