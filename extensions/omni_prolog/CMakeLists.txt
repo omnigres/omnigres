@@ -13,7 +13,7 @@ find_package(PostgreSQL REQUIRED)
 
 if(NOT DEFINED SWIPL)
 
-    CPMAddPackage(NAME swiprolog GITHUB_REPOSITORY SWI-Prolog/swipl-devel VERSION 9.1.21 GIT_TAG V9.1.21
+    CPMAddPackage(NAME swiprolog GITHUB_REPOSITORY SWI-Prolog/swipl-devel VERSION 9.3.18 GIT_TAG V9.3.18
             DOWNLOAD_ONLY YES GIT_SUBMODULES)
 
     if(swiprolog_ADDED)
