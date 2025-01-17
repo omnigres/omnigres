@@ -580,7 +580,9 @@ Datum plprologX_call_handler(PG_FUNCTION_ARGS, bool sandbox) {
 
   if (rs != NULL) {
     // if we're returning a set, finalize and clean up
+#if PG_MAJORVERSION_NUM < 17
     tuplestore_donestoring(tupstore);
+#endif
     MemoryContextSwitchTo(oldcontext);
     PG_RETURN_NULL();
   } else {
