@@ -60,6 +60,6 @@ extern pg_atomic_uint32 *semaphore;
 extern omni_bgworker_handle *master_worker_bgw;
 extern pg_atomic_uint64 *master_worker_leader;
 
-extern bool BackendInitialized;
+extern volatile bool BackendInitialized;
 
 #endif //  OMNI_HTTPD_H

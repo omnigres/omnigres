@@ -199,7 +199,7 @@ static void register_start_master_worker(const omni_handle *handle, void *ptr, v
   start_master_worker(handle, (omni_bgworker_handle *)ptr, omni_timing_after_commit);
 }
 
-bool BackendInitialized = false;
+volatile bool BackendInitialized = false;
 
 static const omni_handle *module_handle;
 
@@ -264,7 +264,7 @@ void _Omni_init(const omni_handle *handle) {
 static void stop_master_worker(bool immediate) {
   LWLockAcquire(&control->lock, LW_EXCLUSIVE);
 
-  if (control->started) {
+  if (control->started && master_worker_bgw != NULL) {
     omni_bgworker_handle *bgw_handle = (omni_bgworker_handle *)MemoryContextAlloc(
         IsTransactionState() ? TopTransactionContext : TopMemoryContext,
         sizeof(*master_worker_bgw));
@@ -282,33 +282,31 @@ static void stop_master_worker(bool immediate) {
 }
 
 void _Omni_deinit(const omni_handle *handle) {
-  if (master_worker_bgw != NULL) {
-    bool found;
-    omni_bgworker_handle *bgw_handle = (omni_bgworker_handle *)MemoryContextAlloc(
-        IsTransactionState() ? TopTransactionContext : TopMemoryContext,
-        sizeof(*master_worker_bgw));
-    memcpy(bgw_handle, master_worker_bgw, sizeof(*master_worker_bgw));
+  BackendInitialized = false;
+  bool found;
 
-    const char *master_worker_mem_name =
-        psprintf(OMNI_HTTPD_MASTER_WORKER, get_database_name(MyDatabaseId));
+  // Request stoppage while we have the information about the master worker
+  // and the controls. Will happen when this transaction commits (if there's any)
+  stop_master_worker(false);
 
-    handle->deallocate_shmem(handle, master_worker_mem_name, &found);
+  const char *master_worker_mem_name =
+      psprintf(OMNI_HTTPD_MASTER_WORKER, get_database_name(MyDatabaseId));
 
-    const char *semaphore_mem_name =
-        psprintf(OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE, MyDatabaseId);
+  handle->deallocate_shmem(handle, master_worker_mem_name, &found);
+  master_worker_bgw = NULL;
 
-    handle->deallocate_shmem(handle, semaphore_mem_name, &found);
-    semaphore = NULL;
+  const char *semaphore_mem_name =
+      psprintf(OMNI_HTTPD_CONFIGURATION_RELOAD_SEMAPHORE, MyDatabaseId);
 
-    stop_master_worker(false);
+  handle->deallocate_shmem(handle, semaphore_mem_name, &found);
+  semaphore = NULL;
 
-    handle->unregister_lwlock(handle, &control->lock);
+  handle->unregister_lwlock(handle, &control->lock);
 
-    const char *control_mem_name = psprintf(OMNI_HTTPD_CONFIGURATION_CONTROL, MyDatabaseId);
+  const char *control_mem_name = psprintf(OMNI_HTTPD_CONFIGURATION_CONTROL, MyDatabaseId);
 
-    handle->deallocate_shmem(handle, control_mem_name, &found);
-    control = NULL;
-  }
+  handle->deallocate_shmem(handle, control_mem_name, &found);
+  control = NULL;
 }
 
 PG_FUNCTION_INFO_V1(reload_configuration);
