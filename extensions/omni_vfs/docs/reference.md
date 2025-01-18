@@ -210,6 +210,22 @@ The [API](#api) described above works for `omni_vfs.table_fs` files as well. It 
 
     Although `omni_vfs.table_fs` can handle millions of files, it is recommended not to have more than few hundred files in one single directory to ensure optimal listing performance.
 
+### `omni_vfs.remote_fs` (remote file system)
+
+Remote filesystem takes a connection string (just like `dblink` does) and a snippet of SQL that
+defines a filesystem remotely:
+
+```postgresql
+select omni_vfs.remote_fs('dbname=otherdb host=127.0.0.1', $$omni_vfs.local_fs('/path')$$)
+```
+
+All normal VFS operations called over this filesystem are proxied to that remote connection.
+
+!!! tip "Performance considerations"
+
+    At this time, connections are not reused, and every time a call is made, a new connection
+    is established.
+
 ### Runtime backend dispatch
 
 In a real application, to make it possible to use different backends, one can create a file system "factory" function dependent on the environment they are in. For example, when in development, it can look like this:

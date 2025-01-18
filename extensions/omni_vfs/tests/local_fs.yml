@@ -31,6 +31,8 @@ tests:
     kind: file
   - name: path_functions.yml
     kind: file
+  - name: remote_fs.yml
+    kind: file
   - name: table_fs.yml
     kind: file
 
@@ -58,6 +60,8 @@ tests:
   - name: local_fs.yml
     kind: file
   - name: path_functions.yml
+    kind: file
+  - name: remote_fs.yml
     kind: file
   - name: table_fs.yml
     kind: file
