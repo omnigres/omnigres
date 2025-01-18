@@ -10,6 +10,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 * Filesystem writing capabilities (`omni_vfs.write`) [#712](https://github.com/omnigres/omnigres/pull/712)
+* Remote Filesystem (`remote_fs`) to access filesystems in other databases [#755](https://github.com/omnigres/omnigres/pull/755)
 
 ## [0.1.2] - 2024-09-27
 
