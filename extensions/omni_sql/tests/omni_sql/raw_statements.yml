@@ -38,11 +38,36 @@ tests:
     line: 2
     col: 2
 
-- name: with preserve transactions = true and a transaction
+- name: with preserve transactions = true and a commited transaction
   query: select *
-         from omni_sql.raw_statements(E'begin; Select True;\n select 1; end;', true)
+         from omni_sql.raw_statements(E'begin; Select True;\n select 1; commit;', true)
   results:
-  - source: begin; Select True; select 1; end
+  - source: begin; Select True; select 1; commit
+    line: 1
+    col: 1
+
+- name: with preserve transactions = true and an end transaction
+  query: select *
+         from omni_sql.raw_statements(E'begin; Select True;\n select 1; end transaction;', true)
+  results:
+  - source: begin; Select True; select 1; end transaction
+    line: 1
+    col: 1
+
+
+- name: with preserve transactions = true and a rollbacked transaction
+  query: select *
+         from omni_sql.raw_statements(E'begin; Select True;\n select 1; rollback;', true)
+  results:
+  - source: begin; Select True; select 1; rollback
+    line: 1
+    col: 1
+
+- name: with preserve transactions = true and an unfinished transaction
+  query: select *
+         from omni_sql.raw_statements(E'begin; Select True;\n select 1;', true)
+  results:
+  - source: begin; Select True; select 1
     line: 1
     col: 1
 
@@ -56,3 +81,25 @@ tests:
   - source: select version()
     line: 1
     col: 32
+
+- name: with preserve transactions = true, a begin inside a transaction should not close a transaction
+  query: select *
+         from omni_sql.raw_statements(E'begin;Select True;begin;select 1;commit;select version();commit;', true)
+  results:
+  - source: begin; Select True; begin; select 1; commit
+    line: 1
+    col: 1
+  - source: select version()
+    line: 1
+    col: 41
+  - source: commit
+    line: 1
+    col: 58
+
+- name: with preserve transactions = true start transaction 
+  query: select *
+         from omni_sql.raw_statements(E'start transaction isolation level serializable;Select True;commit;', true)
+  results:
+  - source: start transaction isolation level serializable; Select True; commit
+    line: 1
+    col: 1

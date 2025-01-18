@@ -10,11 +10,14 @@
 #include <catalog/pg_type.h>
 #include <executor/spi.h>
 #include <miscadmin.h>
+#include <string.h>
 #include <utils/jsonb.h>
 #include <utils/lsyscache.h>
 #include <utils/syscache.h>
 
+#include "nodes/pg_list.h"
 #include "omni_sql.h"
+#include "utils/elog.h"
 
 PG_MODULE_MAGIC;
 
@@ -138,6 +141,11 @@ Datum raw_statements(PG_FUNCTION_ARGS) {
   if (PG_ARGISNULL(0)) {
     ereport(ERROR, errmsg("statements can't be NULL"));
   }
+  if (PG_ARGISNULL(1)) {
+    ereport(ERROR, errmsg("preserve_transactions flag can't be NULL"));
+  }
+  char *statement = PG_GETARG_CSTRING(0);
+  bool preserve_transactions = PG_GETARG_BOOL(1);
 
   ReturnSetInfo *rsinfo = (ReturnSetInfo *)fcinfo->resultinfo;
   rsinfo->returnMode = SFRM_Materialize;
@@ -148,20 +156,18 @@ Datum raw_statements(PG_FUNCTION_ARGS) {
   Tuplestorestate *tupstore = tuplestore_begin_heap(false, false, work_mem);
   rsinfo->setResult = tupstore;
 
-  char *statement = PG_GETARG_CSTRING(0);
-  bool preserve_transactions = PG_GETARG_BOOL(1);
-
   List *stmts = omni_sql_parse_statement(statement);
 
   ListCell *lc;
   text *cmd;
   text *tx = NULL;
+  int tx_line, tx_col;
   foreach (lc, stmts) {
     switch (nodeTag(lfirst(lc))) {
     case T_RawStmt: {
       RawStmt *raw_stmt = lfirst_node(RawStmt, lc);
 
-      int line, col, tx_line, tx_col;
+      int line, col;
       int actual_start = find_non_whitespace(statement + raw_stmt->stmt_location);
       find_line_col(statement, raw_stmt->stmt_location + actual_start, &line, &col);
       cmd = raw_stmt->stmt_len == 0
@@ -170,13 +176,17 @@ Datum raw_statements(PG_FUNCTION_ARGS) {
                                            raw_stmt->stmt_len - actual_start);
 
       if (preserve_transactions) {
-        // begin transaction
-        if (nodeTag(raw_stmt->stmt) == T_TransactionStmt && tx == NULL) {
+        // normalize statement so we can differentiate between BEGIN and END
+        char *deparsed = omni_sql_deparse_statement(list_make1(raw_stmt));
+        bool is_end = strcmp(deparsed, "COMMIT") == 0 || strcmp(deparsed, "ROLLBACK") == 0;
+
+        if (nodeTag(raw_stmt->stmt) == T_TransactionStmt && tx == NULL && !is_end) {
+          // begin transaction
           tx = cmd;
           tx_line = line;
           tx_col = col;
-          // end transaction
-        } else if (nodeTag(raw_stmt->stmt) == T_TransactionStmt) {
+        } else if (nodeTag(raw_stmt->stmt) == T_TransactionStmt && tx != NULL && is_end) {
+          // end transaction, we have to concatenate the last command before clearing tx
           Datum values[3] = {DirectFunctionCall2(textcat,
                                                  DirectFunctionCall2(textcat, PointerGetDatum(tx),
                                                                      CStringGetTextDatum("; ")),
@@ -185,13 +195,13 @@ Datum raw_statements(PG_FUNCTION_ARGS) {
           tx = NULL;
           bool isnull[3] = {false, false, false};
           tuplestore_putvalues(tupstore, rsinfo->expectedDesc, values, isnull);
-          // within transaction
         } else if (tx != NULL) {
-          // no transaction
+          // within transaction we just concatenate the command and proceed
           tx = DatumGetTextPP(DirectFunctionCall2(
               textcat, DirectFunctionCall2(textcat, PointerGetDatum(tx), CStringGetTextDatum("; ")),
               PointerGetDatum(cmd)));
         } else {
+          // no transaction, output command immediately
           Datum values[3] = {PointerGetDatum(cmd), Int32GetDatum(line), Int32GetDatum(col)};
           bool isnull[3] = {false, false, false};
           tuplestore_putvalues(tupstore, rsinfo->expectedDesc, values, isnull);
@@ -207,6 +217,14 @@ Datum raw_statements(PG_FUNCTION_ARGS) {
       break;
     }
   };
+
+  if (tx != NULL) {
+    // handle cases of unfinished transactions
+    Datum values[3] = {PointerGetDatum(tx), Int32GetDatum(tx_line), Int32GetDatum(tx_col)};
+    tx = NULL;
+    bool isnull[3] = {false, false, false};
+    tuplestore_putvalues(tupstore, rsinfo->expectedDesc, values, isnull);
+  }
 
 #if PG_MAJORVERSION_NUM < 17
   tuplestore_donestoring(tupstore);
