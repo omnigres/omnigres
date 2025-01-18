@@ -84,6 +84,12 @@ RUN make package_extensions
 #RUN PG_VER=${PG%.*} && . "$HOME/.cargo/env" && cd plrust/plrust && \
 #    cargo pgrx package --features "pg${PG_VER} trusted"
 
+FROM ghcr.io/omnigres/omnigres-${PG} AS previous
+ENV PG=${PG}
+RUN mkdir -p /prev/libdir /prev/extension && \
+    cp -R $(pg_config --pkglibdir)/* /prev/libdir/ && \
+    cp -R $(pg_config --sharedir)/extension/* /prev/extension/
+
 # Official slim PostgreSQL build
 FROM postgres:${PG}-${DEBIAN_VER_PG} AS pg-slim
 ARG PG
@@ -109,6 +115,10 @@ RUN apt-get -y install \
     postgresql-${PG%.*}-repack \
     postgresql-${PG%.*}-wal2json \
     postgresql-${PG%.*}-pgvector postgresql-${PG%.*}-pgvectorscale
+COPY --from=previous /prev /prev
+RUN mv -n /prev/libdir/* $(pg_config --pkglibdir)/ && \
+    mv -n /prev/extension/* $(pg_config --sharedir)/extension/ && \
+    rm -rf /prev
 COPY --from=build /build/packaged /omni
 # need versions.txt to pick versions
 COPY --from=build /omni/versions.txt /omni/versions.txt
