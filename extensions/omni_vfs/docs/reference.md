@@ -137,6 +137,20 @@ Returns a `bytea` value
 
 [^chunk_size-limit]: Chunk size is currently limited to 1GB.
 
+## `omni_vfs.write()`
+
+Reads a chunk of the file.
+
+|       Parameter | Type              | Description                                             |
+|----------------:|-------------------|---------------------------------------------------------|
+|          **fs** | _Filesystem type_ | Filesystem                                              |
+|        **path** | `text`            | Path to the file                                        |
+|     **content** | `bytea`           | Bytes to write                                          |
+| **create_file** | `boolean`         | Create a file if it does not exist. `false` by default. |
+|      **append** | `boolean`         | Append file. `false` by default. |
+
+Returns the number of bytes written, as `bigint`.
+
 ## Backends
 
 Currently, omni_vfs provides the following backends:
