@@ -66,10 +66,7 @@ tests:
 - name: with preserve transactions = true and an unfinished transaction
   query: select *
          from omni_sql.raw_statements(E'begin; Select True;\n select 1;', true)
-  results:
-  - source: begin; Select True; select 1
-    line: 1
-    col: 1
+  error: unfinished transaction 
 
 - name: with preserve transactions = true, a transaction and another statement
   query: select *
@@ -85,16 +82,7 @@ tests:
 - name: with preserve transactions = true, a begin inside a transaction should not close a transaction
   query: select *
          from omni_sql.raw_statements(E'begin;Select True;begin;select 1;commit;select version();commit;', true)
-  results:
-  - source: begin; Select True; begin; select 1; commit
-    line: 1
-    col: 1
-  - source: select version()
-    line: 1
-    col: 41
-  - source: commit
-    line: 1
-    col: 58
+  error: nested transactions are not supported
 
 - name: with preserve transactions = true start transaction 
   query: select *

@@ -185,6 +185,9 @@ Datum raw_statements(PG_FUNCTION_ARGS) {
           tx = cmd;
           tx_line = line;
           tx_col = col;
+        } else if (nodeTag(raw_stmt->stmt) == T_TransactionStmt && tx != NULL && !is_end) {
+          // nested begin, probably not what the user wants
+          ereport(ERROR, errmsg("nested transactions are not supported"));
         } else if (nodeTag(raw_stmt->stmt) == T_TransactionStmt && tx != NULL && is_end) {
           // end transaction, we have to concatenate the last command before clearing tx
           Datum values[3] = {DirectFunctionCall2(textcat,
@@ -220,10 +223,7 @@ Datum raw_statements(PG_FUNCTION_ARGS) {
 
   if (tx != NULL) {
     // handle cases of unfinished transactions
-    Datum values[3] = {PointerGetDatum(tx), Int32GetDatum(tx_line), Int32GetDatum(tx_col)};
-    tx = NULL;
-    bool isnull[3] = {false, false, false};
-    tuplestore_putvalues(tupstore, rsinfo->expectedDesc, values, isnull);
+    ereport(ERROR, errmsg("unfinished transaction"));
   }
 
 #if PG_MAJORVERSION_NUM < 17
