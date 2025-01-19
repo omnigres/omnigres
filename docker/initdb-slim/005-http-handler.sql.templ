@@ -1,0 +1,33 @@
+create extension omni_mimetypes;
+
+select omni_httpd.instantiate_static_file_handler(schema => 'public');
+
+create table redirecting_router
+(
+    like omni_httpd.urlpattern_router,
+    location text
+);
+
+create function redirecting_handler(req omni_httpd.http_request, router redirecting_router) returns omni_httpd.http_outcome
+    return omni_httpd.http_response(status => 302, headers => array [omni_http.http_header('location', router.location)]);
+
+insert into redirecting_router (match, location, handler) values (omni_httpd.urlpattern('/docs'), '/docs/', 'redirecting_handler'::regproc);
+
+create table static_file_router
+(
+    like omni_httpd.urlpattern_router,
+    fs omni_vfs.local_fs
+);
+
+create function docs_handler(req omni_httpd.http_request, router static_file_router) returns omni_httpd.http_outcome
+    language plpgsql as
+$$
+declare
+begin
+    req.path := regexp_replace(req.path, '^/docs/', '/', '');
+    return static_file_handler(req, router.fs);
+end;
+$$;
+
+
+insert into static_file_router (match, handler, fs) values (omni_httpd.urlpattern('/docs/*'), 'docs_handler'::regproc, omni_vfs.local_fs('/omni-docs'));
