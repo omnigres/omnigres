@@ -14,6 +14,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 * Core routing changed to a router mechanism with URLPattern support [#783](https://github.com/omnigres/omnigres/pull/783)
+* Static file handler uses the new router mechanism [#795](https://github.com/omnigres/omnigres/pull/795)
 
 ## [0.3.0] - 2025-02-04
 
