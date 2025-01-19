@@ -18,7 +18,6 @@ declare
     error_message                   text;
     error_detail text;
     try_again                       boolean = false;
-    try_again                       boolean = true;
     failed_files                    text[] = {};  
     retry_count                     int = 0;     
     max_retries                     int = 3;      
@@ -188,7 +187,7 @@ begin
 
                         -- If retry count is less than max retries, add file to retry queue
                         if retry_count < max_retries then
-                            failed_files := array_append(failed_files, rec.filepath);
+                            failed_files= array_append(failed_files, rec.filepath);
                         else
                             -- After max retries, mark as permanently failed
                             update omni_schema_execution_status
@@ -202,10 +201,10 @@ begin
             -- If there are failed files to retry, retry them
               if array_length(failed_files, 1) > 0 then
               -- Sort and retry failed files respecting priority
-               failed_files := array_sort(failed_files);  -- Sort based on priority
-               try_again := true;
+               failed_files = array_sort(failed_files);  -- Sort based on priority
+               try_again = true;
               else
-               try_again := false;  -- No more retries left
+               try_again = false;  -- No more retries left
              end if;
             end loop;
    
