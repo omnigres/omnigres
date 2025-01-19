@@ -49,7 +49,7 @@ create function my_test() returns omni_test.test -- ...
 Procedures must follow this signature:
 
 ```postgresql
-create procedure my_test(inout omni_tes.test) -- ..
+create procedure my_test(inout omni_test.test) -- ..
 ```
 
 ??? question "When to use procedures instead of functions?"
