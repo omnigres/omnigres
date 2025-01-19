@@ -9,10 +9,12 @@ tests:
 - name: notice progress reporting
   query: |
     select migration_filename,
-           execution_error
+           execution_error,
+           retry_count
     from omni_schema.assemble_schema('dbname=test user=yregress host=localhost port=' ||
                                      (select setting from pg_settings where name = 'port'),
-                                     omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/assemble')
+                                     omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/assemble'),
+                                     max_retries =3
          )
     order by execution_position
   notices:

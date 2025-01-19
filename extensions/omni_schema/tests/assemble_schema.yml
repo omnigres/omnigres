@@ -228,14 +228,16 @@ tests:
                    results as (select
                                    (omni_schema.assemble_schema(
                                            'dbname=test user=yregress host=localhost port=' || port,
-                                           omni_vfs.table_fs('sql_files')
+                                           omni_vfs.table_fs('sql_files'),
+                                           max_retries = 3
                                     )).*
                                from
                                    conn)
                select
                    migration_filename,
                    execution_position,
-                   execution_error
+                   execution_error,
+                   retry_count
                from
                    results
                order by
@@ -285,6 +287,7 @@ tests:
     query: |
       select migration_filename,
              execution_error
+             retry_count
       from omni_schema.assemble_schema('dbname=test user=yregress host=localhost port=' ||
                                        (select setting from pg_settings where name = 'port'),
                                        omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/syntax_error')
@@ -293,3 +296,4 @@ tests:
     results:
     - migration_filename: /test.sql
       execution_error: syntax error at or near "tab"
+      retry_count: 3
