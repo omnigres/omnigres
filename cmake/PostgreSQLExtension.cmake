@@ -323,6 +323,7 @@ $<$<NOT:$<BOOL:${_ext_COMMENT}>>:#>comment = '${_ext_COMMENT}'
                 OUTPUT ${_packaged_default_control_file}
                 CONTENT
                 "default_version = '${_ext_VERSION}'
+$<$<NOT:$<BOOL:${_ext_COMMENT}>>:#>comment = '${_ext_COMMENT}'
 ")
     endif()
     endif()
