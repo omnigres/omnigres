@@ -241,6 +241,14 @@ cmake --build build --parallel
 make -j psql_<COMPONENT_NAME> # for example, `psql_omni_containers`
 ```
 
+To install extensions into your target Postgres:
+
+```shell
+cmake --build build --parallel --target install_extensions
+# Or, individually,
+cmake --build build --parallel --target install_<COMPONENT_NAME>_extension
+```
+
 ### Troubleshooting
 
 <details>

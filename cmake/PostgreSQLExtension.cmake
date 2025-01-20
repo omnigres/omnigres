@@ -381,11 +381,23 @@ $command $@
     if (_ext_SOURCES AND NOT ${_ext_PRIVATE})
         add_custom_target(package_${_ext_TARGET}_extension
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-                DEPENDS omni_check_symbol_conflict_${_ext_TARGET}
+                DEPENDS omni_check_symbol_conflict_${_ext_TARGET} ${_ext_TARGET}
                 COMMAND
                 ${CMAKE_COMMAND} -E copy_if_different
                 "${CMAKE_CURRENT_BINARY_DIR}/$<TARGET_FILE_NAME:${_ext_TARGET}>"
                 ${_pkg_dir})
+        add_custom_target(install_${_ext_TARGET}_extension
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                DEPENDS package_${_ext_TARGET}_extension package_${_ext_TARGET}_migrations
+                COMMAND
+                ${CMAKE_COMMAND} -E copy_if_different
+                "${_pkg_dir}/$<TARGET_FILE_NAME:${_ext_TARGET}>"
+                ${PostgreSQL_PACKAGE_LIBRARY_DIR}
+                COMMAND
+                ${CMAKE_COMMAND} -E copy_if_different
+                "${_pkg_dir}/extension/${NAME}.control" "${_pkg_dir}/extension/${NAME}--${_ext_VERSION}.control" "${_pkg_dir}/extension/${NAME}--${_ext_VERSION}.sql"
+                ${PostgreSQL_EXTENSION_DIR}
+        )
         # Check that the extension has no conflicting symbols with the Postgres binary
         # otherwise the linker might use the symbols from Postgres
         find_package(Python COMPONENTS Interpreter REQUIRED)
@@ -395,6 +407,16 @@ $command $@
     endif()
 
     if (NOT ${_ext_PRIVATE})
+        if (NOT TARGET install_${_ext_TARGET}_extension)
+            add_custom_target(install_${_ext_TARGET}_extension
+                    DEPENDS ${_ext_TARGET} package_${_ext_TARGET}_migrations
+                    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                    COMMAND
+                    ${CMAKE_COMMAND} -E copy_if_different
+                    "${_pkg_dir}/extension/${NAME}.control" "${_pkg_dir}/extension/${NAME}--${_ext_VERSION}.control" "${_pkg_dir}/extension/${NAME}--${_ext_VERSION}.sql"
+                    ${PostgreSQL_EXTENSION_DIR}
+            )
+        endif ()
         add_custom_target(package_${_ext_TARGET}_migrations
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 COMMAND ${CMAKE_BINARY_DIR}/script_${_ext_TARGET} ${_pkg_dir}/extension)
@@ -410,6 +432,13 @@ $command $@
             add_dependencies(package_extensions package_${_ext_TARGET}_migrations)
         endif()
     endif()
+
+    if (NOT TARGET install_extensions)
+        add_custom_target(install_extensions)
+    endif ()
+    if (NOT ${_ext_PRIVATE})
+        add_dependencies(install_extensions install_${_ext_TARGET}_extension)
+    endif ()
 
     if(NOT _ext_PRIVATE)
         add_custom_target(prepare_${_ext_TARGET}
