@@ -155,7 +155,7 @@ EXPOSE 5432
 FROM pg-slim AS pg
 ENV PG=${PG}
 COPY docker/apt-pin /etc/apt/preferences.d/99-pin
-RUN apt-get -y install $(apt-cache search  "^postgresql-${PG%.*}-*" | cut -d' ' -f1 | grep -v 'omnigres' | grep -v 'hunspell' | grep -v 'citus' | grep -v 'pgdg' | grep -v 'timescaledb-tsl' | grep -v 'anonymizer' | grep -v 'dbgsym')
+RUN apt-get -y install $(apt-cache search  "^postgresql-${PG%.*}-*" | cut -d' ' -f1 | grep -v 'omnigres' | grep -v 'pg-duckdb' | grep -v 'hunspell' | grep -v 'citus' | grep -v 'pgdg' | grep -v 'timescaledb-tsl' | grep -v 'anonymizer' | grep -v 'dbgsym')
 #COPY --from=plrust /var/lib/postgresql/plrust/target/release /plrust-release
 ## clear it in case it already exists
 #RUN rm -rf /docker-entrypoint-initdb.d
