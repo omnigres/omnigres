@@ -202,15 +202,22 @@ bool omni_sql_is_returning_statement(List *stmts) {
   }
 
   Node *stmt = (len == 1 ? (linitial_node(RawStmt, stmts)) : (llast_node(RawStmt, stmts)))->stmt;
+#if PG_MAJORVERSION_NUM < 18
+#define returningList(type, stmt) castNode(type, stmt)->returningList
+#else
+#define returningList(type, stmt)                                                                  \
+  (castNode(type, stmt)->returningClause ? castNode(type, stmt)->returningClause->exprs : NIL)
+#endif
   switch (nodeTag(stmt)) {
   case T_SelectStmt:
     return true;
   case T_UpdateStmt:
-    return list_length(castNode(UpdateStmt, stmt)->returningList) > 0;
+    return list_length(returningList(UpdateStmt, stmt)) > 0;
   case T_InsertStmt:
-    return list_length(castNode(InsertStmt, stmt)->returningList) > 0;
+    return list_length(returningList(InsertStmt, stmt)) > 0;
   case T_DeleteStmt:
-    return list_length(castNode(DeleteStmt, stmt)->returningList) > 0;
+    return list_length(returningList(DeleteStmt, stmt)) > 0;
+#undef returningList
   default:
     return false;
   }

@@ -184,7 +184,12 @@ MODULE_FUNCTION PlannedStmt *omni_planner_hook(Query *parse, const char *query_s
                                                int cursorOptions, ParamListInfo boundParams);
 
 MODULE_FUNCTION void omni_executor_run_hook(QueryDesc *queryDesc, ScanDirection direction,
-                                            uint64 count, bool execute_once);
+                                            uint64 count
+#if PG_MAJORVERSION_NUM < 18
+                                            ,
+                                            bool execute_once
+#endif
+);
 
 MODULE_FUNCTION void omni_executor_finish_hook(QueryDesc *queryDesc);
 MODULE_FUNCTION void omni_executor_end_hook(QueryDesc *queryDesc);

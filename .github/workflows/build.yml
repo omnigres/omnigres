@@ -15,9 +15,10 @@ env:
 jobs:
 
   build:
+    continue-on-error: ${{ matrix.pgver == 'master' }}
     strategy:
       matrix:
-        pgver: [ 17, 16, 15, 14, 13 ]
+        pgver: [ 17, 16, 15, 14, 13, master ]
         os: [ warp-ubuntu-2204-x64-4x, warp-macos-14-arm64-6x ]
         build_type: [Debug, Release]
         exclude:

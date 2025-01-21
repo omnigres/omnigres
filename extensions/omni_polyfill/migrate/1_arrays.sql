@@ -3,7 +3,7 @@ $$
     declare
         major_version int;
     begin
-        major_version := split_part(current_setting('server_version'), '.', 1)::int;
+        major_version := current_setting('server_version_num')::int / 10000;
         if major_version < 14 then
             create function trim_array(anyarray, integer) returns anyarray
                 immutable parallel safe

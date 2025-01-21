@@ -61,9 +61,19 @@ MODULE_FUNCTION void default_executor_run(omni_hook_handle *handle, QueryDesc *q
                                           ScanDirection direction, uint64 count,
                                           bool execute_once) {
   return saved_hooks[omni_hook_executor_run] == NULL
-             ? standard_ExecutorRun(queryDesc, direction, count, execute_once)
+             ? standard_ExecutorRun(queryDesc, direction, count
+#if PG_MAJORVERSION_NUM < 18
+                                    ,
+                                    execute_once
+#endif
+                                    )
              : ((ExecutorRun_hook_type)saved_hooks[omni_hook_executor_run])(queryDesc, direction,
-                                                                            count, execute_once);
+                                                                            count
+#if PG_MAJORVERSION_NUM < 18
+                                                                            ,
+                                                                            execute_once
+#endif
+               );
 }
 
 MODULE_FUNCTION void default_executor_finish(omni_hook_handle *handle, QueryDesc *queryDesc) {
@@ -176,9 +186,20 @@ MODULE_FUNCTION void omni_executor_start_hook(QueryDesc *queryDesc, int eflags) 
 }
 
 MODULE_FUNCTION void omni_executor_run_hook(QueryDesc *queryDesc, ScanDirection direction,
-                                            uint64 count, bool execute_once) {
+                                            uint64 count
+#if PG_MAJORVERSION_NUM < 18
+                                            ,
+                                            bool execute_once
+#endif
+) {
 
-  iterate_hooks(executor_run, queryDesc, direction, count, execute_once);
+  iterate_hooks(executor_run, queryDesc, direction, count,
+#if PG_MAJORVERSION_NUM < 18
+                execute_once
+#else
+                true
+#endif
+  );
 }
 
 MODULE_FUNCTION void omni_executor_finish_hook(QueryDesc *queryDesc) {

@@ -19,7 +19,7 @@
 #include <utils/guc.h>
 #include <utils/guc_tables.h>
 
-#if PG_MAJORVERSION_NUM >= 13 && PG_MAJORVERSION_NUM <= 17
+#if PG_MAJORVERSION_NUM >= 13 && PG_MAJORVERSION_NUM <= 18
 /**
  * Omni's copy of an otherwise private datatype of `BackgroundWorkerHnalde`
  * so that it can be copied between backends.
@@ -207,6 +207,12 @@ typedef void (*omni_hook_planner_t)(omni_hook_handle *handle, Query *parse,
                                     ParamListInfo boundParams);
 typedef void (*omni_hook_executor_start_t)(omni_hook_handle *handle, QueryDesc *queryDesc,
                                            int eflags);
+/**
+ * Executor "run" hook
+ *
+ * NOTE: on Postgres major above 17, `execute_once` will always be set to `true`
+ */
+// TODO: phase out execute_once at some point
 typedef void (*omni_hook_executor_run_t)(omni_hook_handle *handle, QueryDesc *queryDesc,
                                          ScanDirection direction, uint64 count, bool execute_once);
 typedef void (*omni_hook_executor_finish_t)(omni_hook_handle *handle, QueryDesc *queryDesc);
