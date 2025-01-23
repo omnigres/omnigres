@@ -15,21 +15,20 @@ instance:
   - |
     create
         or
-        replace function omni_httpd.handler(int, omni_httpd.http_request) returns omni_httpd.http_outcome
+        replace procedure omni_httpd.handler(int, omni_httpd.http_request, inout omni_httpd.http_outcome)
         language plpgsql
     as
     $$
     declare
-        req  omni_httpd.http_request;
+        req omni_httpd.http_request;
         resp omni_httpd.http_outcome;
     begin
         req := $2;
-        raise notice '%', req;
         call omni_rest.postgrest(req, resp, omni_rest.postgrest_settings(schemas => '{app,app1}'));
         if resp is not distinct from null then
             resp := omni_httpd.http_response(status => 404);
         end if;
-        return resp;
+        $3 := resp;
     end;
     $$
   - |
