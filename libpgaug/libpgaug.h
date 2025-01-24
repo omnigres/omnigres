@@ -69,7 +69,7 @@ void __with_temp_memcxt_cleanup(struct __with_temp_memcxt *s);
       if (SPI_exec("SELECT NULL::" _PGEXT_STRINGIZE(ext) "." _PGEXT_STRINGIZE(name), 0) ==         \
           SPI_OK_SELECT) {                                                                         \
         TupleDesc tupdesc = SPI_tuptable->tupdesc;                                                 \
-        oid_##name = tupdesc->attrs[0].atttypid;                                                   \
+        oid_##name = TupleDescAttr(tupdesc, 0)->atttypid;                                          \
       }                                                                                            \
       SPI_finish();                                                                                \
     }                                                                                              \
@@ -81,7 +81,7 @@ void __with_temp_memcxt_cleanup(struct __with_temp_memcxt *s);
       if (SPI_exec("SELECT array[]::" _PGEXT_STRINGIZE(ext) "." _PGEXT_STRINGIZE(name) "[]", 0) == \
           SPI_OK_SELECT) {                                                                         \
         TupleDesc tupdesc = SPI_tuptable->tupdesc;                                                 \
-        oid_array_##name = tupdesc->attrs[0].atttypid;                                             \
+        oid_array_##name = TupleDescAttr(tupdesc, 0)->atttypid;                                    \
       }                                                                                            \
       SPI_finish();                                                                                \
     }                                                                                              \

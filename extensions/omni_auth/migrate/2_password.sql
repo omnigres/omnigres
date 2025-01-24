@@ -12,7 +12,7 @@ create domain hashed_password text check (
 
 /*{% include "../src/hash_password.sql" %}*/
 
-select identity_type('password_credential_id', type => 'uuid', nextval => 'uuidv7');
+select identity_type('password_credential_id', type => 'uuid', nextval => 'uuidv7()');
 
 create table password_credentials
 (
@@ -31,7 +31,7 @@ $$;
 
 select pg_catalog.pg_extension_config_dump('password_credentials', '');
 
-select identity_type('password_authentication_attempt_id', type => 'uuid', nextval => 'uuidv7');
+select identity_type('password_authentication_attempt_id', type => 'uuid', nextval => 'uuidv7()');
 
 --- We store password authentication attempts for detecting suspicious behavior
 --- Example: HIPAA § 164.308(a)(5)(ii)(C)

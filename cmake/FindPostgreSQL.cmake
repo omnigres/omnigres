@@ -53,6 +53,8 @@
 
 include(${CMAKE_CURRENT_LIST_DIR}/OpenSSL.cmake)
 
+string(REPEAT "[a-fA-F0-9]" 40 sha1re)
+
 if(NOT DEFINED PG_CONFIG)
 
     # Use latest known version if PGVER is not set
@@ -67,7 +69,22 @@ if(NOT DEFINED PG_CONFIG)
     set(PGVER_ALIAS_14 14.15)
     set(PGVER_ALIAS_13 13.18)
 
-    if("${PGVER}" MATCHES "[0-9]+.[0-9]+")
+    # commit
+    if ("${PGVER}" MATCHES "^${sha1re}$")
+        set(PGVER_ALIAS "${PGVER}")
+        # latest master
+    elseif ("${PGVER}" MATCHES "master")
+        # Fetch the latest commit hash
+        execute_process(
+                COMMAND git ls-remote https://github.com/postgres/postgres master
+	        COMMAND	cut -f1
+                OUTPUT_VARIABLE PGVER_ALIAS
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        if (NOT _POSTGRESQL_ANNOUNCED_${PGVER_ALIAS})
+            message(STATUS "Resolved PostgreSQL version alias ${PGVER} to ${PGVER_ALIAS}")
+        endif ()
+    elseif ("${PGVER}" MATCHES "[0-9]+.[0-9]+")
         set(PGVER_ALIAS "${PGVER}")
     else()
         set(PGVER_ALIAS "${PGVER_ALIAS_${PGVER}}")
@@ -96,10 +113,18 @@ if(NOT DEFINED PG_CONFIG)
 
     if(NOT EXISTS "${PGDIR_VERSION}/build/bin/postgres")
         file(MAKE_DIRECTORY ${PGDIR})
-        message(STATUS "Downloading PostgreSQL ${PGVER}")
-        file(DOWNLOAD "https://ftp.postgresql.org/pub/source/v${PGVER_ALIAS}/postgresql-${PGVER_ALIAS}.tar.bz2" "${PGDIR}/postgresql-${PGVER_ALIAS}.tar.bz2" SHOW_PROGRESS)
-        message(STATUS "Extracting PostgreSQL ${PGVER}")
-        file(ARCHIVE_EXTRACT INPUT "${PGDIR}/postgresql-${PGVER_ALIAS}.tar.bz2" DESTINATION ${PGDIR_VERSION})
+	message(STATUS "Downloading PostgreSQL ${PGVER} [${PGVER_ALIAS}]")
+	if ("${PGVER_ALIAS}" MATCHES "^${sha1re}$")
+	    file(DOWNLOAD "https://github.com/postgres/postgres/archive/${PGVER_ALIAS}.tar.gz" "${PGDIR}/postgresql-${PGVER_ALIAS}.tar.gz" SHOW_PROGRESS)
+            message(STATUS "Extracting PostgreSQL ${PGVER_ALIAS}")
+            file(ARCHIVE_EXTRACT INPUT "${PGDIR}/postgresql-${PGVER_ALIAS}.tar.gz" DESTINATION ${PGDIR_VERSION})
+            file(REMOVE_RECURSE "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}")
+            file(RENAME "${PGDIR_VERSION}/postgres-${PGVER_ALIAS}" "${PGDIR_VERSION}/postgresql-${PGVER_ALIAS}")
+        else ()
+            file(DOWNLOAD "https://ftp.postgresql.org/pub/source/v${PGVER_ALIAS}/postgresql-${PGVER_ALIAS}.tar.bz2" "${PGDIR}/postgresql-${PGVER_ALIAS}.tar.bz2" SHOW_PROGRESS)
+            message(STATUS "Extracting PostgreSQL ${PGVER}")
+            file(ARCHIVE_EXTRACT INPUT "${PGDIR}/postgresql-${PGVER_ALIAS}.tar.bz2" DESTINATION ${PGDIR_VERSION})
+        endif ()
 
         # We use this to test multi-language features
         set(BUILD_POSTGRES_WITH_PYTHON ON)

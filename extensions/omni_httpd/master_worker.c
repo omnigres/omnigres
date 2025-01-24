@@ -286,7 +286,12 @@ void master_worker(Datum db_oid) {
   }
   socket_path = psprintf("%s/socket.%d", tmp_path, getpid());
 
-  sigusr1_original_handler = pqsignal(SIGUSR1, sigusr1_handler);
+#if PG_MAJORVERSION_NUM >= 18
+  sigusr1_original_handler = procsignal_sigusr1_handler;
+#else
+  sigusr1_original_handler =
+#endif
+  pqsignal(SIGUSR1, sigusr1_handler);
 
   // Listen for configuration changes
   {
@@ -316,10 +321,10 @@ void master_worker(Datum db_oid) {
 
   while (!shutdown_worker) {
     // Start the transaction
-    SPI_connect();
     SetCurrentStatementStartTimestamp();
     StartTransactionCommand();
     PushActiveSnapshot(GetTransactionSnapshot());
+    SPI_connect();
 
     // We clear this list every time to prepare an up-to-date version
     cvec_fd_clear(&sockets);

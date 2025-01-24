@@ -3,7 +3,7 @@
 -- (pending omni_int release)
 create domain amount as bigint check (value >= 0);
 
-select identity_type('ledger_id', type => 'uuid', nextval => 'uuidv7');
+select identity_type('ledger_id', type => 'uuid', nextval => 'uuidv7()');
 
 create table ledgers
 (
@@ -12,7 +12,7 @@ create table ledgers
 
 select pg_catalog.pg_extension_config_dump('ledgers', '');
 
-select identity_type('account_id', type => 'uuid', nextval => 'uuidv7');
+select identity_type('account_id', type => 'uuid', nextval => 'uuidv7()');
 
 create table accounts
 (
@@ -45,7 +45,7 @@ select account_id,
 from account_balance_slots
 group by account_id;
 
-select identity_type('transfer_id', type => 'uuid', nextval => 'uuidv7');
+select identity_type('transfer_id', type => 'uuid', nextval => 'uuidv7()');
 
 create table transfers
 (
