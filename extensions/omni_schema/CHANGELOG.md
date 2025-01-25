@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2025-01-15
+
+### Added
+
+* `make_plan` scans a given path ignoring files already in `omni_schema.migrations` and returns a list of statements 
+  to be executed to sync the current database schema with the source files found. [#750](https://github.com/omnigres/omnigres/pull/750)
+* `make` executes the plan created by `make_plan` recording all migrations in `omni_schema.migrations` [#750](https://github.com/omnigres/omnigres/pull/750)
+
 ## [0.2.3] - 2025-01-08
 
 ### Added
