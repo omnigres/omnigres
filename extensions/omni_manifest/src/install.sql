@@ -18,8 +18,9 @@ begin
         from
             unnest(plan) with ordinality r(name, version, ord)
             left outer join pg_extension on pg_extension.extname = r.name
-            left outer join
-                pg_available_extension_versions e
+            left outer join lateral
+                (select name, version from pg_available_extension_versions where r.version != '*'
+                 union select name, default_version as version from pg_available_extensions where r.version = '*') e
                 on e.name = r.name and (e.version = r.version or r.version = '*')
         order by ord
         loop
