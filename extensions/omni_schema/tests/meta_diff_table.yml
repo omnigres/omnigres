@@ -1,0 +1,81 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_schema cascade
+    - create schema baseline
+    - select omni_schema.materialize_meta('omni_schema', 'baseline')
+    - create schema diff
+    - select omni_schema.create_meta_diff('baseline', 'omni_schema', 'diff')
+
+tests:
+
+- name: adding a table
+  steps:
+    - create table tab1 ()
+    - query: select name from diff.added_table where schema_name = 'public'
+      results:
+      - name: tab1
+
+- name: removing a table
+  steps:
+    - create table tab1 ()
+    - select baseline.refresh_meta();
+    - drop table tab1
+    - query: select name from diff.removed_table where schema_name = 'public'
+      results:
+        - name: tab1
+
+- name: adding a column
+  steps:
+    - create table tab1 ()
+    - select baseline.refresh_meta();
+    - alter table tab1 add column c1 text;
+    - query: select relation_name, name, type_name from diff.added_relation_column where schema_name = 'public'
+      results:
+        - relation_name: tab1
+          name: c1
+          type_name: pg_catalog.text
+
+- name: renaming a column
+  steps:
+    - create table tab1 (c1 text)
+    - select baseline.refresh_meta();
+    - alter table tab1 rename column c1 to c2;
+    - query: select relation_name, name, type_name from diff.removed_relation_column where schema_name = 'public'
+      results:
+        - relation_name: tab1
+          name: c1
+          type_name: pg_catalog.text
+    - query: select relation_name, name, type_name from diff.added_relation_column where schema_name = 'public'
+      results:
+        - relation_name: tab1
+          name: c2
+          type_name: pg_catalog.text
+
+- name: changing column's type
+  steps:
+    - create table tab1 (c1 int)
+    - select baseline.refresh_meta();
+    - alter table tab1 alter column c1 type bigint;
+    - query: select relation_name, name, type_name from diff.baseline_relation_column where schema_name = 'public'
+      results:
+        - relation_name: tab1
+          name: c1
+          type_name: pg_catalog.int4
+    - query: select relation_name, name, type_name from diff.changed_relation_column where schema_name = 'public'
+      results:
+        - relation_name: tab1
+          name: c1
+          type_name: pg_catalog.int8
+
+- name: changing RLS
+  steps:
+    - create table tab1 ()
+    - select baseline.refresh_meta();
+    - alter table tab1 enable row level security
+    - query: select rowsecurity from diff.baseline_table where schema_name = 'public'
+      results:
+        - rowsecurity: false
+    - query: select rowsecurity from diff.changed_table where schema_name = 'public'
+      results:
+        - rowsecurity: true
