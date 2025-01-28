@@ -983,6 +983,9 @@ create view function_parameter as
  * trigger
  *****************************************************************************/
 create view trigger as
+    with f as materialized (
+        select * from "function"
+    )
     select trigger_id(t_pgn.nspname, pgc.relname, pg_trigger.tgname) as id,
            t.id as relation_id,
            t_pgn.nspname::text as schema_name,
@@ -1025,7 +1028,7 @@ create view trigger as
     inner join "schema" f_s
             on f_s.name = f_pgn.nspname
 
-    inner join "function" f
+    inner join f
             on f.schema_id = f_s.id and
                f.name = pgp.proname;
 
