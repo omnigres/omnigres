@@ -943,9 +943,9 @@ create view role as
 create view role_inheritance as
 select
     r.rolname::text || '<-->' || r2.rolname::text as id,
-    r.rolname::text::role_id as role_id,
+    role_id(r.rolname::text) as role_id,
     r.rolname::text as role_name,
-    r2.rolname::text::role_id as member_role_id,
+    role_id(r2.rolname::text) as member_role_id,
     r2.rolname::text as member_role_name
 from pg_auth_members m
     join pg_roles r on r.oid = m.roleid
