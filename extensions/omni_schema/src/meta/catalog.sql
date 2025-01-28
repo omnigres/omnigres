@@ -541,12 +541,17 @@ begin
 end;
 $$;
 
+create or replace function _pg_get_function_result(p oid) returns text language sql stable
+as $$ select pg_get_function_result(p); $$
+    -- Force qualified naming
+    set search_path = '';
+
 create or replace view "function" as
     with orig as (
         -- slightly modified version of query output by \df+
         SELECT n.nspname as "schema_name",
           p.proname as "name",
-          pg_get_function_result(p.oid) as "return_type",
+          _pg_get_function_result(p.oid) as "return_type",
           pg_get_function_identity_arguments(p.oid) as "type_sig",
           pg_catalog.pg_get_function_arguments(p.oid) as "parameters",
          CASE p.prokind
