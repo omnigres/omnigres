@@ -9,7 +9,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Added
 
-* Add schema metainformation [#769](https://github.com/omnigres/omnigres/pull/769)
+* Added schema metainformation and its diffing [#769](https://github.com/omnigres/omnigres/pull/769),[#770](https://github.com/omnigres/omnigres/pull/770)
 
 ### Fixed
 

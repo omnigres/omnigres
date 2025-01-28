@@ -21,5 +21,10 @@ begin
             execute format('alter function %2$I.%1$I(%3$s) set search_path to public, %2$I', rec.name, schema,
                            (select string_agg(p, ',') from unnest(rec.type_sig) t(p)));
         end loop;
+
+    /*{% include "../src/meta/create_remote_meta.sql" %}*/
+    /*{% include "../src/meta/materialize_meta.sql" %}*/
+    /*{% include "../src/meta/create_meta_diff.sql" %}*/
+
 end;
 $instantiate_meta$;
