@@ -1236,7 +1236,7 @@ create view foreign_data_wrapper as
            name::text,
            handler_id,
            validator_id,
-           string_agg((quote_ident(opt[1]) || '=>' || replace(array_to_string(opt[2:array_length(opt, 1)], '='), ',', '\,')), ',')::public.hstore as options
+           jsonb_object_agg(opt[1], opt[2]) as options
 
     from (
         select foreign_data_wrapper_id(fdwname) as id,
@@ -1283,7 +1283,7 @@ create view foreign_server as
            name::text,
            "type",
            version,
-           string_agg((quote_ident(opt[1]) || '=>' || replace(array_to_string(opt[2:array_length(opt, 1)], '='), ',', '\,')), ',')::public.hstore as options
+           jsonb_object_agg(opt[1], opt[2]) as options
 
     from (
         select foreign_server_id(srvname) as id,
@@ -1315,7 +1315,7 @@ create view foreign_table as
            schema_id,
            schema_name::text,
            name::text,
-           string_agg((quote_ident(opt[1]) || '=>' || replace(array_to_string(opt[2:array_length(opt, 1)], '='), ',', '\,')), ',')::public.hstore as options
+           jsonb_object_agg(opt[1], opt[2]) as options
 
     from (
         select relation_id(pgn.nspname, pgc.relname) as id,
