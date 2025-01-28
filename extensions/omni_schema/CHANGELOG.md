@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.3.0] - TBD
 
+### Added
+
+* Add schema metainformation [#769](https://github.com/omnigres/omnigres/pull/769)
+
 ### Fixed
 
 * `assemble_schema` no longer uses internal details of `omni_vfs.table_fs` [#767](https://github.com/omnigres/omnigres/pull/767)
