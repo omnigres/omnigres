@@ -530,6 +530,16 @@ create or replace function _get_function_parameters(parameters text) returns tex
     end
 $$ language plpgsql stable;
 
+create or replace function _pg_get_function_sqlbody(p pg_proc) returns text language plpgsql stable
+as $$
+begin
+    if (current_setting('server_version_num')::int/10000) = 13 then
+        return p.prosrc;
+    else
+        return coalesce(pg_catalog.pg_get_function_sqlbody(p.oid), p.prosrc);
+    end if;
+end;
+$$;
 
 create or replace view "function" as
     with orig as (
@@ -559,7 +569,7 @@ create or replace view "function" as
          CASE WHEN prosecdef THEN 'definer' ELSE 'invoker' END AS "security",
          pg_catalog.array_to_string(p.proacl, E'\n') AS "access_privileges",
          l.lanname as "language",
-         COALESCE(pg_catalog.pg_get_function_sqlbody(p.oid), p.prosrc) as "definition",
+         _pg_get_function_sqlbody(p) as "definition",
          pg_catalog.obj_description(p.oid, 'pg_proc') as "description"
         FROM pg_catalog.pg_proc p
              LEFT JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
