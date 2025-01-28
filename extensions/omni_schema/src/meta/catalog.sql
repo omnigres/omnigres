@@ -1116,14 +1116,14 @@ create view foreign_data_wrapper as
            name::text,
            handler_id,
            validator_id,
-           jsonb_object_agg(opt[1], opt[2]) as options
+           opt as options
 
     from (
         select foreign_data_wrapper_id(fdwname) as id,
                fdwname as name,
                h_f.id as handler_id,
                v_f.id as validator_id,
-               string_to_array(unnest(coalesce(fdwoptions, array['']::text[])), '=') as opt
+               jsonb_build_object(variadic string_to_array(unnest(coalesce(fdwoptions, array['']::text[])), '=')) as opt
 
         from pg_catalog.pg_foreign_data_wrapper
 
@@ -1149,6 +1149,7 @@ create view foreign_data_wrapper as
     ) q
 
     group by id,
+             opt,
              name,
              handler_id,
              validator_id;
@@ -1163,7 +1164,7 @@ create view foreign_server as
            name::text,
            "type",
            version,
-           jsonb_object_agg(opt[1], opt[2]) as options
+           opt as options
 
     from (
         select foreign_server_id(srvname) as id,
@@ -1171,7 +1172,7 @@ create view foreign_server as
                srvname as name,
                srvtype as "type",
                srvversion as version,
-               string_to_array(unnest(coalesce(srvoptions, array['']::text[])), '=') as opt
+               jsonb_build_object(variadic string_to_array(unnest(coalesce(srvoptions, array['']::text[])), '=')) as opt
 
         from pg_catalog.pg_foreign_server fs
         inner join pg_catalog.pg_foreign_data_wrapper fdw
@@ -1179,6 +1180,7 @@ create view foreign_server as
     ) q
 
     group by id,
+             opt,
              foreign_data_wrapper_id,
              name,
              "type",
@@ -1195,7 +1197,7 @@ create view foreign_table as
            schema_id,
            schema_name::text,
            name::text,
-           jsonb_object_agg(opt[1], opt[2]) as options
+           opt as options
 
     from (
         select relation_id(pgn.nspname, pgc.relname) as id,
@@ -1203,7 +1205,7 @@ create view foreign_table as
                foreign_server_id(pfs.srvname) as foreign_server_id,
                pgn.nspname as schema_name,
                pgc.relname as name,
-               string_to_array(unnest(coalesce(ftoptions, array['']::text[])), '=') as opt
+               jsonb_build_object(variadic string_to_array(unnest(coalesce(ftoptions, array['']::text[])), '=')) as opt
 
         from pg_catalog.pg_foreign_table pft
         inner join pg_catalog.pg_class pgc
@@ -1215,6 +1217,7 @@ create view foreign_table as
     ) q
 
     group by id,
+             opt,
              schema_id,
              foreign_server_id,
              schema_name,
