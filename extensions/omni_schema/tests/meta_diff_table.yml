@@ -73,9 +73,17 @@ tests:
     - create table tab1 ()
     - select baseline.refresh_meta();
     - alter table tab1 enable row level security
-    - query: select rowsecurity from diff.baseline_table where schema_name = 'public'
+    - query: select rowsecurity from diff.baseline_table_rowsecurity where id = omni_schema.table_id('public', 'tab1')
       results:
         - rowsecurity: false
-    - query: select rowsecurity from diff.changed_table where schema_name = 'public'
+    - query: select rowsecurity from diff.changed_table_rowsecurity where id = omni_schema.table_id('public', 'tab1')
       results:
         - rowsecurity: true
+    - select baseline.refresh_meta();
+    - alter table tab1 force row level security
+    - query: select forcerowsecurity from diff.baseline_table_forcerowsecurity where id = omni_schema.table_id('public', 'tab1')
+      results:
+        - forcerowsecurity: false
+    - query: select forcerowsecurity from diff.changed_table_forcerowsecurity where id = omni_schema.table_id('public', 'tab1')
+      results:
+        - forcerowsecurity: true
