@@ -275,11 +275,13 @@ create view "view" as
     select relation_id(table_schema, table_name) as id,
            schema_id(table_schema) as schema_id,
            table_schema::text as schema_name,
-           table_name::text as name,
-           view_definition::text as query
-
+           table_name::text as name
     from information_schema.views v;
 
+create view view_definition as
+    select relation_id(table_schema, table_name) as id,
+           view_definition::text as query
+    from information_schema.views v;
 
 /******************************************************************************
  * relation_column
@@ -332,18 +334,23 @@ create view relation as
     select relation_id(t.table_schema, t.table_name) as id,
            schema_id(t.table_schema) as schema_id,
            t.table_schema::text as schema_name,
-           t.table_name::text as name,
-           t.table_type::text as "type",
-           nullif(array_agg(c.id order by c.position), array[null]::column_id[]) as primary_key_column_ids,
-           nullif(array_agg(c.name::text order by c.position), array[null]::text[]) as primary_key_column_names
+           t.table_name::text as name
+    from information_schema.tables t;
 
+create view relation_primary_keys as
+    select relation_id(t.table_schema, t.table_name) as id,
+           column_id(c.table_schema, c.table_name, k.column_name),
+           k.ordinal_position as position
     from information_schema.tables t
-
-    left join relation_column c
-           on c.relation_id = relation_id(t.table_schema, t.table_name) and c.primary_key
-
-    group by t.table_schema, t.table_name, t.table_type;
-
+         inner join information_schema.table_constraints c
+                   on t.table_catalog = c.table_catalog and
+                      t.table_schema = c.table_schema and
+                      t.table_name = c.table_name and
+                      c.constraint_type = 'PRIMARY KEY'
+         inner join information_schema.key_column_usage k
+                   on k.constraint_catalog = c.constraint_catalog and
+                      k.constraint_schema = c.constraint_schema and
+                      k.constraint_name = c.constraint_name;
 
 /******************************************************************************
  * foreign_key
