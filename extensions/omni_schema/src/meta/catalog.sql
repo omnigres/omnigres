@@ -289,43 +289,25 @@ create view view_definition as
 create view relation_column as
     select column_id(c.table_schema, c.table_name, c.column_name) as id,
            relation_id(c.table_schema, c.table_name) as relation_id,
-           c.table_schema::text as schema_name,
-           c.table_name::text as relation_name,
            c.column_name::text as name,
            c.ordinal_position::integer as position,
-           quote_ident(c.udt_schema) || '.' || quote_ident(c.udt_name) as type_name,
-           type_id (c.udt_schema, c.udt_name) as "type_id",
-           (c.is_nullable = 'YES') as nullable,
-           c.column_default::text as "default",
-           k.column_name is not null or (c.table_schema = 'omni_schema' and c.column_name = 'id') as primary_key
+           c.column_default::text as "default"
+    from information_schema.columns c;
 
+create view relation_column_default as
+    select column_id(c.table_schema, c.table_name, c.column_name) as id,
+           c.column_default::text as "default"
+    from information_schema.columns c where c.column_default is not null;
+
+create view relation_column_type as
+    select column_id(c.table_schema, c.table_name, c.column_name) as id,
+           type_id (c.udt_schema, c.udt_name) as "type_id"
+    from information_schema.columns c;
+
+create view relation_column_nullable as
+    select column_id(c.table_schema, c.table_name, c.column_name) as id
     from information_schema.columns c
-
-    left join information_schema.table_constraints t
-          on t.table_catalog = c.table_catalog and
-             t.table_schema = c.table_schema and
-             t.table_name = c.table_name and
-             t.constraint_type = 'PRIMARY KEY'
-
-    left join information_schema.key_column_usage k
-          on k.constraint_catalog = t.constraint_catalog and
-             k.constraint_schema = t.constraint_schema and
-             k.constraint_name = t.constraint_name and
-             k.column_name = c.column_name;
-
-
-/******************************************************************************
- * column
- *****************************************************************************/
-create view "column" as
-    -- select c.id, c.relation_id as table_id, c.schema_name, c.relation_name, c.name, c.position, c.type_name, c.type_id, c.nullable, c.column_default, c.primary_key
-    select c.id, c.relation_id, c.name
-    from "table" t
-        join relation_column c on c.relation_id = t.id;
-
-create view column_type as
-    select c.id, c.type_id
-    from relation_column c;
+        where c.is_nullable = 'YES';
 
 /******************************************************************************
  * relation
