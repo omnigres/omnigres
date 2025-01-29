@@ -802,7 +802,7 @@ NOTICE:  CHECKOUT EXCEPTION checking out (meta,function,id,"(endpoint,field_sele
 create view function_parameter as
     select q.schema_id,
         q.schema_name,
-        q.function_id,
+        q.function_id as id,
         q.function_name,
         par.parameter_name as name,
         type_id(par.udt_schema, par.udt_name) as type_id,
@@ -1013,7 +1013,7 @@ from pg_policy p
 create view policy_role as
 select
 --    policy_id((relation_id).schema_name, (relation_id).name, policy_name)::text || '<-->' || role_id::text as id,
-    policy_id((relation_id).schema_name, (relation_id).name, policy_name) as policy_id,
+    policy_id((relation_id).schema_name, (relation_id).name, policy_name) as id,
     policy_name::text,
     relation_id,
     (relation_id).name as relation_name,

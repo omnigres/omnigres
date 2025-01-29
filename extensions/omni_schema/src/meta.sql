@@ -1,3 +1,5 @@
+--## set meta_views = ["schema","cast","operator","sequence","table","view","relation_column","column","relation","function","function_info_schema","function_parameter","trigger","role","role_inheritance","table_privilege","policy","policy_role","connection","constraint_unique","constraint_check","extension","foreign_data_wrapper","foreign_server","foreign_table","foreign_column","foreign_key", "type"]
+
 create function instantiate_meta(schema name) returns void
     language plpgsql
 as

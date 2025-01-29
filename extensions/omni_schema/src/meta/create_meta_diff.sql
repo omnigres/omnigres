@@ -9,31 +9,12 @@ $create_meta_diff$
 declare
     types text[] :=
         array[
-            'cast',
-            'column',
-            'connection',
-            'constraint_check',
-            'constraint_unique',
-            'extension',
-            'foreign_column',
-            'foreign_data_wrapper',
-            'foreign_key',
-            'foreign_server',
-            'foreign_table',
-            'function',
-            'operator',
-            'policy',
-            'relation',
-            'relation_column',
-            'role',
-            'role_inheritance',
-            'schema',
-            'sequence',
-            'table',
-            'table_privilege',
-            'trigger',
-            'type',
-            'view'
+--## for view in meta_views
+            '/*{{ view }}*/'
+--## if not loop.is_last
+            ,
+--## endif
+--## endfor
             ];
     type  text;
 begin
