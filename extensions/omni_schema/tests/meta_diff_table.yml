@@ -30,14 +30,14 @@ tests:
     - create table tab1 ()
     - select baseline.refresh_meta();
     - alter table tab1 add column c1 text;
-    - query: select ac.name from diff.added_column ac
+    - query: select ac.name from diff.added_relation_column ac
               inner join omni_schema.table t on t.id = ac.relation_id 
               where t.name = 'tab1' and t.schema_name = 'public'
       results:
         - name: c1
     - query: |
-        select typ.name from diff.added_column_type act
-        inner join diff.added_column at on at.id = act.id
+        select typ.name from diff.added_relation_column_type act
+        inner join diff.added_relation_column at on at.id = act.id
         inner join omni_schema.table t on t.id = at.relation_id
         inner join omni_schema.type typ on typ.id = act.type_id
       results:
@@ -48,12 +48,12 @@ tests:
     - create table tab1 (c1 int)
     - select baseline.refresh_meta();
     - alter table tab1 rename column c1 to c2;
-    - query: select rc.name from diff.removed_column rc
+    - query: select rc.name from diff.removed_relation_column rc
                                  inner join omni_schema.table t on t.id = rc.relation_id
              where t.name = 'tab1' and t.schema_name = 'public'
       results:
         - name: c1
-    - query: select ac.name from diff.added_column ac
+    - query: select ac.name from diff.added_relation_column ac
                                  inner join omni_schema.table t on t.id = ac.relation_id
              where t.name = 'tab1' and t.schema_name = 'public'
       results:
@@ -68,8 +68,8 @@ tests:
         select
             typ.name
         from
-            diff.removed_column_type       rct
-            inner join omni_schema.column c on c.id = rct.id
+            diff.removed_relation_column_type       rct
+            inner join omni_schema.relation_column c on c.id = rct.id
             inner join omni_schema.table t on t.id = c.relation_id
             inner join omni_schema.type  typ on typ.id = rct.type_id
         where c.name = 'c1'
@@ -79,8 +79,8 @@ tests:
         select
             typ.name
         from
-            diff.added_column_type       act
-            inner join omni_schema.column c on c.id = act.id
+            diff.added_relation_column_type       act
+            inner join omni_schema.relation_column c on c.id = act.id
             inner join omni_schema.table t on t.id = c.relation_id
             inner join omni_schema.type  typ on typ.id = act.type_id
           where c.name = 'c1'
