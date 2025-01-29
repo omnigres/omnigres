@@ -219,10 +219,20 @@ create view "table" as
     select relation_id(schemaname, tablename) as id,
            schema_id(schemaname) as schema_id,
            schemaname::text as schema_name,
-           tablename::text as name,
+           tablename::text as name
+    from pg_catalog.pg_tables;
+
+create view table_rowsecurity as
+    select relation_id(schemaname, tablename) as id,
            rowsecurity as rowsecurity
     from pg_catalog.pg_tables;
 
+create view table_forcerowsecurity as
+    select relation_id(schemaname, tablename) as id,
+           relforcerowsecurity as forcerowsecurity
+    from pg_catalog.pg_tables
+inner join pg_catalog.pg_namespace ns on pg_tables.schemaname = ns.nspname
+inner join pg_catalog.pg_class c on pg_tables.tablename = c.relname and ns.oid = c.relnamespace;
 
 /******************************************************************************
  * view
