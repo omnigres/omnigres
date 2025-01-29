@@ -68,75 +68,109 @@ create view schema as
 /******************************************************************************
  * type
  *****************************************************************************/
--- https://github.com/aquameta/pg_catalog_get_defs/blob/master/pg_get_typedef.sql
-create or replace function get_typedef_composite(oid) returns text
-  language plpgsql
-  as $$
-  declare
-    defn text;
-  begin
-    select into defn
-           format('CREATE TYPE %s AS (%s)',
-                  $1::regtype,
-                  string_agg(coldef, ', ' order by attnum))
-      from (select a.attnum,
-                   format('%I %s%s',
-                          a.attname,
-                          format_type(a.atttypid, a.atttypmod),
-                          case when a.attcollation <> ct.typcollation
-                               then format(' COLLATE %I ', co.collname)
-                               else ''
-                          end) as coldef
-              from pg_type t
-              join pg_attribute a on a.attrelid=t.typrelid
-              join pg_type ct on ct.oid=a.atttypid
-              left join pg_collation co on co.oid=a.attcollation
-             where t.oid = $1
-               and a.attnum > 0
-               and not a.attisdropped) s;
-    return defn;
-  end;
-  $$;
-
-create or replace function get_typedef_enum(oid) returns text
-  language plpgsql
-  as $$
-  declare
-    defn text;
-  begin
-    select into defn
-           format('CREATE TYPE %s AS ENUM (%s)',
-                  $1::regtype,
-                  string_agg(quote_literal(enumlabel), ', '
-                             order by enumsortorder))
-      from pg_enum
-     where enumtypid = $1;
-    return defn;
-  end;
-  $$;
-
 
 create or replace view type as
-select
-    type_id(n.nspname, pg_catalog.format_type(t.oid, NULL)) as id,
-    t.typtype as "type",
+select type_id(n.nspname, t.typname::text) as id,
     n.nspname::text as schema_name,
-    t.typname as name,
-    case when c.relkind = 'c' then true else false end as composite,
-    case when t.typtype = 'c' then get_typedef_composite(t.oid)
-         when t.typtype = 'e' then get_typedef_enum(t.oid)
-         else 'UNSUPPORTED'
-    end as definition,
-    pg_catalog.obj_description(t.oid, 'pg_type') as description
+       t.typname                           as name
 from pg_catalog.pg_type t
      left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
      left join pg_catalog.pg_class c on c.oid = t.typrelid
 where (t.typrelid = 0 or c.relkind = 'c')
   and not exists(select 1 from pg_catalog.pg_type el where el.oid = t.typelem and el.typarray = t.oid)
 --   and pg_catalog.pg_type_is_visible(t.oid)
-    AND n.nspname <> 'pg_catalog'
     AND n.nspname <> 'information_schema'
 ;
+
+
+create or replace view type_basic as
+select type_id(n.nspname, t.typname::text) as id
+from pg_catalog.pg_type t
+         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+where typtype = 'b';
+
+create or replace view type_composite as
+select type_id(n.nspname, t.typname::text) as id
+from pg_catalog.pg_type t
+         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+where typtype = 'c';
+
+create or replace view type_composite_attribute as
+select type_id(n.nspname, t.typname::text) as id,
+        a.attname as name
+from pg_catalog.pg_type t
+         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+         join pg_attribute a on a.attrelid=t.typrelid
+where t.typtype = 'c'
+        and a.attnum > 0
+        and not a.attisdropped;
+
+create or replace view type_composite_attribute_position as
+    select type_id(n.nspname, t.typname::text) as id,
+           a.attname as name,
+           a.attnum as position
+    from pg_catalog.pg_type t
+         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+         join pg_attribute a on a.attrelid=t.typrelid
+    where t.typtype = 'c'
+            and a.attnum > 0
+            and not a.attisdropped;
+
+create or replace view type_composite_attribute_collation as
+    select type_id(n.nspname, t.typname::text) as id,
+           a.attname as name,
+           co.collname as collation
+    from pg_catalog.pg_type t
+         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+         join pg_attribute a on a.attrelid=t.typrelid
+         join pg_type ct on ct.oid=a.atttypid
+         left join pg_collation co on co.oid=a.attcollation
+    where t.typtype = 'c'
+            and a.attnum > 0
+            and not a.attisdropped
+    and a.attcollation <> ct.typcollation;
+
+create or replace view type_domain as
+select type_id(n.nspname, t.typname::text)   as id,
+       type_id(n1.nspname, t1.typname::text) as base_type_id
+from pg_catalog.pg_type t
+         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+         inner join pg_catalog.pg_type t1 on t1.oid = t.typbasetype
+         left join pg_catalog.pg_namespace n1 on n1.oid = t1.typnamespace
+where t.typtype = 'd';
+
+create or replace view type_enum as
+select type_id(n.nspname, t.typname::text) as id
+from pg_catalog.pg_type t
+         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+where typtype = 'e';
+
+create or replace view type_enum_label as
+select type_id(n.nspname, t.typname::text) as id,
+       enumlabel                           as label,
+       enumsortorder                       as sortorder
+from pg_catalog.pg_type t
+         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+         inner join pg_enum e on e.enumtypid = t.oid
+where typtype = 'e';
+
+create or replace view type_pseudo as
+select type_id(n.nspname, t.typname::text) as id
+from pg_catalog.pg_type t
+         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+where typtype = 'p';
+
+create or replace view type_range as
+select type_id(n.nspname, t.typname::text) as id
+from pg_catalog.pg_type t
+         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+where typtype = 'r';
+
+create or replace view type_multirange as
+select type_id(n.nspname, t.typname::text) as id
+from pg_catalog.pg_type t
+         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+where typtype = 'm';
 
 
 
@@ -223,16 +257,16 @@ create view "table" as
     from pg_catalog.pg_tables;
 
 create view table_rowsecurity as
-    select relation_id(schemaname, tablename) as id,
-           rowsecurity as rowsecurity
-    from pg_catalog.pg_tables;
+    select relation_id(schemaname, tablename) as id
+    from pg_catalog.pg_tables
+where pg_tables.rowsecurity;
 
 create view table_forcerowsecurity as
-    select relation_id(schemaname, tablename) as id,
-           relforcerowsecurity as forcerowsecurity
+    select relation_id(schemaname, tablename) as id
     from pg_catalog.pg_tables
 inner join pg_catalog.pg_namespace ns on pg_tables.schemaname = ns.nspname
-inner join pg_catalog.pg_class c on pg_tables.tablename = c.relname and ns.oid = c.relnamespace;
+inner join pg_catalog.pg_class c on pg_tables.tablename = c.relname and ns.oid = c.relnamespace
+where relforcerowsecurity;
 
 /******************************************************************************
  * view
@@ -283,10 +317,13 @@ create view relation_column as
  *****************************************************************************/
 create view "column" as
     -- select c.id, c.relation_id as table_id, c.schema_name, c.relation_name, c.name, c.position, c.type_name, c.type_id, c.nullable, c.column_default, c.primary_key
-    select c.*
+    select c.id, c.relation_id, c.name
     from "table" t
         join relation_column c on c.relation_id = t.id;
 
+create view column_type as
+    select c.id, c.type_id
+    from relation_column c;
 
 /******************************************************************************
  * relation
