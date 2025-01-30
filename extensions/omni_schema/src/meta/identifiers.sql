@@ -77,6 +77,15 @@ create type type_id as (schema_name text,name text);
 create function type_id(schema_name text,name text) returns type_id as $_$ select row(schema_name,name)::type_id $_$ immutable language sql;
 create type view_id as (schema_name text,name text);
 create function view_id(schema_name text,name text) returns view_id as $_$ select row(schema_name,name)::view_id $_$ immutable language sql;
+create type index_id as
+(
+    schema_name text,
+    name        text
+);
+create function index_id(schema_name text, name text) returns index_id as
+$_$
+select row (schema_name,name)::index_id
+$_$ immutable language sql;
 create function column_id_to_schema_id(column_id column_id) returns schema_id as $_$select schema_id((column_id).schema_name) $_$ immutable language sql;
 create cast (column_id as schema_id) with function column_id_to_schema_id(column_id) as assignment;
 create function constraint_id_to_schema_id(constraint_id constraint_id) returns schema_id as $_$select schema_id((constraint_id).schema_name) $_$ immutable language sql;
