@@ -1334,3 +1334,75 @@ create view foreign_column as
             on c.table_schema = pgn.nspname and
                c.table_name = pgc.relname;
 
+/******************************************************************************
+ * index
+ *****************************************************************************/
+create view "index" as
+select index_id(ns.nspname, c.relname) as id
+from pg_index i
+         inner join pg_class c on c.oid = i.indexrelid
+         inner join pg_namespace ns on ns.oid = c.relnamespace;
+
+create view "index_relation" as
+select index_id(ns.nspname, c.relname) as id,
+       relation_id(rns.nspname, rc.relname)
+from pg_index i
+         inner join pg_class c on c.oid = i.indexrelid
+         inner join pg_namespace ns on ns.oid = c.relnamespace
+         inner join pg_class rc on rc.oid = i.indrelid
+         inner join pg_namespace rns on rns.oid = rc.relnamespace;
+
+create view "index_unique" as
+select index_id(ns.nspname, c.relname) as id
+from pg_index i
+         inner join pg_class c on c.oid = i.indexrelid
+         inner join pg_namespace ns on ns.oid = c.relnamespace
+where i.indisunique;
+
+create view "index_unique_null_values_distinct" as
+select index_id(ns.nspname, c.relname) as id
+from pg_index i
+         inner join pg_class c on c.oid = i.indexrelid
+         inner join pg_namespace ns on ns.oid = c.relnamespace
+where i.indisunique
+  and not i.indnullsnotdistinct;
+
+create view "index_primary_key" as
+select index_id(ns.nspname, c.relname) as id
+from pg_index i
+         inner join pg_class c on c.oid = i.indexrelid
+         inner join pg_namespace ns on ns.oid = c.relnamespace
+where i.indisprimary;
+
+create view "index_unique_immediate" as
+select index_id(ns.nspname, c.relname) as id
+from pg_index i
+         inner join pg_class c on c.oid = i.indexrelid
+         inner join pg_namespace ns on ns.oid = c.relnamespace
+where i.indisunique
+  and i.indimmediate;
+
+create view "index_replica_identity" as
+    select index_id(ns.nspname, c.relname) as id
+    from pg_index i
+         inner join pg_class c on c.oid = i.indexrelid
+         inner join pg_namespace ns on ns.oid = c.relnamespace
+    where i.indisreplident;
+
+create view "index_attribute" as
+    select index_id(ns.nspname, c.relname) as id,
+           attribute, position
+    from pg_index i
+         inner join pg_class c on c.oid = i.indexrelid
+         inner join pg_namespace ns on ns.oid = c.relnamespace
+    inner join lateral (select position, pg_get_indexdef(indexrelid::oid, position, true) as attribute from generate_series(1,indnatts) position)
+    on true
+where indnatts > 0;
+
+create view "index_partial" as
+    select index_id(ns.nspname, c.relname) as id,
+           pg_get_expr(indpred, indrelid) as condition
+    from pg_index i
+         inner join pg_class c on c.oid = i.indexrelid
+         inner join pg_namespace ns on ns.oid = c.relnamespace
+    where i.indpred is not null;
