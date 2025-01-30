@@ -426,10 +426,13 @@ create view view_definition as
 create view relation_column as
     select column_id(c.table_schema, c.table_name, c.column_name) as id,
            relation_id(c.table_schema, c.table_name) as relation_id,
-           c.column_name::text as name,
-           c.ordinal_position::integer as position,
-           c.column_default::text as "default"
+           c.column_name::text as name
     from information_schema.columns c;
+
+create view relation_column_position as
+select column_id(c.table_schema, c.table_name, c.column_name) as id,
+       c.ordinal_position::integer                            as position
+from information_schema.columns c;
 
 create view relation_column_default as
     select column_id(c.table_schema, c.table_name, c.column_name) as id,
