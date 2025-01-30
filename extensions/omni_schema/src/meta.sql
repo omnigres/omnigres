@@ -18,7 +18,10 @@
                     "foreign_key",
                     "type", "type_basic", "type_composite","type_composite_attribute",
                             "type_composite_attribute_position","type_composite_attribute_collation",
-                            "type_domain","type_enum","type_enum_label", "type_pseudo", "type_range","type_multirange"
+                            "type_domain","type_enum","type_enum_label", "type_pseudo", "type_range","type_multirange",
+                    "index","index_relation", "index_unique", "index_unique_null_values_distinct",
+                            "index_primary_key", "index_unique_immediate", "index_replica_identity",
+                            "index_attribute","index_partial"
                     ]
  %}*/
 
