@@ -27,6 +27,75 @@ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+
+-- returns an array of types, given an identity_args string (as provided by pg_get_function_identity_arguments())
+create or replace function _get_function_type_sig_array(identity_args text) returns text[] as $$
+declare
+    param_exprs text[] := '{}';
+    param_expr text[] := '{}';
+    sig_array text[] := '{}';
+    len integer;
+    len2 integer;
+    cast_try text;
+    good_type text;
+    good boolean;
+begin
+    -- raise notice '# type_sig_array got: %', identity_args;
+    param_exprs := split_quoted_string(identity_args,',');
+    len := array_length(param_exprs,1);
+    -- raise notice '# param_exprs: %, length: %', param_exprs, len;
+    if len is null or len = 0 or param_exprs[1] = '' then
+        -- raise notice '    NO PARAMS';
+        return '{}'::text[];
+    end if;
+    -- raise notice 'type_sig_array after splitting into individual exprs (length %): %', len, param_exprs;
+
+    -- for each parameter expression
+    for i in 1..len
+        loop
+            good_type := null;
+            -- split by spaces (but not spaces within quotes)
+            param_expr = split_quoted_string(param_exprs[i], ' ');
+            -- raise notice '        type_sig_array expr: %, length is %', param_expr, len2;
+
+            -- skip OUTs for type-sig, the function isn't called with those
+            continue when param_expr[1] = 'OUT';
+
+            len2 := array_length(param_expr,1);
+            if len2 is null then
+                raise warning 'len2 is null, i: %, identity_args: %, param_exprs: %, param_expr: %', i, identity_args, param_exprs, param_expr;
+            end if;
+
+            -- no params;
+            continue when len2 is null;
+
+            -- ERROR:  len2 is null, i: 1, identity_args: "char", name, name, name[]
+            for j in 1..len2 loop
+                    cast_try := array_to_string(param_expr[j:],' ');
+                    -- raise notice '    !!! casting % to ::regtype', cast_try;
+                    begin
+                        execute format('select %L::regtype', cast_try) into good_type;
+                    exception when others then
+                    -- raise notice '        couldnt cast %', cast_try;
+                    end;
+
+                    if good_type is not null then
+                        -- raise notice '    GOT A TYPE!! %', good_type;
+                        sig_array := array_append(sig_array, good_type);
+                        exit;
+                    else
+                        -- raise notice '    Fail.';
+                    end if;
+                end loop;
+
+            if good_type = null then
+                raise exception 'Could not parse function parameter: %', param_expr;
+            end if;
+        end loop;
+    return sig_array;
+end
+$$ language plpgsql stable;
+
 /******************************************************************************
  * siuda
  *****************************************************************************/
@@ -178,31 +247,99 @@ where typtype = 'm';
  * cast
  *****************************************************************************/
 create view "cast" as
-SELECT cast_id(ts.typname, pg_catalog.format_type(castsource, NULL),tt.typname, pg_catalog.format_type(casttarget, NULL)) as id,
-       pg_catalog.format_type(castsource, NULL) AS "source type",
-       pg_catalog.format_type(casttarget, NULL) AS "target type",
-       (CASE WHEN castfunc = 0 THEN '(binary coercible)'
-            ELSE p.proname
-       END)::text as "function",
-       CASE WHEN c.castcontext = 'e' THEN 'no'
-           WHEN c.castcontext = 'a' THEN 'in assignment'
-        ELSE 'yes'
-       END as "implicit?" FROM pg_catalog.pg_cast c LEFT JOIN pg_catalog.pg_proc p
-     ON c.castfunc = p.oid
-     LEFT JOIN pg_catalog.pg_type ts
-     ON c.castsource = ts.oid
-     LEFT JOIN pg_catalog.pg_namespace ns
-     ON ns.oid = ts.typnamespace
-     LEFT JOIN pg_catalog.pg_type tt
-     ON c.casttarget = tt.oid
-     LEFT JOIN pg_catalog.pg_namespace nt
-     ON nt.oid = tt.typnamespace
-/*
-WHERE ( (true  AND pg_catalog.pg_type_is_visible(ts.oid)
-    ) OR (true  AND pg_catalog.pg_type_is_visible(tt.oid)
-) )
-ORDER BY 1, 2
-*/;
+    select
+        cast_id(ts.typname, pg_catalog.format_type(castsource, null), tt.typname,
+                pg_catalog.format_type(casttarget, null)) as id,
+        pg_catalog.format_type(castsource, null)          as "from",
+        pg_catalog.format_type(casttarget, null)          as "to"
+    from
+        pg_catalog.pg_cast                c
+        left join pg_catalog.pg_type      ts
+                  on c.castsource = ts.oid
+        left join pg_catalog.pg_namespace ns
+                  on ns.oid = ts.typnamespace
+        left join pg_catalog.pg_type      tt
+                  on c.casttarget = tt.oid;
+
+create view cast_binary_coercible as
+    select
+        cast_id(ts.typname, pg_catalog.format_type(castsource, null), tt.typname,
+                pg_catalog.format_type(casttarget, null)) as id
+    from
+        pg_catalog.pg_cast                c
+        inner join pg_catalog.pg_type      ts
+                  on c.castsource = ts.oid
+        inner join pg_catalog.pg_namespace ns
+                  on ns.oid = ts.typnamespace
+        inner join pg_catalog.pg_type      tt
+                  on c.casttarget = tt.oid
+    where
+        castfunc = 0;
+
+create view cast_function as
+    select
+        cast_id(ts.typname, pg_catalog.format_type(castsource, null), tt.typname,
+                pg_catalog.format_type(casttarget, null)) as id,
+        function_id(
+            pns.nspname,
+            p.proname,
+            _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid))
+        )
+    from
+        pg_catalog.pg_cast                 c
+        inner join pg_catalog.pg_proc      p
+                   on c.castfunc = p.oid
+        inner join pg_catalog.pg_namespace pns
+                   on pns.oid = p.pronamespace
+        inner join  pg_catalog.pg_type      ts
+                   on c.castsource = ts.oid
+        inner join  pg_catalog.pg_namespace ns
+                   on ns.oid = ts.typnamespace
+        inner join  pg_catalog.pg_type      tt
+                   on c.casttarget = tt.oid
+where castfunc != 0;
+
+create view cast_implicit_in_assignment as
+    select
+        cast_id(ts.typname, pg_catalog.format_type(castsource, null), tt.typname,
+                pg_catalog.format_type(casttarget, null)) as id
+    from
+        pg_catalog.pg_cast                 c
+        inner join  pg_catalog.pg_type      ts
+                    on c.castsource = ts.oid
+        inner join  pg_catalog.pg_namespace ns
+                    on ns.oid = ts.typnamespace
+        inner join  pg_catalog.pg_type      tt
+                    on c.casttarget = tt.oid
+where castcontext = 'a';
+
+create view cast_explicit as
+    select
+        cast_id(ts.typname, pg_catalog.format_type(castsource, null), tt.typname,
+                pg_catalog.format_type(casttarget, null)) as id
+    from
+        pg_catalog.pg_cast                 c
+        inner join  pg_catalog.pg_type      ts
+                    on c.castsource = ts.oid
+        inner join  pg_catalog.pg_namespace ns
+                    on ns.oid = ts.typnamespace
+        inner join  pg_catalog.pg_type      tt
+                    on c.casttarget = tt.oid
+    where castcontext = 'e';
+
+create view cast_implicit as
+    select
+        cast_id(ts.typname, pg_catalog.format_type(castsource, null), tt.typname,
+                pg_catalog.format_type(casttarget, null)) as id
+    from
+        pg_catalog.pg_cast                 c
+        inner join  pg_catalog.pg_type      ts
+                    on c.castsource = ts.oid
+        inner join  pg_catalog.pg_namespace ns
+                    on ns.oid = ts.typnamespace
+        inner join  pg_catalog.pg_type      tt
+                    on c.casttarget = tt.oid
+    where castcontext = 'i';
 
 /******************************************************************************
  * operator
@@ -463,75 +600,6 @@ begin
 
     return result_array;
 end;
-$$ language plpgsql stable;
-
-
--- returns an array of types, given an identity_args string (as provided by pg_get_function_identity_arguments())
-create or replace function _get_function_type_sig_array(identity_args text) returns text[] as $$
-    declare
-        param_exprs text[] := '{}';
-        param_expr text[] := '{}';
-        sig_array text[] := '{}';
-        len integer;
-        len2 integer;
-        cast_try text;
-        good_type text;
-        good boolean;
-    begin
-        -- raise notice '# type_sig_array got: %', identity_args;
-        param_exprs := split_quoted_string(identity_args,',');
-        len := array_length(param_exprs,1);
-        -- raise notice '# param_exprs: %, length: %', param_exprs, len;
-        if len is null or len = 0 or param_exprs[1] = '' then
-            -- raise notice '    NO PARAMS';
-            return '{}'::text[];
-        end if;
-        -- raise notice 'type_sig_array after splitting into individual exprs (length %): %', len, param_exprs;
-
-        -- for each parameter expression
-        for i in 1..len
-        loop
-            good_type := null;
-            -- split by spaces (but not spaces within quotes)
-            param_expr = split_quoted_string(param_exprs[i], ' ');
-            -- raise notice '        type_sig_array expr: %, length is %', param_expr, len2;
-
-            -- skip OUTs for type-sig, the function isn't called with those
-            continue when param_expr[1] = 'OUT';
-
-            len2 := array_length(param_expr,1);
-            if len2 is null then
-                raise warning 'len2 is null, i: %, identity_args: %, param_exprs: %, param_expr: %', i, identity_args, param_exprs, param_expr;
-            end if;
-
-            -- no params;
-            continue when len2 is null;
-
-            -- ERROR:  len2 is null, i: 1, identity_args: "char", name, name, name[]
-            for j in 1..len2 loop
-                cast_try := array_to_string(param_expr[j:],' ');
-                -- raise notice '    !!! casting % to ::regtype', cast_try;
-                begin
-                    execute format('select %L::regtype', cast_try) into good_type;
-                exception when others then
-                    -- raise notice '        couldnt cast %', cast_try;
-                end;
-
-                if good_type is not null then
-                    -- raise notice '    GOT A TYPE!! %', good_type;
-                    sig_array := array_append(sig_array, good_type);
-                    exit;
-                else
-                    -- raise notice '    Fail.';
-                end if;
-            end loop;
-
-            if good_type = null then
-                raise exception 'Could not parse function parameter: %', param_expr;
-            end if;
-        end loop;
-        return sig_array;
-    end
 $$ language plpgsql stable;
 
 create or replace function _get_function_parameters(parameters text) returns text[] as $$
