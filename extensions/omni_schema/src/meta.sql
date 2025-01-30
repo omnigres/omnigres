@@ -12,7 +12,6 @@
                     "role","role_inheritance",
                     "table_privilege",
                     "policy","policy_role",
-                    "connection",
                     "constraint_unique","constraint_check",
                     "extension",
                     "foreign_data_wrapper","foreign_server","foreign_table","foreign_column",

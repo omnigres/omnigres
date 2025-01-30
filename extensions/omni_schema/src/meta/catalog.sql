@@ -1136,30 +1136,6 @@ from (
 
 
 /******************************************************************************
- * connection
- *****************************************************************************/
-create view connection as
-   select connection_id(psa.pid, psa.backend_start) as id,
-          role_id(psa.usename::text) as role_id,
-          psa.datname::text as database_name,
-          psa.pid as unix_pid,
-          psa.application_name,
-          psa.client_addr as client_ip,
-          psa.client_hostname as client_hostname,
-          psa.client_port as client_port,
-          psa.backend_start as connection_start,
-          psa.xact_start as transaction_start,
-          psa.query as last_query,
-          psa.query_start as query_start,
-          psa.state as state,
-          psa.state_change as last_state_change,
-          psa.wait_event as wait_event,
-          psa.wait_event_type as wait_event_type
-   from pg_stat_activity psa;
-
-
-
-/******************************************************************************
  * constraint_unique
  *****************************************************************************/
 create view constraint_unique as
