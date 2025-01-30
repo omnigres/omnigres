@@ -31,7 +31,6 @@ declare
 begin
     perform set_config('search_path', schema::text, true);
 
-    /*{% include "../src/meta/init.sql" %}*/
     /*{% include "../src/meta/identifiers.sql" %}*/
     /*{% include "../src/meta/identifiers-nongen.sql" %}*/
     /*{% include "../src/meta/identifiers-oid.sql" %}*/
