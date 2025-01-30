@@ -1,4 +1,27 @@
---## set meta_views = ["schema","cast","cast_binary_coercible","cast_function","cast_implicit","cast_implicit_in_assignment","cast_explicit","operator","sequence","table","table_rowsecurity", "table_forcerowsecurity", "view","relation_column","relation_column_type","relation_column_default","relation_column_nullable","relation","function","function_info_schema","function_parameter","trigger","role","role_inheritance","table_privilege","policy","policy_role","connection","constraint_unique","constraint_check","extension","foreign_data_wrapper","foreign_server","foreign_table","foreign_column","foreign_key", "type", "type_basic", "type_composite","type_composite_attribute","type_composite_attribute_position","type_composite_attribute_collation","type_domain","type_enum","type_enum_label", "type_pseudo", "type_range","type_multirange"]
+/*{%
+  set meta_views = ["schema",
+                    "cast","cast_binary_coercible","cast_function","cast_implicit","cast_implicit_in_assignment","cast_explicit",
+                    "operator",
+                    "sequence",
+                    "relation_column","relation_column_type","relation_column_default",
+                                      "relation_column_nullable","relation",
+                    "table","table_rowsecurity", "table_forcerowsecurity",
+                    "view",
+                    "function","function_info_schema","function_parameter",
+                    "trigger",
+                    "role","role_inheritance",
+                    "table_privilege",
+                    "policy","policy_role",
+                    "connection",
+                    "constraint_unique","constraint_check",
+                    "extension",
+                    "foreign_data_wrapper","foreign_server","foreign_table","foreign_column",
+                    "foreign_key",
+                    "type", "type_basic", "type_composite","type_composite_attribute",
+                            "type_composite_attribute_position","type_composite_attribute_collation",
+                            "type_domain","type_enum","type_enum_label", "type_pseudo", "type_range","type_multirange"
+                    ]
+ %}*/
 
 create function instantiate_meta(schema name) returns void
     language plpgsql
