@@ -36,7 +36,6 @@ begin
     /*{% include "../src/meta/identifiers-nongen.sql" %}*/
     /*{% include "../src/meta/identifiers-oid.sql" %}*/
     /*{% include "../src/meta/catalog.sql" %}*/
-    /*{% include "../src/meta/api.sql" %}*/
 
     -- This is not perfect because of the potential pre-existing functions,
     -- but there's just so many functions there in `meta`
