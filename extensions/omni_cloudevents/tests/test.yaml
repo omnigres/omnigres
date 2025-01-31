@@ -114,8 +114,20 @@ tests:
       error: duplicate key value violates unique constraint "cloudevents_egress_pkey"
 
 - name: notice publisher
+  commit: true
   steps:
     - select create_notice_publisher()
     - query: select publish(cloudevent(id => '1', source => 'a.b.c', type => 'org.omnigres.test', ts => '4713-01-01 00:00:00+00 BC'))
+      notices: []
+  notices:
+  - "{\"id\":\"1\",\"source\":\"a.b.c\",\"specversion\":\"1.0\",\"type\":\"org.omnigres.test\",\"time\":\"4713-01-01T00:00:00+00:00 BC\"}"
+
+- query: delete from omni_cloudevents.cloudevents_egress
+  commit: true
+
+- name: notice publisher (uncommitted)
+  steps:
+    - select create_notice_publisher(publish_uncommitted => true)
+    - query: select publish(cloudevent(id => '1', source => 'a.b.c', type => 'org.omnigres.test', ts => '4713-01-01 00:00:00+00 BC'))
       notices:
-      - "{\"id\":\"1\",\"source\":\"a.b.c\",\"specversion\":\"1.0\",\"type\":\"org.omnigres.test\",\"time\":\"4713-01-01T00:00:00+00:00 BC\"}"
+        - "{\"id\":\"1\",\"source\":\"a.b.c\",\"specversion\":\"1.0\",\"type\":\"org.omnigres.test\",\"time\":\"4713-01-01T00:00:00+00:00 BC\"}"

@@ -146,7 +146,7 @@ begin
         as implicit;
 
     -- Publish an event
-    create function publish(e cloudevent) returns void
+    create function publish(e cloudevent) returns text
         language plpgsql as
     $publish$
     begin
@@ -155,7 +155,7 @@ begin
             cloudevents_egress
         select
             e.*;
-        return;
+        return e.id;
     end;
     $publish$;
     execute format('alter function publish set search_path to %I,public', schema);
@@ -174,22 +174,43 @@ begin
     $notice_publisher$;
     execute format('alter function notice_publisher set search_path to %I,public', schema);
 
-    create trigger notice_publisher
-        after insert
-        on cloudevents_egress
-        for each row
-    execute function notice_publisher(json);
-    alter table cloudevents_egress
-        disable trigger notice_publisher;
-
     -- Create NOTICE publisher
-    create function create_notice_publisher() returns name
+    create function create_notice_publisher(publish_uncommitted bool default false) returns name
         language plpgsql as
     $create_notice_publisher$
     begin
-        alter table cloudevents_egress
-            enable trigger notice_publisher;
-        return 'notice_publisher'::name;
+        if publish_uncommitted then
+            perform
+            from
+                pg_trigger
+            where
+                tgname = 'uncommitted_notice_publisher' and
+                tgrelid = 'cloudevents_egress'::regclass;
+            if not found then
+                create trigger uncommitted_notice_publisher
+                    after insert
+                    on cloudevents_egress
+                    for each row
+                execute function notice_publisher(json);
+            end if;
+            return 'uncommitted_notice_publisher'::name;
+        else
+            perform
+            from
+                pg_trigger
+            where
+                tgname = 'notice_publisher' and
+                tgrelid = 'cloudevents_egress'::regclass;
+            if not found then
+                create constraint trigger notice_publisher
+                    after insert
+                    on cloudevents_egress
+                    deferrable initially deferred
+                    for each row
+                execute function notice_publisher(json);
+            end if;
+            return 'notice_publisher'::name;
+        end if;
     end;
     $create_notice_publisher$;
     execute format('alter function create_notice_publisher set search_path to %I,public', schema);
@@ -200,8 +221,27 @@ begin
     $delete_publisher$
     begin
         if publisher = 'notice_publisher' then
-            alter table cloudevents_egress
-                disable trigger notice_publisher;
+            perform
+            from
+                pg_trigger
+            where
+                tgname = 'notice_publisher' and
+                tgrelid = 'cloudevents_egress'::regclass;
+            if found then
+                drop trigger notice_publisher on cloudevents_egress;
+            end if;
+        end if;
+
+        if publisher = 'uncommitted_notice_publisher' then
+            perform
+            from
+                pg_trigger
+            where
+                tgname = 'uncommitted_notice_publisher' and
+                tgrelid = 'cloudevents_egress'::regclass;
+            if found then
+                drop trigger uncommitted_notice_publisher on cloudevents_egress;
+            end if;
         end if;
         return;
     end;

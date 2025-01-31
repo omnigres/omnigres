@@ -12,5 +12,6 @@ find_package(PostgreSQL REQUIRED)
 add_postgresql_extension(
         omni_cloudevents
         SCHEMA omni_cloudevents
+        COMMENT "CloudEvents support"
         REQUIRES omni_web
         RELOCATABLE false)
