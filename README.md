@@ -183,6 +183,7 @@ Below is the current list of components being worked on, experimented with and d
 | [omni_credentials](extensions/omni_schema/README.md)                                     | :white_check_mark: First release candidate   | Application credential management                     |
 | [omni_id](extensions/omni_id/README.md)                                                  | :white_check_mark: First release candidate   | Identity types                                        |
 | [omni_aws](extensions/omni_aws/README.md)                                                | :white_check_mark: First release candidate   | AWS APIs                                              |
+| [omni_cloudevents](extensions/omni_cloudevents/README.md)                                | :white_check_mark: First release candidate   | [CloudEvents](https://cloudevents.io/) support        |
 | [omni_json](extensions/omni_json/README.md)                                              | :white_check_mark: First release candidate   | JSON toolkit                                          |
 | [omni_yaml](extensions/omni_yaml/README.md)                                              | :white_check_mark: First release candidate   | YAML toolkit                                          |
 | [omni_xml](extensions/omni_xml/README.md)                                                | :white_check_mark: First release candidate   | XML toolkit                                           |
