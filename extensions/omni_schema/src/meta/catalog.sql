@@ -1395,7 +1395,7 @@ create view "index_attribute" as
     from pg_index i
          inner join pg_class c on c.oid = i.indexrelid
          inner join pg_namespace ns on ns.oid = c.relnamespace
-    inner join lateral (select position, pg_get_indexdef(indexrelid::oid, position, true) as attribute from generate_series(1,indnatts) position)
+    inner join lateral (select position, pg_get_indexdef(indexrelid::oid, position, true) as attribute from generate_series(1,indnatts) position) t
     on true
 where indnatts > 0;
 
