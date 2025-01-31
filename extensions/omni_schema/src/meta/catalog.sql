@@ -1359,6 +1359,7 @@ from pg_index i
          inner join pg_namespace ns on ns.oid = c.relnamespace
 where i.indisunique;
 
+if current_setting('server_version_num')::int / 10000 > 14 then
 create view "index_unique_null_values_distinct" as
 select index_id(ns.nspname, c.relname) as id
 from pg_index i
@@ -1366,6 +1367,13 @@ from pg_index i
          inner join pg_namespace ns on ns.oid = c.relnamespace
 where i.indisunique
   and not i.indnullsnotdistinct;
+else
+create view "index_unique_null_values_distinct" as
+    select index_id(ns.nspname, c.relname) as id
+    from pg_index i
+         inner join pg_class c on c.oid = i.indexrelid
+         inner join pg_namespace ns on ns.oid = c.relnamespace;
+end if;
 
 create view "index_primary_key" as
 select index_id(ns.nspname, c.relname) as id
