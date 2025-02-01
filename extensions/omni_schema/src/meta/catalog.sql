@@ -27,6 +27,75 @@ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
+
+-- returns an array of types, given an identity_args string (as provided by pg_get_function_identity_arguments())
+create or replace function _get_function_type_sig_array(identity_args text) returns text[] as $$
+declare
+    param_exprs text[] := '{}';
+    param_expr text[] := '{}';
+    sig_array text[] := '{}';
+    len integer;
+    len2 integer;
+    cast_try text;
+    good_type text;
+    good boolean;
+begin
+    -- raise notice '# type_sig_array got: %', identity_args;
+    param_exprs := split_quoted_string(identity_args,',');
+    len := array_length(param_exprs,1);
+    -- raise notice '# param_exprs: %, length: %', param_exprs, len;
+    if len is null or len = 0 or param_exprs[1] = '' then
+        -- raise notice '    NO PARAMS';
+        return '{}'::text[];
+    end if;
+    -- raise notice 'type_sig_array after splitting into individual exprs (length %): %', len, param_exprs;
+
+    -- for each parameter expression
+    for i in 1..len
+        loop
+            good_type := null;
+            -- split by spaces (but not spaces within quotes)
+            param_expr = split_quoted_string(param_exprs[i], ' ');
+            -- raise notice '        type_sig_array expr: %, length is %', param_expr, len2;
+
+            -- skip OUTs for type-sig, the function isn't called with those
+            continue when param_expr[1] = 'OUT';
+
+            len2 := array_length(param_expr,1);
+            if len2 is null then
+                raise warning 'len2 is null, i: %, identity_args: %, param_exprs: %, param_expr: %', i, identity_args, param_exprs, param_expr;
+            end if;
+
+            -- no params;
+            continue when len2 is null;
+
+            -- ERROR:  len2 is null, i: 1, identity_args: "char", name, name, name[]
+            for j in 1..len2 loop
+                    cast_try := array_to_string(param_expr[j:],' ');
+                    -- raise notice '    !!! casting % to ::regtype', cast_try;
+                    begin
+                        execute format('select %L::regtype', cast_try) into good_type;
+                    exception when others then
+                    -- raise notice '        couldnt cast %', cast_try;
+                    end;
+
+                    if good_type is not null then
+                        -- raise notice '    GOT A TYPE!! %', good_type;
+                        sig_array := array_append(sig_array, good_type);
+                        exit;
+                    else
+                        -- raise notice '    Fail.';
+                    end if;
+                end loop;
+
+            if good_type = null then
+                raise exception 'Could not parse function parameter: %', param_expr;
+            end if;
+        end loop;
+    return sig_array;
+end
+$$ language plpgsql stable;
+
 /******************************************************************************
  * siuda
  *****************************************************************************/
@@ -68,75 +137,109 @@ create view schema as
 /******************************************************************************
  * type
  *****************************************************************************/
--- https://github.com/aquameta/pg_catalog_get_defs/blob/master/pg_get_typedef.sql
-create or replace function get_typedef_composite(oid) returns text
-  language plpgsql
-  as $$
-  declare
-    defn text;
-  begin
-    select into defn
-           format('CREATE TYPE %s AS (%s)',
-                  $1::regtype,
-                  string_agg(coldef, ', ' order by attnum))
-      from (select a.attnum,
-                   format('%I %s%s',
-                          a.attname,
-                          format_type(a.atttypid, a.atttypmod),
-                          case when a.attcollation <> ct.typcollation
-                               then format(' COLLATE %I ', co.collname)
-                               else ''
-                          end) as coldef
-              from pg_type t
-              join pg_attribute a on a.attrelid=t.typrelid
-              join pg_type ct on ct.oid=a.atttypid
-              left join pg_collation co on co.oid=a.attcollation
-             where t.oid = $1
-               and a.attnum > 0
-               and not a.attisdropped) s;
-    return defn;
-  end;
-  $$;
-
-create or replace function get_typedef_enum(oid) returns text
-  language plpgsql
-  as $$
-  declare
-    defn text;
-  begin
-    select into defn
-           format('CREATE TYPE %s AS ENUM (%s)',
-                  $1::regtype,
-                  string_agg(quote_literal(enumlabel), ', '
-                             order by enumsortorder))
-      from pg_enum
-     where enumtypid = $1;
-    return defn;
-  end;
-  $$;
-
 
 create or replace view type as
-select
-    type_id(n.nspname, pg_catalog.format_type(t.oid, NULL)) as id,
-    t.typtype as "type",
+select type_id(n.nspname, t.typname::text) as id,
     n.nspname::text as schema_name,
-    t.typname as name,
-    case when c.relkind = 'c' then true else false end as composite,
-    case when t.typtype = 'c' then get_typedef_composite(t.oid)
-         when t.typtype = 'e' then get_typedef_enum(t.oid)
-         else 'UNSUPPORTED'
-    end as definition,
-    pg_catalog.obj_description(t.oid, 'pg_type') as description
+       t.typname                           as name
 from pg_catalog.pg_type t
      left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
      left join pg_catalog.pg_class c on c.oid = t.typrelid
 where (t.typrelid = 0 or c.relkind = 'c')
   and not exists(select 1 from pg_catalog.pg_type el where el.oid = t.typelem and el.typarray = t.oid)
 --   and pg_catalog.pg_type_is_visible(t.oid)
-    AND n.nspname <> 'pg_catalog'
     AND n.nspname <> 'information_schema'
 ;
+
+
+create or replace view type_basic as
+select type_id(n.nspname, t.typname::text) as id
+from pg_catalog.pg_type t
+         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+where typtype = 'b';
+
+create or replace view type_composite as
+select type_id(n.nspname, t.typname::text) as id
+from pg_catalog.pg_type t
+         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+where typtype = 'c';
+
+create or replace view type_composite_attribute as
+select type_id(n.nspname, t.typname::text) as id,
+        a.attname as name
+from pg_catalog.pg_type t
+         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+         join pg_attribute a on a.attrelid=t.typrelid
+where t.typtype = 'c'
+        and a.attnum > 0
+        and not a.attisdropped;
+
+create or replace view type_composite_attribute_position as
+    select type_id(n.nspname, t.typname::text) as id,
+           a.attname as name,
+           a.attnum as position
+    from pg_catalog.pg_type t
+         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+         join pg_attribute a on a.attrelid=t.typrelid
+    where t.typtype = 'c'
+            and a.attnum > 0
+            and not a.attisdropped;
+
+create or replace view type_composite_attribute_collation as
+    select type_id(n.nspname, t.typname::text) as id,
+           a.attname as name,
+           co.collname as collation
+    from pg_catalog.pg_type t
+         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+         join pg_attribute a on a.attrelid=t.typrelid
+         join pg_type ct on ct.oid=a.atttypid
+         left join pg_collation co on co.oid=a.attcollation
+    where t.typtype = 'c'
+            and a.attnum > 0
+            and not a.attisdropped
+    and a.attcollation <> ct.typcollation;
+
+create or replace view type_domain as
+select type_id(n.nspname, t.typname::text)   as id,
+       type_id(n1.nspname, t1.typname::text) as base_type_id
+from pg_catalog.pg_type t
+         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+         inner join pg_catalog.pg_type t1 on t1.oid = t.typbasetype
+         left join pg_catalog.pg_namespace n1 on n1.oid = t1.typnamespace
+where t.typtype = 'd';
+
+create or replace view type_enum as
+select type_id(n.nspname, t.typname::text) as id
+from pg_catalog.pg_type t
+         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+where typtype = 'e';
+
+create or replace view type_enum_label as
+select type_id(n.nspname, t.typname::text) as id,
+       enumlabel                           as label,
+       enumsortorder                       as sortorder
+from pg_catalog.pg_type t
+         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+         inner join pg_enum e on e.enumtypid = t.oid
+where typtype = 'e';
+
+create or replace view type_pseudo as
+select type_id(n.nspname, t.typname::text) as id
+from pg_catalog.pg_type t
+         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+where typtype = 'p';
+
+create or replace view type_range as
+select type_id(n.nspname, t.typname::text) as id
+from pg_catalog.pg_type t
+         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+where typtype = 'r';
+
+create or replace view type_multirange as
+select type_id(n.nspname, t.typname::text) as id
+from pg_catalog.pg_type t
+         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+where typtype = 'm';
 
 
 
@@ -144,31 +247,99 @@ where (t.typrelid = 0 or c.relkind = 'c')
  * cast
  *****************************************************************************/
 create view "cast" as
-SELECT cast_id(ts.typname, pg_catalog.format_type(castsource, NULL),tt.typname, pg_catalog.format_type(casttarget, NULL)) as id,
-       pg_catalog.format_type(castsource, NULL) AS "source type",
-       pg_catalog.format_type(casttarget, NULL) AS "target type",
-       (CASE WHEN castfunc = 0 THEN '(binary coercible)'
-            ELSE p.proname
-       END)::text as "function",
-       CASE WHEN c.castcontext = 'e' THEN 'no'
-           WHEN c.castcontext = 'a' THEN 'in assignment'
-        ELSE 'yes'
-       END as "implicit?" FROM pg_catalog.pg_cast c LEFT JOIN pg_catalog.pg_proc p
-     ON c.castfunc = p.oid
-     LEFT JOIN pg_catalog.pg_type ts
-     ON c.castsource = ts.oid
-     LEFT JOIN pg_catalog.pg_namespace ns
-     ON ns.oid = ts.typnamespace
-     LEFT JOIN pg_catalog.pg_type tt
-     ON c.casttarget = tt.oid
-     LEFT JOIN pg_catalog.pg_namespace nt
-     ON nt.oid = tt.typnamespace
-/*
-WHERE ( (true  AND pg_catalog.pg_type_is_visible(ts.oid)
-    ) OR (true  AND pg_catalog.pg_type_is_visible(tt.oid)
-) )
-ORDER BY 1, 2
-*/;
+    select
+        cast_id(ts.typname, pg_catalog.format_type(castsource, null), tt.typname,
+                pg_catalog.format_type(casttarget, null)) as id,
+        pg_catalog.format_type(castsource, null)          as "from",
+        pg_catalog.format_type(casttarget, null)          as "to"
+    from
+        pg_catalog.pg_cast                c
+        left join pg_catalog.pg_type      ts
+                  on c.castsource = ts.oid
+        left join pg_catalog.pg_namespace ns
+                  on ns.oid = ts.typnamespace
+        left join pg_catalog.pg_type      tt
+                  on c.casttarget = tt.oid;
+
+create view cast_binary_coercible as
+    select
+        cast_id(ts.typname, pg_catalog.format_type(castsource, null), tt.typname,
+                pg_catalog.format_type(casttarget, null)) as id
+    from
+        pg_catalog.pg_cast                c
+        inner join pg_catalog.pg_type      ts
+                  on c.castsource = ts.oid
+        inner join pg_catalog.pg_namespace ns
+                  on ns.oid = ts.typnamespace
+        inner join pg_catalog.pg_type      tt
+                  on c.casttarget = tt.oid
+    where
+        castfunc = 0;
+
+create view cast_function as
+    select
+        cast_id(ts.typname, pg_catalog.format_type(castsource, null), tt.typname,
+                pg_catalog.format_type(casttarget, null)) as id,
+        function_id(
+            pns.nspname,
+            p.proname,
+            _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid))
+        )
+    from
+        pg_catalog.pg_cast                 c
+        inner join pg_catalog.pg_proc      p
+                   on c.castfunc = p.oid
+        inner join pg_catalog.pg_namespace pns
+                   on pns.oid = p.pronamespace
+        inner join  pg_catalog.pg_type      ts
+                   on c.castsource = ts.oid
+        inner join  pg_catalog.pg_namespace ns
+                   on ns.oid = ts.typnamespace
+        inner join  pg_catalog.pg_type      tt
+                   on c.casttarget = tt.oid
+where castfunc != 0;
+
+create view cast_implicit_in_assignment as
+    select
+        cast_id(ts.typname, pg_catalog.format_type(castsource, null), tt.typname,
+                pg_catalog.format_type(casttarget, null)) as id
+    from
+        pg_catalog.pg_cast                 c
+        inner join  pg_catalog.pg_type      ts
+                    on c.castsource = ts.oid
+        inner join  pg_catalog.pg_namespace ns
+                    on ns.oid = ts.typnamespace
+        inner join  pg_catalog.pg_type      tt
+                    on c.casttarget = tt.oid
+where castcontext = 'a';
+
+create view cast_explicit as
+    select
+        cast_id(ts.typname, pg_catalog.format_type(castsource, null), tt.typname,
+                pg_catalog.format_type(casttarget, null)) as id
+    from
+        pg_catalog.pg_cast                 c
+        inner join  pg_catalog.pg_type      ts
+                    on c.castsource = ts.oid
+        inner join  pg_catalog.pg_namespace ns
+                    on ns.oid = ts.typnamespace
+        inner join  pg_catalog.pg_type      tt
+                    on c.casttarget = tt.oid
+    where castcontext = 'e';
+
+create view cast_implicit as
+    select
+        cast_id(ts.typname, pg_catalog.format_type(castsource, null), tt.typname,
+                pg_catalog.format_type(casttarget, null)) as id
+    from
+        pg_catalog.pg_cast                 c
+        inner join  pg_catalog.pg_type      ts
+                    on c.castsource = ts.oid
+        inner join  pg_catalog.pg_namespace ns
+                    on ns.oid = ts.typnamespace
+        inner join  pg_catalog.pg_type      tt
+                    on c.casttarget = tt.oid
+    where castcontext = 'i';
 
 /******************************************************************************
  * operator
@@ -219,10 +390,20 @@ create view "table" as
     select relation_id(schemaname, tablename) as id,
            schema_id(schemaname) as schema_id,
            schemaname::text as schema_name,
-           tablename::text as name,
-           rowsecurity as rowsecurity
+           tablename::text as name
     from pg_catalog.pg_tables;
 
+create view table_rowsecurity as
+    select relation_id(schemaname, tablename) as id
+    from pg_catalog.pg_tables
+where pg_tables.rowsecurity;
+
+create view table_forcerowsecurity as
+    select relation_id(schemaname, tablename) as id
+    from pg_catalog.pg_tables
+inner join pg_catalog.pg_namespace ns on pg_tables.schemaname = ns.nspname
+inner join pg_catalog.pg_class c on pg_tables.tablename = c.relname and ns.oid = c.relnamespace
+where relforcerowsecurity;
 
 /******************************************************************************
  * view
@@ -231,11 +412,13 @@ create view "view" as
     select relation_id(table_schema, table_name) as id,
            schema_id(table_schema) as schema_id,
            table_schema::text as schema_name,
-           table_name::text as name,
-           view_definition::text as query
-
+           table_name::text as name
     from information_schema.views v;
 
+create view view_definition as
+    select relation_id(table_schema, table_name) as id,
+           view_definition::text as query
+    from information_schema.views v;
 
 /******************************************************************************
  * relation_column
@@ -243,40 +426,28 @@ create view "view" as
 create view relation_column as
     select column_id(c.table_schema, c.table_name, c.column_name) as id,
            relation_id(c.table_schema, c.table_name) as relation_id,
-           c.table_schema::text as schema_name,
-           c.table_name::text as relation_name,
-           c.column_name::text as name,
-           c.ordinal_position::integer as position,
-           quote_ident(c.udt_schema) || '.' || quote_ident(c.udt_name) as type_name,
-           type_id (c.udt_schema, c.udt_name) as "type_id",
-           (c.is_nullable = 'YES') as nullable,
-           c.column_default::text as "default",
-           k.column_name is not null or (c.table_schema = 'omni_schema' and c.column_name = 'id') as primary_key
+           c.column_name::text as name
+    from information_schema.columns c;
 
+create view relation_column_position as
+select column_id(c.table_schema, c.table_name, c.column_name) as id,
+       c.ordinal_position::integer                            as position
+from information_schema.columns c;
+
+create view relation_column_default as
+    select column_id(c.table_schema, c.table_name, c.column_name) as id,
+           c.column_default::text as "default"
+    from information_schema.columns c where c.column_default is not null;
+
+create view relation_column_type as
+    select column_id(c.table_schema, c.table_name, c.column_name) as id,
+           type_id (c.udt_schema, c.udt_name) as "type_id"
+    from information_schema.columns c;
+
+create view relation_column_nullable as
+    select column_id(c.table_schema, c.table_name, c.column_name) as id
     from information_schema.columns c
-
-    left join information_schema.table_constraints t
-          on t.table_catalog = c.table_catalog and
-             t.table_schema = c.table_schema and
-             t.table_name = c.table_name and
-             t.constraint_type = 'PRIMARY KEY'
-
-    left join information_schema.key_column_usage k
-          on k.constraint_catalog = t.constraint_catalog and
-             k.constraint_schema = t.constraint_schema and
-             k.constraint_name = t.constraint_name and
-             k.column_name = c.column_name;
-
-
-/******************************************************************************
- * column
- *****************************************************************************/
-create view "column" as
-    -- select c.id, c.relation_id as table_id, c.schema_name, c.relation_name, c.name, c.position, c.type_name, c.type_id, c.nullable, c.column_default, c.primary_key
-    select c.*
-    from "table" t
-        join relation_column c on c.relation_id = t.id;
-
+        where c.is_nullable = 'YES';
 
 /******************************************************************************
  * relation
@@ -285,18 +456,23 @@ create view relation as
     select relation_id(t.table_schema, t.table_name) as id,
            schema_id(t.table_schema) as schema_id,
            t.table_schema::text as schema_name,
-           t.table_name::text as name,
-           t.table_type::text as "type",
-           nullif(array_agg(c.id order by c.position), array[null]::column_id[]) as primary_key_column_ids,
-           nullif(array_agg(c.name::text order by c.position), array[null]::text[]) as primary_key_column_names
+           t.table_name::text as name
+    from information_schema.tables t;
 
+create view relation_primary_keys as
+    select relation_id(t.table_schema, t.table_name) as id,
+           column_id(c.table_schema, c.table_name, k.column_name),
+           k.ordinal_position as position
     from information_schema.tables t
-
-    left join relation_column c
-           on c.relation_id = relation_id(t.table_schema, t.table_name) and c.primary_key
-
-    group by t.table_schema, t.table_name, t.table_type;
-
+         inner join information_schema.table_constraints c
+                   on t.table_catalog = c.table_catalog and
+                      t.table_schema = c.table_schema and
+                      t.table_name = c.table_name and
+                      c.constraint_type = 'PRIMARY KEY'
+         inner join information_schema.key_column_usage k
+                   on k.constraint_catalog = c.constraint_catalog and
+                      k.constraint_schema = c.constraint_schema and
+                      k.constraint_name = c.constraint_name;
 
 /******************************************************************************
  * foreign_key
@@ -427,75 +603,6 @@ begin
 
     return result_array;
 end;
-$$ language plpgsql stable;
-
-
--- returns an array of types, given an identity_args string (as provided by pg_get_function_identity_arguments())
-create or replace function _get_function_type_sig_array(identity_args text) returns text[] as $$
-    declare
-        param_exprs text[] := '{}';
-        param_expr text[] := '{}';
-        sig_array text[] := '{}';
-        len integer;
-        len2 integer;
-        cast_try text;
-        good_type text;
-        good boolean;
-    begin
-        -- raise notice '# type_sig_array got: %', identity_args;
-        param_exprs := split_quoted_string(identity_args,',');
-        len := array_length(param_exprs,1);
-        -- raise notice '# param_exprs: %, length: %', param_exprs, len;
-        if len is null or len = 0 or param_exprs[1] = '' then
-            -- raise notice '    NO PARAMS';
-            return '{}'::text[];
-        end if;
-        -- raise notice 'type_sig_array after splitting into individual exprs (length %): %', len, param_exprs;
-
-        -- for each parameter expression
-        for i in 1..len
-        loop
-            good_type := null;
-            -- split by spaces (but not spaces within quotes)
-            param_expr = split_quoted_string(param_exprs[i], ' ');
-            -- raise notice '        type_sig_array expr: %, length is %', param_expr, len2;
-
-            -- skip OUTs for type-sig, the function isn't called with those
-            continue when param_expr[1] = 'OUT';
-
-            len2 := array_length(param_expr,1);
-            if len2 is null then
-                raise warning 'len2 is null, i: %, identity_args: %, param_exprs: %, param_expr: %', i, identity_args, param_exprs, param_expr;
-            end if;
-
-            -- no params;
-            continue when len2 is null;
-
-            -- ERROR:  len2 is null, i: 1, identity_args: "char", name, name, name[]
-            for j in 1..len2 loop
-                cast_try := array_to_string(param_expr[j:],' ');
-                -- raise notice '    !!! casting % to ::regtype', cast_try;
-                begin
-                    execute format('select %L::regtype', cast_try) into good_type;
-                exception when others then
-                    -- raise notice '        couldnt cast %', cast_try;
-                end;
-
-                if good_type is not null then
-                    -- raise notice '    GOT A TYPE!! %', good_type;
-                    sig_array := array_append(sig_array, good_type);
-                    exit;
-                else
-                    -- raise notice '    Fail.';
-                end if;
-            end loop;
-
-            if good_type = null then
-                raise exception 'Could not parse function parameter: %', param_expr;
-            end if;
-        end loop;
-        return sig_array;
-    end
 $$ language plpgsql stable;
 
 create or replace function _get_function_parameters(parameters text) returns text[] as $$
@@ -802,7 +909,7 @@ NOTICE:  CHECKOUT EXCEPTION checking out (meta,function,id,"(endpoint,field_sele
 create view function_parameter as
     select q.schema_id,
         q.schema_name,
-        q.function_id,
+        q.function_id as id,
         q.function_name,
         par.parameter_name as name,
         type_id(par.udt_schema, par.udt_name) as type_id,
@@ -947,8 +1054,8 @@ create view role as
  *****************************************************************************/
 create view role_inheritance as
 select
-    r.rolname::text || '<-->' || r2.rolname::text as id,
-    role_id(r.rolname::text) as role_id,
+    role_id(r.rolname::text) as id,
+    r.rolname::text || '<-->' || r2.rolname::text as inheritance,
     r.rolname::text as role_name,
     role_id(r2.rolname::text) as member_role_id,
     r2.rolname::text as member_role_name
@@ -1013,7 +1120,7 @@ from pg_policy p
 create view policy_role as
 select
 --    policy_id((relation_id).schema_name, (relation_id).name, policy_name)::text || '<-->' || role_id::text as id,
-    policy_id((relation_id).schema_name, (relation_id).name, policy_name) as policy_id,
+    policy_id((relation_id).schema_name, (relation_id).name, policy_name) as id,
     policy_name::text,
     relation_id,
     (relation_id).name as relation_name,
@@ -1029,30 +1136,6 @@ from (
         join pg_class c on c.oid = p.polrelid
         join pg_namespace n on n.oid = c.relnamespace
 ) a;
-
-
-/******************************************************************************
- * connection
- *****************************************************************************/
-create view connection as
-   select connection_id(psa.pid, psa.backend_start) as id,
-          role_id(psa.usename::text) as role_id,
-          psa.datname::text as database_name,
-          psa.pid as unix_pid,
-          psa.application_name,
-          psa.client_addr as client_ip,
-          psa.client_hostname as client_hostname,
-          psa.client_port as client_port,
-          psa.backend_start as connection_start,
-          psa.xact_start as transaction_start,
-          psa.query as last_query,
-          psa.query_start as query_start,
-          psa.state as state,
-          psa.state_change as last_state_change,
-          psa.wait_event as wait_event,
-          psa.wait_event_type as wait_event_type
-   from pg_stat_activity psa;
-
 
 
 /******************************************************************************
@@ -1251,3 +1334,83 @@ create view foreign_column as
             on c.table_schema = pgn.nspname and
                c.table_name = pgc.relname;
 
+/******************************************************************************
+ * index
+ *****************************************************************************/
+create view "index" as
+select index_id(ns.nspname, c.relname) as id
+from pg_index i
+         inner join pg_class c on c.oid = i.indexrelid
+         inner join pg_namespace ns on ns.oid = c.relnamespace;
+
+create view "index_relation" as
+select index_id(ns.nspname, c.relname) as id,
+       relation_id(rns.nspname, rc.relname)
+from pg_index i
+         inner join pg_class c on c.oid = i.indexrelid
+         inner join pg_namespace ns on ns.oid = c.relnamespace
+         inner join pg_class rc on rc.oid = i.indrelid
+         inner join pg_namespace rns on rns.oid = rc.relnamespace;
+
+create view "index_unique" as
+select index_id(ns.nspname, c.relname) as id
+from pg_index i
+         inner join pg_class c on c.oid = i.indexrelid
+         inner join pg_namespace ns on ns.oid = c.relnamespace
+where i.indisunique;
+
+if current_setting('server_version_num')::int / 10000 > 14 then
+create view "index_unique_null_values_distinct" as
+select index_id(ns.nspname, c.relname) as id
+from pg_index i
+         inner join pg_class c on c.oid = i.indexrelid
+         inner join pg_namespace ns on ns.oid = c.relnamespace
+where i.indisunique
+  and not i.indnullsnotdistinct;
+else
+create view "index_unique_null_values_distinct" as
+    select index_id(ns.nspname, c.relname) as id
+    from pg_index i
+         inner join pg_class c on c.oid = i.indexrelid
+         inner join pg_namespace ns on ns.oid = c.relnamespace;
+end if;
+
+create view "index_primary_key" as
+select index_id(ns.nspname, c.relname) as id
+from pg_index i
+         inner join pg_class c on c.oid = i.indexrelid
+         inner join pg_namespace ns on ns.oid = c.relnamespace
+where i.indisprimary;
+
+create view "index_unique_immediate" as
+select index_id(ns.nspname, c.relname) as id
+from pg_index i
+         inner join pg_class c on c.oid = i.indexrelid
+         inner join pg_namespace ns on ns.oid = c.relnamespace
+where i.indisunique
+  and i.indimmediate;
+
+create view "index_replica_identity" as
+    select index_id(ns.nspname, c.relname) as id
+    from pg_index i
+         inner join pg_class c on c.oid = i.indexrelid
+         inner join pg_namespace ns on ns.oid = c.relnamespace
+    where i.indisreplident;
+
+create view "index_attribute" as
+    select index_id(ns.nspname, c.relname) as id,
+           attribute, position
+    from pg_index i
+         inner join pg_class c on c.oid = i.indexrelid
+         inner join pg_namespace ns on ns.oid = c.relnamespace
+    inner join lateral (select position, pg_get_indexdef(indexrelid::oid, position, true) as attribute from generate_series(1,indnatts) position) t
+    on true
+where indnatts > 0;
+
+create view "index_partial" as
+    select index_id(ns.nspname, c.relname) as id,
+           pg_get_expr(indpred, indrelid) as condition
+    from pg_index i
+         inner join pg_class c on c.oid = i.indexrelid
+         inner join pg_namespace ns on ns.oid = c.relnamespace
+    where i.indpred is not null;

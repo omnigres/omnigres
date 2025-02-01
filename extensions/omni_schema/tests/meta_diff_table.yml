@@ -1,0 +1,117 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_schema cascade
+    - create schema baseline
+    - select omni_schema.materialize_meta('omni_schema', 'baseline')
+    - create schema diff
+    - select omni_schema.create_meta_diff('baseline', 'omni_schema', 'diff')
+
+tests:
+
+- name: adding a table
+  steps:
+    - create table tab1 ()
+    - query: select name from diff.added_table where schema_name = 'public'
+      results:
+      - name: tab1
+
+- name: removing a table
+  steps:
+    - create table tab1 ()
+    - select baseline.refresh_meta();
+    - drop table tab1
+    - query: select name from diff.removed_table where schema_name = 'public'
+      results:
+        - name: tab1
+
+- name: adding a column
+  steps:
+    - create table tab1 ()
+    - select baseline.refresh_meta();
+    - alter table tab1 add column c1 text;
+    - query: select ac.name from diff.added_relation_column ac
+              inner join omni_schema.table t on t.id = ac.relation_id 
+              where t.name = 'tab1' and t.schema_name = 'public'
+      results:
+        - name: c1
+    - query: |
+        select typ.name from diff.added_relation_column_type act
+        inner join diff.added_relation_column at on at.id = act.id
+        inner join omni_schema.table t on t.id = at.relation_id
+        inner join omni_schema.type typ on typ.id = act.type_id
+      results:
+      - name: text
+
+- name: renaming a column
+  steps:
+    - create table tab1 (c1 int)
+    - select baseline.refresh_meta();
+    - alter table tab1 rename column c1 to c2;
+    - query: select rc.name from diff.removed_relation_column rc
+                                 inner join omni_schema.table t on t.id = rc.relation_id
+             where t.name = 'tab1' and t.schema_name = 'public'
+      results:
+        - name: c1
+    - query: select ac.name from diff.added_relation_column ac
+                                 inner join omni_schema.table t on t.id = ac.relation_id
+             where t.name = 'tab1' and t.schema_name = 'public'
+      results:
+        - name: c2
+
+- name: changing column's type
+  steps:
+    - create table tab1 (c1 int)
+    - select baseline.refresh_meta();
+    - alter table tab1 alter column c1 type bigint;
+    - query: |
+        select
+            typ.name
+        from
+            diff.removed_relation_column_type       rct
+            inner join omni_schema.relation_column c on c.id = rct.id
+            inner join omni_schema.table t on t.id = c.relation_id
+            inner join omni_schema.type  typ on typ.id = rct.type_id
+        where c.name = 'c1'
+      results:
+        - name: int4
+    - query: |
+        select
+            typ.name
+        from
+            diff.added_relation_column_type       act
+            inner join omni_schema.relation_column c on c.id = act.id
+            inner join omni_schema.table t on t.id = c.relation_id
+            inner join omni_schema.type  typ on typ.id = act.type_id
+          where c.name = 'c1'
+      results:
+        - name: int8
+
+- name: changing RLS
+  steps:
+    - create table tab1 ()
+    - select baseline.refresh_meta();
+    - alter table tab1 enable row level security
+    - query: select count(*) from diff.added_table_rowsecurity where id = omni_schema.table_id('public', 'tab1')
+      results:
+      - count: 1
+    - select baseline.refresh_meta();
+    - alter table tab1 force row level security
+    - query: select count(*) from diff.added_table_forcerowsecurity where id = omni_schema.table_id('public', 'tab1')
+      results:
+      - count: 1
+    - select baseline.refresh_meta();
+    - alter table tab1 disable row level security
+    - query: select count(*) from diff.removed_table_rowsecurity where id = omni_schema.table_id('public', 'tab1')
+      results:
+        - count: 1
+    - select baseline.refresh_meta();
+    - alter table tab1 no force row level security
+    - query: select
+                 count(*)
+             from
+                 diff.removed_table_forcerowsecurity
+             where
+                 id = omni_schema.table_id('public', 'tab1')
+      results:
+        - count: 1
