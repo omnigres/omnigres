@@ -3,7 +3,7 @@
                     "cast","cast_binary_coercible","cast_function","cast_implicit","cast_implicit_in_assignment","cast_explicit",
                     "operator",
                     "sequence",
-                    "relation_column","relation_column_type","relation_column_default",
+                    "relation_column","relation_column_type","relation_column_position","relation_column_default",
                                       "relation_column_nullable","relation",
                     "table","table_rowsecurity", "table_forcerowsecurity",
                     "view",
