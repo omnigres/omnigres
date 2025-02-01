@@ -1,0 +1,22 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_schema cascade
+    - create schema test
+    - create sequence test.test_sequence increment 1 minvalue 2 maxvalue 5 start 3 cycle;
+
+tests:
+
+- name: created sequence shows up with expected values
+  steps:
+    - query: select id, schema_id, schema_name, name, start_value, minimum_value, maximum_value, increment, cycle from omni_schema.sequence where id = omni_schema.sequence_id('test', 'test_sequence');
+      results:
+      - id: "(test,test_sequence)"
+        schema_id: (test)
+        schema_name: test
+        name: test_sequence
+        start_value: 3
+        minimum_value: 2
+        maximum_value: 5
+        increment: 1
+        cycle: true
