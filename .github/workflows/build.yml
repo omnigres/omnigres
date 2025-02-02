@@ -46,6 +46,19 @@ jobs:
 
     steps:
 
+    # Ada URL library requires a relatively modern compiler
+    - name: Prepare GCC 12.2
+      if: matrix.os == 'warp-ubuntu-2204-x64-4x'
+      run: |
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+        sudo apt-get update
+        sudo apt-get install gcc-12 g++-12
+        sudo apt-get remove gcc-11 gcc-11 libstdc++-11-dev
+        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 20
+        sudo update-alternatives --install /usr/bin/g++ gcc /usr/bin/g++-12 20
+        sudo update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-12 20
+        sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-12 20
+
     - uses: actions/checkout@v3
 
     # This is done to address the problem on macOS where .pg built in a directory of one
@@ -108,6 +121,18 @@ jobs:
     steps:
     - uses: actions/checkout@v3
 
+    # Ada URL library requires a relatively modern compiler
+    - name: Prepare GCC 12.2
+      run: |
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+        sudo apt-get update
+        sudo apt-get install gcc-12 g++-12
+        sudo apt-get remove gcc-11 gcc-11 libstdc++-11-dev
+        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 20
+        sudo update-alternatives --install /usr/bin/g++ gcc /usr/bin/g++-12 20
+        sudo update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-12 20
+        sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-12 20
+
     - name: Install necessary dependencies
       run: |
         sudo apt-get update
@@ -134,5 +159,18 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+
+    # Ada URL library requires a relatively modern compiler
+    - name: Prepare GCC 12.2
+      if: matrix.os == 'warp-ubuntu-2204-x64-4x'
+      run: |
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+        sudo apt-get update
+        sudo apt-get install gcc-12 g++-12
+        sudo apt-get remove gcc-11 gcc-11 libstdc++-11-dev
+        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 20
+        sudo update-alternatives --install /usr/bin/g++ gcc /usr/bin/g++-12 20
+        sudo update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-12 20
+        sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-12 20
 
     - run: ci/build-extensions-separately
