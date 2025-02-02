@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.3.0] - TBD
 
+### Added
+
+* [URLPattern](https://urlpattern.spec.whatwg.org/) support [#774](https://github.com/omnigres/omnigres/pull/774])
+
 ## [0.2.0] - 2024-08-20
 
 ### Added
