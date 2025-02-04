@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.2.0] - TBD
 
+### Added
+
+* Listing installed packages [#776](https://github.com/omnigres/omnigres/pull/776) 
+
 ## [0.1.1] - 2025-01-08
 
 ### Changed
