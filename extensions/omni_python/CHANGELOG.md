@@ -11,6 +11,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Listing installed packages [#776](https://github.com/omnigres/omnigres/pull/776) 
 
+### Changed
+
+* Make package installation process more visible [#777](https://github.com/omnigres/omnigres/pull/777)
+
 ## [0.1.1] - 2025-01-08
 
 ### Changed
