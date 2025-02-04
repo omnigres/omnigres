@@ -29,13 +29,24 @@ requirements_txt = tempfile.mktemp()
 with open(requirements_txt, 'w') as f:
     f.write(requirements)
 
+class PipOutputHandler:
+    def __init__(self):
+        pass
+
+    def write(selfself, text):
+        plpy.notice(text.strip('\n'))
+
+    def flush(self):
+        pass
+
 os.makedirs(site_packages, exist_ok=True)
 stderr_str = io.StringIO()
-with contextlib.redirect_stderr(stderr_str):
+stdout_handler = PipOutputHandler()
+with contextlib.redirect_stdout(stdout_handler), contextlib.redirect_stderr(stderr_str):
     try:
         from pip._internal.cli.main import main as pip
 
-        rc = pip(["install", "--upgrade", "-r", requirements_txt, "--target", site_packages]
+        rc = pip(["install", "--disable-pip-version-check", "--upgrade", "-r", requirements_txt, "--target", site_packages]
                  + (["--extra-index-url", index] if index is not None else [])
                  + [item for x in find_links for item in ("--find-links", x)]
                  )
