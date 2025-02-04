@@ -24,7 +24,7 @@ on:
         - warp-ubuntu-latest-arm64-4x
         - ubuntu-latest
         - macos-13
-        default: ubuntu-latest
+        default: warp-ubuntu-2204-arm64-2x
       build:
         description: 'Build Omnigres?'
         required: true
@@ -33,7 +33,7 @@ on:
       pgver:
         description: 'Postgres version'
         required: true
-        default: '16'
+        default: '17'
       build_type:
         description: 'Build type'
         required: true
