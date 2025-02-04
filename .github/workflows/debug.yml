@@ -24,7 +24,7 @@ on:
         - warp-ubuntu-latest-arm64-4x
         - ubuntu-latest
         - macos-13
-        default: warp-ubuntu-2204-arm64-2x
+        default: warp-ubuntu-2204-x64-4x
       build:
         description: 'Build Omnigres?'
         required: true
