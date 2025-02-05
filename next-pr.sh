@@ -32,7 +32,7 @@ fi
 #    * GitHub issues and PRs share the same numbering sequence
 
 CURRENT_NUMBER="$(
-  gh api "repos/${REPO}/issues?per_page=1&sort=created&direction=desc" \
+  gh api "repos/${REPO}/issues?per_page=1&state=all&sort=created&direction=desc" \
     --jq '.[0].number' \
     2>/dev/null || echo ""
 )"
