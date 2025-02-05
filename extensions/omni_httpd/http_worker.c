@@ -242,10 +242,17 @@ void http_worker(Datum db_oid) {
     http_outcome_oid();
 
     {
-      // omni_httpd.handler(int,http_request)
-      List *handler_func = list_make2(makeString("omni_httpd"), makeString("handler"));
-      handler_oid = LookupFuncName(handler_func, -1, (Oid[2]){INT4OID, http_request_oid()}, false);
-      list_free(handler_func);
+      // omni_httpd.handler(int,http_request,http_outcome)
+      List *handler_proc = list_make2(makeString("omni_httpd"), makeString("handler"));
+      List *handler_inputs = list_make3(makeNode(TypeName), makeNode(TypeName), makeNode(TypeName));
+      list_nth_node(TypeName, handler_inputs, 0)->typeOid = INT4OID;
+      list_nth_node(TypeName, handler_inputs, 1)->typeOid = http_request_oid();
+      list_nth_node(TypeName, handler_inputs, 2)->typeOid = http_outcome_oid();
+      ObjectWithArgs args = {.objname = handler_proc, .objargs = handler_inputs};
+      handler_oid = LookupFuncWithArgs(OBJECT_PROCEDURE, &args, false);
+      Assert(OidIsValid(handler_oid));
+      list_free(handler_proc);
+      list_free(handler_inputs);
     }
 
     {
@@ -798,11 +805,53 @@ static int handler(handler_message_t *msg) {
           TupleDesc header_tupledesc = TypeGetTupleDesc(http_header_oid(), NULL);
           BlessTupleDesc(header_tupledesc);
 
-          Datum *elems = (Datum *)palloc(sizeof(Datum) * req->headers.size);
-          bool *header_nulls = (bool *)palloc(sizeof(bool) * req->headers.size);
+          // We are adding 1 because we prepend Omnigres-Connecting-IP
+          // (see below)
+          size_t headers_num = req->headers.size + 1;
+          Datum *elems = (Datum *)palloc(sizeof(Datum) * headers_num);
+          bool *header_nulls = (bool *)palloc(sizeof(bool) * headers_num);
+
+          {
+            // Provision 'Omnigres-Connecting-IP' header, as the first one
+            // so that when `omni_http.http_header_get` is called, this is
+            // the value we return; and it still preserves further attempts
+            // to override
+            struct sockaddr sa;
+            Assert(req->conn->callbacks->get_peername);
+            socklen_t socklen = req->conn->callbacks->get_peername(req->conn, &sa);
+            char ip_str[INET6_ADDRSTRLEN] = "Unknown";
+
+            switch (sa.sa_family) {
+            case AF_INET: {
+              struct sockaddr_in *addr_in = (struct sockaddr_in *)&sa;
+              inet_ntop(AF_INET, &(addr_in->sin_addr), ip_str, sizeof(ip_str));
+              break;
+            }
+            case AF_INET6: {
+              struct sockaddr_in6 *addr_in6 = (struct sockaddr_in6 *)&sa;
+              inet_ntop(AF_INET6, &(addr_in6->sin6_addr), ip_str, sizeof(ip_str));
+              break;
+            }
+            default:
+              break;
+            }
+            header_nulls[0] = 0;
+            HeapTuple header_tuple =
+                heap_form_tuple(header_tupledesc,
+                                (Datum[2]){
+                                    PointerGetDatum(cstring_to_text("omnigres-connecting-ip")),
+                                    PointerGetDatum(cstring_to_text(ip_str)),
+                                },
+                                (bool[2]){false, false});
+            elems[0] = HeapTupleGetDatum(header_tuple);
+          }
+
           for (int i = 0; i < req->headers.size; i++) {
             h2o_header_t header = req->headers.entries[i];
-            header_nulls[i] = 0;
+            // We move the position by one to save space for Omnigres-Connecting-IP
+            // as we prepended it
+            int pos = i + 1;
+            header_nulls[pos] = 0;
             HeapTuple header_tuple = heap_form_tuple(
                 header_tupledesc,
                 (Datum[2]){
@@ -810,10 +859,11 @@ static int handler(handler_message_t *msg) {
                     PointerGetDatum(cstring_to_text_with_len(header.value.base, header.value.len)),
                 },
                 (bool[2]){false, false});
-            elems[i] = HeapTupleGetDatum(header_tuple);
+            elems[pos] = HeapTupleGetDatum(header_tuple);
           }
+
           ArrayType *result =
-              construct_md_array(elems, header_nulls, 1, (int[1]){req->headers.size}, (int[1]){1},
+              construct_md_array(elems, header_nulls, 1, (int[1]){headers_num}, (int[1]){1},
                                  http_header_oid(), -1, false, TYPALIGN_DOUBLE);
           PointerGetDatum(result);
         })};
@@ -854,9 +904,11 @@ static int handler(handler_message_t *msg) {
         fcinfo->args[0].isnull = false;
         fcinfo->args[1].value = HeapTupleGetDatum(request_tuple);
         fcinfo->args[1].isnull = false;
+        fcinfo->args[2].isnull = true; // initial outcome is always null
         fcinfo->context = (fmNodePtr)non_atomic_call_context;
-        outcome = FunctionCallInvoke(fcinfo);
-        isnull = fcinfo->isnull;
+        Datum record = FunctionCallInvoke(fcinfo);
+        HeapTupleHeader th = DatumGetHeapTupleHeader(record);
+        outcome = GetAttributeByNum(th, 1, &isnull);
       }
 
       PopActiveSnapshot();
@@ -883,7 +935,10 @@ static int handler(handler_message_t *msg) {
     PG_END_TRY();
     switch (msg->type) {
     case handler_message_http: {
+      succeeded = true;
       if (is_websocket_upgrade) {
+        // Commit before sending a response
+        CommitTransactionCommand();
         if (isnull) {
           h2o_queue_abort(&msg->payload.http.msg);
         } else {
@@ -891,7 +946,7 @@ static int handler(handler_message_t *msg) {
             h2o_queue_upgrade_to_websocket(&msg->payload.http.msg);
           }
         }
-        succeeded = true;
+
         break;
       } else if (!isnull) {
         // We know that the outcome is a variable-length type
@@ -979,13 +1034,19 @@ static int handler(handler_message_t *msg) {
             // ensure we have the trailing \0 if we had to cut the response
             body_cstring[body_len] = 0;
             req->res.content_length = body_len;
+            // Commit before sending a response
+            CommitTransactionCommand();
             h2o_queue_send_inline(&msg->payload.http.msg, body_cstring, body_len);
           } else {
+            // Commit before sending a response
+            CommitTransactionCommand();
             h2o_queue_send_inline(&msg->payload.http.msg, "", 0);
           }
           break;
         }
         case HTTP_OUTCOME_ABORT: {
+          // Commit before sending a response
+          CommitTransactionCommand();
           h2o_queue_abort(&msg->payload.http.msg);
           break;
         }
@@ -1008,16 +1069,19 @@ static int handler(handler_message_t *msg) {
           size_t url_len = VARSIZE_ANY_EXHDR(url);
           char *url_cstring = h2o_mem_alloc_pool(&req->pool, char *, url_len + 1);
           text_to_cstring_buffer(url, url_cstring, url_len + 1);
+          // Commit before sending a response
+          CommitTransactionCommand();
           h2o_queue_proxy(&msg->payload.http.msg, url_cstring, preserve_host);
         proxy_done:
           break;
         }
         }
       } else {
+        // Commit before sending a response
+        CommitTransactionCommand();
         req->res.status = 204;
         h2o_queue_send_inline(&msg->payload.http.msg, "", 0);
       }
-      succeeded = true;
       break;
     }
     default:
@@ -1069,6 +1133,7 @@ static int handler(handler_message_t *msg) {
     }
     PG_END_TRY();
     succeeded = true;
+    CommitTransactionCommand();
     break;
   case handler_message_websocket_message:
     PG_TRY();
@@ -1114,6 +1179,7 @@ static int handler(handler_message_t *msg) {
     }
     PG_END_TRY();
     succeeded = true;
+    CommitTransactionCommand();
     break;
   default:
     Assert(false);
@@ -1123,9 +1189,7 @@ cleanup:
   // Ensure we no longer have an active portal
   ActivePortal = false;
 
-  if (succeeded) {
-    CommitTransactionCommand();
-  } else {
+  if (!succeeded) {
     AbortCurrentTransaction();
   }
 

@@ -36,7 +36,7 @@ begin
     end if;
 
     body :=
-            format('create or replace function omni_httpd.handler(int, omni_httpd.http_request) returns omni_httpd.http_outcome language plpgsql as $___sql___$ begin return (');
+            format('create or replace procedure omni_httpd.handler(int, omni_httpd.http_request, inout omni_httpd.http_outcome) language plpgsql as $___sql___$ begin $3 := (');
 
     if not different_roles then
     body := body || 'with request as (select ($2).*) select * from (';
@@ -64,11 +64,14 @@ begin
     execute body;
 
     if not different_roles then
-        execute format('alter function omni_httpd.handler(int, omni_httpd.http_request) owner to %s',
+        execute format(
+                'alter procedure omni_httpd.handler(int, omni_httpd.http_request, inout omni_httpd.http_outcome) owner to %s',
                        _role_name::regrole);
-        execute format('alter function omni_httpd.handler(int, omni_httpd.http_request) security definer',
+        execute format(
+                'alter procedure omni_httpd.handler(int, omni_httpd.http_request, inout omni_httpd.http_outcome) security definer',
                        _role_name::regrole);
-        execute format('alter function omni_httpd.handler(int, omni_httpd.http_request) owner to %s',
+        execute format(
+                'alter procedure omni_httpd.handler(int, omni_httpd.http_request, inout omni_httpd.http_outcome) owner to %s',
                        _role_name::regrole);
     end if;
 
