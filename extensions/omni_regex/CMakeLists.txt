@@ -12,8 +12,10 @@ find_package(PostgreSQL REQUIRED)
 
 include(../../cmake/dependencies/versions.cmake)
 
+if (NOT DEFINED pcre2-8-static)
 CPMAddPackage(NAME pcre2 SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/../../deps/pcre2 VERSION ${VERSION_pcre2}
         OPTIONS "PCRE2_STATIC_PIC ON" "PCRE2_SUPPORT_JIT ON")
+endif ()
 
 add_postgresql_extension(
         omni_regex

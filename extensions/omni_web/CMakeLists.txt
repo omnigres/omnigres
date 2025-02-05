@@ -16,10 +16,12 @@ add_postgresql_extension(
         COMMENT "Common web stack primitives"
         SCHEMA omni_web
         RELOCATABLE false
-        SOURCES omni_web.c urlencode.c
-        DEPENDS_ON libpgaug)
+        SOURCES omni_web.c urlencode.c urlpattern.c urlpattern.cpp
+        DEPENDS_ON libpgaug ada_url)
 
-target_link_libraries(omni_web uriparser libpgaug)
+target_link_libraries(omni_web uriparser libpgaug ada_url)
+
+target_compile_features(omni_web PRIVATE cxx_std_20)
 
 find_package(Doxygen)
 
