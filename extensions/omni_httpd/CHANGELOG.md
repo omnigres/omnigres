@@ -15,6 +15,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * omni_httpd.handler is no longer a function but a procedure [#715](https://github.com/omnigres/omnigres/pull/715)
 
+### Fixed
+
+* Response body is no longer sent before committing the transaction [#778](https://github.com/omnigres/omnigres/pull/778)
+
 ## [0.2.9] - 2025-01-17
 
 ### Fixed

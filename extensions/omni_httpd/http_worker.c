@@ -935,7 +935,10 @@ static int handler(handler_message_t *msg) {
     PG_END_TRY();
     switch (msg->type) {
     case handler_message_http: {
+      succeeded = true;
       if (is_websocket_upgrade) {
+        // Commit before sending a response
+        CommitTransactionCommand();
         if (isnull) {
           h2o_queue_abort(&msg->payload.http.msg);
         } else {
@@ -943,7 +946,7 @@ static int handler(handler_message_t *msg) {
             h2o_queue_upgrade_to_websocket(&msg->payload.http.msg);
           }
         }
-        succeeded = true;
+
         break;
       } else if (!isnull) {
         // We know that the outcome is a variable-length type
@@ -1031,13 +1034,19 @@ static int handler(handler_message_t *msg) {
             // ensure we have the trailing \0 if we had to cut the response
             body_cstring[body_len] = 0;
             req->res.content_length = body_len;
+            // Commit before sending a response
+            CommitTransactionCommand();
             h2o_queue_send_inline(&msg->payload.http.msg, body_cstring, body_len);
           } else {
+            // Commit before sending a response
+            CommitTransactionCommand();
             h2o_queue_send_inline(&msg->payload.http.msg, "", 0);
           }
           break;
         }
         case HTTP_OUTCOME_ABORT: {
+          // Commit before sending a response
+          CommitTransactionCommand();
           h2o_queue_abort(&msg->payload.http.msg);
           break;
         }
@@ -1060,16 +1069,19 @@ static int handler(handler_message_t *msg) {
           size_t url_len = VARSIZE_ANY_EXHDR(url);
           char *url_cstring = h2o_mem_alloc_pool(&req->pool, char *, url_len + 1);
           text_to_cstring_buffer(url, url_cstring, url_len + 1);
+          // Commit before sending a response
+          CommitTransactionCommand();
           h2o_queue_proxy(&msg->payload.http.msg, url_cstring, preserve_host);
         proxy_done:
           break;
         }
         }
       } else {
+        // Commit before sending a response
+        CommitTransactionCommand();
         req->res.status = 204;
         h2o_queue_send_inline(&msg->payload.http.msg, "", 0);
       }
-      succeeded = true;
       break;
     }
     default:
@@ -1121,6 +1133,7 @@ static int handler(handler_message_t *msg) {
     }
     PG_END_TRY();
     succeeded = true;
+    CommitTransactionCommand();
     break;
   case handler_message_websocket_message:
     PG_TRY();
@@ -1166,6 +1179,7 @@ static int handler(handler_message_t *msg) {
     }
     PG_END_TRY();
     succeeded = true;
+    CommitTransactionCommand();
     break;
   default:
     Assert(false);
@@ -1175,9 +1189,7 @@ cleanup:
   // Ensure we no longer have an active portal
   ActivePortal = false;
 
-  if (succeeded) {
-    CommitTransactionCommand();
-  } else {
+  if (!succeeded) {
     AbortCurrentTransaction();
   }
 
