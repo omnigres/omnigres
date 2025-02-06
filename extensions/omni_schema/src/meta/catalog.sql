@@ -370,18 +370,90 @@ WHERE n.nspname <> 'pg_catalog'
  * sequence
  *****************************************************************************/
 create view "sequence" as
-    select sequence_id(sequence_schema, sequence_name) as id,
-           schema_id(sequence_schema) as schema_id,
-           sequence_schema::text as schema_name,
-           sequence_name::text as name,
-           start_value::bigint,
-           minimum_value::bigint,
-           maximum_value::bigint,
-           increment::bigint,
-           cycle_option = 'YES' as cycle
+    select sequence_id(ns.nspname, c.relname) as id,
+           schema_id(ns.nspname) as schema_id,
+           ns.nspname as schema_name,
+           c.relname::text as name
+    from pg_sequence s
+inner join pg_class c on c.oid = s.seqrelid
+inner join pg_namespace ns on ns.oid = c.relnamespace;
 
-    from information_schema.sequences;
+create view "sequence_start_value" as
+    select sequence_id(ns.nspname, c.relname) as id,
+           schema_id(ns.nspname) as schema_id,
+           s.seqstart as start_value
+    from pg_sequence s
+         inner join pg_class c on c.oid = s.seqrelid
+         inner join pg_namespace ns on ns.oid = c.relnamespace;
 
+create view "sequence_minimum_value" as
+    select sequence_id(ns.nspname, c.relname) as id,
+           schema_id(ns.nspname) as schema_id,
+           s.seqmin as minimum_value
+    from pg_sequence s
+         inner join pg_class c on c.oid = s.seqrelid
+         inner join pg_namespace ns on ns.oid = c.relnamespace;
+
+create view "sequence_maximum_value" as
+    select sequence_id(ns.nspname, c.relname) as id,
+           schema_id(ns.nspname) as schema_id,
+           s.seqmax as maximum_value
+    from pg_sequence s
+         inner join pg_class c on c.oid = s.seqrelid
+         inner join pg_namespace ns on ns.oid = c.relnamespace;
+
+create view "sequence_increment" as
+    select sequence_id(ns.nspname, c.relname) as id,
+           schema_id(ns.nspname) as schema_id,
+           s.seqincrement as increment
+    from pg_sequence s
+         inner join pg_class c on c.oid = s.seqrelid
+         inner join pg_namespace ns on ns.oid = c.relnamespace;
+
+create view "sequence_cache" as
+    select sequence_id(ns.nspname, c.relname) as id,
+           schema_id(ns.nspname) as schema_id,
+           s.seqcache as cache
+    from pg_sequence s
+         inner join pg_class c on c.oid = s.seqrelid
+         inner join pg_namespace ns on ns.oid = c.relnamespace;
+
+create view "sequence_cycle" as
+    select sequence_id(ns.nspname, c.relname) as id,
+           schema_id(ns.nspname) as schema_id
+    from pg_sequence s
+         inner join pg_class c on c.oid = s.seqrelid
+         inner join pg_namespace ns on ns.oid = c.relnamespace
+    where s.seqcycle;
+
+create view "sequence_type" as
+    select sequence_id(ns.nspname, c.relname) as id,
+           schema_id(ns.nspname) as schema_id,
+           type_id(tns.nspname, t.typname)
+    from pg_sequence s
+         inner join pg_class c on c.oid = s.seqrelid
+         inner join pg_namespace ns on ns.oid = c.relnamespace
+         inner join pg_type t on t.oid = s.seqtypid
+         inner join pg_namespace tns on tns.oid = t.typnamespace;
+
+create view "sequence_table" as
+    select
+        sequence_id(ns.nspname, c.relname) as id,
+        schema_id(ns.nspname)              as schema_id,
+        table_id(rns.nspname, r.relname)
+    from
+        pg_sequence             s
+        inner join pg_class     c on c.oid = s.seqrelid
+        inner join pg_namespace ns on ns.oid = c.relnamespace
+        left join  pg_depend    d
+                   on d.objid = c.oid
+                       and d.classid = 'pg_class'::regclass
+                       and d.deptype in ('a', 'i')
+        left join pg_class r on r.oid = d.refobjid
+        left join pg_namespace rns on rns.oid = r.relnamespace
+    where
+        r is distinct from null and
+        c.relkind = 'S';
 
 /******************************************************************************
  * table
