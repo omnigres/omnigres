@@ -53,6 +53,8 @@ create type foreign_table_id as (schema_name text,name text);
 create function foreign_table_id(schema_name text,name text) returns foreign_table_id as $_$ select row(schema_name,name)::foreign_table_id $_$ immutable language sql;
 create type function_id as (schema_name text,name text,parameters text[]);
 create function function_id(schema_name text,name text,parameters text[]) returns function_id as $_$ select row(schema_name,name,parameters)::function_id $_$ immutable language sql;
+create type procedure_id as (schema_name text,name text,parameters text[]);
+create function procedure_id(schema_name text,name text,parameters text[]) returns procedure_id as $_$ select row(schema_name,name,parameters)::procedure_id $_$ immutable language sql;
 create type operator_id as (schema_name text,name text,left_arg_type_schema_name text,left_arg_type_name text,right_arg_type_schema_name text,right_arg_type_name text);
 create function operator_id(schema_name text,name text,left_arg_type_schema_name text,left_arg_type_name text,right_arg_type_schema_name text,right_arg_type_name text) returns operator_id as $_$ select row(schema_name,name,left_arg_type_schema_name,left_arg_type_name,right_arg_type_schema_name,right_arg_type_name)::operator_id $_$ immutable language sql;
 create type policy_id as (schema_name text,relation_name text,name text);
@@ -104,6 +106,8 @@ create function foreign_table_id_to_schema_id(foreign_table_id foreign_table_id)
 create cast (foreign_table_id as schema_id) with function foreign_table_id_to_schema_id(foreign_table_id) as assignment;
 create function function_id_to_schema_id(function_id function_id) returns schema_id as $_$select schema_id((function_id).schema_name) $_$ immutable language sql;
 create cast (function_id as schema_id) with function function_id_to_schema_id(function_id) as assignment;
+create function procedure_id_to_schema_id(procedure_id procedure_id) returns schema_id as $_$select schema_id((procedure_id).schema_name) $_$ immutable language sql;
+create cast (procedure_id as schema_id) with function procedure_id_to_schema_id(procedure_id) as assignment;
 create function operator_id_to_schema_id(operator_id operator_id) returns schema_id as $_$select schema_id((operator_id).schema_name) $_$ immutable language sql;
 create cast (operator_id as schema_id) with function operator_id_to_schema_id(operator_id) as assignment;
 create function policy_id_to_schema_id(policy_id policy_id) returns schema_id as $_$select schema_id((policy_id).schema_name) $_$ immutable language sql;
