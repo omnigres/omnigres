@@ -9,7 +9,13 @@
                                       "relation_column_nullable","relation",
                     "table","table_rowsecurity", "table_forcerowsecurity",
                     "view",
-                    "function","function_info_schema","function_parameter",
+                    "callable", "callable_function", "callable_procedure", "callable_return_type", "callable_owner",
+                                "callable_argument_name", "callable_argument_type", "callable_argument_mode", "callable_argument_default",
+                                "callable_immutable", "callable_volatile", "callable_stable",
+                                "callable_aggregate", "callable_window",
+                                "callable_parallel_safe", "callable_parallel_unsafe", "callable_parallel_restricted",
+                                "callable_security_definer", "callable_security_invoker","callable_language",
+                                "callable_acl", "callable_owner", "callable_body",
                     "trigger",
                     "role","role_inheritance",
                     "table_privilege",
@@ -42,10 +48,21 @@ begin
 
     -- This is not perfect because of the potential pre-existing functions,
     -- but there's just so many functions there in `meta`
-    for rec in select * from "function" where function.schema_name = schema
+    for rec in select callable.*, (callable_function) is distinct from null as function
+               from
+                   callable
+                   natural left join callable_function
+                   natural left join callable_procedure
+               where
+                   schema_name = schema
         loop
-            execute format('alter function %2$I.%1$I(%3$s) set search_path to public, %2$I', rec.name, schema,
-                           (select string_agg(p, ',') from unnest(rec.type_sig) t(p)));
+            execute format('alter %4$s %2$I.%1$I(%3$s) set search_path to public, %2$I', rec.name, schema,
+                           (select string_agg(p, ',') from unnest(rec.type_sig) t(p)),
+                           case
+                               when rec.function then 'function'
+                               else 'procedure'
+                               end
+                    );
         end loop;
 
     /*{% include "../src/meta/create_remote_meta.sql" %}*/

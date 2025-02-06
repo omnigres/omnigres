@@ -725,337 +725,514 @@ as $$ select pg_get_function_result(p); $$
     -- Force qualified naming
     set search_path = '';
 
-create or replace view "function" as
-    with orig as (
-        -- slightly modified version of query output by \df+
-        SELECT n.nspname as "schema_name",
-          p.proname as "name",
-          _pg_get_function_result(p.oid) as "return_type",
-          pg_get_function_identity_arguments(p.oid) as "type_sig",
-          pg_catalog.pg_get_function_arguments(p.oid) as "parameters",
-         CASE p.prokind
-          WHEN 'a' THEN 'agg'
-          WHEN 'w' THEN 'window'
-          WHEN 'p' THEN 'proc'
-          ELSE 'func'
-         END as "type",
-         CASE
-          WHEN p.provolatile = 'i' THEN 'immutable'
-          WHEN p.provolatile = 's' THEN 'stable'
-          WHEN p.provolatile = 'v' THEN 'volatile'
-         END as "volatility",
-         CASE
-          WHEN p.proparallel = 'r' THEN 'restricted'
-          WHEN p.proparallel = 's' THEN 'safe'
-          WHEN p.proparallel = 'u' THEN 'unsafe'
-         END as "parallel",
-         pg_catalog.pg_get_userbyid(p.proowner) as "owner",
-         CASE WHEN prosecdef THEN 'definer' ELSE 'invoker' END AS "security",
-         pg_catalog.array_to_string(p.proacl, E'\n') AS "access_privileges",
-         l.lanname as "language",
-         _pg_get_function_sqlbody(p) as "definition",
-         pg_catalog.obj_description(p.oid, 'pg_proc') as "description"
-        FROM pg_catalog.pg_proc p
-             LEFT JOIN pg_catalog.pg_namespace n ON n.oid = p.pronamespace
-             LEFT JOIN pg_catalog.pg_language l ON l.oid = p.prolang
-        WHERE /* pg_catalog.pg_function_is_visible(p.oid)
-              AND */ n.nspname <> 'pg_catalog'
-              AND n.nspname <> 'information_schema'
-        -- ORDER BY 1, 2, 4;
-    )
 
+create or replace view "callable" as
+    with
+        orig as (
+            select
+                n.nspname                                                               as "schema_name",
+                p.proname                                                               as "name",
+                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig"
+            from
+                pg_proc                            p
+                inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace)
     select
         function_id(
-            schema_name,
-            name,
-            _get_function_type_sig_array(type_sig)
-        ) as id,                -- function_id
+                schema_name,
+                name,
+                type_sig
+        )                      as id, -- function_id
         schema_id(schema_name) as schema_id,
         schema_name,
         name,
-        _get_function_type_sig_array (type_sig) as type_sig,
-        _get_function_parameters(parameters) as parameters,
-        definition,
-        description,
-        "type",                 -- immutable | stable | volatile
-        return_type,
-         -- return_type_id,      -- type_id
-        language,
-        case when return_type like 'SETOF %' then true else false end as returns_set,   -- boolean
-        "parallel",             -- restricted | safe | unsafe
-        volatility,
-        access_privileges,
-        security                -- definer | invoker
+        type_sig
+    from
+        orig;
 
+
+create or replace view "callable_function" as
+    with
+        orig as (
+            select
+                n.nspname                                                               as "schema_name",
+                p.proname                                                               as "name",
+                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig"
+            from
+                pg_proc                            p
+                inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+            where
+                p.prokind = 'f')
+    select
+        function_id(
+                schema_name,
+                name,
+                type_sig
+        )                      as id
+    from
+        orig;
+
+create or replace view "callable_argument_name" as
+    with
+        orig as (
+            select
+                n.nspname                                                               as "schema_name",
+                p.proname                                                               as "name",
+                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig",
+                argname, ordinality
+            from
+                pg_proc                            p
+                inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+                inner join lateral (select * from unnest(proargnames) with ordinality as a(argname, ordinality)) as t(argname, ordinality) on true
+           )
+    select
+        function_id(
+                schema_name,
+                name,
+                type_sig
+        )                      as id,
+        argname as argument_name,
+        ordinality as argument_position
+    from
+        orig where argname != '';
+
+create or replace view "callable_argument_type" as
+    with
+        orig as (
+            select
+                n.nspname                                                               as "schema_name",
+                p.proname                                                               as "name",
+                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig",
+                argtype, ordinality
+            from
+                pg_proc                            p
+                inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+                inner join lateral (select * from unnest(coalesce(proallargtypes, proargtypes)) with ordinality as a(argtype, ordinality)) as t(argtype, ordinality) on true
+        )
+    select
+        function_id(
+                schema_name,
+                name,
+                type_sig
+        )                      as id,
+        type_id(tns.nspname, t.typname) as type_id,
+        ordinality as argument_position
+    from orig
+         inner join pg_type t on t.oid = argtype
+         inner join pg_namespace tns on tns.oid = t.typnamespace;
+
+create or replace view "callable_argument_mode" as
+    with
+        orig as (
+            select
+                n.nspname                                                               as "schema_name",
+                p.proname                                                               as "name",
+                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig",
+                argmode, ordinality
+            from
+                pg_proc                            p
+                inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+                inner join lateral (select * from unnest(coalesce(proargmodes, array_fill('i'::"char", array[coalesce(cardinality(proallargtypes), pronargs)]))) with ordinality as a(argmode, ordinality)) as t(argmode, ordinality) on true
+        )
+    select
+        function_id(
+                schema_name,
+                name,
+                type_sig
+        )                      as id,
+        ordinality as argument_position,
+    case when argmode = 'i' then 'in'
+         when argmode = 'o' then 'out'
+         when argmode = 'b' then 'inout'
+         when argmode = 'v' then 'variadic'
+         when argmode = 't' then 'table'
+    end as argument_mode
     from orig;
 
--- generates function parameter expressions from vars in information_schema
-create or replace function stmt_function_parameter_def(
-    parameter_mode text, parameter_name text, data_type text, udt_schema text, udt_name text, ordinal_position integer, parameter_default text
-) returns text as $$
-declare
-    argmode text := '';
-    argname text := '';
-    argtype text := '';
-    default_expr text := '';
 
-begin
-    -- parameter_name: the name, or null if it has none
-    -- data_type: Data type of the parameter, if it is a built-in type, or ARRAY if it is some array (in that case, see the view element_types), else USER-DEFINED (in that case, the type is identified in udt_name and associated columns).
-    -- udt_schema: the schema that the type is in
-    -- udt_name: Name of the data type of the parameter
-
-    -- argmode IN/OUT/INOUT WIP
-    if parameter_mode is not null and parameter_mode != '' and parameter_mode != 'IN' then
-        argmode := parameter_mode || ' ';
-    end if;
-
-    -- argname
-    if parameter_name is not null and parameter_name != '' then
-        argname := quote_ident(parameter_name) || ' ';
-    end if;
-
-    -- argtype
-    if data_type = 'ARRAY' then
-        -- raise notice 'argtype -> ARRAY';
-        if udt_schema != 'pg_catalog' then
-            argtype := quote_ident(udt_schema) || '.';
-        end if;
-        argtype := argtype || substring(udt_name from 2) || '[]'; -- hack: trim off the _ from the beginning of udt_name for arrays....
-    else
-        if data_type = 'USER-DEFINED' or data_type is null or data_type = '' then -- why the last two
-            -- raise notice 'argtype -> USER-DEFINED';
-            argtype := quote_ident(udt_schema) || '.' || quote_ident(udt_name);
-            argtype := argtype || ' ';
-        else
-            -- raise notice 'argtype -> else (not UD or ARR)';
-            argtype := data_type || ' ';
-        end if;
-    end if;
-
-    -- default_expr
-    if default_expr is not null and default_expr != '' then
-        default_expr := 'default ' || parameter_default;
-    end if;
-
-    -- raise notice 'mode: %, name: %, type: %, default: %', argmode, argname, argtype, default_expr;
-
-    return trim(argmode || argname || argtype || default_expr);
-end;
-$$ language plpgsql;
-
-
-
-create view function_info_schema as
-with f as (
+create or replace view "callable_argument_default" as
+    with
+        orig as (
+            select
+                n.nspname                                                               as "schema_name",
+                p.proname                                                               as "name",
+                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig",
+                argdefault, ordinality
+            from
+                pg_proc                            p
+                inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+                inner join lateral (select pg_get_function_arg_default(p.oid, ordinality), ordinality from generate_series(1, p.pronargs) ordinality) as t(argdefault, ordinality) on true
+        )
     select
-        -- function
-        r.routine_schema::text,
-        r.routine_name::text,
+        function_id(
+                schema_name,
+                name,
+                type_sig
+        )                      as id,
+        argdefault as argument_default,
+        ordinality as argument_position
+    from orig
+    where argdefault is not null;
 
-        -- function (specific) -- function names are not unique (w/o a type sig) but these are
-        r.specific_name::text,
+create or replace view "callable_aggregate" as
+    with
+        orig as (
+            select
+                n.nspname                                                               as "schema_name",
+                p.proname                                                               as "name",
+                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig"
+            from
+                pg_proc                            p
+                inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+            where
+                p.prokind = 'a')
+    select
+        function_id(
+                schema_name,
+                name,
+                type_sig
+        )                      as id
+    from
+        orig;
 
-        -- return type
-        r.data_type, -- useless?
-        r.type_udt_schema::text,
-        r.type_udt_name::text,
+create or replace view "callable_window" as
+    with
+        orig as (
+            select
+                n.nspname                                                               as "schema_name",
+                p.proname                                                               as "name",
+                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig"
+            from
+                pg_proc                            p
+                inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+            where
+                p.prokind = 'w')
+    select
+        function_id(
+                schema_name,
+                name,
+                type_sig
+        )                      as id
+    from
+        orig;
 
-        -- definition
-        r.routine_definition::text,
+create or replace view "callable_procedure" as
+    with
+        orig as (
+            select
+                n.nspname                                                               as "schema_name",
+                p.proname                                                               as "name",
+                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig"
+            from
+                pg_proc                            p
+                inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+            where
+                p.prokind = 'p')
+    select
+        function_id(
+                schema_name,
+                name,
+                type_sig
+        )                      as id
+    from
+        orig;
 
-        -- language
-        lower(r.external_language)::information_schema.character_data::text as language,
-
-        -- routine_type: VOLATILE, IMMUTABLE or STABLE
-        r.routine_type
-
-    from information_schema.routines r
-
-    where r.routine_type = 'FUNCTION'
-        and r.routine_name not in ('pg_identify_object', 'pg_sequence_parameters')
-        and r.routine_schema not in ('pg_catalog', 'information_schema')
-)
-
+create or replace view "callable_immutable" as
+with
+    orig as (
+        select
+            n.nspname                                                               as "schema_name",
+            p.proname                                                               as "name",
+            _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig"
+        from
+            pg_proc                            p
+            inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+        where
+            p.provolatile = 'i')
 select
     function_id(
-        f.routine_schema,
-        f.routine_name,
-        coalesce(
-            nullif(
-                array_agg( -- Array of types of the 'IN' parameters to this function
-                    coalesce( nullif( nullif(p.data_type, 'ARRAY'), 'USER-DEFINED'), p.udt_schema || '.' || p.udt_name)
-                    order by p.ordinal_position),
-                array[null]
-            ),
-            array[]::text[]
-        )
-    ) as id,
-    schema_id(f.routine_schema) as schema_id,
-    f.routine_schema as schema_name,
-    f.routine_name as name,
+            schema_name,
+            name,
+            type_sig
+    )                      as id
+from
+    orig;
 
-    -- parameters - text array
-    -- remove null, when there's no params
-    array_remove(
-        -- agg parameters (if any)
-        array_agg(
-            case
-                when p.data_type is null then null -- function has no parameters, but left join makes one row
-                else stmt_function_parameter_def(p.parameter_mode, p.parameter_name, p.data_type, p.udt_schema, p.udt_name, p.ordinal_position::integer, p.parameter_default)
-            end
-        ), null
-    ) as parameters,
+create or replace view "callable_stable" as
+    with
+        orig as (
+            select
+                n.nspname                                                               as "schema_name",
+                p.proname                                                               as "name",
+                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig"
+            from
+                pg_proc                            p
+                inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+            where
+                p.provolatile = 's')
+    select
+        function_id(
+                schema_name,
+                name,
+                type_sig
+        )                      as id
+    from
+        orig;
 
-    -- definition
-    f.routine_definition as definition,
+create or replace view "callable_volatile" as
+    with
+        orig as (
+            select
+                n.nspname                                                               as "schema_name",
+                p.proname                                                               as "name",
+                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig"
+            from
+                pg_proc                            p
+                inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+            where
+                p.provolatile = 'v')
+    select
+        function_id(
+                schema_name,
+                name,
+                type_sig
+        )                      as id
+    from
+        orig;
 
-    -- return_type
-    coalesce(f.type_udt_schema || '.' || f.type_udt_name) as return_type,
-    type_id(f.type_udt_schema, f.type_udt_name) as return_type_id,
+create or replace view "callable_parallel_safe" as
+    with
+        orig as (
+            select
+                n.nspname                                                               as "schema_name",
+                p.proname                                                               as "name",
+                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig"
+            from
+                pg_proc                            p
+                inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+            where
+                p.proparallel = 's')
+    select
+        function_id(
+                schema_name,
+                name,
+                type_sig
+        )                      as id
+    from
+        orig;
 
-    -- language
-    f.language,
+create or replace view "callable_parallel_restricted" as
+    with
+        orig as (
+            select
+                n.nspname                                                               as "schema_name",
+                p.proname                                                               as "name",
+                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig"
+            from
+                pg_proc                            p
+                inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+            where
+                p.proparallel = 'r')
+    select
+        function_id(
+                schema_name,
+                name,
+                type_sig
+        )                      as id
+    from
+        orig;
 
-    -- returns_set
-    substring(pg_get_function_result(
-        -- function name
-        (quote_ident(f.routine_schema) || '.' || quote_ident(f.routine_name) || '(' ||
-        -- funtion type sig
-        array_to_string(
-            coalesce(
-                 nullif(
-                    array_agg(coalesce(lower(nullif(p.parameter_mode, 'IN')) || ' ', '')
-                              || coalesce(nullif(nullif(p.data_type, 'ARRAY'), 'USER-DEFINED'), p.udt_schema || '.' || p.udt_name)
-                              order by p.ordinal_position),
-                    array[null]
-                ),
-                array[]::text[]
-            ),
-            ', '
-        )
-    || ')')::regprocedure) from 1 for 6) = 'SETOF '
-        or (select proretset = 't' from pg_proc join pg_namespace on pg_proc.pronamespace = pg_namespace.oid where proname = f.routine_name and nspname = f.routine_schema limit 1)
-    as returns_set,
-    f.routine_type as volatility_type -- volatile, immutable, stable
+create or replace view "callable_parallel_unsafe" as
+    with
+        orig as (
+            select
+                n.nspname                                                               as "schema_name",
+                p.proname                                                               as "name",
+                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig"
+            from
+                pg_proc                            p
+                inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+            where
+                p.proparallel = 'u')
+    select
+        function_id(
+                schema_name,
+                name,
+                type_sig
+        )                      as id
+    from
+        orig;
 
-from f
-    -- left join on params because sometimes functions don't have params
-    left join information_schema.parameters p
-        on p.specific_schema = f.routine_schema
-            and p.specific_name = f.specific_name
-where
-        -- allow null for position for functions have no parameters (like trigger functions)
-        (p.ordinal_position > 0 or p.ordinal_position is null)
-        -- only IN and INOUT parameters
-        and (p.parameter_mode like 'IN%' or p.parameter_mode is null) -- FIXME!!!!
+create or replace view "callable_security_definer" as
+    with
+        orig as (
+            select
+                n.nspname                                                               as "schema_name",
+                p.proname                                                               as "name",
+                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig"
+            from
+                pg_proc                            p
+                inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+            where
+                p.prosecdef)
+    select
+        function_id(
+                schema_name,
+                name,
+                type_sig
+        )                      as id
+    from
+        orig;
 
-group by
-    f.routine_schema,
-    f.routine_name,
-    f.specific_name,
-    f.type_udt_schema,
-    f.type_udt_name,
-    f.routine_definition,
-    f.language,
-    f.routine_type
-;
+create or replace view "callable_security_invoker" as
+    with
+        orig as (
+            select
+                n.nspname                                                               as "schema_name",
+                p.proname                                                               as "name",
+                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig"
+            from
+                pg_proc                            p
+                inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+            where
+                not p.prosecdef)
+    select
+        function_id(
+                schema_name,
+                name,
+                type_sig
+        )                      as id
+    from
+        orig;
 
+create or replace view "callable_language" as
+    with
+        orig as (
+            select
+                n.nspname                                                               as "schema_name",
+                p.proname                                                               as "name",
+                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig",
+                p.prolang
+            from
+                pg_proc                            p
+                inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+            where
+                not p.prosecdef)
+    select
+        function_id(
+                schema_name,
+                name,
+                type_sig
+        )                      as id,
+        l.lanname as language
+    from orig
+         inner join pg_language l on l.oid = prolang;
 
-/*
--- caused by dep fail
-NOTICE:  CHECKOUT EXCEPTION checking out (meta,function,id,"(endpoint,path_to_relation_id,{text})"): function endpoint.urldecode_arr(text) does not exist
-NOTICE:  CHECKOUT EXCEPTION checking out (meta,function,id,"(endpoint,columns_json,""{text,text,pg_catalog._text,pg_catalog._text}"")"): "json" is not a known variable
-NOTICE:  CHECKOUT EXCEPTION checking out (meta,function,id,"(endpoint,anonymous_rows_select_function,""{text,text,json}"")"): variable "mimetype" does not exist
-NOTICE:  CHECKOUT EXCEPTION checking out (meta,function,id,"(endpoint,column_list,""{text,text,text,pg_catalog._text,pg_catalog._text}"")"): "column_list" is not a know
-n variable
-NOTICE:  CHECKOUT EXCEPTION checking out (meta,function,id,"(endpoint,rows_select_function,""{function_id,json}"")"): "mimetype" is not a known variable
-NOTICE:  CHECKOUT EXCEPTION checking out (meta,function,id,"(endpoint,field_select,{field_id})"): "mimetype" is not a known variable
+create or replace view "callable_acl" as
+    with
+        orig as (
+            select
+                n.nspname                                                               as "schema_name",
+                p.proname                                                               as "name",
+                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig",
+                p.proacl
+            from
+                pg_proc                            p
+                inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+            where
+                not p.prosecdef)
+    select
+        function_id(
+                schema_name,
+                name,
+                type_sig
+        )                      as id,
+        aclitem as acl
+    from orig
+      inner join lateral (select * from unnest(proacl)) acl(aclitem) on true;
 
-*/
+create or replace view "callable_owner" as
+    with
+        orig as (
+            select
+                n.nspname                                                               as "schema_name",
+                p.proname                                                               as "name",
+                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig",
+                p.proowner
+            from
+                pg_proc                            p
+                inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+            where
+                not p.prosecdef)
+    select
+        function_id(
+                schema_name,
+                name,
+                type_sig
+        )                      as id,
+        pg_get_userbyid(proowner) as owner
+    from orig;
 
+create or replace view "callable_body" as
+    with
+        orig as (
+            select
+                n.nspname                                                               as "schema_name",
+                p.proname                                                               as "name",
+                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig",
+                _pg_get_function_sqlbody(p) as body
+            from
+                pg_proc                            p
+                inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+            where
+                not p.prosecdef)
+    select
+        function_id(
+                schema_name,
+                name,
+                type_sig
+        )                      as id,
+        body
+    from orig;
 
-/******************************************************************************
- * function_parameter
- *****************************************************************************/
-create view function_parameter as
-    select q.schema_id,
-        q.schema_name,
-        q.function_id as id,
-        q.function_name,
-        par.parameter_name as name,
-        type_id(par.udt_schema, par.udt_name) as type_id,
-        quote_ident(par.udt_schema) || '.' || quote_ident(par.udt_name) as type_name,
-        par.parameter_mode::text as "mode",
-        par.ordinal_position::integer as position,
-        par.parameter_default::text as "default"
-
-    from (
-        select function_id(
-                r.routine_schema::text,
-                r.routine_name::text,
-                coalesce(
-                    nullif(
-                array_agg( -- Array of types of the 'IN' parameters to this function
-                    coalesce( nullif( nullif(p.data_type, 'ARRAY'), 'USER-DEFINED'), p.udt_schema || '.' || p.udt_name)
-                    order by p.ordinal_position),
-                array[null]
-                    ),
-                    array[]::text[]
-                )
-            ) as function_id,
-            schema_id(r.routine_schema) as schema_id,
-            r.routine_schema as schema_name,
-            r.routine_name as function_name,
-            r.specific_catalog,
-            r.specific_schema,
-            r.specific_name
-
-        from information_schema.routines r
-
-            left join information_schema.parameters p
-                on p.specific_catalog = r.specific_catalog and
-                    p.specific_schema = r.specific_schema and
-                    p.specific_name = r.specific_name
-
-        where r.routine_type = 'FUNCTION' and
-            r.routine_name not in ('pg_identify_object', 'pg_sequence_parameters') and
-            p.parameter_mode like 'IN%' -- Includes IN and INOUT
-
-        group by r.routine_catalog,
-            r.routine_schema,
-            r.routine_name,
-            r.routine_definition,
-            r.data_type,
-            r.type_udt_schema,
-            r.type_udt_name,
-            r.external_language,
-            r.specific_catalog,
-            r.specific_schema,
-            r.specific_name,
-            p.specific_catalog,
-            p.specific_schema,
-            p.specific_name
-    ) q
-        join information_schema.parameters par
-            on par.specific_catalog = q.specific_catalog and
-                par.specific_schema = q.specific_schema and
-                par.specific_name = q.specific_name;
-
+create or replace view "callable_return_type" as
+    with
+        orig as (
+            -- slightly modified version of query output by \df+
+            select
+                n.nspname                                                               as "schema_name",
+                p.proname                                                               as "name",
+                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig",
+                _pg_get_function_result(p.oid)                                          as "return_type",
+                p.prorettype                                                            as "return_type_id",
+                p.proretset as "returns_set"
+            from
+                pg_proc                            p
+                inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+            where
+                p.prokind = 'f')
+    select
+        function_id(
+                schema_name,
+                name,
+                type_sig
+        )                                         as id,
+        returns_set as setof,
+        type_id(ns.nspname, t.typname) as return_type_id
+    from
+        orig
+        inner join pg_type      t on t.oid = return_type_id
+        inner join pg_namespace ns on ns.oid = t.typnamespace;
 
 /******************************************************************************
  * trigger
  *****************************************************************************/
 create view trigger as
-    with f as materialized (
-        select * from "function"
-    )
     select trigger_id(t_pgn.nspname, pgc.relname, pg_trigger.tgname) as id,
            t.id as relation_id,
            t_pgn.nspname::text as schema_name,
            pgc.relname::text as relation_name,
            pg_trigger.tgname::text as name,
-           f.id as function_id,
+--            f.id as function_id,
            case when (tgtype >> 1 & 1)::bool then 'before'
                 when (tgtype >> 6 & 1)::bool then 'before'
                 else 'after'
@@ -1090,11 +1267,7 @@ create view trigger as
             on f_pgn.oid = pgp.pronamespace
 
     inner join "schema" f_s
-            on f_s.name = f_pgn.nspname
-
-    inner join f
-            on f.schema_id = f_s.id and
-               f.name = pgp.proname;
+            on f_s.name = f_pgn.nspname;
 
 
 /******************************************************************************
@@ -1274,15 +1447,15 @@ create view extension as
 create view foreign_data_wrapper as
     select id,
            name::text,
-           handler_id,
-           validator_id,
+--            handler_id,
+--            validator_id,
            opt as options
 
     from (
         select foreign_data_wrapper_id(fdwname) as id,
                fdwname as name,
-               h_f.id as handler_id,
-               v_f.id as validator_id,
+--                h_f.id as handler_id,
+--                v_f.id as validator_id,
                jsonb_build_object(variadic string_to_array(unnest(coalesce(fdwoptions, array['']::text[])), '=')) as opt
 
         from pg_catalog.pg_foreign_data_wrapper
@@ -1293,9 +1466,9 @@ create view foreign_data_wrapper as
         left join pg_namespace h_n
                on h_n.oid = p_h.pronamespace
 
-        left join function h_f
-               on h_f.schema_name = h_n.nspname and
-                  h_f.name = p_h.proname
+--         left join function h_f
+--                on h_f.schema_name = h_n.nspname and
+--                   h_f.name = p_h.proname
 
         left join pg_proc p_v
                on p_v.oid = fdwvalidator
@@ -1303,16 +1476,16 @@ create view foreign_data_wrapper as
         left join pg_namespace v_n
                on v_n.oid = p_v.pronamespace
 
-        left join "function" v_f
-               on v_f.schema_name = v_n.nspname and
-                  v_f.name = p_v.proname
+--         left join "function" v_f
+--                on v_f.schema_name = v_n.nspname and
+--                   v_f.name = p_v.proname
     ) q
 
     group by id,
              opt,
-             name,
-             handler_id,
-             validator_id;
+             name;
+--              handler_id,
+--              validator_id;
 
 
 /******************************************************************************
