@@ -38,7 +38,6 @@ begin
 
     /*{% include "../src/meta/identifiers.sql" %}*/
     /*{% include "../src/meta/identifiers-nongen.sql" %}*/
-    /*{% include "../src/meta/identifiers-oid.sql" %}*/
     /*{% include "../src/meta/catalog.sql" %}*/
 
     -- This is not perfect because of the potential pre-existing functions,
