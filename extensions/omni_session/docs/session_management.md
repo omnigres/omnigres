@@ -37,4 +37,16 @@ Accepts an optional `cookie_name` parameter to specify a different name for the 
 `omni_session.session_handler(omni_httpd.http_response)` returns a modified `omni_httpd.http_outcome` with a cookie
 `_session` set to `omni_session.session` transaction variable value.
 
-Accepts an optional `cookie_name` parameter to specify a different name for the cookie.
+Optional parameters:
+
+|        **Name** | Type        | Descriptions                                                                                            |
+|----------------:|-------------|---------------------------------------------------------------------------------------------------------|
+| **cookie_name** | text        | The name of the cookie to be used (default: '_session').                                                |
+|   **http_only** | bool        | If true, the cookie is accessible only via HTTP(S), preventing JavaScript access (default: true).       |
+|      **secure** | bool        | If true, the cookie is sent only over HTTPS connections (default: true).                                |
+|   **same_site** | text        | Controls cross-site cookie behavior. Options: 'Lax', 'Strict', 'None' (default: 'Lax').                 |
+|      **domain** | text        | Specifies the domain for which the cookie is valid (default: null, meaning it is not explicitly set).   |
+|     **max_age** | int         | Defines the lifetime of the cookie in seconds (default: null, meaning not explicitly set).              |
+|     **expires** | timestamptz | Sets the exact expiration timestamp for the cookie (default: null, meaning it is not explicitly set).   |
+| **partitioned** | bool        | Enables partitioning of the cookie to enhance privacy (experimental; default: false).                   |
+|        **path** | text        | Specifies the URL path for which the cookie is valid (default: null, meaning it is not explicitly set). |
