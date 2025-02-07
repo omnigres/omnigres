@@ -75,7 +75,55 @@ tests:
       select true as success from omni_session.sessions where sessions.id = omni_var.get('omni_session.session', null::omni_session.session_id)
     results:
     - success: true
-  - query: select value = '_session=' || sessions.id as result from unnest((omni_session.session_handler(omni_httpd.http_response(''))::omni_httpd.http_response).headers)
+  - query: select value = '_session=' || sessions.id ||'; HttpOnly; Secure; SameSite=Lax' as result from unnest((omni_session.session_handler(omni_httpd.http_response(''))::omni_httpd.http_response).headers)
       inner join omni_session.sessions on true where name = 'set-cookie'
     results:
     - result: true
+
+
+- name: response cookie with modified configuration is being set
+  steps:
+    - query: select count(*) from omni_session.sessions
+      results:
+        - count: 0
+    - select omni_session.session_handler(omni_httpd.http_request('/'))
+    - name: ensure session var is set
+      query: |
+        select true as success from omni_session.sessions where sessions.id = omni_var.get('omni_session.session', null::omni_session.session_id)
+      results:
+        - success: true
+    - query: select value = '_session=' || sessions.id ||'; SameSite=Strict; Domain=example.com; Max-Age=1; Expires=Wed, 01 Jan 2025 12:24:01 GMT; Partitioned; Path=/path' as result from unnest((omni_session.session_handler(omni_httpd.http_response(''), secure => false, http_only => false, same_site => 'Strict', domain => 'example.com', max_age => 1, expires => 'Jan 1, 2025 12:24:01 GMT', partitioned => true, path => '/path')::omni_httpd.http_response).headers)
+                                                                                                               inner join omni_session.sessions on true where name = 'set-cookie'
+      results:
+        - result: true
+
+- name: response cookie must ensure Secure if SameSite=None
+  steps:
+    - query: select count(*) from omni_session.sessions
+      results:
+        - count: 0
+    - select omni_session.session_handler(omni_httpd.http_request('/'))
+    - name: ensure session var is set
+      query: |
+        select true as success from omni_session.sessions where sessions.id = omni_var.get('omni_session.session', null::omni_session.session_id)
+      results:
+        - success: true
+    - query: select value = '_session=' || sessions.id ||'; Secure; SameSite=None; Domain=example.com; Max-Age=1; Partitioned; Path=/path' as result from unnest((omni_session.session_handler(omni_httpd.http_response(''), secure => false, http_only => false, same_site => 'None', domain => 'example.com', max_age => 1, partitioned => true, path => '/path')::omni_httpd.http_response).headers)
+                                                                                                                                                  inner join omni_session.sessions on true where name = 'set-cookie'
+      results:
+        - result: true
+- name: response cookie with invalid SameSite
+  steps:
+    - query: select count(*) from omni_session.sessions
+      results:
+        - count: 0
+    - select omni_session.session_handler(omni_httpd.http_request('/'))
+    - name: ensure session var is set
+      query: |
+        select true as success from omni_session.sessions where sessions.id = omni_var.get('omni_session.session', null::omni_session.session_id)
+      results:
+        - success: true
+    - query: select value = '_session=' || sessions.id ||'; SameSite=Hello; Domain=example.com; Max-Age=1; Partitioned; Path=/path' as result from unnest((omni_session.session_handler(omni_httpd.http_response(''), secure => false, http_only => false, same_site => 'Hello', domain => 'example.com', max_age => 1, partitioned => true, path => '/path')::omni_httpd.http_response).headers)
+                                                                                                                                                   inner join omni_session.sessions on true where name = 'set-cookie'
+
+      error: "same_site should be Strict, Lax or None"

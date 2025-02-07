@@ -34,13 +34,28 @@ end;
 $$;
 
 create function session_handler(response omni_httpd.http_outcome,
-                                cookie_name text default '_session') returns omni_httpd.http_outcome
+                                cookie_name text default '_session',
+    http_only bool default true,
+    secure bool default true,
+    same_site text default 'Lax',
+    domain text default null,
+    max_age int default null,
+    expires timestamptz default null,
+    partitioned bool default false,
+    path text default null
+) returns omni_httpd.http_outcome
     language plpgsql as
 $$
 declare
     _response omni_httpd.http_response;
     _session  uuid;
 begin
+    if same_site not in ('Strict', 'Lax', 'None') then
+        raise exception 'same_site should be Strict, Lax or None';
+    end if;
+    if same_site = 'None' then
+        secure := true;
+    end if;
     _session := omni_var.get('omni_session.session', null::omni_session.session_id);
     if _session is null then
         return response;
@@ -49,7 +64,16 @@ begin
     if _response is null then
         return response;
     end if;
-    _response.headers = _response.headers || omni_http.http_header('set-cookie', cookie_name || '=' || _session);
+    _response.headers = _response.headers || omni_http.http_header('set-cookie', cookie_name || '=' || _session ||
+                                             case when http_only then '; HttpOnly' else '' end ||
+                                             case when secure then '; Secure' else '' end ||
+                                             case when same_site is not null then '; SameSite=' || same_site else '' end ||
+                                             case when domain is not null then '; Domain=' || domain else '' end ||
+                                             case when max_age is not null then '; Max-Age=' || max_age else '' end ||
+                                             case when expires is not null then '; Expires=' || to_char(expires at time zone 'GMT', 'Dy, DD Mon YYYY HH24:MI:SS "GMT"') else '' end ||
+                                             case when partitioned then '; Partitioned' else '' end ||
+                                             case when path is not null then '; Path=' || path else '' end
+                                             );
     return _response::omni_httpd.http_outcome;
 end;
 $$;
