@@ -32,19 +32,6 @@ tests:
                         when (callable_security_definer) is distinct from null then 'definer'
                         when (callable_security_invoker) is distinct from null then 'invoker'
                         end as security
-                    /* ,
-                   type_sig,
-                    parameters,
-                    definition,
-                    description,
-                    type,
-                    return_type,
-                    language,
-                    returns_set,
-                    parallel,
-                    volatility,
-                    access_privileges,
-                    security */
             from omni_schema.callable
                      natural join omni_schema.callable_function
                      natural join omni_schema.callable_return_type
