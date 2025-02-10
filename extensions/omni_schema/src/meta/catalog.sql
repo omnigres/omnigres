@@ -1275,24 +1275,61 @@ create view trigger as
  *****************************************************************************/
 create view role as
    select role_id(pgr.rolname) as id,
-          pgr.rolname::text  as name,
-          pgr.rolsuper       as superuser,
-          pgr.rolinherit     as inherit,
-          pgr.rolcreaterole  as create_role,
-          pgr.rolcreatedb    as create_db,
-          pgr.rolcanlogin    as can_login,
-          pgr.rolreplication as replication,
-          pgr.rolconnlimit   as connection_limit,
-          '********'::text   as password,
-          pgr.rolvaliduntil  as valid_until
+          pgr.rolname::text  as name
    from pg_roles pgr
-   inner join pg_authid pga
-           on pgr.oid = pga.oid
-    union
+    union all
    select role_id('0'::oid::regrole::text) as id,
-    'PUBLIC' as name,
-    null, null, null, null, null, null, null, null, null;
+    'PUBLIC' as name;
 
+create view role_superuser as
+   select role_id(pgr.rolname) as id
+   from pg_roles pgr
+   where pgr.rolsuper;
+
+create view role_inherit as
+   select role_id(pgr.rolname) as id
+   from pg_roles pgr
+   where pgr.rolinherit;
+
+create view role_create_role as
+   select role_id(pgr.rolname) as id
+   from pg_roles pgr
+   where pgr.rolcreaterole;
+
+create view role_create_db as
+   select role_id(pgr.rolname) as id
+   from pg_roles pgr
+   where pgr.rolcreatedb;
+
+create view role_can_login as
+   select role_id(pgr.rolname) as id
+   from pg_roles pgr
+   where pgr.rolcanlogin;
+
+create view role_replication as
+   select role_id(pgr.rolname) as id
+   from pg_roles pgr
+   where pgr.rolreplication;
+
+create view role_connection_limit as
+   select role_id(pgr.rolname) as id,
+          pgr.rolconnlimit   as connection_limit
+   from pg_roles pgr;
+
+create view role_valid_until as
+   select role_id(pgr.rolname) as id,
+          pgr.rolvaliduntil   as valid_until
+   from pg_roles pgr;
+
+create view role_setting as
+    select role_setting_id(pgr.rolname, pgd.datname, split_part(setting, '=', 1)) as id,
+           role_id(pgr.rolname) as role_id,
+           split_part(setting, '=', 1) as setting_name,
+           split_part(setting, '=', 2) as setting_value
+    from pg_db_role_setting pgrs
+        join pg_roles pgr on pgr.oid = pgrs.setrole
+        left join pg_database pgd on pgd.oid = pgrs.setdatabase,
+        unnest(pgrs.setconfig) as setting;
 
 /******************************************************************************
  * role_inheritance
