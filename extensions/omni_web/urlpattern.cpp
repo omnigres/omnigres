@@ -1,20 +1,18 @@
-// clang-format off
-#include <postgres.h>
-#include <fmgr.h>
-// clang-format on
-
 #include <ada.h>
 #include <ada_c.h>
 #include <ada_regex.h>
 
 extern "C" {
+// clang-format off
+#include <postgres.h>
+#include <fmgr.h>
+// clang-format on
+
 #include <nodes/execnodes.h>
 #include <utils/builtins.h>
 
 #include "urlpattern.h"
 }
-
-#include <iostream>
 
 using regex_provider = ada::pcre2_regex_provider;
 
