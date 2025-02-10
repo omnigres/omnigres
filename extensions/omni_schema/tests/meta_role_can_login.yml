@@ -1,0 +1,19 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_schema cascade
+
+tests:
+
+- name: created role does not show up without login
+  steps:
+    - query: create role test_without_login nologin;
+    - query: select id from omni_schema.role_can_login where id = omni_schema.role_id('test_without_login');
+      results: []
+
+- name: created role shows up with expected values when it can login
+  steps:
+    - query: create role test_with_login login;
+    - query: select id from omni_schema.role_can_login where id = omni_schema.role_id('test_with_login');
+      results:
+      - id: (test_with_login)

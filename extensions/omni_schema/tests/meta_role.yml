@@ -1,0 +1,14 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_schema cascade
+
+tests:
+
+- name: created role shows up with expected values
+  steps:
+    - query: create role test;
+    - query: select id, name from omni_schema.role where id = omni_schema.role_id('test');
+      results:
+      - id: (test)
+        name: test  
