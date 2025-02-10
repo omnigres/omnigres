@@ -93,10 +93,12 @@ tests:
       (select effective_port from omni_httpd.listeners where port = 0) || '/test?q=1')))
     select
     response.status,
+    response.message,
     convert_from(response.body, 'utf-8')::json as body
     from response
   results:
   - status: 404
+    message: Not Found
     body:
       method: GET
       path: /test

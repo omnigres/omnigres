@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.4.0] - TBD
 
+### Fixed
+
+* HTTP response should contain correct status code reasons [#781](https://github.com/omnigres/omnigres/pull/781)
+
 ## [0.3.0] - 2025-02-04
 
 ### Added
