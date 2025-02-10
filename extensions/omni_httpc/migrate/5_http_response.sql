@@ -1,0 +1,1 @@
+alter type http_response add attribute message text;

@@ -220,6 +220,7 @@ struct request {
   h2o_header_t *headers;
   // Response status
   int status;
+  h2o_iovec_t status_message;
   // Response headers
   Datum *response_headers;
   size_t num_response_headers;
@@ -322,6 +323,8 @@ static h2o_httpclient_body_cb on_head(h2o_httpclient_t *client, const char *errs
       new_req->errstr = NULL;
       new_req->version = req->version;
       new_req->follow_redirects = req->follow_redirects;
+      req->status = args->status;
+      req->status_message = args->msg;
       // for 307 and 308, we must preserve the method, even if non-idempotent
       if (args->status == 307 || args->status == 308) {
         new_req->method = req->method;
@@ -390,6 +393,7 @@ static h2o_httpclient_body_cb on_head(h2o_httpclient_t *client, const char *errs
   // Collect information from the head
   req->version = args->version;
   req->status = args->status;
+  req->status_message = args->msg;
 
   req->num_response_headers = args->num_headers;
   req->response_headers = palloc(args->num_headers * sizeof(Datum));
@@ -813,8 +817,9 @@ Datum http_execute(PG_FUNCTION_ARGS) {
 
     if (request->errstr != NULL) {
       // Return an error if there's one
-      bool isnull[5] = {[0 ... 3] = true, [4] = false};
-      Datum values[5] = {0, 0, 0, 0, PointerGetDatum(cstring_to_text(request->errstr))};
+      bool isnull[6] = {[0 ... 3] = true, [4] = false, true};
+      Datum values[6] = {
+          0, 0, 0, 0, PointerGetDatum(cstring_to_text(request->errstr)), PointerGetDatum(NULL)};
       tuplestore_putvalues(tupstore, response_tupledesc, values, isnull);
     } else {
       // Return the response with no error
@@ -822,10 +827,17 @@ Datum http_execute(PG_FUNCTION_ARGS) {
           request->response_headers, NULL, 1, (int[1]){request->num_response_headers}, (int[1]){1},
           http_header_oid(), -1, false, TYPALIGN_DOUBLE);
 
-      Datum values[5] = {Int16GetDatum(request->version), Int16GetDatum(request->status),
-                         PointerGetDatum(response_headers), PointerGetDatum(request->body.data),
-                         PointerGetDatum(NULL)};
-      bool isnull[5] = {[0 ... 3] = false, [4] = true};
+      Datum values[6] = {
+          Int16GetDatum(request->version),
+          Int16GetDatum(request->status),
+          PointerGetDatum(response_headers),
+          PointerGetDatum(request->body.data),
+          PointerGetDatum(NULL),
+          PointerGetDatum(request->status_message.len == 0
+                              ? NULL
+                              : cstring_to_text_with_len(request->status_message.base,
+                                                         request->status_message.len))};
+      bool isnull[6] = {[0 ... 3] = false, [4] = true, [5] = request->status_message.len == 0};
       tuplestore_putvalues(tupstore, response_tupledesc, values, isnull);
     }
   }
