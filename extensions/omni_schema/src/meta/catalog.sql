@@ -2325,6 +2325,7 @@ create view acl as
                                  c.relacl is null                as "default"
                              from
                                  aclexplode(coalesce(c.relacl, acldefault('r', c.relowner))) ) as acl on true
+    where reltype != 0
 -- schema
     union all
     select

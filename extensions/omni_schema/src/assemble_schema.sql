@@ -20,7 +20,7 @@ declare
     try_again                       boolean = false;
 begin
     -- statement execution status
-    create temp table omni_schema_execution_status
+    create temp table if not exists omni_schema_execution_status
     (
         id                       bigserial primary key,
         filepath                 text    not null,
@@ -38,6 +38,7 @@ begin
         -- error for last execution of the statement
         last_execution_error     text
     ) on commit drop;
+    truncate omni_schema_execution_status;
 
     <<top>>
     begin
