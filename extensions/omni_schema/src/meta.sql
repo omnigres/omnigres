@@ -15,7 +15,7 @@
                                 "callable_aggregate", "callable_window",
                                 "callable_parallel_safe", "callable_parallel_unsafe", "callable_parallel_restricted",
                                 "callable_security_definer", "callable_security_invoker","callable_language",
-                                "callable_acl", "callable_owner", "callable_body",
+                                "callable_acl", "callable_body",
                     "trigger",
                     "role","role_inheritance",
                     "table_privilege",
