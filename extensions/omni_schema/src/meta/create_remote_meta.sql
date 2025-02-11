@@ -12,8 +12,11 @@ begin
             import foreign schema %I limit to (
 --## for view in meta_views
             "/*{{ view }}*/"
+--## if not loop.is_last
+            ,
+--## endif
 --## endfor
-           ) from server %I into %I
+           ) from server %I into %s
         $import$,
         remote_schema, server, schema);
     return;
