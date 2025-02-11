@@ -312,7 +312,11 @@ proceed:
         fy_node_mapping_append(test->node, error_key, fy_node_create_scalar(doc, STRLIT("true")));
       } else {
         // Otherwise, specify the error
-        char *errmsg = strdup(PQresultErrorField(result, PG_DIAG_MESSAGE_PRIMARY));
+        char *err = PQresultErrorField(result, PG_DIAG_MESSAGE_PRIMARY);
+        char *errmsg = NULL;
+        if (err != NULL) {
+          errmsg = strdup(err);
+        }
         trim_trailing_whitespace(errmsg);
 
         struct fy_node *error = fy_node_create_scalar(doc, STRLIT(errmsg));
@@ -322,7 +326,11 @@ proceed:
         if (fy_node_is_scalar(existing_error)) {
           fy_node_mapping_append(test->node, error_key, error);
         } else {
-          char *severity = strdup(PQresultErrorField(result, PG_DIAG_SEVERITY));
+          char *sev = PQresultErrorField(result, PG_DIAG_SEVERITY);
+          char *severity = NULL;
+          if (sev != NULL) {
+            severity = strdup(sev);
+          }
           struct fy_node *error_severity = fy_node_create_scalar(doc, STRLIT(severity));
 
           struct fy_node *error_node = fy_node_create_mapping(doc);

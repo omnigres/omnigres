@@ -145,6 +145,8 @@ if(NOT DEFINED PG_CONFIG)
             endif()
         endif()
 
+        set(OLD_CC $ENV{CC})
+
         # Ensure the right OpenSSL gets configured
         if(DEFINED OPENSSL_ROOT_DIR)
             set(OLD_CFLAGS "$ENV{CFLAGS}")
@@ -152,6 +154,21 @@ if(NOT DEFINED PG_CONFIG)
             set(ENV{CFLAGS} "${OLD_CFLAGS} -I ${OPENSSL_ROOT_DIR}/include")
             set(ENV{LDFLAGS} "${OLD_LDLAGS} -L ${OPENSSL_ROOT_DIR}/lib")
         endif()
+
+        if (APPLE)
+            # On macOS, sometimes a directly referenced compiler makefail to work
+            # citing the fact that it can't find the SDK (System library, etc.)
+            # This gets the SDK into the environment
+            execute_process(COMMAND xcrun --sdk macosx --show-sdk-path
+                    OUTPUT_VARIABLE _sdkroot OUTPUT_STRIP_TRAILING_WHITESPACE)
+            message(STATUS ${_sdkroot})
+            set(ENV{SDKROOT} ${_sdkroot})
+        endif ()
+        if (DEFINED CMAKE_C_COMPILER)
+            # This ensure whatever compiler we're using to compile Omnigres, we're going
+            # to use the same for Postgres
+            set(ENV{CC} "${CMAKE_C_COMPILER}")
+        endif ()
 
         if(BUILD_TYPE STREQUAL "RelWithDebInfo")
             string(APPEND extra_configure_args " --enable-debug")
@@ -164,6 +181,8 @@ if(NOT DEFINED PG_CONFIG)
             set(ENV{CFLAGS} "$ENV{CFLAGS} ${CMAKE_C_FLAGS_RELWITHDEBINFO}")
         elseif(BUILD_TYPE STREQUAL "Release")
             set(ENV{CFLAGS} "$ENV{CFLAGS} ${CMAKE_C_FLAGS_RELEASE}")
+        elseif(BUILD_TYPE STREQUAL "Debug")
+            set(ENV{CFLAGS} "$ENV{CFLAGS} ${CMAKE_C_FLAGS_DEBUG} -fsanitize=address -fno-omit-frame-pointer")
         endif()
 
         execute_process(
@@ -223,6 +242,8 @@ static const char *old_sharedir = PGSHAREDIR\;
             set(ENV{CFLAGS} "${OLD_CFLAGS}")
             set(ENV{LDFLAGS} "${OLD_LDLAGS}")
         endif()
+
+        set(ENV{CC} "${OLD_CC}")
 
     endif()
 
