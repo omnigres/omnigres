@@ -63,6 +63,8 @@ create type relation_id as (schema_name text,name text);
 create function relation_id(schema_name text,name text) returns relation_id as $_$ select row(schema_name,name)::relation_id $_$ immutable language sql;
 create type role_id as (name text);
 create function role_id(name text) returns role_id as $_$ select row(name)::role_id $_$ immutable language sql;
+create type role_setting_id as (role_name text, database_name text, setting_name text);
+create function role_setting_id(role_name text, database_name text, setting_name text) returns role_setting_id as $_$ select row(role_name,database_name,setting_name)::role_setting_id $_$ immutable language sql;
 create type row_id as (schema_name text,relation_name text,pk_column_names text[],pk_values text[]);
 create function row_id(schema_name text,relation_name text,pk_column_names text[],pk_values text[]) returns row_id as $_$ select row(schema_name,relation_name,pk_column_names,pk_values)::row_id $_$ immutable language sql;
 create type schema_id as (name text);
