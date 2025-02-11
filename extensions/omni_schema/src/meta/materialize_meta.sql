@@ -5,6 +5,7 @@ create function materialize_meta(
 as
 $create_remote_meta$
 declare
+    old_search_path text := current_setting('search_path');
 begin
     perform set_config('search_path', to_schema || ',' || from_schema, true);
 
@@ -26,6 +27,8 @@ begin
     execute format('alter function refresh_meta() set search_path = %s', to_schema || ',' || from_schema);
 
     perform refresh_meta();
+
+    perform set_config('search_path', old_search_path, true);
     return;
 end;
 $create_remote_meta$;
