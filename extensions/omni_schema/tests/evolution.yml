@@ -1,0 +1,189 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_schema cascade
+    - |
+      create procedure cleanup_databases() language plpgsql as
+          $$
+          declare 
+              rec record;
+          begin
+              for rec in select * from pg_database where not datistemplate and datname != 'yregress'
+                  loop
+                      execute format('alter database %I rename to %I', rec.datname, '_cleanup_' || rec.datname);
+                  end loop;
+          end;
+      $$;
+
+tests:
+
+- name: smoke test
+  transaction: false
+  tests:
+  - name: copy app v1 into a table_fs
+    query: |
+      select
+          omni_vfs.write(omni_vfs.table_fs('evolution'), 'v1/' || name, omni_vfs.read(
+                  omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/evolution/app_v1'), name),
+                         create_file => true)
+      from
+          omni_vfs.list_recursively(
+                  omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/evolution'), 'app_v1')
+      where
+          kind = 'file'
+  - name: capture the revision
+    query: select omni_schema.capture_schema_revision(omni_vfs.table_fs('evolution'), 'v1', 'revisions')
+  - name: copy app v2 into a table_fs
+    query: |
+      select
+          omni_vfs.write(omni_vfs.table_fs('evolution'), 'v2/' || name, omni_vfs.read(
+                  omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/evolution/app_v2'), name),
+                         create_file => true)
+      from
+          omni_vfs.list_recursively(
+                  omni_vfs.local_fs('../../../../extensions/omni_schema/tests/fixture/evolution'), 'app_v2')
+      where
+          kind = 'file'
+  - name: workaround for pg < 17 to prevent blockage
+    query: call cleanup_databases()
+  - name: capture the 2nd revision
+    query: select omni_schema.capture_schema_revision(omni_vfs.table_fs('evolution'), 'v2', 'revisions')
+  - name: we should now have two revisions
+    query: select count(*) from omni_schema.schema_revisions(omni_vfs.table_fs('evolution'), 'revisions')
+    results:
+      - count: 2
+  - create database test
+  - name: try to migrate as is
+    query: |
+      with results as (
+      select omni_schema.migrate_to_schema_revision(omni_vfs.table_fs('evolution'), 'revisions',revision, 'dbname=test '  ||
+           ' host=' || current_setting('unix_socket_directories') || ' port=' || current_setting('port') || ' user=' || current_user)
+      from omni_schema.schema_revisions(omni_vfs.table_fs('evolution'), 'revisions')
+      order by cardinality(parents)) select * from results
+    results:
+        - migrate_to_schema_revision: null
+        - migrate_to_schema_revision:
+            added_dependency:
+              - id: column_id((public,person,email))
+                dependent_on: schema_id((public))
+            added_relation_column:
+              - id:
+                  name: email
+                  schema_name: public
+                  relation_name: person
+                name: email
+                relation_id:
+                  name: person
+                  schema_name: public
+            added_relation_column_type:
+              - id:
+                  name: email
+                  schema_name: public
+                  relation_name: person
+                type_id:
+                  name: text
+                  schema_name: pg_catalog
+            added_relation_column_position:
+              - id:
+                  name: email
+                  schema_name: public
+                  relation_name: person
+                position: 3
+            added_type_composite_attribute:
+              - id:
+                  name: person
+                  schema_name: public
+                name: email
+            added_constraint_relation_check:
+              - id:
+                  name: email_not_null
+                  schema_name: public
+                  relation_name: person
+                name: email_not_null
+                relation_id:
+                  name: person
+                  schema_name: public
+              - id:
+                  name: name_not_null
+                  schema_name: public
+                  relation_name: person
+                name: name_not_null
+                relation_id:
+                  name: person
+                  schema_name: public
+            removed_relation_column_nullable:
+              - id:
+                  name: name
+                  schema_name: public
+                  relation_name: person
+            added_constraint_relation_non_null:
+              - id:
+                  name: email_not_null
+                  schema_name: public
+                  relation_name: person
+                name: email_not_null
+                relation_id:
+                  name: person
+                  schema_name: public
+              - id:
+                  name: name_not_null
+                  schema_name: public
+                  relation_name: person
+                name: name_not_null
+                relation_id:
+                  name: person
+                  schema_name: public
+            added_constraint_relation_check_expr:
+              - id:
+                  name: email_not_null
+                  schema_name: public
+                  relation_name: person
+                expr: email IS NOT NULL
+              - id:
+                  name: name_not_null
+                  schema_name: public
+                  relation_name: person
+                expr: name IS NOT NULL
+            added_type_composite_attribute_position:
+              - id:
+                  name: person
+                  schema_name: public
+                name: email
+                position: 3
+            added_constraint_relation_non_null_column:
+              - id:
+                  name: email_not_null
+                  schema_name: public
+                  relation_name: person
+                column_id:
+                  name: email
+                  schema_name: public
+                  relation_name: person
+              - id:
+                  name: name_not_null
+                  schema_name: public
+                  relation_name: person
+                column_id:
+                  name: name
+                  schema_name: public
+                  relation_name: person
+  - drop database test
+  - create database test
+  - name: create a migration
+    query: |
+      select omni_vfs.write(omni_vfs.table_fs('evolution'), 'revisions/' || revision::text || '/migrate.sql', $$
+             alter table person add column email text not null;
+             alter table person alter column name set not null;
+             $$, create_file => true) from
+         omni_schema.schema_revisions(omni_vfs.table_fs('evolution'), 'revisions')
+        where cardinality(parents) = 1
+  - name: try to migrate with a migration now
+    query: |
+      with results as (
+      select omni_schema.migrate_to_schema_revision(omni_vfs.table_fs('evolution'), 'revisions',revision, 'dbname=test '  ||
+           ' host=' || current_setting('unix_socket_directories') || ' port=' || current_setting('port') || ' user=' || current_user)
+      from omni_schema.schema_revisions(omni_vfs.table_fs('evolution'), 'revisions')
+      order by cardinality(parents)) select * from results
+    results:
+        - migrate_to_schema_revision: null
+        - migrate_to_schema_revision: null
