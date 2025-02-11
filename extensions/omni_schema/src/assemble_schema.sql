@@ -19,7 +19,7 @@ declare
     error_detail text;
     try_again                       boolean = false;
     MAX_RETRIES                     int : = 3;
-    
+
 begin
     -- statement execution status
     create temp table omni_schema_execution_status
@@ -162,7 +162,7 @@ begin
                 for current_filename in 
                 (select distinct filepath
                  from omni_schema_execution_status
-                 and retry_count < {MAX_RETRIES}
+                 where retry_count < {MAX_RETRIES}
                  order by coalesce(auxiliary_tools.priority, languages.priority) desc)
                     loop
                         <<statement>>
@@ -264,6 +264,9 @@ begin
                                                                             _code,
                                                                             'file', _filepath);
                                         if retry_count >= {MAX_RETRIES} then
+                                            update omni_schema_execution_status
+                                            set execution_successful = false
+                                            where id = rec.id;
                                             raise notice '%', json_build_object('type', 'error', 'message',
                                                                                 'Permanently failed after retries',
                                                                                 'file', rec.filepath);
