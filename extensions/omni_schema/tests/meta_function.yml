@@ -66,3 +66,56 @@ tests:
         volatility: volatile
         owner: yregress
         security: invoker
+
+- name: created function shows up with expected values (no args)
+  steps:
+    - create function test.test_function() returns text as $$select version()$$ language sql
+    - query: select id,
+                    schema_id,
+                    schema_name,
+                    name,
+                    callable_return_type.return_type_id, callable_return_type.setof,
+                    body,
+                    language,
+                    case when (callable_parallel_unsafe) is distinct from null then 'unsafe'
+                         when (callable_parallel_safe) is distinct from null then 'safe'
+                         when (callable_parallel_restricted) is distinct from null then 'restricted'
+                        end as parallel,
+                    case
+                        when (callable_volatile) is distinct from null then 'volatile'
+                        when (callable_immutable) is distinct from null then 'immutable'
+                        when (callable_stable) is distinct from null then 'stable'
+                        end as volatility,
+                    owner,
+                    case
+                        when (callable_security_definer) is distinct from null then 'definer'
+                        when (callable_security_invoker) is distinct from null then 'invoker'
+                        end as security
+            from omni_schema.callable
+                     natural join omni_schema.callable_function
+                     natural join omni_schema.callable_return_type
+                     natural join omni_schema.callable_body
+                     natural join omni_schema.callable_language
+                     natural left join omni_schema.callable_parallel_unsafe
+                     natural left join omni_schema.callable_parallel_safe
+                     natural left join omni_schema.callable_parallel_restricted
+                     natural left join omni_schema.callable_volatile
+                     natural left join omni_schema.callable_immutable
+                     natural left join omni_schema.callable_stable
+                     natural left join omni_schema.callable_owner
+                     natural left join omni_schema.callable_security_invoker
+                     natural left join omni_schema.callable_security_definer
+             where callable.id = omni_schema.function_id('test', 'test_function', '{}')
+      results:
+      - id: "(test,test_function,{})"
+        schema_id: (test)
+        schema_name: test
+        name: test_function
+        return_type_id: "(pg_catalog,text)"
+        setof: false
+        body: select version()
+        language: sql
+        parallel: unsafe
+        volatility: volatile
+        owner: yregress
+        security: invoker

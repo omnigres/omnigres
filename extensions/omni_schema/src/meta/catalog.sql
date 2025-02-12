@@ -35,7 +35,7 @@ create or replace function _get_function_type_sig_array(p pg_proc) returns text[
     language sql as
 $$
 select
-    array_agg(format_type(typ, null) order by ordinality)
+    coalesce(array_agg(format_type(typ, null) order by ordinality), '{}')
 from
     (select
          typ,
