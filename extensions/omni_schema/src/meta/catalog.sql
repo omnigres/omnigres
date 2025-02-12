@@ -31,72 +31,18 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 -- returns an array of types, given an identity_args string (as provided by pg_get_function_identity_arguments())
-create or replace function _get_function_type_sig_array(identity_args text) returns text[] as $$
-declare
-    param_exprs text[] := '{}';
-    param_expr text[] := '{}';
-    sig_array text[] := '{}';
-    len integer;
-    len2 integer;
-    cast_try text;
-    good_type text;
-    good boolean;
-begin
-    -- raise notice '# type_sig_array got: %', identity_args;
-    param_exprs := split_quoted_string(identity_args,',');
-    len := array_length(param_exprs,1);
-    -- raise notice '# param_exprs: %, length: %', param_exprs, len;
-    if len is null or len = 0 or param_exprs[1] = '' then
-        -- raise notice '    NO PARAMS';
-        return '{}'::text[];
-    end if;
-    -- raise notice 'type_sig_array after splitting into individual exprs (length %): %', len, param_exprs;
-
-    -- for each parameter expression
-    for i in 1..len
-        loop
-            good_type := null;
-            -- split by spaces (but not spaces within quotes)
-            param_expr = split_quoted_string(param_exprs[i], ' ');
-            -- raise notice '        type_sig_array expr: %, length is %', param_expr, len2;
-
-            -- skip OUTs for type-sig, the function isn't called with those
-            continue when param_expr[1] = 'OUT';
-
-            len2 := array_length(param_expr,1);
-            if len2 is null then
-                raise warning 'len2 is null, i: %, identity_args: %, param_exprs: %, param_expr: %', i, identity_args, param_exprs, param_expr;
-            end if;
-
-            -- no params;
-            continue when len2 is null;
-
-            -- ERROR:  len2 is null, i: 1, identity_args: "char", name, name, name[]
-            for j in 1..len2 loop
-                    cast_try := array_to_string(param_expr[j:],' ');
-                    -- raise notice '    !!! casting % to ::regtype', cast_try;
-                    begin
-                        execute format('select %L::regtype', cast_try) into good_type;
-                    exception when others then
-                    -- raise notice '        couldnt cast %', cast_try;
-                    end;
-
-                    if good_type is not null then
-                        -- raise notice '    GOT A TYPE!! %', good_type;
-                        sig_array := array_append(sig_array, good_type);
-                        exit;
-                    else
-                        -- raise notice '    Fail.';
-                    end if;
-                end loop;
-
-            if good_type = null then
-                raise exception 'Could not parse function parameter: %', param_expr;
-            end if;
-        end loop;
-    return sig_array;
-end
-$$ language plpgsql stable;
+create or replace function _get_function_type_sig_array(proc regprocedure) returns text[]
+    language sql as
+$$
+select array_agg(format_type(t.oid, null))
+from pg_proc p
+         inner join lateral ( select typ
+                              from unnest(p.proargtypes) with ordinality as t(typ, ordinality)
+                              order by ordinality) as arg(typ)
+                    on true
+         inner join pg_type t on t.oid = arg.typ
+where p.oid = proc
+$$ set search_path = '', stable;
 
 /******************************************************************************
  * siuda
@@ -285,7 +231,7 @@ create view cast_function as
         function_id(
             pns.nspname,
             p.proname,
-            _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid))
+            _get_function_type_sig_array(p.oid)
         )
     from
         pg_catalog.pg_cast                 c
@@ -624,93 +570,6 @@ group by 1,2,3,4,6,7,9,10,11;
  * function
  *****************************************************************************/
 
--- splits a string of identifiers, some of which are quoted, based on the provided delimeter, but not if it is in quotes.
-create or replace function split_quoted_string(input_str text, split_char text) returns text[] as $$
-declare
-    result_array text[];
-    inside_quotes boolean := false;
-    current_element text := '';
-    char_at_index text;
-begin
-    for i in 1 .. length(input_str) loop
-        char_at_index := substring(input_str from i for 1);
-
-        -- raise notice 'current_element: __%__, char_at_index: __%__, inside_quotes: __%__', current_element, char_at_index, inside_quotes;
-        -- we got a quote
-        if char_at_index = '"' then
-            -- raise notice '    ! got quote';
-            -- is it a double double-quote?
-            if substring(input_str from i + 1 for 1) = '"' then
-                -- yes!
-                -- raise notice '        a double double quote!';
-                current_element := current_element || '""';
-                i := i + 1; -- skip the next quote
-            else
-                -- no.  single quote means flip inside_quotes.
-                -- raise notice '        a mere single double-quote';
-                inside_quotes := not inside_quotes;
-                current_element := current_element || '"';
-            end if;
-        -- non-quote char
-        else
-            -- is it the infamous split_charn
-            if char_at_index = split_char and not inside_quotes then
-                -- raise notice '    ! got the split char __%__ outside quotes', split_char;
-                -- add current_element to the results_array
-                result_array := array_append(result_array, trim(current_element));
-                -- clear current_element
-                current_element := '';
-            -- no, just a normal char
-            else
-                -- raise notice '    . normal char, adding __%__', char_at_index;
-                current_element := current_element || char_at_index;
-                -- raise notice '    current_element is now__%__', current_element;
-            end if;
-        end if;
-
-        -- if this is the last character, add current_element
-        if i = length(input_str) then
-            result_array := array_append(result_array, trim(current_element));
-        end if;
-
-    end loop;
-
-    return result_array;
-end;
-$$ language plpgsql stable;
-
-create or replace function _get_function_parameters(parameters text) returns text[] as $$
-    declare
-        param_exprs text[] := '{}';
-        param_expr text[] := '{}';
-        result text[] := '{}';
-        default_pos integer;
-        params_len integer;
-        param_len integer;
-    begin
-        -- raise notice 'get_function_parameters got: %', parameters;
-        param_exprs := split_quoted_string(parameters, ',');
-
-        params_len := array_length(param_exprs,1);
-        if params_len is null or params_len = 0 or param_exprs[1] = '' then
-            -- raise notice '   NO PARAMS';
-            return '{}'::text[];
-        end if;
-
-        -- raise notice 'get_function_parameters after splitting into individual exprs: %', param_exprs;
-        -- for each parameter, drop OUTs, slice off INOUTs and trim everything past 'DEFAULT'
-        for i in 1..params_len loop
-            -- split by spaces (but not spaces within quotes)
-            param_expr = split_quoted_string(param_exprs[i],' ');
-            param_len := array_length(param_expr,1);
-            -- raise notice '    get_function_parameters expr: %, length is %', param_expr, array_length(param_expr,1);
-
-            result := array_append(result, param_exprs[i]);
-        end loop;
-        return result;
-    end
-$$ language plpgsql stable;
-
 create or replace function _pg_get_function_sqlbody(p pg_proc) returns text language plpgsql stable
 as $$
 begin
@@ -734,7 +593,7 @@ create or replace view "callable" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig"
+                _get_function_type_sig_array(p.oid) as type_sig
             from
                 pg_proc                            p
                 inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace)
@@ -758,7 +617,7 @@ create or replace view "callable_function" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig"
+                _get_function_type_sig_array(p.oid) as type_sig
             from
                 pg_proc                            p
                 inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
@@ -779,7 +638,7 @@ create or replace view "callable_argument_name" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig",
+                _get_function_type_sig_array(p.oid) as type_sig,
                 argname, ordinality
             from
                 pg_proc                            p
@@ -803,7 +662,7 @@ create or replace view "callable_argument_type" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig",
+                _get_function_type_sig_array(p.oid) as type_sig,
                 argtype, ordinality
             from
                 pg_proc                            p
@@ -828,7 +687,7 @@ create or replace view "callable_argument_mode" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig",
+                _get_function_type_sig_array(p.oid) as type_sig,
                 argmode, ordinality
             from
                 pg_proc                            p
@@ -857,7 +716,7 @@ create or replace view "callable_argument_default" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig",
+                _get_function_type_sig_array(p.oid) as type_sig,
                 argdefault, ordinality
             from
                 pg_proc                            p
@@ -881,7 +740,7 @@ create or replace view "callable_aggregate" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig"
+                _get_function_type_sig_array(p.oid) as type_sig
             from
                 pg_proc                            p
                 inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
@@ -902,7 +761,7 @@ create or replace view "callable_window" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig"
+                _get_function_type_sig_array(p.oid) as type_sig
             from
                 pg_proc                            p
                 inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
@@ -923,7 +782,7 @@ create or replace view "callable_procedure" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig"
+                _get_function_type_sig_array(p.oid) as type_sig
             from
                 pg_proc                            p
                 inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
@@ -944,7 +803,7 @@ with
         select
             n.nspname                                                               as "schema_name",
             p.proname                                                               as "name",
-            _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig"
+            _get_function_type_sig_array(p.oid) as type_sig
         from
             pg_proc                            p
             inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
@@ -965,7 +824,7 @@ create or replace view "callable_stable" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig"
+                _get_function_type_sig_array(p.oid) as type_sig
             from
                 pg_proc                            p
                 inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
@@ -986,7 +845,7 @@ create or replace view "callable_volatile" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig"
+                _get_function_type_sig_array(p.oid) as type_sig
             from
                 pg_proc                            p
                 inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
@@ -1007,7 +866,7 @@ create or replace view "callable_parallel_safe" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig"
+                _get_function_type_sig_array(p.oid) as type_sig
             from
                 pg_proc                            p
                 inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
@@ -1028,7 +887,7 @@ create or replace view "callable_parallel_restricted" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig"
+                _get_function_type_sig_array(p.oid) as type_sig
             from
                 pg_proc                            p
                 inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
@@ -1049,7 +908,7 @@ create or replace view "callable_parallel_unsafe" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig"
+                _get_function_type_sig_array(p.oid) as type_sig
             from
                 pg_proc                            p
                 inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
@@ -1070,7 +929,7 @@ create or replace view "callable_security_definer" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig"
+                _get_function_type_sig_array(p.oid) as type_sig
             from
                 pg_proc                            p
                 inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
@@ -1091,7 +950,7 @@ create or replace view "callable_security_invoker" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig"
+                _get_function_type_sig_array(p.oid) as type_sig
             from
                 pg_proc                            p
                 inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
@@ -1112,7 +971,7 @@ create or replace view "callable_language" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig",
+                _get_function_type_sig_array(p.oid) as type_sig,
                 p.prolang
             from
                 pg_proc                            p
@@ -1135,7 +994,7 @@ create or replace view "callable_acl" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig",
+                _get_function_type_sig_array(p.oid) as type_sig,
                 p.proacl
             from
                 pg_proc                            p
@@ -1158,7 +1017,7 @@ create or replace view "callable_owner" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig",
+                _get_function_type_sig_array(p.oid) as type_sig,
                 p.proowner
             from
                 pg_proc                            p
@@ -1180,7 +1039,7 @@ create or replace view "callable_body" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig",
+                _get_function_type_sig_array(p.oid) as type_sig,
                 _pg_get_function_sqlbody(p) as body
             from
                 pg_proc                            p
@@ -1203,7 +1062,7 @@ create or replace view "callable_return_type" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(pg_get_function_identity_arguments(p.oid)) as "type_sig",
+                _get_function_type_sig_array(p.oid) as type_sig,
                 _pg_get_function_result(p.oid)                                          as "return_type",
                 p.prorettype                                                            as "return_type_id",
                 p.proretset as "returns_set"
