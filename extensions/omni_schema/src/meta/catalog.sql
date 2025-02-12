@@ -1642,6 +1642,7 @@ create view "index_unique" as
 select index_id(ns.nspname, c.relname) as id
 from pg_index i
          inner join pg_class c on c.oid = i.indexrelid
+         inner join pg_class cr on cr.oid = i.indrelid and cr.relkind != 't'
          inner join pg_namespace ns on ns.oid = c.relnamespace
 where i.indisunique;
 
