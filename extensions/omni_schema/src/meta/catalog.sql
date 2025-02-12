@@ -1922,3 +1922,48 @@ create view "index_partial" as
          inner join pg_class cr on cr.oid = i.indrelid and cr.relkind != 't'
          inner join pg_namespace ns on ns.oid = c.relnamespace
     where i.indpred is not null;
+
+--- descriptions/comments
+
+create view comment as
+    -- relation
+    select
+        relation_id(ns.nspname, c.relname)::object_id as id,
+        description                                   as comment
+    from
+        pg_description          d
+        inner join pg_class     c on c.oid = d.objoid and d.classoid = 'pg_class'::regclass
+        inner join pg_namespace ns on ns.oid = c.relnamespace
+        where d.objsubid = 0
+    union all
+    -- callable
+    select
+        function_id(ns.nspname, p.proname, _get_function_type_sig_array(p))::object_id as id,
+        description                                   as comment
+    from
+        pg_description          d
+        inner join pg_proc     p on p.oid = d.objoid and d.classoid = 'pg_proc'::regclass
+        inner join pg_namespace ns on ns.oid = p.pronamespace
+    union all
+    -- column
+    select
+        column_id(ns.nspname, c.relname, a.attname)::object_id as id,
+        description                                   as comment
+    from
+        pg_description          d
+        inner join pg_class     c on c.oid = d.objoid and d.classoid = 'pg_class'::regclass
+        inner join pg_attribute a on a.attrelid = c.oid and a.attnum > 0
+        inner join pg_namespace ns on ns.oid = c.relnamespace
+        where d.objsubid != 0
+    union all
+    -- cast
+    select
+        cast_id(st_ns.nspname, st.typname, tt_ns.nspname, tt.typname)::object_id as id,
+        description                                                              as comment
+    from
+        pg_description          d
+        inner join pg_cast      c on c.oid = d.objoid and d.classoid = 'pg_cast'::regclass
+        inner join pg_type      st on st.oid = c.castsource
+        inner join pg_type      tt on tt.oid = c.casttarget
+        inner join pg_namespace st_ns on st_ns.oid = st.typnamespace
+        inner join pg_namespace tt_ns on tt_ns.oid = tt.typnamespace;

@@ -18,7 +18,7 @@ declare
             ];
     type  text;
 begin
-    perform set_config('search_path', schema::text, true);
+    perform set_config('search_path', schema::text || ',' || changed::text, true);
 
     foreach type in array types
         loop

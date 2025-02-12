@@ -1,0 +1,42 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_schema cascade
+
+tests:
+
+- name: table
+  steps:
+    - create table test ()
+    - comment on table test is 'This is a test'
+    - query: select id, comment from omni_schema.comment where id::omni_schema.relation_id = omni_schema.relation_id('public','test')
+      results:
+      - id: relation_id((public,test))
+        comment: This is a test
+
+- name: view
+  steps:
+    - create view test as select 1
+    - comment on view test is 'This is a test'
+    - query: select id, comment from omni_schema.comment where id::omni_schema.relation_id = omni_schema.relation_id('public','test')
+      results:
+      - id: relation_id((public,test))
+        comment: This is a test
+
+- name: column
+  steps:
+    - create table test (col int)
+    - comment on column test.col is 'This is a test'
+    - query: select id, comment from omni_schema.comment where id::omni_schema.column_id = omni_schema.column_id('public','test','col')
+      results:
+      - id: column_id((public,test,col))
+        comment: This is a test
+
+- name: function
+  steps:
+    - create function test() returns int language sql as $$ select 1 $$
+    - comment on function test is 'This is a test'
+    - query: select id, comment from omni_schema.comment where id::omni_schema.function_id = omni_schema.function_id('public','test','{}')
+      results:
+      - id: function_id((public,test,{}))
+        comment: This is a test
