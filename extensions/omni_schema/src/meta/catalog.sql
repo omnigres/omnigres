@@ -1423,47 +1423,114 @@ from (
 
 
 /******************************************************************************
- * constraint_unique
+ * constraint_relation_non_null*
  *****************************************************************************/
-create view constraint_unique as
-    select constraint_id(tc.table_schema, tc.table_name, tc.constraint_name) as id,
-           relation_id(tc.table_schema, tc.table_name) as table_id,
-           tc.table_schema::text as schema_name,
-           tc.table_name::text as table_name,
-           tc.constraint_name::text as name,
-           array_agg(column_id(ccu.table_schema, ccu.table_name, ccu.column_name)) as column_ids,
-           array_agg(ccu.column_name::text) as column_names
 
-    from information_schema.table_constraints tc
+create view constraint_relation_non_null_column as
+    select
+        constraint_id(n.nspname, r.relname, a.attname || '_not_null') as id,
+        column_id(n.nspname, r.relname, a.attname)
+    from
+        pg_namespace n,
+        pg_class     r,
+        pg_attribute a
+    where
+        n.oid = r.relnamespace and
+        r.oid = a.attrelid and
+        a.attnum > 0 and
+        not a.attisdropped and
+        a.attnotnull and
+        r.relkind in ('r', 'p') and
+        pg_has_role(r.relowner, 'USAGE');
 
-    inner join information_schema.constraint_column_usage ccu
-            on ccu.constraint_catalog = tc.constraint_catalog and
-               ccu.constraint_schema = tc.constraint_schema and
-               ccu.constraint_name = tc.constraint_name
-
-    where constraint_type = 'UNIQUE'
-
-    group by tc.table_schema, tc.table_name, tc.constraint_name;
+create view constraint_relation_non_null as
+    select
+        constraint_id(n.nspname, r.relname, a.attname || '_not_null') as id,
+        relation_id(n.nspname, r.relname),
+        a.attname || '_not_null'                                      as name
+    from
+        pg_namespace n,
+        pg_class     r,
+        pg_attribute a
+    where
+        n.oid = r.relnamespace and
+        r.oid = a.attrelid and
+        a.attnum > 0 and
+        not a.attisdropped and
+        a.attnotnull and
+        r.relkind in ('r', 'p') and
+        pg_has_role(r.relowner, 'USAGE');
 
 
 /******************************************************************************
- * constraint_check
+ * constraint_relation_check*
  *****************************************************************************/
-create view constraint_check as
-    select constraint_id(tc.table_schema, tc.table_name, tc.constraint_name) as id,
-           relation_id(tc.table_schema, tc.table_name) as table_id,
-           tc.table_schema::text as schema_name,
-           tc.table_name::text as table_name,
-           tc.constraint_name::text as name,
-           cc.check_clause::text
+create view constraint_relation_check as
+    select
+        constraint_id(ns.nspname, cc.relname, c.conname) as id,
+        relation_id(cns.nspname, cc.relname),
+        c.conname                                        as name
 
-    from information_schema.table_constraints tc
+    from
+        pg_constraint           c
+        inner join pg_namespace ns on ns.oid = c.connamespace
+        inner join pg_class     cc on cc.oid = c.conrelid
+        inner join pg_namespace cns on cns.oid = cc.relnamespace
+    where
+        c.contype = 'c'
+    union all
+    select *
+    from
+        constraint_relation_non_null;
 
-    inner join information_schema.check_constraints cc
-            on cc.constraint_catalog = tc.constraint_catalog and
-               cc.constraint_schema = tc.constraint_schema and
-               cc.constraint_name = tc.constraint_name;
+create view constraint_relation_check_expr as
+    select
+        constraint_id(ns.nspname, cc.relname, c.conname) as id,
+        pg_get_expr(c.conbin, coalesce(cc.oid, 0))       as expr
 
+    from
+        pg_constraint           c
+        inner join pg_namespace ns on ns.oid = c.connamespace
+        inner join pg_class     cc on cc.oid = c.conrelid
+        inner join pg_namespace cns on cns.oid = cc.relnamespace
+    where
+        c.contype = 'c'
+    union all
+    select
+        id,
+        (column_id).name || ' IS NOT NULL' as expr
+    from
+        constraint_relation_non_null_column cruc;
+
+/******************************************************************************
+ * constraint_relation_unique*
+ *****************************************************************************/
+create view constraint_relation_unique as
+    select
+        constraint_id(ns.nspname, cc.relname, c.conname) as id,
+        relation_id(cns.nspname, cc.relname),
+        c.conname                                        as name
+
+    from
+        pg_constraint           c
+        inner join pg_namespace ns on ns.oid = c.connamespace
+        inner join pg_class     cc on cc.oid = c.conrelid
+        inner join pg_namespace cns on cns.oid = cc.relnamespace
+    where
+        c.contype = 'u';
+
+create view constraint_relation_unique_column as
+    select
+        constraint_id(ns.nspname, cc.relname, c.conname) as id,
+        column_id(ns.nspname, cc.relname, a.attname)
+    from
+        pg_constraint           c
+        inner join pg_namespace ns on ns.oid = c.connamespace
+        inner join pg_class     cc on cc.oid = c.conrelid
+        inner join pg_namespace cns on cns.oid = cc.relnamespace
+        inner join pg_attribute a on a.attrelid = cc.oid and a.attnum = any(c.conkey)
+    where
+        c.contype = 'u';
 
 /******************************************************************************
  * extension
