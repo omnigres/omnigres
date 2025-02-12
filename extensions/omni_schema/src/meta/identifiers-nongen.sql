@@ -1,5 +1,7 @@
 /*
-This code is based on meta from the Aquameta project (https://github.com/aquameta/meta):
+This code is partially based on meta from the Aquameta project (https://github.com/aquameta/meta),
+licensed under the terms of BSD-2 Clause License. It started off as an integration but became a
+significant re-working.
 
 BSD 2-Clause License
 
