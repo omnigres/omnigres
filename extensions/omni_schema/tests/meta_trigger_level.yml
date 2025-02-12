@@ -1,0 +1,23 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_schema cascade
+    - create schema test
+    - create table test.test_table (id int generated always as identity)
+    - create function test.test_function() returns trigger as 'BEGIN END;' language plpgsql
+
+tests:
+
+- name: created trigger shows up with row
+  steps:
+    - query: create trigger test_trigger before insert on test.test_table for each row execute function test.test_function()
+    - query: select level from omni_schema.trigger_level where id = omni_schema.trigger_id('test','test_table','test_trigger')
+      results:
+      - level: row
+
+- name: created trigger shows up with statement
+  steps:
+    - query: create trigger test_trigger after insert on test.test_table for each statement execute function test.test_function()
+    - query: select level from omni_schema.trigger_level where id = omni_schema.trigger_id('test','test_table','test_trigger')
+      results:
+      - level: statement
