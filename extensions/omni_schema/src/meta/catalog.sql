@@ -31,17 +31,17 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 -- returns an array of types, given an identity_args string (as provided by pg_get_function_identity_arguments())
-create or replace function _get_function_type_sig_array(proc regprocedure) returns text[]
+create or replace function _get_function_type_sig_array(p pg_proc) returns text[]
     language sql as
 $$
-select array_agg(format_type(t.oid, null) order by ordinality)
-from pg_proc p
-         inner join lateral ( select typ, ordinality
-                              from unnest(p.proargtypes) with ordinality as t(typ, ordinality)
-                             ) as arg(typ, ordinality)
-                    on true
-         inner join pg_type t on t.oid = arg.typ
-where p.oid = proc
+select
+    array_agg(format_type(typ, null) order by ordinality)
+from
+    (select
+         typ,
+         ordinality
+     from
+         unnest(p.proargtypes) with ordinality as t(typ, ordinality)) as arg(typ, ordinality)
 $$ set search_path = '', stable;
 
 /******************************************************************************
@@ -231,7 +231,7 @@ create view cast_function as
         function_id(
             pns.nspname,
             p.proname,
-            _get_function_type_sig_array(p.oid)
+            _get_function_type_sig_array(p)
         )
     from
         pg_catalog.pg_cast                 c
@@ -593,7 +593,7 @@ create or replace view "callable" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(p.oid) as type_sig
+                _get_function_type_sig_array(p) as type_sig
             from
                 pg_proc                            p
                 inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace)
@@ -617,7 +617,7 @@ create or replace view "callable_function" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(p.oid) as type_sig
+                _get_function_type_sig_array(p) as type_sig
             from
                 pg_proc                            p
                 inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
@@ -638,7 +638,7 @@ create or replace view "callable_argument_name" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(p.oid) as type_sig,
+                _get_function_type_sig_array(p) as type_sig,
                 argname, ordinality
             from
                 pg_proc                            p
@@ -662,7 +662,7 @@ create or replace view "callable_argument_type" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(p.oid) as type_sig,
+                _get_function_type_sig_array(p) as type_sig,
                 argtype, ordinality
             from
                 pg_proc                            p
@@ -687,7 +687,7 @@ create or replace view "callable_argument_mode" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(p.oid) as type_sig,
+                _get_function_type_sig_array(p) as type_sig,
                 argmode, ordinality
             from
                 pg_proc                            p
@@ -716,7 +716,7 @@ create or replace view "callable_argument_default" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(p.oid) as type_sig,
+                _get_function_type_sig_array(p) as type_sig,
                 argdefault, ordinality
             from
                 pg_proc                            p
@@ -740,7 +740,7 @@ create or replace view "callable_aggregate" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(p.oid) as type_sig
+                _get_function_type_sig_array(p) as type_sig
             from
                 pg_proc                            p
                 inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
@@ -761,7 +761,7 @@ create or replace view "callable_window" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(p.oid) as type_sig
+                _get_function_type_sig_array(p) as type_sig
             from
                 pg_proc                            p
                 inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
@@ -782,7 +782,7 @@ create or replace view "callable_procedure" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(p.oid) as type_sig
+                _get_function_type_sig_array(p) as type_sig
             from
                 pg_proc                            p
                 inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
@@ -803,7 +803,7 @@ with
         select
             n.nspname                                                               as "schema_name",
             p.proname                                                               as "name",
-            _get_function_type_sig_array(p.oid) as type_sig
+            _get_function_type_sig_array(p) as type_sig
         from
             pg_proc                            p
             inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
@@ -824,7 +824,7 @@ create or replace view "callable_stable" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(p.oid) as type_sig
+                _get_function_type_sig_array(p) as type_sig
             from
                 pg_proc                            p
                 inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
@@ -845,7 +845,7 @@ create or replace view "callable_volatile" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(p.oid) as type_sig
+                _get_function_type_sig_array(p) as type_sig
             from
                 pg_proc                            p
                 inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
@@ -866,7 +866,7 @@ create or replace view "callable_parallel_safe" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(p.oid) as type_sig
+                _get_function_type_sig_array(p) as type_sig
             from
                 pg_proc                            p
                 inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
@@ -887,7 +887,7 @@ create or replace view "callable_parallel_restricted" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(p.oid) as type_sig
+                _get_function_type_sig_array(p) as type_sig
             from
                 pg_proc                            p
                 inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
@@ -908,7 +908,7 @@ create or replace view "callable_parallel_unsafe" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(p.oid) as type_sig
+                _get_function_type_sig_array(p) as type_sig
             from
                 pg_proc                            p
                 inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
@@ -929,7 +929,7 @@ create or replace view "callable_security_definer" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(p.oid) as type_sig
+                _get_function_type_sig_array(p) as type_sig
             from
                 pg_proc                            p
                 inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
@@ -950,7 +950,7 @@ create or replace view "callable_security_invoker" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(p.oid) as type_sig
+                _get_function_type_sig_array(p) as type_sig
             from
                 pg_proc                            p
                 inner join pg_catalog.pg_namespace n on n.oid = p.pronamespace
@@ -971,7 +971,7 @@ create or replace view "callable_language" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(p.oid) as type_sig,
+                _get_function_type_sig_array(p) as type_sig,
                 p.prolang
             from
                 pg_proc                            p
@@ -994,7 +994,7 @@ create or replace view "callable_acl" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(p.oid) as type_sig,
+                _get_function_type_sig_array(p) as type_sig,
                 p.proacl
             from
                 pg_proc                            p
@@ -1017,7 +1017,7 @@ create or replace view "callable_owner" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(p.oid) as type_sig,
+                _get_function_type_sig_array(p) as type_sig,
                 p.proowner
             from
                 pg_proc                            p
@@ -1039,7 +1039,7 @@ create or replace view "callable_body" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(p.oid) as type_sig,
+                _get_function_type_sig_array(p) as type_sig,
                 _pg_get_function_sqlbody(p) as body
             from
                 pg_proc                            p
@@ -1062,7 +1062,7 @@ create or replace view "callable_return_type" as
             select
                 n.nspname                                                               as "schema_name",
                 p.proname                                                               as "name",
-                _get_function_type_sig_array(p.oid) as type_sig,
+                _get_function_type_sig_array(p) as type_sig,
                 _pg_get_function_result(p.oid)                                          as "return_type",
                 p.prorettype                                                            as "return_type_id",
                 p.proretset as "returns_set"
