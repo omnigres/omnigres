@@ -150,3 +150,8 @@ create function trigger_id_to_relation_id(trigger_id trigger_id) returns relatio
 create cast (trigger_id as relation_id) with function trigger_id_to_relation_id(trigger_id) as assignment;
 create function field_id_to_column_id(field_id field_id) returns column_id as $_$select column_id((field_id).schema_name, (field_id).relation_name, (field_id).column_name) $_$ immutable language sql;
 create cast (field_id as column_id) with function field_id_to_column_id(field_id) as assignment;
+
+perform omni_types.sum_type('object_id', variadic array_agg(t.oid::regtype))
+from pg_type t
+    inner join pg_namespace ns on ns.oid = t.typnamespace and ns.nspname = current_schema
+where t.typname like '%_id';
