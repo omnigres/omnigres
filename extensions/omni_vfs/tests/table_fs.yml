@@ -211,6 +211,10 @@ tests:
     query: |
       select omni_vfs.write(omni_vfs.table_fs('fs'), '/file', 'hello world', create_file => true)
 
+  - name: create file with null content
+    query: |
+      select omni_vfs.write(omni_vfs.table_fs('fs'), '/null', null, create_file => true)
+
   - name: can get file info
     query: select size, kind from omni_vfs.file_info(omni_vfs.table_fs('fs'), 'file')
     results:
@@ -234,7 +238,13 @@ tests:
     binary: true
     results:
     - data: 0x68656c6c6f20776f726c64
-  
+
+  - name: read data from null file
+    query: select omni_vfs.read(omni_vfs.table_fs('fs'), '/null') as data
+    binary: true
+    results:
+      - data: 0x
+
   - name: read data from file with offset
     # should return world (skipping 'hello ')
     query: select omni_vfs.read(omni_vfs.table_fs('fs'), '/file', 7) as data

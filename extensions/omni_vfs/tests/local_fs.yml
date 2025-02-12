@@ -130,6 +130,19 @@ tests:
   - content: hello world
     fully_written: true
 
+- name: creating a file in a local filesystem with a null content
+  query: |
+    with filesystems as (select 'omni_vfs_local_fs_test_' || gen_random_uuid() || '/test'                    as filename,
+                                omni_vfs.local_fs((select value from omni_os.env where variable = 'TMPDIR')) as fs),
+         written as (select fs, filename, omni_vfs.write(fs, filename, null, create_file => true) as bytes
+                     from filesystems)
+    select convert_from(omni_vfs.read(fs, filename), 'utf-8') as content,
+           bytes = octet_length('')                as fully_written
+    from written
+  results:
+  - content: ""
+    fully_written: true
+
 - name: appending a file in a local filesystem
   query: |
     with filesystems as (select 'omni_vfs_local_fs_test_' || gen_random_uuid() || '/test'                    as filename,
