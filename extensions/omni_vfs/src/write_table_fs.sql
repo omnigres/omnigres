@@ -6,6 +6,9 @@ declare
     _file_id bigint  = table_fs_file_id(fs, path);
     created  boolean := false;
 begin
+    if content is null then
+        content := '';
+    end if;
     if _file_id is null then
         if create_file then
             insert into omni_vfs.table_fs_files (filesystem_id, filename, kind)

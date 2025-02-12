@@ -484,6 +484,8 @@ append boolean default false) returns void
   text *content;
   if (!PG_ARGISNULL(2)) {
     content = PG_GETARG_TEXT_PP(2);
+  } else {
+    content = cstring_to_text("");
   }
 
   size_t actual_size = fwrite(VARDATA_ANY(content), 1, VARSIZE_ANY_EXHDR(content), fp);
