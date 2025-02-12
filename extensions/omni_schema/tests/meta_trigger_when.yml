@@ -1,0 +1,31 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_schema cascade
+    - create schema test
+    - create table test.test_table (id int generated always as identity)
+    - create view test.test_view as select * from test.test_table
+    - create function test.test_function() returns trigger as 'BEGIN END;' language plpgsql
+
+tests:
+
+- name: created trigger shows up with before
+  steps:
+    - query: create trigger test_trigger before insert on test.test_table for each row execute function test.test_function()
+    - query: select "when" from omni_schema.trigger_when where id = omni_schema.trigger_id('test','test_table','test_trigger')
+      results:
+      - when: before
+
+- name: created trigger shows up with after
+  steps:
+    - query: create trigger test_trigger after insert on test.test_table for each row execute function test.test_function()
+    - query: select "when" from omni_schema.trigger_when where id = omni_schema.trigger_id('test','test_table','test_trigger')
+      results:
+      - when: after
+
+- name: created trigger shows up with instead of
+  steps:
+    - query: create trigger test_trigger instead of insert on test.test_view for each row execute function test.test_function()
+    - query: select "when" from omni_schema.trigger_when where id = omni_schema.trigger_id('test','test_view','test_trigger')
+      results:
+      - when: instead

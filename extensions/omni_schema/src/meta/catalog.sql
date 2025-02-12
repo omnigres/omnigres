@@ -1231,19 +1231,33 @@ create view trigger as
            t.id as relation_id,
            t_pgn.nspname::text as schema_name,
            pgc.relname::text as relation_name,
-           pg_trigger.tgname::text as name,
---            f.id as function_id,
-           case when (tgtype >> 1 & 1)::bool then 'before'
-                when (tgtype >> 6 & 1)::bool then 'before'
-                else 'after'
-           end as "when",
-           (tgtype >> 2 & 1)::bool as "insert",
-           (tgtype >> 3 & 1)::bool as "delete",
-           (tgtype >> 4 & 1)::bool as "update",
-           (tgtype >> 5 & 1)::bool as "truncate",
-           case when (tgtype & 1)::bool then 'row'
-                else 'statement'
-           end as level
+           pg_trigger.tgname::text as name
+
+    from pg_trigger
+
+    inner join pg_class pgc
+            on pgc.oid = tgrelid
+
+    inner join pg_namespace t_pgn
+            on t_pgn.oid = pgc.relnamespace
+
+    inner join "schema" t_s
+            on t_s.name = t_pgn.nspname
+
+    inner join "table" t
+            on t.schema_id = t_s.id and
+               t.name = pgc.relname
+
+    where
+           not tgisinternal;
+
+create view trigger_callable as
+    select trigger_id(t_pgn.nspname, pgc.relname, pg_trigger.tgname) as id,
+           function_id(
+               f_pgn.nspname,
+               pgp.proname,
+               _get_function_type_sig_array(pg_get_function_identity_arguments(pgp.oid))
+           ) as callable_id
 
     from pg_trigger
 
@@ -1265,10 +1279,107 @@ create view trigger as
 
     inner join pg_namespace f_pgn
             on f_pgn.oid = pgp.pronamespace
+    where
+           not tgisinternal;
 
-    inner join "schema" f_s
-            on f_s.name = f_pgn.nspname;
+create view trigger_when as
+    select trigger_id(t_pgn.nspname, pgc.relname, pg_trigger.tgname) as id,
+           case when (tgtype >> 1 & 1)::bool then 'before'
+                when (tgtype >> 6 & 1)::bool then 'instead'
+                else 'after'
+           end as "when"
 
+    from pg_trigger
+
+    inner join pg_class pgc
+            on pgc.oid = tgrelid
+
+    inner join pg_namespace t_pgn
+            on t_pgn.oid = pgc.relnamespace
+    where 
+           not tgisinternal;
+
+create view trigger_insert as
+    select trigger_id(t_pgn.nspname, pgc.relname, pg_trigger.tgname) as id
+    from pg_trigger
+
+    inner join pg_class pgc
+            on pgc.oid = tgrelid
+
+    inner join pg_namespace t_pgn
+            on t_pgn.oid = pgc.relnamespace
+    where
+           not tgisinternal
+           and (tgtype >> 2 & 1)::bool;
+
+create view trigger_delete as
+    select trigger_id(t_pgn.nspname, pgc.relname, pg_trigger.tgname) as id
+    from pg_trigger
+
+    inner join pg_class pgc
+            on pgc.oid = tgrelid
+
+    inner join pg_namespace t_pgn
+            on t_pgn.oid = pgc.relnamespace
+    where
+           not tgisinternal
+           and (tgtype >> 3 & 1)::bool;
+
+create view trigger_update as
+    select trigger_id(t_pgn.nspname, pgc.relname, pg_trigger.tgname) as id
+    from pg_trigger
+
+    inner join pg_class pgc
+            on pgc.oid = tgrelid
+
+    inner join pg_namespace t_pgn
+            on t_pgn.oid = pgc.relnamespace
+    where
+
+           not tgisinternal
+           and (tgtype >> 4 & 1)::bool;
+
+create view trigger_truncate as
+    select trigger_id(t_pgn.nspname, pgc.relname, pg_trigger.tgname) as id
+    from pg_trigger
+
+    inner join pg_class pgc
+            on pgc.oid = tgrelid
+
+    inner join pg_namespace t_pgn
+            on t_pgn.oid = pgc.relnamespace
+    where
+           not tgisinternal
+           and (tgtype >> 5 & 1)::bool;
+
+create view trigger_level as
+    select trigger_id(t_pgn.nspname, pgc.relname, pg_trigger.tgname) as id,
+    case when (tgtype & 1)::bool then 'row'
+         else 'statement'
+    end as level
+
+    from pg_trigger
+
+    inner join pg_class pgc
+            on pgc.oid = tgrelid
+
+    inner join pg_namespace t_pgn
+            on t_pgn.oid = pgc.relnamespace
+    where
+           not tgisinternal;
+
+create view trigger_enabled as
+    select trigger_id(t_pgn.nspname, pgc.relname, pg_trigger.tgname) as id
+    from pg_trigger
+
+    inner join pg_class pgc
+            on pgc.oid = tgrelid
+
+    inner join pg_namespace t_pgn
+            on t_pgn.oid = pgc.relnamespace
+    where
+           not tgisinternal
+           and tgenabled <> 'D';
 
 /******************************************************************************
  * role
