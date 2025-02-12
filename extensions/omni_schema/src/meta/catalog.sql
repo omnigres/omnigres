@@ -34,11 +34,11 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 create or replace function _get_function_type_sig_array(proc regprocedure) returns text[]
     language sql as
 $$
-select array_agg(format_type(t.oid, null))
+select array_agg(format_type(t.oid, null) order by ordinality)
 from pg_proc p
-         inner join lateral ( select typ
+         inner join lateral ( select typ, ordinality
                               from unnest(p.proargtypes) with ordinality as t(typ, ordinality)
-                              order by ordinality) as arg(typ)
+                             ) as arg(typ, ordinality)
                     on true
          inner join pg_type t on t.oid = arg.typ
 where p.oid = proc
