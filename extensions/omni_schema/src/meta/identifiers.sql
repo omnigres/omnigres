@@ -29,66 +29,66 @@ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-create type cast_id as (source_type_schema_name text,source_type_name text,target_type_schema_name text,target_type_name text);
-create function cast_id(source_type_schema_name text,source_type_name text,target_type_schema_name text,target_type_name text) returns cast_id as $_$ select row(source_type_schema_name,source_type_name,target_type_schema_name,target_type_name)::cast_id $_$ immutable language sql;
-create type column_id as (schema_name text,relation_name text,name text);
-create function column_id(schema_name text,relation_name text,name text) returns column_id as $_$ select row(schema_name,relation_name,name)::column_id $_$ immutable language sql;
-create type constraint_id as (schema_name text,relation_name text,name text);
-create function constraint_id(schema_name text,relation_name text,name text) returns constraint_id as $_$ select row(schema_name,relation_name,name)::constraint_id $_$ immutable language sql;
-create type constraint_check_id as (schema_name text,table_name text,name text,column_names text);
-create function constraint_check_id(schema_name text,table_name text,name text,column_names text) returns constraint_check_id as $_$ select row(schema_name,table_name,name,column_names)::constraint_check_id $_$ immutable language sql;
-create type constraint_unique_id as (schema_name text,table_name text,name text,column_names text);
-create function constraint_unique_id(schema_name text,table_name text,name text,column_names text) returns constraint_unique_id as $_$ select row(schema_name,table_name,name,column_names)::constraint_unique_id $_$ immutable language sql;
-create type extension_id as (name text);
-create function extension_id(name text) returns extension_id as $_$ select row(name)::extension_id $_$ immutable language sql;
-create type field_id as (schema_name text,relation_name text,pk_column_names text[],pk_values text[],column_name text);
-create function field_id(schema_name text,relation_name text,pk_column_names text[],pk_values text[],column_name text) returns field_id as $_$ select row(schema_name,relation_name,pk_column_names,pk_values,column_name)::field_id $_$ immutable language sql;
-create type foreign_column_id as (schema_name text,name text);
-create function foreign_column_id(schema_name text,name text) returns foreign_column_id as $_$ select row(schema_name,name)::foreign_column_id $_$ immutable language sql;
-create type foreign_data_wrapper_id as (name text);
-create function foreign_data_wrapper_id(name text) returns foreign_data_wrapper_id as $_$ select row(name)::foreign_data_wrapper_id $_$ immutable language sql;
-create type foreign_key_id as (schema_name text,relation_name text,name text);
-create function foreign_key_id(schema_name text,relation_name text,name text) returns foreign_key_id as $_$ select row(schema_name,relation_name,name)::foreign_key_id $_$ immutable language sql;
-create type foreign_server_id as (name text);
-create function foreign_server_id(name text) returns foreign_server_id as $_$ select row(name)::foreign_server_id $_$ immutable language sql;
-create type foreign_table_id as (schema_name text,name text);
-create function foreign_table_id(schema_name text,name text) returns foreign_table_id as $_$ select row(schema_name,name)::foreign_table_id $_$ immutable language sql;
-create type function_id as (schema_name text,name text,parameters text[]);
-create function function_id(schema_name text,name text,parameters text[]) returns function_id as $_$ select row(schema_name,name,parameters)::function_id $_$ immutable language sql;
-create type procedure_id as (schema_name text,name text,parameters text[]);
-create function procedure_id(schema_name text,name text,parameters text[]) returns procedure_id as $_$ select row(schema_name,name,parameters)::procedure_id $_$ immutable language sql;
-create type operator_id as (schema_name text,name text,left_arg_type_schema_name text,left_arg_type_name text,right_arg_type_schema_name text,right_arg_type_name text);
-create function operator_id(schema_name text,name text,left_arg_type_schema_name text,left_arg_type_name text,right_arg_type_schema_name text,right_arg_type_name text) returns operator_id as $_$ select row(schema_name,name,left_arg_type_schema_name,left_arg_type_name,right_arg_type_schema_name,right_arg_type_name)::operator_id $_$ immutable language sql;
-create type policy_id as (schema_name text,relation_name text,name text);
-create function policy_id(schema_name text,relation_name text,name text) returns policy_id as $_$ select row(schema_name,relation_name,name)::policy_id $_$ immutable language sql;
-create type relation_id as (schema_name text,name text);
-create function relation_id(schema_name text,name text) returns relation_id as $_$ select row(schema_name,name)::relation_id $_$ immutable language sql;
-create type role_id as (name text);
-create function role_id(name text) returns role_id as $_$ select row(name)::role_id $_$ immutable language sql;
-create type role_setting_id as (role_name text, database_name text, setting_name text);
-create function role_setting_id(role_name text, database_name text, setting_name text) returns role_setting_id as $_$ select row(role_name,database_name,setting_name)::role_setting_id $_$ immutable language sql;
-create type row_id as (schema_name text,relation_name text,pk_column_names text[],pk_values text[]);
-create function row_id(schema_name text,relation_name text,pk_column_names text[],pk_values text[]) returns row_id as $_$ select row(schema_name,relation_name,pk_column_names,pk_values)::row_id $_$ immutable language sql;
-create type schema_id as (name text);
-create function schema_id(name text) returns schema_id as $_$ select row(name)::schema_id $_$ immutable language sql;
-create type sequence_id as (schema_name text,name text);
-create function sequence_id(schema_name text,name text) returns sequence_id as $_$ select row(schema_name,name)::sequence_id $_$ immutable language sql;
-create type table_id as (schema_name text,name text);
-create function table_id(schema_name text,name text) returns table_id as $_$ select row(schema_name,name)::table_id $_$ immutable language sql;
-create type table_privilege_id as (schema_name text,relation_name text,role text,type text);
-create function table_privilege_id(schema_name text,relation_name text,role text,type text) returns table_privilege_id as $_$ select row(schema_name,relation_name,role,type)::table_privilege_id $_$ immutable language sql;
-create type trigger_id as (schema_name text,relation_name text,name text);
-create function trigger_id(schema_name text,relation_name text,name text) returns trigger_id as $_$ select row(schema_name,relation_name,name)::trigger_id $_$ immutable language sql;
-create type type_id as (schema_name text,name text);
-create function type_id(schema_name text,name text) returns type_id as $_$ select row(schema_name,name)::type_id $_$ immutable language sql;
-create type view_id as (schema_name text,name text);
-create function view_id(schema_name text,name text) returns view_id as $_$ select row(schema_name,name)::view_id $_$ immutable language sql;
+create type cast_id as (source_type_schema_name name,source_type_name name,target_type_schema_name name,target_type_name name);
+create function cast_id(source_type_schema_name name,source_type_name name,target_type_schema_name name,target_type_name name) returns cast_id as $_$ select row(source_type_schema_name,source_type_name,target_type_schema_name,target_type_name)::cast_id $_$ immutable language sql;
+create type column_id as (schema_name name,relation_name name,name name);
+create function column_id(schema_name name,relation_name name,name name) returns column_id as $_$ select row(schema_name,relation_name,name)::column_id $_$ immutable language sql;
+create type constraint_id as (schema_name name,relation_name name,name name);
+create function constraint_id(schema_name name,relation_name name,name name) returns constraint_id as $_$ select row(schema_name,relation_name,name)::constraint_id $_$ immutable language sql;
+create type constraint_check_id as (schema_name name,table_name name,name name,column_names name);
+create function constraint_check_id(schema_name name,table_name name,name name,column_names name) returns constraint_check_id as $_$ select row(schema_name,table_name,name,column_names)::constraint_check_id $_$ immutable language sql;
+create type constraint_unique_id as (schema_name name,table_name name,name name,column_names name);
+create function constraint_unique_id(schema_name name,table_name name,name name,column_names name) returns constraint_unique_id as $_$ select row(schema_name,table_name,name,column_names)::constraint_unique_id $_$ immutable language sql;
+create type extension_id as (name name);
+create function extension_id(name name) returns extension_id as $_$ select row(name)::extension_id $_$ immutable language sql;
+create type field_id as (schema_name name,relation_name name,pk_column_names name[],pk_values name[],column_name name);
+create function field_id(schema_name name,relation_name name,pk_column_names name[],pk_values name[],column_name name) returns field_id as $_$ select row(schema_name,relation_name,pk_column_names,pk_values,column_name)::field_id $_$ immutable language sql;
+create type foreign_column_id as (schema_name name,name name);
+create function foreign_column_id(schema_name name,name name) returns foreign_column_id as $_$ select row(schema_name,name)::foreign_column_id $_$ immutable language sql;
+create type foreign_data_wrapper_id as (name name);
+create function foreign_data_wrapper_id(name name) returns foreign_data_wrapper_id as $_$ select row(name)::foreign_data_wrapper_id $_$ immutable language sql;
+create type foreign_key_id as (schema_name name,relation_name name,name name);
+create function foreign_key_id(schema_name name,relation_name name,name name) returns foreign_key_id as $_$ select row(schema_name,relation_name,name)::foreign_key_id $_$ immutable language sql;
+create type foreign_server_id as (name name);
+create function foreign_server_id(name name) returns foreign_server_id as $_$ select row(name)::foreign_server_id $_$ immutable language sql;
+create type foreign_table_id as (schema_name name,name name);
+create function foreign_table_id(schema_name name,name name) returns foreign_table_id as $_$ select row(schema_name,name)::foreign_table_id $_$ immutable language sql;
+create type function_id as (schema_name name,name name,parameters name[]);
+create function function_id(schema_name name,name name,parameters name[]) returns function_id as $_$ select row(schema_name,name,parameters)::function_id $_$ immutable language sql;
+create type procedure_id as (schema_name name,name name,parameters name[]);
+create function procedure_id(schema_name name,name name,parameters name[]) returns procedure_id as $_$ select row(schema_name,name,parameters)::procedure_id $_$ immutable language sql;
+create type operator_id as (schema_name name,name name,left_arg_type_schema_name name,left_arg_type_name name,right_arg_type_schema_name name,right_arg_type_name name);
+create function operator_id(schema_name name,name name,left_arg_type_schema_name name,left_arg_type_name name,right_arg_type_schema_name name,right_arg_type_name name) returns operator_id as $_$ select row(schema_name,name,left_arg_type_schema_name,left_arg_type_name,right_arg_type_schema_name,right_arg_type_name)::operator_id $_$ immutable language sql;
+create type policy_id as (schema_name name,relation_name name,name name);
+create function policy_id(schema_name name,relation_name name,name name) returns policy_id as $_$ select row(schema_name,relation_name,name)::policy_id $_$ immutable language sql;
+create type relation_id as (schema_name name,name name);
+create function relation_id(schema_name name,name name) returns relation_id as $_$ select row(schema_name,name)::relation_id $_$ immutable language sql;
+create type role_id as (name name);
+create function role_id(name name) returns role_id as $_$ select row(name)::role_id $_$ immutable language sql;
+create type role_setting_id as (role_name name, database_name name, setting_name name);
+create function role_setting_id(role_name name, database_name name, setting_name name) returns role_setting_id as $_$ select row(role_name,database_name,setting_name)::role_setting_id $_$ immutable language sql;
+create type row_id as (schema_name name,relation_name name,pk_column_names name[],pk_values name[]);
+create function row_id(schema_name name,relation_name name,pk_column_names name[],pk_values name[]) returns row_id as $_$ select row(schema_name,relation_name,pk_column_names,pk_values)::row_id $_$ immutable language sql;
+create type schema_id as (name name);
+create function schema_id(name name) returns schema_id as $_$ select row(name)::schema_id $_$ immutable language sql;
+create type sequence_id as (schema_name name,name name);
+create function sequence_id(schema_name name,name name) returns sequence_id as $_$ select row(schema_name,name)::sequence_id $_$ immutable language sql;
+create type table_id as (schema_name name,name name);
+create function table_id(schema_name name,name name) returns table_id as $_$ select row(schema_name,name)::table_id $_$ immutable language sql;
+create type table_privilege_id as (schema_name name,relation_name name,role name,type name);
+create function table_privilege_id(schema_name name,relation_name name,role name,type name) returns table_privilege_id as $_$ select row(schema_name,relation_name,role,type)::table_privilege_id $_$ immutable language sql;
+create type trigger_id as (schema_name name,relation_name name,name name);
+create function trigger_id(schema_name name,relation_name name,name name) returns trigger_id as $_$ select row(schema_name,relation_name,name)::trigger_id $_$ immutable language sql;
+create type type_id as (schema_name name,name name);
+create function type_id(schema_name name,name name) returns type_id as $_$ select row(schema_name,name)::type_id $_$ immutable language sql;
+create type view_id as (schema_name name,name name);
+create function view_id(schema_name name,name name) returns view_id as $_$ select row(schema_name,name)::view_id $_$ immutable language sql;
 create type index_id as
 (
-    schema_name text,
-    name        text
+    schema_name name,
+    name        name
 );
-create function index_id(schema_name text, name text) returns index_id as
+create function index_id(schema_name name, name name) returns index_id as
 $_$
 select row (schema_name,name)::index_id
 $_$ immutable language sql;

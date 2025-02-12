@@ -41,19 +41,19 @@ create cast (field_id as row_id) with function field_id_to_row_id(field_id) as a
 ------------------------------------------------------------------------
 
 -- field_id constructor taking a row_id
-create function field_id(row_id row_id, column_name text) returns field_id as $$
+create function field_id(row_id row_id, column_name name) returns field_id as $$
     select field_id(row_id.schema_name, row_id.relation_name, row_id.pk_column_names, row_id.pk_values, column_name);
 $$ language sql;
 
 
 -- field_id constructor non-array pk
-create function field_id( schema_name text, relation_name text, pk_column_name text, pk_value text, column_name text) returns field_id as $$
+create function field_id( schema_name name, relation_name name, pk_column_name name, pk_value name, column_name name) returns field_id as $$
     select field_id(schema_name, relation_name, array[pk_column_name], array[pk_value], column_name);
 $$ language sql;
 
 
 -- single key row_id constructor
-create function row_id(schema_name text, relation_name text, pk_column_name text, pk_value text) returns row_id as $_$ select row_id(schema_name, relation_name, array[pk_column_name], array[pk_value]) $_$ immutable language sql;
+create function row_id(schema_name text, relation_name name, pk_column_name name, pk_value name) returns row_id as $_$ select row_id(schema_name, relation_name, array[pk_column_name], array[pk_value]) $_$ immutable language sql;
 
 
 ------------------------------------------------------------------------
