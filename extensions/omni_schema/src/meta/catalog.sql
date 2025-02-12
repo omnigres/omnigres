@@ -1267,7 +1267,9 @@ create view trigger as
             on f_pgn.oid = pgp.pronamespace
 
     inner join "schema" f_s
-            on f_s.name = f_pgn.nspname;
+            on f_s.name = f_pgn.nspname
+
+    where not tgisinternal;
 
 
 /******************************************************************************
