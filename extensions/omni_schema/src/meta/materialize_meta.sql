@@ -14,7 +14,7 @@ begin
         select * from "/*{{ view }}*/" with no data;
 --## endfor
 
-    create function refresh_meta() returns void
+    create or replace function refresh_meta() returns void
         language plpgsql
     as
     $refresh_meta$
