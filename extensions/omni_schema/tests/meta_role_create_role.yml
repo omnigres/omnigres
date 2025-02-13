@@ -1,0 +1,19 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_schema cascade
+
+tests:
+
+- name: created role does not show up without createrole
+  steps:
+    - query: create role test_without_createrole nocreaterole;
+    - query: select id from omni_schema.role_create_role where id = omni_schema.role_id('test_without_createrole');
+      results: []
+
+- name: created role shows up with expected values when it can create db
+  steps:
+    - query: create role test_with_createrole createrole;
+    - query: select id from omni_schema.role_create_role where id = omni_schema.role_id('test_with_createrole');
+      results:
+      - id: (test_with_createrole)
