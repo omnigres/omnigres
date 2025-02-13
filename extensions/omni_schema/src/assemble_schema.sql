@@ -18,6 +18,9 @@ declare
     error_message                   text;
     error_detail text;
     try_again                       boolean = false;
+    failed_files                    text[] = {};  
+    retry_count                     int = 0;     
+    max_retries                     int = 3;      
 begin
     -- statement execution status
     create temp table omni_schema_execution_status
@@ -37,6 +40,8 @@ begin
         execution_successful     boolean not null default false,
         -- error for last execution of the statement
         last_execution_error     text
+        -- Retry count to track attempts
+        retry_count              int default 0
     ) on commit drop;
 
     <<top>>
@@ -151,6 +156,58 @@ begin
                 */
                 perform dblink_connect(rec.filepath, conn_info);
             end loop;
+         -- Retry logic implementation
+        while try_again loop
+        -- Process all files in the execution status table, retrying failed ones first
+           for current_filename in
+            select filepath from omni_schema_execution_status
+            where execution_successful = false
+            order by coalesce(omni_schema.languages.priority, omni_schema.auxiliary_tools.priority) desc, id
+           loop
+            -- Attempt execution of file statements
+            for rec in
+                select * from omni_schema_execution_status
+                where filepath = current_filename and execution_successful = false
+            loop
+                begin
+                    -- Execute statement
+                    perform execute_statement(rec);  -- Replace this with your execution logic
+
+                    -- If execution is successful, update status and reset retry count
+                    update omni_schema_execution_status
+                    set execution_successful = true, retry_count = 0
+                    where id = rec.id;
+
+                exception
+                    when others then
+                        -- Increment retry count for failed file
+                        update omni_schema_execution_status
+                        set retry_count = retry_count + 1
+                        where id = rec.id;
+
+                        -- If retry count is less than max retries, add file to retry queue
+                        if retry_count < max_retries then
+                            failed_files= array_append(failed_files, rec.filepath);
+                        else
+                            -- After max retries, mark as permanently failed
+                            update omni_schema_execution_status
+                            set last_execution_error = 'Max retries reached'
+                            where id = rec.id;
+                        end if;
+                end;
+            end loop;
+        end loop;
+
+            -- If there are failed files to retry, retry them
+              if array_length(failed_files, 1) > 0 then
+              -- Sort and retry failed files respecting priority
+               failed_files = array_sort(failed_files);  -- Sort based on priority
+               try_again = true;
+              else
+               try_again = false;  -- No more retries left
+             end if;
+            end loop;
+   
         -- execute until all statements are successfully executed or no more executions are successful
         while true
             loop
