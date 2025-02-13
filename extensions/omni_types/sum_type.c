@@ -14,6 +14,7 @@
 #include <catalog/pg_cast.h>
 #include <catalog/pg_collation.h>
 #include <catalog/pg_language.h>
+#include <catalog/pg_operator.h>
 #include <catalog/pg_proc.h>
 #include <catalog/pg_type.h>
 #include <commands/typecmds.h>
@@ -84,6 +85,20 @@ PG_FUNCTION_INFO_V1(sum_cast_to);
  * @return
  */
 PG_FUNCTION_INFO_V1(sum_cast_from);
+
+/**
+ * Equality comparison of the sum type
+ * @param fcinfo
+ * @return
+ */
+PG_FUNCTION_INFO_V1(sum_eq);
+
+/**
+ * Non-equality comparison of the sum type
+ * @param fcinfo
+ * @return
+ */
+PG_FUNCTION_INFO_V1(sum_neq);
 
 /**
  * Extract variant value from a sum type.
@@ -570,6 +585,50 @@ static void get_variant_val(Datum arg, Oid sum_type_oid, Oid *variant, Datum *va
   }
 }
 
+static bool sum_equal(Oid type, Datum arg1, Datum arg2, Oid collation) {
+  Oid variant1, variant2;
+  Datum val1, val2;
+  get_variant_val(arg1, type, &variant1, &val1, NULL);
+  get_variant_val(arg2, type, &variant2, &val2, NULL);
+
+  // Compare the type first
+  if (variant1 != variant2) {
+    PG_RETURN_BOOL(false);
+  }
+
+  Oid eq_op_oid = OpernameGetOprid(list_make1(makeString("=")), variant1, variant2);
+  if (!OidIsValid(eq_op_oid))
+    ereport(ERROR, (errmsg("operator = does not exist")));
+
+  RegProcedure eq_func_oid = get_opcode(eq_op_oid);
+  if (!OidIsValid(eq_func_oid))
+    ereport(ERROR, (errmsg("operator = does not have a valid underlying function")));
+
+  FmgrInfo eq_fmgr;
+  fmgr_info(eq_func_oid, &eq_fmgr);
+
+  Datum result = FunctionCall2Coll(&eq_fmgr, collation, val1, val2);
+  return DatumGetBool(result);
+}
+
+Datum sum_eq(PG_FUNCTION_ARGS) {
+  Oid type = get_fn_expr_argtype(fcinfo->flinfo, 0);
+
+  Datum arg1 = PG_GETARG_DATUM(0);
+  Datum arg2 = PG_GETARG_DATUM(1);
+
+  return sum_equal(type, arg1, arg2, PG_GET_COLLATION());
+}
+
+Datum sum_neq(PG_FUNCTION_ARGS) {
+  Oid type = get_fn_expr_argtype(fcinfo->flinfo, 0);
+
+  Datum arg1 = PG_GETARG_DATUM(0);
+  Datum arg2 = PG_GETARG_DATUM(1);
+
+  return !sum_equal(type, arg1, arg2, PG_GET_COLLATION());
+}
+
 Datum sum_type(PG_FUNCTION_ARGS) {
 
   if (PG_ARGISNULL(0)) {
@@ -748,6 +807,46 @@ Datum sum_type(PG_FUNCTION_ARGS) {
 #endif
                  type.objectId, true, InvalidOid, InvalidOid, NULL, NULL, false, TYPALIGN_INT,
                  TYPSTORAGE_EXTENDED, -1, 0, false, DEFAULT_COLLATION_OID);
+
+  // Create comparison operators
+  {
+    char *eq_sum = psprintf("%s_eq", NameStr(*name));
+    ObjectAddress eq_sum_proc =
+        ProcedureCreate(eq_sum, namespace, false, false, BOOLOID, GetUserId(), ClanguageId,
+                        F_FMGR_C_VALIDATOR, "sum_eq", probin,
+#if PG_MAJORVERSION_NUM > 13
+                        NULL,
+#endif
+                        PROKIND_FUNCTION,
+
+                        false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
+                        buildoidvector((Oid[2]){type.objectId, type.objectId}, 2),
+                        PointerGetDatum(NULL), PointerGetDatum(NULL), PointerGetDatum(NULL), NIL,
+                        PointerGetDatum(NULL), PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
+
+    ObjectAddress eqop =
+        OperatorCreate("=", namespace, type.objectId, type.objectId, eq_sum_proc.objectId,
+                       list_make1(makeString("=")), list_make1(makeString("<>")), InvalidOid,
+                       InvalidOid, true, true);
+
+    char *neq_sum = psprintf("%s_neq", NameStr(*name));
+    ObjectAddress neq_sum_proc =
+        ProcedureCreate(neq_sum, namespace, false, false, BOOLOID, GetUserId(), ClanguageId,
+                        F_FMGR_C_VALIDATOR, "sum_neq", probin,
+#if PG_MAJORVERSION_NUM > 13
+                        NULL,
+#endif
+                        PROKIND_FUNCTION,
+
+                        false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
+                        buildoidvector((Oid[2]){type.objectId, type.objectId}, 2),
+                        PointerGetDatum(NULL), PointerGetDatum(NULL), PointerGetDatum(NULL), NIL,
+                        PointerGetDatum(NULL), PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
+    ObjectAddress neqop =
+        OperatorCreate("<>", namespace, type.objectId, type.objectId, neq_sum_proc.objectId,
+                       list_make1(makeString("<>")), list_make1(makeString("=")), InvalidOid,
+                       InvalidOid, true, true);
+  }
 
   // Create casts
   {

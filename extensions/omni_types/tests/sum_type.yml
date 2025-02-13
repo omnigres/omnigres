@@ -675,3 +675,44 @@ tests:
     results:
     - typname: sum_type
       variants: '{ok,result}'
+
+- name: implicit casting into sum type
+  steps:
+  - select omni_types.sum_type('typ', 'int','text')
+  - create table tab (v typ)
+  - name: casting from variant
+    query: insert into tab values (1)
+
+- name: assignment casting from sum type
+  steps:
+  - select omni_types.sum_type('typ', 'int','text')
+  - create table tab (v int)
+  - name: casting into variant
+    query: insert into tab values (1::typ)
+
+- name: implicit casting from sum type
+  # Should not work
+  steps:
+  - select omni_types.sum_type('typ', 'int','text')
+  - create function test(int) returns int language sql as $$select $1 $$
+  - query: select test(1::typ)
+    error: function test(typ) does not exist
+
+- name: sum type equality
+  steps:
+    - select omni_types.sum_type('typ', 'int','text')
+    - query: select 1::typ = 1::typ as result
+      results:
+      - result: true
+    - query: select 1::typ != 2::typ as result
+      results:
+      - result: true
+    - query: select 1::typ = 2::typ as result
+      results:
+        - result: false
+    - query: select 1::typ = 'text'::text::typ as result
+      results:
+        - result: false
+    - query: select 'a'::text::typ = 'b'::text::typ as result
+      results:
+        - result: false
