@@ -80,6 +80,7 @@ CACHED_OID(omni_http, http_method);
 CACHED_OID(http_response);
 CACHED_OID(http_request);
 CACHED_OID(http_outcome);
+CACHED_OID(urlpattern);
 
 bool IsOmniHttpdWorker;
 
