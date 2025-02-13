@@ -407,11 +407,46 @@ create view "sequence_table" as
  * table
  *****************************************************************************/
 create view "table" as
-    select relation_id(schemaname, tablename) as id,
-           schema_id(schemaname) as schema_id,
-           schemaname::text as schema_name,
-           tablename::text as name
-    from pg_catalog.pg_tables;
+    select
+        relation_id(ns.nspname, c.relname) as id,
+        schema_id(ns.nspname)              as schema_id,
+        ns.nspname                         as schema_name,
+        c.relname                          as name
+    from
+        pg_class                c
+        inner join pg_namespace ns on ns.oid = c.relnamespace
+    where
+        c.relkind = 'r' or
+        c.relkind = 'p';
+
+create view table_partitioned as
+    select
+        relation_id(ns.nspname, c.relname) as id
+    from
+        pg_class                c
+        inner join pg_namespace ns on ns.oid = c.relnamespace
+    where
+        c.relkind = 'p';
+
+create view table_permanent as
+    select
+        relation_id(ns.nspname, c.relname) as id
+    from
+        pg_class                c
+        inner join pg_namespace ns on ns.oid = c.relnamespace
+    where
+        c.relkind = 'r' and
+        c.relpersistence = 'p';
+
+create view table_temporary as
+    select
+        relation_id(ns.nspname, c.relname) as id
+    from
+        pg_class                c
+        inner join pg_namespace ns on ns.oid = c.relnamespace
+    where
+        c.relkind = 'r' and
+        c.relpersistence = 't';
 
 create view table_rowsecurity as
     select relation_id(schemaname, tablename) as id

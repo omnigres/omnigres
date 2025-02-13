@@ -7,7 +7,7 @@
                                 "sequence_table",
                     "relation_column","relation_column_type","relation_column_position","relation_column_default",
                                       "relation_column_nullable","relation",
-                    "table","table_rowsecurity", "table_forcerowsecurity",
+                    "table","table_permanent", "table_temporary", "table_partitioned", "table_rowsecurity", "table_forcerowsecurity",
                     "view",
                     "callable", "callable_function", "callable_procedure", "callable_return_type", "callable_owner",
                                 "callable_argument_name", "callable_argument_type", "callable_argument_mode", "callable_argument_default",

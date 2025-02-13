@@ -27,3 +27,10 @@ tests:
   steps:
     - query: select id, schema_id, schema_name, name from omni_schema.table where id = omni_schema.relation_id('test', 'empty_materialized_view');
       results: []
+
+- name: temporary table
+  steps:
+    - create temp table temp ()
+    - query: select t.name from omni_schema.table_temporary tt inner join omni_schema.table t on t.id = tt.id
+      results:
+      - name: temp
