@@ -145,6 +145,13 @@ if(NOT DEFINED PG_CONFIG)
             endif()
         endif()
 
+        find_package(LibXml2)
+        if(LibXml2_FOUND)
+            string(APPEND extra_configure_args " --with-libxml")
+        else()
+            message(WARNING "libxml2 is not found")
+        endif()
+
         # Ensure the right OpenSSL gets configured
         if(DEFINED OPENSSL_ROOT_DIR)
             set(OLD_CFLAGS "$ENV{CFLAGS}")
