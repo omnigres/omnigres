@@ -68,6 +68,8 @@
 #error "only evloop is supported, ensure H2O_USE_LIBUV is not set to 1"
 #endif
 
+#include "http_status_reasons.h"
+
 h2o_multithread_receiver_t handler_receiver;
 h2o_multithread_queue_t *handler_queue;
 
@@ -929,6 +931,7 @@ static int handler(handler_message_t *msg) {
       FlushErrorState();
 
       req->res.status = 500;
+      req->res.reason = http_status_reasons[req->res.status];
       h2o_queue_send_inline(&msg->payload.http.msg, H2O_STRLIT("Internal server error"));
       goto cleanup;
     }
@@ -964,6 +967,8 @@ static int handler(handler_message_t *msg) {
           if (isnull) {
             req->res.status = 200;
           }
+
+          req->res.reason = http_status_reasons[req->res.status];
 
           bool content_length_specified = false;
           long long content_length = 0;
@@ -1080,6 +1085,7 @@ static int handler(handler_message_t *msg) {
         // Commit before sending a response
         CommitTransactionCommand();
         req->res.status = 204;
+        req->res.reason = http_status_reasons[req->res.status];
         h2o_queue_send_inline(&msg->payload.http.msg, "", 0);
       }
       break;
