@@ -26,15 +26,17 @@ add_postgresql_extension(
         COMMENT "HTTP server"
         SCHEMA omni_httpd
         RELOCATABLE false
-        SOURCES omni_httpd.c master_worker.c http_worker.c event_loop.c fd.c cascading_query.c
-        DEPENDS_ON omni_sql omni libomni libpgaug libgluepg_stc
+        SOURCES omni_httpd.c master_worker.c http_worker.c event_loop.c fd.c cascading_query.c urlpattern.cpp
+        DEPENDS_ON omni_sql omni libomni libpgaug libgluepg_stc ada_url
         REQUIRES omni_types omni_http
         TESTS_REQUIRE omni_httpc omni_vfs omni_mimetypes dblink)
 
 set_property(TARGET omni_httpd PROPERTY C_STANDARD 11)
+target_compile_features(omni_httpd PRIVATE cxx_std_20)
 
 target_link_libraries(omni_httpd libh2o-evloop libpgaug libomnisql libomnitypes
         libgluepg_stc libomni metalang99
+        ada_url
         Threads::Threads)
 
 # Disable full macro expansion backtraces for Metalang99.
