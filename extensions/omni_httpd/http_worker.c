@@ -1291,12 +1291,15 @@ static int handler(handler_message_t *msg) {
           int http_request_index = routes[i].http_request_index;
           int listener_index = routes[i].listener_index;
 
-          int nargs =
-              Max(Max(Max(tuple_index, http_outcome_index), http_request_index), listener_index) +
-              1;
+          int nargs = routes[i].proc->pronargs;
 
           LOCAL_FCINFO(fcinfo, 100); // max number of arguments
           InitFunctionCallInfoData(*fcinfo, &flinfo, nargs, InvalidOid /* collation */, NULL, NULL);
+
+          // By default, all arguments are null
+          for (int j = 0; j < nargs; j++) {
+            fcinfo->args[j].isnull = true;
+          }
 
           if (listener_index >= 0) {
             fcinfo->args[listener_index].value = Int32GetDatum(lctx->listener_id);

@@ -42,12 +42,20 @@ instance:
     select omni_httpd.http_response(format('%s', t.handler))
     $$
   - |
+    create function null_handler(test text) returns omni_httpd.http_outcome
+        language sql
+    as
+    $$
+    select omni_httpd.http_response(format('%s', test is null))
+    $$
+  - |
     insert into my_router (match, handler) values
       (omni_httpd.urlpattern('/'), 'root_handler'::regproc),
       (omni_httpd.urlpattern('/no_req'), 'no_req_handler'::regproc),
       (omni_httpd.urlpattern('/no_outcome'), 'no_outcome_handler'::regproc),
       (omni_httpd.urlpattern('/function'), 'function_handler'::regproc),
-      (omni_httpd.urlpattern('/tuple'), 'tuple_handler'::regproc)
+      (omni_httpd.urlpattern('/tuple'), 'tuple_handler'::regproc),
+      (omni_httpd.urlpattern('/null'), 'null_handler'::regproc)
 
 tests:
 - name: root
@@ -122,3 +130,21 @@ tests:
   results:
     - status: 200
       body: tuple_handler(my_router)
+
+- name: must pass `null` into whatever argument that we don't have a value for
+  query: |
+    with
+        response as (select *
+                     from
+                         omni_httpc.http_execute(
+                                 omni_httpc.http_request('http://127.0.0.1:' ||
+                                                         (select effective_port from omni_httpd.listeners) ||
+                                                         '/null')))
+    select
+        response.status,
+        convert_from(response.body, 'utf-8') as body
+    from
+        response
+  results:
+    - status: 200
+      body: t
