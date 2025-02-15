@@ -7,4 +7,5 @@ nav:
 - Architecture: 'architecture.md'
 - Security: 'security.md'
 - Reverse Proxy: 'reverse_proxy.md'
+- Routing: 'routing.md'
 - Static File Server: 'static_file.md'

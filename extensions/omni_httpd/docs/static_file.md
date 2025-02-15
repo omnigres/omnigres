@@ -54,7 +54,7 @@ insert
 into
     static_file_router (match, handler, fs)
 values
-    (omni_httpd.urlpattern('/assets/*?'), 'docs_handler'::regproc,
+    (omni_httpd.urlpattern('/assets/*'), 'docs_handler'::regproc,
      omni_vfs.local_fs('/path/to/files'));
 ```
 Now, all requests to `/assets/*` will be served the local filesystem pointing to `/path/to/files`.
