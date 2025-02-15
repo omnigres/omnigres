@@ -1,0 +1,14 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_schema cascade
+    - create schema test
+
+tests:
+
+- name: created schema shows up with expected values
+  steps:
+    - query: select id, name from omni_schema.schema where id = omni_schema.schema_id('test');
+      results:
+      - id: (test)
+        name: test  
