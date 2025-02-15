@@ -30,7 +30,8 @@ begin
 
     --- Directory
     if request.method = 'GET' and
-       (omni_vfs.file_info(fs, path || request.path)).kind = 'dir' and
+       ((request.path = '/') or
+        (omni_vfs.file_info(fs, path || request.path)).kind = 'dir') and
        (omni_vfs.file_info(fs, path || request.path || '/index.html')).kind = 'file' then
         select
             omni_httpd.http_response(
@@ -46,7 +47,8 @@ begin
     --- File listing
 
     if listing and request.method = 'GET' and
-       (omni_vfs.file_info(fs, path || request.path)).kind = 'dir' and
+       ((request.path = '/') or
+        (omni_vfs.file_info(fs, path || request.path)).kind = 'dir') and
        (omni_vfs.file_info(fs, path || request.path || '/index.html')) is not distinct from null then
         select
             omni_httpd.http_response(
