@@ -17,13 +17,18 @@ instance:
         like omni_httpd.urlpattern_router,
         fs omni_vfs.local_fs,
         path text,
-        listing boolean 
+        listing  boolean,
+        priority omni_httpd.route_priority default 0
     )
   - |
      create function static_handler(req omni_httpd.http_request, r static_file_router) 
          returns omni_httpd.http_outcome return static_file_handler(req, r.fs, path => r.path, listing => r.listing)
-  - insert into static_file_router (match, handler, fs, path, listing) values (omni_httpd.urlpattern('/*?'), 'static_handler'::regproc, omni_vfs.local_fs('../../../../extensions/omni_httpd/tests/static'), '', true)
-
+  - insert into static_file_router (match, handler, fs, path, listing)
+    values (omni_httpd.urlpattern('/*?'), 'static_handler'::regproc,
+            omni_vfs.local_fs('../../../../extensions/omni_httpd/tests/static'), null, true)
+  - insert into static_file_router (match, handler, fs, path, listing, priority)
+    values (omni_httpd.urlpattern('/override/*'), 'static_handler'::regproc,
+            omni_vfs.local_fs('../../../../extensions/omni_httpd/tests/static'), '/test.json', true, 1)
 tests:
 
 - name: handle file
@@ -40,6 +45,26 @@ tests:
   - status: 200
     headers:
       - content-type: application/json
+    body:
+      test: passed
+
+- name: handle file path overriding
+  query: |
+    with response as (select *
+                      from omni_httpc.http_execute(
+                              omni_httpc.http_request('http://127.0.0.1:' ||
+                                                      (select effective_port from omni_httpd.listeners) ||
+                                                      '/override/test')))
+    select (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name = 'content-type')            as headers,
+           response.status,
+           convert_from(response.body, 'utf-8')::json as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-type: application/json
     body:
       test: passed
 
