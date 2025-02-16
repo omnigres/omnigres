@@ -54,6 +54,7 @@ begin
                         where
                             t.typname = 'http_outcome' and
                             t.typnamespace = 'omni_httpd'::regnamespace;
+                        type := coalesce(type, 'handler');
                         if rec.priority_col_idx is not null then
                             priority := (row ->> keys[rec.priority_col_idx])::int;
                         else
