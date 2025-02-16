@@ -58,6 +58,12 @@ RUN cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DPGVER=${PG} /omni
 RUN make -j ${BUILD_PARALLEL_LEVEL} all
 RUN make package_extensions
 
+FROM squidfunk/mkdocs-material AS docs
+COPY --chown=${UID} . /docs
+RUN pip install -r docs/requirements.txt
+RUN mkdocs build -d /output
+ENTRYPOINT ["/bin/sh"]
+
 # plrust build
 #FROM postgres:${PG}-${DEBIAN_VER_PG}  AS plrust
 #ARG PLRUST_VERSION
@@ -145,6 +151,7 @@ done
 unset OMNI_SO_FILE
 EOF
 RUN rm -rf /omni
+COPY --from=docs /output /omni-docs
 ENTRYPOINT ["omnigres-entrypoint.sh"]
 CMD ["postgres"]
 EXPOSE 22

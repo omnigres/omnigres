@@ -24,6 +24,9 @@ Oid http_header_oid();
 
 Oid http_header_array_oid();
 
+Oid urlpattern_oid();
+Oid route_priority_oid();
+
 int create_listening_socket(sa_family_t family, in_port_t port, char *address, in_port_t *out_port);
 
 #define MAX_ADDRESS_SIZE sizeof("xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:255.255.255.255/128")

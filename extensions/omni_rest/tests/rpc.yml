@@ -14,7 +14,7 @@ instance:
   - |
     create
         or
-        replace procedure omni_httpd.handler(int, omni_httpd.http_request, inout omni_httpd.http_outcome)
+        replace procedure omni_httpd.handler(int, omni_httpd.http_request, out omni_httpd.http_outcome)
         language plpgsql
     as
     $$
