@@ -159,3 +159,7 @@ tests:
 - name: meta relation column type should not refer to system columns
   query: select * from omni_schema.relation_column_type where (id).name = 'ctid'
   results: []
+
+- name: meta relation column type should not refer to toast tables
+  query: select * from omni_schema.relation_column_type where (id).relation_name like 'pg_toast_%'
+  results: [ ]
