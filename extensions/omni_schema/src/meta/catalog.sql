@@ -57,6 +57,17 @@ return case
            else t.typname
     end;
 
+create function _pg_get_expr(pg_node_tree, oid) returns text
+ set search_path = ''
+stable
+ return pg_get_expr($1, $2);
+
+create function _pg_get_expr(pg_node_tree, oid, boolean) returns text
+ set search_path = ''
+stable
+ return pg_get_expr($1, $2, $3);
+
+
 /******************************************************************************
  * siuda
  *****************************************************************************/
@@ -548,9 +559,16 @@ select column_id(c.table_schema, c.table_name, c.column_name) as id,
 from information_schema.columns c;
 
 create view relation_column_default as
-    select column_id(c.table_schema, c.table_name, c.column_name) as id,
-           c.column_default::text as "default"
-    from information_schema.columns c where c.column_default is not null;
+    select
+        column_id(ns.nspname, c.relname, a.attname)                                                     as id,
+        cast(case when a.attgenerated = '' then _pg_get_expr(ad.adbin, ad.adrelid) end as text) as "default"
+    from
+        pg_attribute a inner join pg_attrdef ad on attrelid = adrelid and attnum = adnum
+        inner join pg_class                                                               c on a.attrelid = c.oid
+            and c.relkind = any ('{r,v,m,f,p}')
+        inner join pg_namespace                                                           ns on ns.oid = c.relnamespace
+    where
+        a.attnum > 0;
 
 create view relation_column_type as
     select

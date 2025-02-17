@@ -163,3 +163,14 @@ tests:
 - name: meta relation column type should not refer to toast tables
   query: select * from omni_schema.relation_column_type where (id).relation_name like 'pg_toast_%'
   results: [ ]
+
+- name: meta relation column default should not depend on the search path
+  steps:
+  - create table test.table_with_default (id serial not null)
+  - query: select "default" from omni_schema.relation_column_default where id = omni_schema.column_id('test', 'table_with_default', 'id')
+    results:
+    - default: nextval('test.table_with_default_id_seq'::regclass)
+  - set search_path to test, public
+  - query: select "default" from omni_schema.relation_column_default where id = omni_schema.column_id('test', 'table_with_default', 'id')
+    results:
+    - default: nextval('test.table_with_default_id_seq'::regclass)
