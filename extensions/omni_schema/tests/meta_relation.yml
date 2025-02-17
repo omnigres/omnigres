@@ -155,3 +155,7 @@ tests:
     - create view test.view_without_pk as select * from test.table_with_pk;
     - query: select id, column_id, position from omni_schema.relation_primary_keys where id in (omni_schema.relation_id('test', 'view_with_pk'))
       results: []
+
+- name: meta relation column type should not refer to system columns
+  query: select * from omni_schema.relation_column_type where (id).name = 'ctid'
+  results: []

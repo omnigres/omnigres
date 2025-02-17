@@ -557,10 +557,11 @@ create view relation_column_type as
         column_id(ns.nspname, c.relname, col.attname)                                                      as id,
         type_id(nt.nspname, resolved_type_name(t)) as "type_id"
     from
-        (pg_attribute a left join pg_attrdef ad on attrelid = adrelid and attnum = adnum and attnum > 0) col
+        (pg_attribute a left join pg_attrdef ad on attrelid = adrelid and attnum = adnum) col
         inner join pg_class                                                               c on col.attrelid = c.oid
         inner join pg_namespace                                                           ns on ns.oid = c.relnamespace
-        join       (pg_type t join pg_namespace nt on (t.typnamespace = nt.oid)) on col.atttypid = t.oid;
+        join       (pg_type t join pg_namespace nt on (t.typnamespace = nt.oid)) on col.atttypid = t.oid
+    where col.attnum > 0;
 
 create view relation_column_nullable as
     select column_id(c.table_schema, c.table_name, c.column_name) as id
