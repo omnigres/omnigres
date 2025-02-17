@@ -44,6 +44,19 @@ from
          unnest(p.proargtypes) with ordinality as t(typ, ordinality)) as arg(typ, ordinality)
 $$ set search_path = '', stable;
 
+create function resolved_type_name(t pg_type) returns name
+stable
+return case
+           when t.typelem != 0 and t.typlen = -1
+               then (select
+                         typname || '[]'
+                     from
+                         pg_type bt
+                     where
+                         bt.oid = t.typelem)
+           else t.typname
+    end;
+
 /******************************************************************************
  * siuda
  *****************************************************************************/
@@ -87,107 +100,152 @@ create view schema as
  *****************************************************************************/
 
 create or replace view type as
-select type_id(n.nspname, t.typname::text) as id,
-    n.nspname::text as schema_name,
-       t.typname                           as name
-from pg_catalog.pg_type t
-     left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
-     left join pg_catalog.pg_class c on c.oid = t.typrelid
-where (t.typrelid = 0 or c.relkind = 'c')
-  and not exists(select 1 from pg_catalog.pg_type el where el.oid = t.typelem and el.typarray = t.oid)
---   and pg_catalog.pg_type_is_visible(t.oid)
-    AND n.nspname <> 'information_schema'
-;
+    select
+        type_id(n.nspname, resolved_type_name(t)) as id,
+        n.nspname::text                           as schema_name,
+        case
+            when t.typelem != 0 and t.typlen = -1
+                then (select typname || '[]' from pg_type bt where bt.oid = t.typelem)
+            else t.typname
+            end                                   as name
+    from
+        pg_catalog.pg_type                t
+        left join pg_catalog.pg_namespace n on n.oid = t.typnamespace;
 
 
 create or replace view type_basic as
-select type_id(n.nspname, t.typname::text) as id
-from pg_catalog.pg_type t
-         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
-where typtype = 'b';
+    select
+        type_id(n.nspname, resolved_type_name(t)) as id
+    from
+        pg_catalog.pg_type                t
+        left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+    where
+        typtype = 'b';
+
+create or replace view type_array as
+    select
+        type_id(n.nspname, resolved_type_name(t))   as id,
+        type_id(n1.nspname, resolved_type_name(t1)) as base_type_id
+    from
+        pg_catalog.pg_type      t
+        inner join pg_type      t1 on t1.oid = t.typelem
+        inner join pg_namespace n on n.oid = t.typnamespace
+        inner join pg_namespace n1 on n1.oid = t1.typnamespace
+    where
+        t.typelem != 0;
 
 create or replace view type_composite as
-select type_id(n.nspname, t.typname::text) as id
-from pg_catalog.pg_type t
-         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
-where typtype = 'c';
+    select
+        type_id(n.nspname, resolved_type_name(t)) as id
+    from
+        pg_catalog.pg_type                t
+        left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+    where
+        typtype = 'c';
 
 create or replace view type_composite_attribute as
-select type_id(n.nspname, t.typname::text) as id,
-        a.attname as name
-from pg_catalog.pg_type t
-         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
-         join pg_attribute a on a.attrelid=t.typrelid
-where t.typtype = 'c'
-        and a.attnum > 0
-        and not a.attisdropped;
+    select
+        type_id(n.nspname, resolved_type_name(t)) as id,
+        a.attname                                 as name
+    from
+        pg_catalog.pg_type                t
+        left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+        join      pg_attribute            a on a.attrelid = t.typrelid
+    where
+        t.typtype = 'c' and
+        a.attnum > 0 and
+        not a.attisdropped;
 
 create or replace view type_composite_attribute_position as
-    select type_id(n.nspname, t.typname::text) as id,
-           a.attname as name,
-           a.attnum as position
-    from pg_catalog.pg_type t
-         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
-         join pg_attribute a on a.attrelid=t.typrelid
-    where t.typtype = 'c'
-            and a.attnum > 0
-            and not a.attisdropped;
+    select
+        type_id(n.nspname, resolved_type_name(t)) as id,
+        a.attname                                 as name,
+        a.attnum                                  as position
+    from
+        pg_catalog.pg_type                t
+        left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+        join      pg_attribute            a on a.attrelid = t.typrelid
+    where
+        t.typtype = 'c' and
+        a.attnum > 0 and
+        not a.attisdropped;
 
 create or replace view type_composite_attribute_collation as
-    select type_id(n.nspname, t.typname::text) as id,
-           a.attname as name,
-           co.collname as collation
-    from pg_catalog.pg_type t
-         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
-         join pg_attribute a on a.attrelid=t.typrelid
-         join pg_type ct on ct.oid=a.atttypid
-         left join pg_collation co on co.oid=a.attcollation
-    where t.typtype = 'c'
-            and a.attnum > 0
-            and not a.attisdropped
-    and a.attcollation <> ct.typcollation;
+    select
+        type_id(n.nspname, resolved_type_name(t)) as id,
+        a.attname                                 as name,
+        co.collname                               as collation
+    from
+        pg_catalog.pg_type                t
+        left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+        join      pg_attribute            a on a.attrelid = t.typrelid
+        join      pg_type                 ct on ct.oid = a.atttypid
+        left join pg_collation            co on co.oid = a.attcollation
+    where
+        t.typtype = 'c' and
+        a.attnum > 0 and
+        not a.attisdropped and
+        a.attcollation <> ct.typcollation;
 
 create or replace view type_domain as
-select type_id(n.nspname, t.typname::text)   as id,
-       type_id(n1.nspname, t1.typname::text) as base_type_id
-from pg_catalog.pg_type t
-         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
-         inner join pg_catalog.pg_type t1 on t1.oid = t.typbasetype
-         left join pg_catalog.pg_namespace n1 on n1.oid = t1.typnamespace
-where t.typtype = 'd';
+    select
+        type_id(n.nspname, resolved_type_name(t))   as id,
+        type_id(n1.nspname, resolved_type_name(t1)) as base_type_id
+    from
+        pg_catalog.pg_type                 t
+        left join  pg_catalog.pg_namespace n on n.oid = t.typnamespace
+        inner join pg_catalog.pg_type      t1 on t1.oid = t.typbasetype
+        left join  pg_catalog.pg_namespace n1 on n1.oid = t1.typnamespace
+    where
+        t.typtype = 'd';
 
 create or replace view type_enum as
-select type_id(n.nspname, t.typname::text) as id
-from pg_catalog.pg_type t
-         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
-where typtype = 'e';
+    select
+        type_id(n.nspname, resolved_type_name(t)) as id
+    from
+        pg_catalog.pg_type                t
+        left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+    where
+        typtype = 'e';
 
 create or replace view type_enum_label as
-select type_id(n.nspname, t.typname::text) as id,
-       enumlabel                           as label,
-       enumsortorder                       as sortorder
-from pg_catalog.pg_type t
-         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
-         inner join pg_enum e on e.enumtypid = t.oid
-where typtype = 'e';
+    select
+        type_id(n.nspname, resolved_type_name(t)) as id,
+        enumlabel                                 as label,
+        enumsortorder                             as sortorder
+    from
+        pg_catalog.pg_type                 t
+        left join  pg_catalog.pg_namespace n on n.oid = t.typnamespace
+        inner join pg_enum                 e on e.enumtypid = t.oid
+    where
+        typtype = 'e';
 
 create or replace view type_pseudo as
-select type_id(n.nspname, t.typname::text) as id
-from pg_catalog.pg_type t
-         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
-where typtype = 'p';
+    select
+        type_id(n.nspname, resolved_type_name(t)) as id
+    from
+        pg_catalog.pg_type                t
+        left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+    where
+        typtype = 'p';
 
 create or replace view type_range as
-select type_id(n.nspname, t.typname::text) as id
-from pg_catalog.pg_type t
-         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
-where typtype = 'r';
+    select
+        type_id(n.nspname, resolved_type_name(t)) as id
+    from
+        pg_catalog.pg_type                t
+        left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+    where
+        typtype = 'r';
 
 create or replace view type_multirange as
-select type_id(n.nspname, t.typname::text) as id
-from pg_catalog.pg_type t
-         left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
-where typtype = 'm';
+    select
+        type_id(n.nspname, resolved_type_name(t)) as id
+    from
+        pg_catalog.pg_type                t
+        left join pg_catalog.pg_namespace n on n.oid = t.typnamespace
+    where
+        typtype = 'm';
 
 
 
@@ -377,7 +435,7 @@ create view "sequence_cycle" as
 create view "sequence_type" as
     select sequence_id(ns.nspname, c.relname) as id,
            schema_id(ns.nspname) as schema_id,
-           type_id(tns.nspname, t.typname)
+           type_id(tns.nspname, resolved_type_name(t))
     from pg_sequence s
          inner join pg_class c on c.oid = s.seqrelid
          inner join pg_namespace ns on ns.oid = c.relnamespace
@@ -495,9 +553,14 @@ create view relation_column_default as
     from information_schema.columns c where c.column_default is not null;
 
 create view relation_column_type as
-    select column_id(c.table_schema, c.table_name, c.column_name) as id,
-           type_id (c.udt_schema, c.udt_name) as "type_id"
-    from information_schema.columns c;
+    select
+        column_id(ns.nspname, c.relname, col.attname)                                                      as id,
+        type_id(nt.nspname, resolved_type_name(t)) as "type_id"
+    from
+        (pg_attribute a left join pg_attrdef ad on attrelid = adrelid and attnum = adnum and attnum > 0) col
+        inner join pg_class                                                               c on col.attrelid = c.oid
+        inner join pg_namespace                                                           ns on ns.oid = c.relnamespace
+        join       (pg_type t join pg_namespace nt on (t.typnamespace = nt.oid)) on col.atttypid = t.oid;
 
 create view relation_column_nullable as
     select column_id(c.table_schema, c.table_name, c.column_name) as id
@@ -710,7 +773,7 @@ create or replace view "callable_argument_type" as
                 name,
                 type_sig
         )                      as id,
-        type_id(tns.nspname, t.typname) as type_id,
+        type_id(tns.nspname, resolved_type_name(t)) as type_id,
         ordinality as argument_position
     from orig
          inner join pg_type t on t.oid = argtype
@@ -1113,7 +1176,7 @@ create or replace view "callable_return_type" as
                 type_sig
         )                                         as id,
         returns_set as setof,
-        type_id(ns.nspname, t.typname) as return_type_id
+        type_id(ns.nspname, resolved_type_name(t)) as return_type_id
     from
         orig
         inner join pg_type      t on t.oid = return_type_id

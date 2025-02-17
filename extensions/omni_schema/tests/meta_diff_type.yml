@@ -12,33 +12,38 @@ tests:
 - name: adding a type
   steps:
   - create domain t as text
-  - query: select name from diff.added_type where schema_name = 'public'
+  - query: select name from diff.added_type where schema_name = 'public' order by name
     results:
     - name: t
-  - query: select name from diff.added_type where schema_name = 'public'
+    - name: t[]
+  - query: select name from diff.added_type where schema_name = 'public' order by name
     results:
     - name: t
+    - name: t[]
 
 - name: dropping a type
   steps:
   - create domain t as text
   - select baseline.refresh_meta()
   - drop domain t
-  - query: select name from diff.removed_type where schema_name = 'public'
+  - query: select name from diff.removed_type where schema_name = 'public' order by name
     results:
     - name: t
+    - name: t[]
 
 - name: renaming a type
   steps:
   - create domain t as text
   - select baseline.refresh_meta()
   - alter domain t rename to t1
-  - query: select name from diff.removed_type where schema_name = 'public'
+  - query: select name from diff.removed_type where schema_name = 'public' order by name
     results:
     - name: t
-  - query: select name from diff.added_type where schema_name = 'public'
+    - name: t[]
+  - query: select name from diff.added_type where schema_name = 'public' order by name
     results:
     - name: t1
+    - name: t1[]
 
 - name: changing type's type
   steps:

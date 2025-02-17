@@ -26,7 +26,7 @@
                     "extension",
                     "foreign_data_wrapper","foreign_server","foreign_table","foreign_column",
                     "foreign_key",
-                    "type", "type_basic", "type_composite","type_composite_attribute",
+                    "type", "type_basic", "type_array", "type_composite","type_composite_attribute",
                             "type_composite_attribute_position","type_composite_attribute_collation",
                             "type_domain","type_enum","type_enum_label", "type_pseudo", "type_range","type_multirange",
                     "index","index_relation", "index_unique", "index_unique_null_values_distinct",
