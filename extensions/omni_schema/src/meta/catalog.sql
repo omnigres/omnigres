@@ -1536,8 +1536,8 @@ select policy_id(n.nspname, c.relname, p.polname) as id,
     c.relname::text as relation_name,
     n.nspname::text as schema_name,
     p.polcmd::char::siuda as command,
-    pg_get_expr(p.polqual, p.polrelid, True) as using,
-    pg_get_expr(p.polwithcheck, p.polrelid, True) as check
+    _pg_get_expr(p.polqual, p.polrelid, True) as using,
+    _pg_get_expr(p.polwithcheck, p.polrelid, True) as check
 from pg_policy p
     join pg_class c on c.oid = p.polrelid
     join pg_namespace n on n.oid = c.relnamespace;
@@ -1631,7 +1631,7 @@ create view constraint_relation_check as
 create view constraint_relation_check_expr as
     select
         constraint_id(ns.nspname, cc.relname, c.conname) as id,
-        pg_get_expr(c.conbin, coalesce(cc.oid, 0))       as expr
+        _pg_get_expr(c.conbin, coalesce(cc.oid, 0))       as expr
 
     from
         pg_constraint           c
@@ -1916,7 +1916,7 @@ where indnatts > 0;
 
 create view "index_partial" as
     select index_id(ns.nspname, c.relname) as id,
-           pg_get_expr(indpred, indrelid) as condition
+           _pg_get_expr(indpred, indrelid) as condition
     from pg_index i
          inner join pg_class c on c.oid = i.indexrelid
          inner join pg_class cr on cr.oid = i.indrelid and cr.relkind != 't'
