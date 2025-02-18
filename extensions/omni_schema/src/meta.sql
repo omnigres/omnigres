@@ -32,7 +32,9 @@
                     "index","index_relation", "index_unique", "index_unique_null_values_distinct",
                             "index_primary_key", "index_unique_immediate", "index_replica_identity",
                             "index_attribute","index_partial",
-                    "comment"
+                    "language", "language_internal", "language_trusted", "language_handler", "language_inline_handler",
+                                "language_validator", "language_acl",
+                    "comment", "dependency"
                     ]
  %}*/
 

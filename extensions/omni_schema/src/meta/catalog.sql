@@ -1923,6 +1923,52 @@ create view "index_partial" as
          inner join pg_namespace ns on ns.oid = c.relnamespace
     where i.indpred is not null;
 
+--- language
+
+create view language as
+    select language_id(lanname) as id
+from pg_language;
+
+create view language_trusted as
+    select language_id(lanname) as id
+from pg_language where lanpltrusted;
+
+create view language_internal as
+    select language_id(lanname) as id
+from pg_language where not lanispl;
+
+create view language_handler as
+    select language_id(lanname) as id,
+           function_id(ns.nspname, p.proname, _get_function_type_sig_array(p)) as handler_id
+from pg_language l
+     inner join pg_proc p on p.oid = l.lanplcallfoid
+     inner join pg_namespace ns on ns.oid = p.pronamespace
+where lanispl;
+
+create view language_inline_handler as
+    select language_id(lanname) as id,
+           function_id(ns.nspname, p.proname, _get_function_type_sig_array(p)) as handler_id
+from pg_language l
+     inner join pg_proc p on p.oid = l.laninline
+     inner join pg_namespace ns on ns.oid = p.pronamespace
+where lanispl and laninline != 0;
+
+create view language_validator as
+    select language_id(lanname) as id,
+           function_id(ns.nspname, p.proname, _get_function_type_sig_array(p)) as handler_id
+from pg_language l
+     inner join pg_proc p on p.oid = l.laninline
+     inner join pg_namespace ns on ns.oid = p.pronamespace
+where lanispl and lanvalidator != 0;
+
+create view language_acl as
+    select language_id(lanname) as id,
+           aclitem as acl
+from pg_language
+  inner join lateral (select * from unnest(lanacl)) acl(aclitem) on true;
+
+-- TODO: language owner
+
 --- descriptions/comments
 
 create view comment as
@@ -1967,3 +2013,103 @@ create view comment as
         inner join pg_type      tt on tt.oid = c.casttarget
         inner join pg_namespace st_ns on st_ns.oid = st.typnamespace
         inner join pg_namespace tt_ns on tt_ns.oid = tt.typnamespace;
+
+--- dependencies
+
+create function _object_id_from(classid oid, objid oid, objsubid oid) returns object_id
+stable
+return case
+           when classid = 'pg_class'::regclass then
+               (select
+                    relation_id(ns.nspname, c.relname)::object_id
+                from
+                    pg_class                c
+                    inner join pg_namespace ns on ns.oid = c.relnamespace
+                where
+                    c.oid = objid)
+           when classid = 'pg_extension'::regclass then
+               (select
+                    extension_id(e.extname)::object_id
+                from
+                    pg_extension               e
+                    inner join pg_namespace ns on ns.oid = e.extnamespace
+                where
+                    e.oid = objid)
+           when classid = 'pg_type'::regclass then
+               (select
+                    type_id(ns.nspname, resolved_type_name(t))::object_id
+                from
+                    pg_type t
+                    inner join pg_namespace ns on ns.oid = t.typnamespace
+                where
+                    t.oid = objid)
+           when classid = 'pg_namespace'::regclass then
+               (select
+                    schema_id(ns.nspname)::object_id
+                from
+                    pg_namespace ns where ns.oid = objid)
+           when classid = 'pg_proc'::regclass then
+               (select
+                    function_id(ns.nspname, p.proname, _get_function_type_sig_array(p))::object_id as id
+                from
+                    pg_proc p
+                    inner join pg_namespace ns on ns.oid = p.pronamespace
+                where
+                    p.oid = objid)
+           when classid = 'pg_language'::regclass then
+               (select
+                    language_id(lanname)::object_id as id
+                from
+                    pg_language l
+                where
+                    l.oid = objid)
+           -- TODO: handle the rest of the cases
+           else null
+    end;
+
+create view dependency as
+    -- relation
+    select
+        relation_id(ns.nspname, c.relname)::object_id as id,
+        _object_id_from(refclassid, refobjid, refobjsubid) as dependent_on
+    from
+        pg_depend          d
+        inner join pg_class     c on c.oid = d.objid and d.classid = 'pg_class'::regclass and c.relkind != 't'
+        inner join pg_class dc on dc.oid = d.refobjid and dc.relkind != 't'
+        inner join pg_namespace ns on ns.oid = c.relnamespace
+        where d.objsubid = 0 and d.deptype != 'i'
+    union all
+    -- callable
+    select
+        function_id(ns.nspname, p.proname, _get_function_type_sig_array(p))::object_id as id,
+        _object_id_from(refclassid, refobjid, refobjsubid) as dependent_on
+    from
+        pg_depend          d
+        inner join pg_proc     p on p.oid = d.objid and d.classid = 'pg_proc'::regclass
+        inner join pg_namespace ns on ns.oid = p.pronamespace
+        where d.deptype != 'i'
+    union all
+    -- column
+    select
+        column_id(ns.nspname, c.relname, a.attname)::object_id as id,
+        _object_id_from(refclassid, refobjid, refobjsubid) as dependent_on
+    from
+        pg_depend          d
+        inner join pg_class     c on c.oid = d.objid and d.classid = 'pg_class'::regclass
+        inner join pg_attribute a on a.attrelid = c.oid and a.attnum > 0
+        inner join pg_namespace ns on ns.oid = c.relnamespace
+        where d.objsubid != 0 and d.deptype != 'i'
+    union all
+    -- cast
+    select
+        cast_id(st_ns.nspname, st.typname, tt_ns.nspname, tt.typname)::object_id as id,
+        _object_id_from(refclassid, refobjid, refobjsubid) as dependent_on
+    from
+        pg_depend          d
+        inner join pg_cast      c on c.oid = d.objid and d.classid = 'pg_cast'::regclass
+        inner join pg_type      st on st.oid = c.castsource
+        inner join pg_type      tt on tt.oid = c.casttarget
+        inner join pg_namespace st_ns on st_ns.oid = st.typnamespace
+        inner join pg_namespace tt_ns on tt_ns.oid = tt.typnamespace
+        where d.deptype != 'i'
+;

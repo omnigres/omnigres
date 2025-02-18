@@ -1,0 +1,16 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_schema cascade
+
+tests:
+
+- name: smoke test
+  query: |
+    select id::text from omni_schema.dependency 
+    where dependent_on operator(omni_schema.=) omni_schema.extension_id('plpgsql')::omni_schema.object_id
+      order by id::text
+  results:
+  - id: "function_id((pg_catalog,plpgsql_call_handler,{}))"
+  - id: "function_id((pg_catalog,plpgsql_inline_handler,{internal}))"
+  - id: "function_id((pg_catalog,plpgsql_validator,{oid}))"

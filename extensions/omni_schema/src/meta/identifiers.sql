@@ -92,6 +92,10 @@ create function index_id(schema_name name, name name) returns index_id as
 $_$
 select row (schema_name,name)::index_id
 $_$ immutable language sql;
+
+create type language_id as (name name);
+create function language_id(name name) returns language_id as $_$ select row(name)::language_id $_$ immutable language sql;
+
 create function column_id_to_schema_id(column_id column_id) returns schema_id as $_$select schema_id((column_id).schema_name) $_$ immutable language sql;
 create cast (column_id as schema_id) with function column_id_to_schema_id(column_id) as assignment;
 create function constraint_id_to_schema_id(constraint_id constraint_id) returns schema_id as $_$select schema_id((constraint_id).schema_name) $_$ immutable language sql;
