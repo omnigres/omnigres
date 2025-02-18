@@ -716,3 +716,26 @@ tests:
     - query: select 'a'::text::typ = 'b'::text::typ as result
       results:
         - result: false
+
+- name: composite variant sum type equality
+  steps:
+    - create type comp as (a int)
+    - select omni_types.sum_type('typ', 'int','comp')
+    - query: select row(1)::comp::typ = row(1)::comp::typ as result
+      results:
+      - result: true
+    - query: select row (1)::comp::typ = row (2)::comp::typ as result
+      results:
+        - result: false
+
+- name: composite variant sum type equality without search path
+  steps:
+    - create schema test
+    - create type test.comp as (a int)
+    - select omni_types.sum_type('typ', 'int','test.comp')
+    - query: select row(1)::test.comp::typ = row(1)::test.comp::typ as result
+      results:
+      - result: true
+    - query: select row (1)::test.comp::typ = row (2)::test.comp::typ as result
+      results:
+        - result: false
