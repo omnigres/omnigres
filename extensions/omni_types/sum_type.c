@@ -28,6 +28,8 @@
 
 #include "sum_type.h"
 
+#include <parser/parse_func.h>
+
 /**
  * Returns sum value's variant
  * @param fcinfo
@@ -585,6 +587,59 @@ static void get_variant_val(Datum arg, Oid sum_type_oid, Oid *variant, Datum *va
   }
 }
 
+// The function below is extracted from Postgres source code
+
+/* oper_select_candidate()
+ *      Given the input argtype array and one or more candidates
+ *      for the operator, attempt to resolve the conflict.
+ *
+ * Returns FUNCDETAIL_NOTFOUND, FUNCDETAIL_MULTIPLE, or FUNCDETAIL_NORMAL.
+ * In the success case the Oid of the best candidate is stored in *operOid.
+ *
+ * Note that the caller has already determined that there is no candidate
+ * exactly matching the input argtype(s).  Incompatible candidates are not yet
+ * pruned away, however.
+ */
+static FuncDetailCode oper_select_candidate(int nargs, Oid *input_typeids,
+                                            FuncCandidateList candidates,
+                                            Oid *operOid) /* output argument */
+{
+#if PG_MAJORVERSION_NUM > 18
+#error "check if this version of the function is still good"
+#endif
+  int ncandidates;
+
+  /*
+   * Delete any candidates that cannot actually accept the given input
+   * types, whether directly or by coercion.
+   */
+  ncandidates = func_match_argtypes(nargs, input_typeids, candidates, &candidates);
+
+  /* Done if no candidate or only one candidate survives */
+  if (ncandidates == 0) {
+    *operOid = InvalidOid;
+    return FUNCDETAIL_NOTFOUND;
+  }
+  if (ncandidates == 1) {
+    *operOid = candidates->oid;
+    return FUNCDETAIL_NORMAL;
+  }
+
+  /*
+   * Use the same heuristics as for ambiguous functions to resolve the
+   * conflict.
+   */
+  candidates = func_select_candidate(nargs, input_typeids, candidates);
+
+  if (candidates) {
+    *operOid = candidates->oid;
+    return FUNCDETAIL_NORMAL;
+  }
+
+  *operOid = InvalidOid;
+  return FUNCDETAIL_MULTIPLE; /* failed to select a best candidate */
+}
+
 static bool sum_equal(Oid type, Datum arg1, Datum arg2, Oid collation) {
   Oid variant1, variant2;
   Datum val1, val2;
@@ -596,9 +651,19 @@ static bool sum_equal(Oid type, Datum arg1, Datum arg2, Oid collation) {
     PG_RETURN_BOOL(false);
   }
 
-  Oid eq_op_oid = OpernameGetOprid(list_make1(makeString("=")), variant1, variant2);
-  if (!OidIsValid(eq_op_oid))
+  List *op = list_make1(makeString("="));
+  Oid eq_op_oid = OpernameGetOprid(op, variant1, variant2);
+  if (!OidIsValid(eq_op_oid)) {
+    FuncCandidateList clist = OpernameGetCandidates(op, 'b', false);
+
+    if (clist != NULL) {
+      oper_select_candidate(2, (Oid[2]){variant1, variant1}, clist, &eq_op_oid);
+    }
+  }
+
+  if (!OidIsValid(eq_op_oid)) {
     ereport(ERROR, (errmsg("operator = does not exist")));
+  }
 
   RegProcedure eq_func_oid = get_opcode(eq_op_oid);
   if (!OidIsValid(eq_func_oid))
@@ -827,7 +892,7 @@ Datum sum_type(PG_FUNCTION_ARGS) {
     ObjectAddress eqop =
         OperatorCreate("=", namespace, type.objectId, type.objectId, eq_sum_proc.objectId,
                        list_make1(makeString("=")), list_make1(makeString("<>")), InvalidOid,
-                       InvalidOid, true, true);
+                       InvalidOid, false, false);
 
     char *neq_sum = psprintf("%s_neq", NameStr(*name));
     ObjectAddress neq_sum_proc =
@@ -845,7 +910,7 @@ Datum sum_type(PG_FUNCTION_ARGS) {
     ObjectAddress neqop =
         OperatorCreate("<>", namespace, type.objectId, type.objectId, neq_sum_proc.objectId,
                        list_make1(makeString("<>")), list_make1(makeString("=")), InvalidOid,
-                       InvalidOid, true, true);
+                       InvalidOid, false, false);
   }
 
   // Create casts

@@ -181,7 +181,7 @@ jobs:
   manifest:
     strategy:
       matrix:
-        pg: [ 17, 16, 15, 14, 13 ]
+        pg: [ 17, 16, 15, 14 ]
         flavor: [ "", "-extra", "-dev","-kube" ]
 
     if: github.event_name != 'pull_request' && github.repository == 'omnigres/omnigres'
