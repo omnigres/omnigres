@@ -892,7 +892,7 @@ Datum sum_type(PG_FUNCTION_ARGS) {
     ObjectAddress eqop =
         OperatorCreate("=", namespace, type.objectId, type.objectId, eq_sum_proc.objectId,
                        list_make1(makeString("=")), list_make1(makeString("<>")), InvalidOid,
-                       InvalidOid, true, true);
+                       InvalidOid, false, false);
 
     char *neq_sum = psprintf("%s_neq", NameStr(*name));
     ObjectAddress neq_sum_proc =
@@ -910,7 +910,7 @@ Datum sum_type(PG_FUNCTION_ARGS) {
     ObjectAddress neqop =
         OperatorCreate("<>", namespace, type.objectId, type.objectId, neq_sum_proc.objectId,
                        list_make1(makeString("<>")), list_make1(makeString("=")), InvalidOid,
-                       InvalidOid, true, true);
+                       InvalidOid, false, false);
   }
 
   // Create casts
