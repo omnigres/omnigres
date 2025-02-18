@@ -1369,12 +1369,10 @@ static int handler(handler_message_t *msg) {
       if (is_websocket_upgrade) {
         // Commit before sending a response
         CommitTransactionCommand();
-        if (isnull) {
-          h2o_queue_abort(&msg->payload.http.msg);
+        if (!isnull && DatumGetBool(outcome)) {
+          h2o_queue_upgrade_to_websocket(&msg->payload.http.msg);
         } else {
-          if (DatumGetBool(outcome)) {
-            h2o_queue_upgrade_to_websocket(&msg->payload.http.msg);
-          }
+          h2o_queue_abort(&msg->payload.http.msg);
         }
 
         break;
