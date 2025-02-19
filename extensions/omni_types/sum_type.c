@@ -24,11 +24,13 @@
 #include <utils/builtins.h>
 #include <utils/fmgroids.h>
 #include <utils/lsyscache.h>
+#include <utils/snapmgr.h>
 #include <utils/syscache.h>
 
 #include "sum_type.h"
 
 #include <parser/parse_func.h>
+#include <tcop/pquery.h>
 
 /**
  * Returns sum value's variant
@@ -511,81 +513,30 @@ Datum sum_cast_from(PG_FUNCTION_ARGS) {
                       PG_GETARG_DATUM(0));
 }
 
-static void get_variant_val(Datum arg, Oid sum_type_oid, Oid *variant, Datum *val,
-                            Discriminant *discriminant) {
-  HeapTuple sum_type_tup = SearchSysCache1(TYPEOID, ObjectIdGetDatum(sum_type_oid));
-  Assert(HeapTupleIsValid(sum_type_tup));
-  Form_pg_type sum_typtup = (Form_pg_type)GETSTRUCT(sum_type_tup);
-  int16 sum_type_len = sum_typtup->typlen;
-  ReleaseSysCache(sum_type_tup);
+typedef struct {
+  Oid sum_type_oid;
+  uint32 hash;
+  uint32 status;
+  TransactionId xmin;
+  oidvector *variant_type_oids;
+  oidvector *variant_eq_ops;
+} SumTypeCacheEntry;
 
-  VarSizeVariant *varsize =
-      sum_type_len == -1 ? (VarSizeVariant *)VARDATA_ANY(PG_DETOAST_DATUM_PACKED(arg)) : NULL;
-  FixedSizeVariant *value =
-      sum_type_len == -1 ? (FixedSizeVariant *)varsize : (FixedSizeVariant *)DatumGetPointer(arg);
+struct sumtypehash_hash;
+static struct sumtypehash_hash *sumtypehash = NULL;
 
-  if (discriminant != NULL) {
-    *discriminant = value->discriminant;
-  }
-
-  // Find the variant
-  Oid types = get_relname_relid("sum_types", get_namespace_oid("omni_types", false));
-
-  Relation rel = table_open(types, AccessShareLock);
-  TupleDesc tupdesc = RelationGetDescr(rel);
-  TableScanDesc scan = table_beginscan_catalog(rel, 0, NULL);
-  *variant = InvalidOid;
-  for (;;) {
-    HeapTuple tup = heap_getnext(scan, ForwardScanDirection);
-    // The end
-    if (tup == NULL)
-      break;
-
-    bool isnull;
-    // Matching type
-    if (sum_type_oid == DatumGetObjectId(heap_getattr(tup, 1, tupdesc, &isnull))) {
-      ArrayType *arr = DatumGetArrayTypeP(heap_getattr(tup, 2, tupdesc, &isnull));
-      Assert(ARR_NDIM(arr) == 1);
-      if (ARR_DIMS(arr)[0] < value->discriminant + 1) {
-        ereport(ERROR, errmsg("invalid discriminant"));
-      }
-
-      Datum element = array_get_element(PointerGetDatum(arr), 1, (int[1]){value->discriminant + 1},
-                                        -1, 4, true, TYPALIGN_INT, &isnull);
-      *variant = DatumGetObjectId(element);
-      break;
-    }
-  }
-  if (scan->rs_rd->rd_tableam->scan_end) {
-    scan->rs_rd->rd_tableam->scan_end(scan);
-  }
-  table_close(rel, AccessShareLock);
-
-  if (*variant != InvalidOid) {
-
-    HeapTuple type_tup = SearchSysCache1(TYPEOID, ObjectIdGetDatum(*variant));
-    Assert(HeapTupleIsValid(type_tup));
-    Form_pg_type typtup = (Form_pg_type)GETSTRUCT(type_tup);
-    bool variant_byval = typtup->typbyval;
-
-    if (val) {
-      *val =
-          // if sum type is variable size
-          (Datum)(sum_type_len == -1
-                      // if variant is variable size
-                      ? (variant_byval
-                             // if variant is passed by value, get it as is
-                             ? *(Datum *)VARDATA_ANY(&varsize->data)
-                             // otherwise, pass the pointer
-                             : PointerGetDatum(&varsize->data))
-                      // if variant is passed by value, get it from behind the pointer
-                      : (variant_byval ? *((Datum *)value->data)
-                                       // otherwise, pass the pointer
-                                       : (Datum)value->data));
-    }
-    ReleaseSysCache(type_tup);
-  }
-}
+#define SH_PREFIX sumtypehash
+#define SH_ELEMENT_TYPE SumTypeCacheEntry
+#define SH_KEY_TYPE Oid
+#define SH_KEY sum_type_oid
+#define SH_HASH_KEY(tb, key) key
+#define SH_EQUAL(tb, a, b) a == b
+#define SH_SCOPE static
+#define SH_STORE_HASH
+#define SH_GET_HASH(tb, a) a->hash
+#define SH_DECLARE
+#define SH_DEFINE
+#include <lib/simplehash.h>
 
 // The function below is extracted from Postgres source code
 
@@ -640,10 +591,155 @@ static FuncDetailCode oper_select_candidate(int nargs, Oid *input_typeids,
   return FUNCDETAIL_MULTIPLE; /* failed to select a best candidate */
 }
 
+static Oid lookup_operator(Oid type, char *name) {
+  List *op = list_make1(makeString(name));
+  Oid oid = OpernameGetOprid(op, type, type);
+  if (!OidIsValid(oid)) {
+    FuncCandidateList clist = OpernameGetCandidates(op, 'b', false);
+
+    if (clist != NULL) {
+      oper_select_candidate(2, (Oid[2]){type, type}, clist, &oid);
+    }
+  }
+  return oid;
+}
+
+static void get_variant_val(Datum arg, Oid sum_type_oid, Oid *variant, Datum *val,
+                            Discriminant *discriminant) {
+  if (sumtypehash == NULL) {
+    sumtypehash = sumtypehash_create(TopMemoryContext, 1024, NULL);
+  }
+  HeapTuple sum_type_tup = SearchSysCache1(TYPEOID, ObjectIdGetDatum(sum_type_oid));
+  Assert(HeapTupleIsValid(sum_type_tup));
+  Form_pg_type sum_typtup = (Form_pg_type)GETSTRUCT(sum_type_tup);
+  int16 sum_type_len = sum_typtup->typlen;
+  ReleaseSysCache(sum_type_tup);
+
+  VarSizeVariant *varsize =
+      sum_type_len == -1 ? (VarSizeVariant *)VARDATA_ANY(PG_DETOAST_DATUM_PACKED(arg)) : NULL;
+  FixedSizeVariant *value =
+      sum_type_len == -1 ? (FixedSizeVariant *)varsize : (FixedSizeVariant *)DatumGetPointer(arg);
+
+  if (discriminant != NULL) {
+    *discriminant = value->discriminant;
+  }
+
+  // Find the variant
+
+  bool cache_entry_found;
+  bool matching_entry_found = false;
+  SumTypeCacheEntry *entry = NULL;
+  TransactionId xmin = GetActiveSnapshot()->xmin;
+  while (entry == NULL || entry->xmin != xmin) {
+    entry = sumtypehash_insert(sumtypehash, sum_type_oid, &cache_entry_found);
+    if (!cache_entry_found) {
+      entry->xmin = xmin;
+
+      Oid types = get_relname_relid("sum_types", get_namespace_oid("omni_types", false));
+
+      Relation rel = table_open(types, AccessShareLock);
+      TupleDesc tupdesc = RelationGetDescr(rel);
+      TableScanDesc scan = table_beginscan_catalog(rel, 0, NULL);
+      *variant = InvalidOid;
+      for (;;) {
+        HeapTuple tup = heap_getnext(scan, ForwardScanDirection);
+        // The end
+        if (tup == NULL)
+          break;
+
+        bool isnull;
+        // Matching type
+        if (sum_type_oid == DatumGetObjectId(heap_getattr(tup, 1, tupdesc, &isnull))) {
+          Datum variants = heap_getattr(tup, 2, tupdesc, &isnull);
+          ArrayType *arr = DatumGetArrayTypeP(variants);
+          Assert(ARR_NDIM(arr) == 1);
+          int n = ARR_DIMS(arr)[0];
+          if (n < value->discriminant + 1) {
+            ereport(ERROR, errmsg("invalid discriminant"));
+          }
+
+          Datum *elems;
+          bool *nulls;
+          deconstruct_array(arr, REGTYPEOID, sizeof(Oid), true, TYPALIGN_INT, &elems, &nulls, &n);
+
+          entry->variant_type_oids = (oidvector *)MemoryContextAlloc(
+              TopMemoryContext, n * sizeof(Oid) + sizeof(oidvector));
+          SET_VARSIZE(entry->variant_type_oids, (n * sizeof(Oid) + sizeof(oidvector)));
+          entry->variant_type_oids->ndim = 1;
+          entry->variant_type_oids->dataoffset = 0; /* never any nulls */
+          entry->variant_type_oids->elemtype = OIDOID;
+          entry->variant_type_oids->dim1 = n;
+          entry->variant_type_oids->lbound1 = 0;
+
+          entry->variant_eq_ops = (oidvector *)MemoryContextAlloc(
+              TopMemoryContext, n * sizeof(Oid) + sizeof(oidvector));
+          SET_VARSIZE(entry->variant_eq_ops, (n * sizeof(Oid) + sizeof(oidvector)));
+          entry->variant_eq_ops->ndim = 1;
+          entry->variant_eq_ops->dataoffset = 0; /* never any nulls */
+          entry->variant_eq_ops->elemtype = OIDOID;
+          entry->variant_eq_ops->dim1 = n;
+          entry->variant_eq_ops->lbound1 = 0;
+
+          for (int i = 0; i < n; i++) {
+            entry->variant_type_oids->values[i] = DatumGetObjectId(elems[i]);
+            entry->variant_eq_ops->values[i] =
+                lookup_operator(entry->variant_type_oids->values[i], "=");
+          }
+
+          matching_entry_found = true;
+          break;
+        }
+      }
+      if (scan->rs_rd->rd_tableam->scan_end) {
+        scan->rs_rd->rd_tableam->scan_end(scan);
+      }
+      table_close(rel, AccessShareLock);
+      if (!matching_entry_found) {
+        sumtypehash_delete(sumtypehash, sum_type_oid);
+        break;
+      }
+    } else {
+      if (entry->xmin != xmin) {
+        pfree(entry->variant_eq_ops);
+        pfree(entry->variant_type_oids);
+        sumtypehash_delete(sumtypehash, sum_type_oid);
+      } else {
+        matching_entry_found = true;
+      }
+    }
+  }
+
+  if (matching_entry_found) {
+    *variant = entry->variant_type_oids->values[value->discriminant];
+    HeapTuple type_tup = SearchSysCache1(TYPEOID, ObjectIdGetDatum(*variant));
+    Assert(HeapTupleIsValid(type_tup));
+    Form_pg_type typtup = (Form_pg_type)GETSTRUCT(type_tup);
+    bool variant_byval = typtup->typbyval;
+
+    if (val) {
+      *val =
+          // if sum type is variable size
+          (Datum)(sum_type_len == -1
+                      // if variant is variable size
+                      ? (variant_byval
+                             // if variant is passed by value, get it as is
+                             ? *(Datum *)VARDATA_ANY(&varsize->data)
+                             // otherwise, pass the pointer
+                             : PointerGetDatum(&varsize->data))
+                      // if variant is passed by value, get it from behind the pointer
+                      : (variant_byval ? *((Datum *)value->data)
+                                       // otherwise, pass the pointer
+                                       : (Datum)value->data));
+    }
+    ReleaseSysCache(type_tup);
+  }
+}
+
 static bool sum_equal(Oid type, Datum arg1, Datum arg2, Oid collation) {
   Oid variant1, variant2;
   Datum val1, val2;
-  get_variant_val(arg1, type, &variant1, &val1, NULL);
+  Discriminant discriminant;
+  get_variant_val(arg1, type, &variant1, &val1, &discriminant);
   get_variant_val(arg2, type, &variant2, &val2, NULL);
 
   // Compare the type first
@@ -652,13 +748,11 @@ static bool sum_equal(Oid type, Datum arg1, Datum arg2, Oid collation) {
   }
 
   List *op = list_make1(makeString("="));
-  Oid eq_op_oid = OpernameGetOprid(op, variant1, variant2);
-  if (!OidIsValid(eq_op_oid)) {
-    FuncCandidateList clist = OpernameGetCandidates(op, 'b', false);
+  Oid eq_op_oid = InvalidOid;
 
-    if (clist != NULL) {
-      oper_select_candidate(2, (Oid[2]){variant1, variant1}, clist, &eq_op_oid);
-    }
+  SumTypeCacheEntry *entry = sumtypehash_lookup(sumtypehash, type);
+  if (entry != NULL) {
+    eq_op_oid = entry->variant_eq_ops->values[discriminant];
   }
 
   if (!OidIsValid(eq_op_oid)) {

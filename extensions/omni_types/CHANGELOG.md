@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.3.3] - TBD
 
+### Fixed
+
+* Improved sum type equality comparison performance [#801](https://github.com/omnigres/omnigres/pull/801)
+
 ## [0.3.2] - 2024-02-18
 
 ### Fixed
