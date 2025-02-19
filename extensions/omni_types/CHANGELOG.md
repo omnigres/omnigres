@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.3.3] - TBD
 
+### Added
+
+* Support for HASH/BTREE indexing for sum types [#802](https://github.com/omnigres/omnigres/pull/802)
+
 ### Fixed
 
 * Improved sum type equality comparison performance [#801](https://github.com/omnigres/omnigres/pull/801)
