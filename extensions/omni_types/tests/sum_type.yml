@@ -739,3 +739,228 @@ tests:
     - query: select row (1)::test.comp::typ = row (2)::test.comp::typ as result
       results:
         - result: false
+
+- name: hash
+  steps:
+    - select omni_types.sum_type('typ', 'int', 'text')
+    - query: select typ_hash('hello'::text::typ) = typ_hash('hello'::text::typ) as equal
+      results:
+      - equal: true
+    - query: select typ_hash('hello'::text::typ) = typ_hash('goodbye'::text::typ) as equal
+      results:
+      - equal: false
+    - query: select hashtext('hello'::text) = typ_hash('hello'::text::typ) as equal
+      results:
+      - equal: false
+
+- name: hash index
+  steps:
+  - select omni_types.sum_type('typ', 'int','text')
+  - |
+    create table test
+    (
+        val typ
+    )
+  - create index test_val on test using hash (val)
+  - query: explain (format json, costs off) select * from test natural join test t1
+    results:
+    - QUERY PLAN:
+      - "Plan": {
+            "Node Type": "Hash Join",
+            "Parallel Aware": false,
+            "Async Capable": false,
+            "Join Type": "Inner",
+              "Inner Unique": false,
+              "Hash Cond": "(test.val = t1.val)",
+              "Plans": [
+                {
+                    "Node Type": "Seq Scan",
+                    "Parent Relationship": "Outer",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Relation Name": "test",
+                    "Alias": "test"
+                      },
+                {
+                    "Node Type": "Hash",
+                    "Parent Relationship": "Inner",
+                    "Parallel Aware": false,
+                    "Async Capable": false,
+                    "Plans": [
+                      {
+                          "Node Type": "Seq Scan",
+                          "Parent Relationship": "Outer",
+                          "Parallel Aware": false,
+                          "Async Capable": false,
+                          "Relation Name": "test",
+                          "Alias": "t1"
+                            }
+                        ]
+                      }
+                  ]
+                }
+  - insert into test values (1), ('2'::text)
+  - query: select test.* from test natural join test t1 order by val
+    results:
+      - val: integer(1)
+      - val: text(2)
+
+- name: no hash indexing for composite types
+  steps:
+  - create type comp as (a int)
+  - select omni_types.sum_type('typ', 'int','comp')
+  - |
+    create table test
+    (
+        val typ
+    )
+  - query: create index test_val on test using hash (val)
+    error: data type typ has no default operator class for access method "hash"
+
+- name: comparison
+  steps:
+  - select omni_types.sum_type('typ', 'int','text')
+  - query: select 1::typ < 2::typ as result
+    results:
+    - result: true
+  - query: select 1::typ <= 2::typ as result
+    results:
+    - result: true
+  - query: select 1::typ <= 1::typ as result
+    results:
+    - result: true
+  - query: select 2::typ > 1::typ as result
+    results:
+    - result: true
+  - query: select 2::typ >= 1::typ as result
+    results:
+    - result: true
+  - query: select 2::typ >= 2::typ as result
+    results:
+    - result: true
+  # Use canonical ordering
+  - query: select 2::typ < '1'::text::typ as result
+    results:
+      - result: true
+  # Check the cmp function
+  - query: select typ_cmp(2::typ, '1'::text::typ) as result
+    results:
+    - result: -1
+
+- name: btree index
+  steps:
+  - select omni_types.sum_type('typ', 'int','text')
+  - |
+    create table test
+    (
+        val typ
+    )
+  - create index test_val on test using btree (val)
+  - set local enable_hashjoin = off
+  - query: explain (format json, costs off) select * from test natural join test t1
+    results:
+    - QUERY PLAN:
+      - {
+            "Plan": {
+                "Node Type": "Merge Join",
+                "Parallel Aware": false,
+                "Async Capable": false,
+                "Join Type": "Inner",
+                "Inner Unique": false,
+                "Merge Cond": "(test.val = t1.val)",
+                "Plans": [
+                   {
+                      "Node Type": "Index Only Scan",
+                      "Parent Relationship": "Outer",
+                      "Parallel Aware": false,
+                      "Async Capable": false,
+                      "Scan Direction": "Forward",
+                      "Index Name": "test_val",
+                      "Relation Name": "test",
+                      "Alias": "test"
+                         },
+                   {
+                      "Node Type": "Materialize",
+                      "Parent Relationship": "Inner",
+                      "Parallel Aware": false,
+                      "Async Capable": false,
+                      "Plans": [
+                         {
+                            "Node Type": "Index Only Scan",
+                            "Parent Relationship": "Outer",
+                            "Parallel Aware": false,
+                            "Async Capable": false,
+                            "Scan Direction": "Forward",
+                            "Index Name": "test_val",
+                            "Relation Name": "test",
+                            "Alias": "t1"
+                               }
+                           ]
+                         }
+                     ]
+                   }
+         }
+  - insert into test values (1), ('2'::text)
+  - query: select test.* from test natural join test t1 order by val
+    results:
+      - val: integer(1)
+      - val: text(2)
+
+- name: btree index for composite types
+  steps:
+  - create type comp as (a int)
+  - select omni_types.sum_type('typ', 'int','comp')
+  - |
+    create table test
+    (
+        val typ
+    )
+  - create index test_val on test using btree (val)
+  - query: explain (format json, costs off) select * from test natural join test t1
+    results:
+    - QUERY PLAN:
+      - {
+              "Plan": {
+                  "Node Type": "Merge Join",
+                  "Parallel Aware": false,
+                  "Async Capable": false,
+                  "Join Type": "Inner",
+                  "Inner Unique": false,
+                  "Merge Cond": "(test.val = t1.val)",
+                  "Plans": [
+                     {
+                        "Node Type": "Index Only Scan",
+                        "Parent Relationship": "Outer",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Scan Direction": "Forward",
+                        "Index Name": "test_val",
+                        "Relation Name": "test",
+                        "Alias": "test"
+                           },
+                     {
+                        "Node Type": "Materialize",
+                        "Parent Relationship": "Inner",
+                        "Parallel Aware": false,
+                        "Async Capable": false,
+                        "Plans": [
+                           {
+                              "Node Type": "Index Only Scan",
+                              "Parent Relationship": "Outer",
+                              "Parallel Aware": false,
+                              "Async Capable": false,
+                              "Scan Direction": "Forward",
+                              "Index Name": "test_val",
+                              "Relation Name": "test",
+                              "Alias": "t1"
+                                 }
+                             ]
+                           }
+                       ]
+                     }
+       }
+  - insert into test values (1), (row(0)::comp)
+  - query: select test.* from test natural join test t1 order by val
+    results:
+      - val: integer(1)
+      - val: comp((0))
