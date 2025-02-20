@@ -47,3 +47,24 @@ tests:
   - id: "column_id((omni_schema,languages,language))"
   - id: "column_id((omni_schema,languages,priority))"
 
+- name: types can have dependencies
+  query: |
+    select id::text from omni_schema.dependency 
+    where dependent_on operator(omni_schema.=) omni_schema.extension_id('omni_vfs')::omni_schema.object_id
+      and omni_types.variant(id) = 'omni_schema.type_id'::regtype
+      order by id::text
+  results:
+  - id: "type_id((omni_vfs,local_fs))"
+  - id: "type_id((omni_vfs,local_fs[]))"
+  - id: "type_id((omni_vfs,local_fs_mounts))"
+  - id: "type_id((omni_vfs,local_fs_mounts[]))"
+  - id: "type_id((omni_vfs,remote_fs))"
+  - id: "type_id((omni_vfs,remote_fs[]))"
+  - id: "type_id((omni_vfs,table_fs))"
+  - id: "type_id((omni_vfs,table_fs[]))"
+  - id: "type_id((omni_vfs,table_fs_file_data))"
+  - id: "type_id((omni_vfs,table_fs_file_data[]))"
+  - id: "type_id((omni_vfs,table_fs_files))"
+  - id: "type_id((omni_vfs,table_fs_files[]))"
+  - id: "type_id((omni_vfs,table_fs_filesystems))"
+  - id: "type_id((omni_vfs,table_fs_filesystems[]))"

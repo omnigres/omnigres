@@ -2132,6 +2132,15 @@ create view dependency as
                 inner join pg_namespace tt_ns on tt_ns.oid = tt.typnamespace
             where
                 d.objsubid = 0
+            -- type
+            union all
+            select
+                type_id(ns.nspname, resolved_type_name(t))::object_id as id,
+                d.*                                                                      as dependency
+            from
+                pg_depend               d
+                inner join pg_type      t on t.oid = d.objid and d.classid = 'pg_type'::regclass
+                inner join pg_namespace ns on ns.oid = t.typnamespace
             )
     select pre.*, oo.object_id as dependent_on
     from
