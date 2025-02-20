@@ -11,9 +11,8 @@ Triggered by changes to `omni_httpd.listeners` or manually
 using `omni_httpd.reload_configuration()`)
 
 There are multiple HTTP workers [^2]. Each HTTP worker is an instance of Postgres and
-can therefore handle incoming requests. This is done by running handler defined in
-by the `omni_httpd.handler` function on the main thread, and handling network I/O of
-HTTP requests and responses on a secondary thread [^3].
+can therefore handle incoming requests. This is done by running a matching [route handler](routing.md)
+on the main thread, and handling network I/O of HTTP requests and responses on a secondary thread [^3].
 
 [^2]:
 Can be configured using `omni_httpd.http_workers` configuration variable. Defaults to number of CPU cores online.

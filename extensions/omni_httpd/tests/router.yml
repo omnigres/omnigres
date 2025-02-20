@@ -1,0 +1,150 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+    max_worker_processes: 64
+  init:
+  - create extension omni_httpd cascade
+  - create extension omni_httpc cascade
+  - call omni_httpd.wait_for_configuration_reloads(2)
+  - |
+     create table my_router (
+         like omni_httpd.urlpattern_router
+     )
+  - |
+    create procedure root_handler(request omni_httpd.http_request, out outcome omni_httpd.http_outcome) language plpgsql
+    as $$
+    begin
+      outcome := omni_httpd.http_response('ok');
+    end;
+    $$;
+  - |
+    create procedure no_req_handler(out outcome omni_httpd.http_outcome) language plpgsql
+    as $$
+    begin
+      outcome := omni_httpd.http_response('no request needed');
+    end;
+    $$;
+  - |
+    create procedure no_outcome_handler() language plpgsql
+    as $$
+    begin
+    end;
+    $$;
+  - |
+    create function function_handler() returns omni_httpd.http_outcome language sql
+    as $$
+    select omni_httpd.http_response('function')
+    $$
+  - |
+    create function tuple_handler(t my_router) returns omni_httpd.http_outcome language sql
+    as $$
+    select omni_httpd.http_response(format('%s', t.handler))
+    $$
+  - |
+    create function null_handler(test text) returns omni_httpd.http_outcome
+        language sql
+    as
+    $$
+    select omni_httpd.http_response(format('%s', test is null))
+    $$
+  - |
+    insert into my_router (match, handler) values
+      (omni_httpd.urlpattern('/'), 'root_handler'::regproc),
+      (omni_httpd.urlpattern('/no_req'), 'no_req_handler'::regproc),
+      (omni_httpd.urlpattern('/no_outcome'), 'no_outcome_handler'::regproc),
+      (omni_httpd.urlpattern('/function'), 'function_handler'::regproc),
+      (omni_httpd.urlpattern('/tuple'), 'tuple_handler'::regproc),
+      (omni_httpd.urlpattern('/null'), 'null_handler'::regproc)
+
+tests:
+- name: root
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+      omni_httpc.http_request('http://127.0.0.1:' ||
+      (select effective_port from omni_httpd.listeners) || '/')))
+    select
+    response.status,
+    convert_from(response.body, 'utf-8') as body
+    from response
+  results:
+  - status: 200
+    body: ok
+
+- name: no request in the handler
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+      omni_httpc.http_request('http://127.0.0.1:' ||
+      (select effective_port from omni_httpd.listeners) || '/no_req')))
+    select
+    response.status,
+    convert_from(response.body, 'utf-8') as body
+    from response
+  results:
+  - status: 200
+    body: no request needed
+
+- name: no outcome in the handler
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+      omni_httpc.http_request('http://127.0.0.1:' ||
+      (select effective_port from omni_httpd.listeners) || '/no_outcome')))
+    select
+    response.status
+    from response
+  results:
+  - status: 204
+
+- name: function handler
+  query: |
+    with
+        response as (select *
+                     from
+                         omni_httpc.http_execute(
+                                 omni_httpc.http_request('http://127.0.0.1:' ||
+                                                         (select effective_port from omni_httpd.listeners) ||
+                                                         '/function')))
+    select
+        response.status,
+        convert_from(response.body, 'utf-8') as body
+    from
+        response
+  results:
+    - status: 200
+      body: function
+
+- name: tuple handler
+  query: |
+    with
+        response as (select *
+                     from
+                         omni_httpc.http_execute(
+                                 omni_httpc.http_request('http://127.0.0.1:' ||
+                                                         (select effective_port from omni_httpd.listeners) ||
+                                                         '/tuple')))
+    select
+        response.status,
+        convert_from(response.body, 'utf-8') as body
+    from
+        response
+  results:
+    - status: 200
+      body: tuple_handler(my_router)
+
+- name: must pass `null` into whatever argument that we don't have a value for
+  query: |
+    with
+        response as (select *
+                     from
+                         omni_httpc.http_execute(
+                                 omni_httpc.http_request('http://127.0.0.1:' ||
+                                                         (select effective_port from omni_httpd.listeners) ||
+                                                         '/null')))
+    select
+        response.status,
+        convert_from(response.body, 'utf-8') as body
+    from
+        response
+  results:
+    - status: 200
+      body: t

@@ -1,0 +1,32 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+  init:
+  - set session omni_httpd.init_port = 0
+  - create extension omni_httpd cascade
+  - create extension omni_httpc cascade
+  # FIXME: waiting for two reloads is working around a startup bug in omni_httpd
+  - call omni_httpd.wait_for_configuration_reloads(2)
+
+tests:
+
+- name: websocket upgrade requests rejected by default
+  query: |
+    SELECT status
+         , (SELECT json_agg(json_build_object(h.name, h.value))
+              FROM unnest(response.headers) h
+             WHERE h.name != 'server') as headers
+      FROM omni_httpc.http_execute(
+             omni_httpc.http_request('http://127.0.0.1:' || (SELECT effective_port FROM omni_httpd.listeners) || '/',
+                                     'GET',
+                                     array[omni_http.http_header('connection', 'Upgrade'),
+                                           omni_http.http_header('upgrade', 'websocket'),
+                                           omni_http.http_header('sec-websocket-version', '13'),
+                                           omni_http.http_header('sec-websocket-key', 'dGhlIHNhbXBsZSBub25jZQ==')])) response
+  results:
+  # FIXME probably not the right status code
+  - status: 201
+    headers:
+    - connection: close
+    - content-length: 0
