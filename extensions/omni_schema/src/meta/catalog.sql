@@ -2077,7 +2077,7 @@ create view dependency as
             -- relation
             select
                 relation_id(ns.nspname, c.relname)::object_id as id,
-                d.*                                           as dependency
+                d                                             as dependency
             from
                 pg_depend               d
                 inner join pg_class     c
@@ -2089,7 +2089,7 @@ create view dependency as
             -- callable
             select
                 function_id(ns.nspname, p.proname, _get_function_type_sig_array(p))::object_id as id,
-                d.*                                                                            as dependency
+                d                                                                              as dependency
             from
                 pg_depend               d
                 inner join pg_proc      p on p.oid = d.objid and d.classid = 'pg_proc'::regclass
@@ -2100,7 +2100,7 @@ create view dependency as
             -- column
             select
                 column_id(ns.nspname, c.relname, a.attname)::object_id as id,
-                d.*                                                    as dependency
+                d                                                      as dependency
             from
                 pg_depend               d
                 inner join pg_class     c on c.oid = d.objid and d.classid = 'pg_class'::regclass
@@ -2111,9 +2111,11 @@ create view dependency as
             union all
             --- columns also depend on tables
             select
-                column_id(ns.nspname, c.relname, a.attname)::object_id as id,
-                (('pg_attribute'::regclass, c.oid, a.attnum, 'pg_class'::regclass, c.oid, 0, 'n')::pg_depend).*                                                    as dependency
-            from pg_attribute a
+                column_id(ns.nspname, c.relname, a.attname)::object_id                                        as id,
+                (('pg_attribute'::regclass, c.oid, a.attnum, 'pg_class'::regclass, c.oid, 0,
+                  'n')::pg_depend)                                                                            as dependency
+            from
+                pg_attribute            a
                 inner join pg_class     c on c.oid = a.attrelid and c.reltype != 0
                 inner join pg_namespace ns on ns.oid = c.relnamespace
             where
@@ -2122,7 +2124,7 @@ create view dependency as
             -- cast
             select
                 cast_id(st_ns.nspname, st.typname, tt_ns.nspname, tt.typname)::object_id as id,
-                d.*                                                                      as dependency
+                d                                                                        as dependency
             from
                 pg_depend               d
                 inner join pg_cast      c on c.oid = d.objid and d.classid = 'pg_cast'::regclass
@@ -2136,15 +2138,18 @@ create view dependency as
             union all
             select
                 type_id(ns.nspname, resolved_type_name(t))::object_id as id,
-                d.*                                                                      as dependency
+                d                                                     as dependency
             from
                 pg_depend               d
                 inner join pg_type      t on t.oid = d.objid and d.classid = 'pg_type'::regclass
-                inner join pg_namespace ns on ns.oid = t.typnamespace
-            )
-    select pre.*, oo.object_id as dependent_on
+                inner join pg_namespace ns on ns.oid = t.typnamespace)
+    select
+        pre.id,
+        oo.object_id as dependent_on
     from
         pre
         inner join obj_object_id oo
-                   on oo.classid = refclassid and oo.objid = refobjid and oo.objsubid = refobjsubid
-    where deptype != 'i';
+                   on oo.classid = (pre.dependency).refclassid and oo.objid = (pre.dependency).refobjid and
+                      oo.objsubid = (pre.dependency).refobjsubid
+    where
+        (pre.dependency).deptype != 'i';
