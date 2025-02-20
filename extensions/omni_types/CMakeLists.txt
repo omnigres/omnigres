@@ -21,6 +21,7 @@ add_postgresql_extension(
         RELOCATABLE false
         SOURCES omni_types.c unit.c sum_type.c funsig_type.c
         REQUIRES ${requirements}
+        TESTS_REQUIRE dblink
 )
 
 add_library(libomnitypes INTERFACE)
