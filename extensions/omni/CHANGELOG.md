@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.2.6] - TBD
 
+### Fixed
+
+* Support for the upcoming Postgres 18 [#804](https://github.com/omnigres/omnigres/pull/804)
+
 ## [0.2.5] - 2025-01-23
 
 ### Added
