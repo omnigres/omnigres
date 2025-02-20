@@ -29,3 +29,21 @@ tests:
   - id: "relation_id((omni_vfs,table_fs_files_id_seq))"
   - id: "relation_id((omni_vfs,table_fs_filesystems))"
   - id: "relation_id((omni_vfs,table_fs_filesystems_id_seq))"
+
+- name: columns depend on relations
+  query: |
+    select id::text from omni_schema.dependency 
+    where
+        dependent_on operator(omni_schema.=) omni_schema.relation_id('omni_schema', 'languages')::omni_schema.object_id
+      and
+        omni_types.variant(id) = 'omni_schema.column_id'::regtype
+      order by id::text
+  results:
+  - id: "column_id((omni_schema,languages,extension))"
+  - id: "column_id((omni_schema,languages,file_extension))"
+  - id: "column_id((omni_schema,languages,file_processor))"
+  - id: "column_id((omni_schema,languages,file_processor_extension))"
+  - id: "column_id((omni_schema,languages,id))"
+  - id: "column_id((omni_schema,languages,language))"
+  - id: "column_id((omni_schema,languages,priority))"
+
