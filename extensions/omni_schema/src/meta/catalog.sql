@@ -2082,7 +2082,6 @@ create view dependency as
                 pg_depend               d
                 inner join pg_class     c
                            on c.oid = d.objid and d.classid = 'pg_class'::regclass and c.relkind != 't'
-                inner join pg_class     dc on dc.oid = d.refobjid and dc.relkind != 't'
                 inner join pg_namespace ns on ns.oid = c.relnamespace
             where
                 d.objsubid = 0
