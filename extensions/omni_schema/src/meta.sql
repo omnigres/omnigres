@@ -45,6 +45,10 @@ $instantiate_meta$
 declare
     rec record;
 begin
+    perform from pg_namespace ns where nspname = schema;
+    if not found then
+        raise exception 'schema % not found', schema;
+    end if;
     perform set_config('search_path', schema::text, true);
 
     /*{% include "../src/meta/identifiers.sql" %}*/
