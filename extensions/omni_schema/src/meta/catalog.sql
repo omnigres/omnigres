@@ -2016,100 +2016,117 @@ create view comment as
 
 --- dependencies
 
-create function _object_id_from(classid oid, objid oid, objsubid oid) returns object_id
-stable
-return case
-           when classid = 'pg_class'::regclass then
-               (select
-                    relation_id(ns.nspname, c.relname)::object_id
-                from
-                    pg_class                c
-                    inner join pg_namespace ns on ns.oid = c.relnamespace
-                where
-                    c.oid = objid)
-           when classid = 'pg_extension'::regclass then
-               (select
-                    extension_id(e.extname)::object_id
-                from
-                    pg_extension               e
-                    inner join pg_namespace ns on ns.oid = e.extnamespace
-                where
-                    e.oid = objid)
-           when classid = 'pg_type'::regclass then
-               (select
-                    type_id(ns.nspname, resolved_type_name(t))::object_id
-                from
-                    pg_type t
-                    inner join pg_namespace ns on ns.oid = t.typnamespace
-                where
-                    t.oid = objid)
-           when classid = 'pg_namespace'::regclass then
-               (select
-                    schema_id(ns.nspname)::object_id
-                from
-                    pg_namespace ns where ns.oid = objid)
-           when classid = 'pg_proc'::regclass then
-               (select
-                    function_id(ns.nspname, p.proname, _get_function_type_sig_array(p))::object_id as id
-                from
-                    pg_proc p
-                    inner join pg_namespace ns on ns.oid = p.pronamespace
-                where
-                    p.oid = objid)
-           when classid = 'pg_language'::regclass then
-               (select
-                    language_id(lanname)::object_id as id
-                from
-                    pg_language l
-                where
-                    l.oid = objid)
-           -- TODO: handle the rest of the cases
-           else null
-    end;
+create view obj_object_id as
+    select
+        'pg_class'::regclass::oid                     as classid,
+        c.oid                                         as objid,
+        0::oid                                        as objsubid,
+        relation_id(ns.nspname, c.relname)::object_id as object_id
+    from
+        pg_class                c
+        inner join pg_namespace ns on ns.oid = c.relnamespace
+    union all
+    select
+        'pg_extension'::regclass::oid      as classid,
+        e.oid                              as objid,
+        0::oid                             as objsubid,
+        extension_id(e.extname)::object_id as object_id
+    from
+        pg_extension            e
+        inner join pg_namespace ns on ns.oid = e.extnamespace
+    union all
+    select
+
+        'pg_type'::regclass::oid                              as classid,
+        t.oid                                                 as objid,
+        0::oid                                                as objsubid,
+        type_id(ns.nspname, resolved_type_name(t))::object_id as object_id
+    from
+        pg_type                 t
+        inner join pg_namespace ns on ns.oid = t.typnamespace
+    union all
+    select
+        'pg_namespace'::regclass::oid    as classid,
+        ns.oid                           as objid,
+        0::oid                           as objsubid,
+        schema_id(ns.nspname)::object_id as object_id
+    from
+        pg_namespace ns
+    union all
+    select
+        'pg_proc'::regclass::oid                                                       as classid,
+        p.oid                                                                          as objid,
+        0::oid                                                                         as objsubid,
+        function_id(ns.nspname, p.proname, _get_function_type_sig_array(p))::object_id as object_id
+    from
+        pg_proc                 p
+        inner join pg_namespace ns on ns.oid = p.pronamespace
+    union all
+    select
+        'pg_language'::regclass::oid    as classid,
+        l.oid                           as objid,
+        0::oid                          as objsubid,
+        language_id(lanname)::object_id as object_id
+    from
+        pg_language l;
+--- TODO: handle the rest of the cases (^^)
 
 create view dependency as
-    -- relation
-    select
-        relation_id(ns.nspname, c.relname)::object_id as id,
-        _object_id_from(refclassid, refobjid, refobjsubid) as dependent_on
+    with
+        pre as materialized (
+            -- relation
+            select
+                relation_id(ns.nspname, c.relname)::object_id as id,
+                d.*                                           as dependency
+            from
+                pg_depend               d
+                inner join pg_class     c
+                           on c.oid = d.objid and d.classid = 'pg_class'::regclass and c.relkind != 't'
+                inner join pg_class     dc on dc.oid = d.refobjid and dc.relkind != 't'
+                inner join pg_namespace ns on ns.oid = c.relnamespace
+            where
+                d.objsubid = 0
+            union all
+            -- callable
+            select
+                function_id(ns.nspname, p.proname, _get_function_type_sig_array(p))::object_id as id,
+                d.*                                                                            as dependency
+            from
+                pg_depend               d
+                inner join pg_proc      p on p.oid = d.objid and d.classid = 'pg_proc'::regclass
+                inner join pg_namespace ns on ns.oid = p.pronamespace
+            where
+                d.objsubid = 0
+            union all
+            -- column
+            select
+                column_id(ns.nspname, c.relname, a.attname)::object_id as id,
+                d.*                                                    as dependency
+            from
+                pg_depend               d
+                inner join pg_class     c on c.oid = d.objid and d.classid = 'pg_class'::regclass
+                inner join pg_attribute a on a.attrelid = c.oid and a.attnum > 0
+                inner join pg_namespace ns on ns.oid = c.relnamespace
+            where
+                d.objsubid != 0
+            union all
+            -- cast
+            select
+                cast_id(st_ns.nspname, st.typname, tt_ns.nspname, tt.typname)::object_id as id,
+                d.*                                                                      as dependency
+            from
+                pg_depend               d
+                inner join pg_cast      c on c.oid = d.objid and d.classid = 'pg_cast'::regclass
+                inner join pg_type      st on st.oid = c.castsource
+                inner join pg_type      tt on tt.oid = c.casttarget
+                inner join pg_namespace st_ns on st_ns.oid = st.typnamespace
+                inner join pg_namespace tt_ns on tt_ns.oid = tt.typnamespace
+            where
+                d.objsubid = 0
+            )
+    select pre.*, oo.object_id as dependent_on
     from
-        pg_depend          d
-        inner join pg_class     c on c.oid = d.objid and d.classid = 'pg_class'::regclass and c.relkind != 't'
-        inner join pg_class dc on dc.oid = d.refobjid and dc.relkind != 't'
-        inner join pg_namespace ns on ns.oid = c.relnamespace
-        where d.objsubid = 0 and d.deptype != 'i'
-    union all
-    -- callable
-    select
-        function_id(ns.nspname, p.proname, _get_function_type_sig_array(p))::object_id as id,
-        _object_id_from(refclassid, refobjid, refobjsubid) as dependent_on
-    from
-        pg_depend          d
-        inner join pg_proc     p on p.oid = d.objid and d.classid = 'pg_proc'::regclass
-        inner join pg_namespace ns on ns.oid = p.pronamespace
-        where d.deptype != 'i'
-    union all
-    -- column
-    select
-        column_id(ns.nspname, c.relname, a.attname)::object_id as id,
-        _object_id_from(refclassid, refobjid, refobjsubid) as dependent_on
-    from
-        pg_depend          d
-        inner join pg_class     c on c.oid = d.objid and d.classid = 'pg_class'::regclass
-        inner join pg_attribute a on a.attrelid = c.oid and a.attnum > 0
-        inner join pg_namespace ns on ns.oid = c.relnamespace
-        where d.objsubid != 0 and d.deptype != 'i'
-    union all
-    -- cast
-    select
-        cast_id(st_ns.nspname, st.typname, tt_ns.nspname, tt.typname)::object_id as id,
-        _object_id_from(refclassid, refobjid, refobjsubid) as dependent_on
-    from
-        pg_depend          d
-        inner join pg_cast      c on c.oid = d.objid and d.classid = 'pg_cast'::regclass
-        inner join pg_type      st on st.oid = c.castsource
-        inner join pg_type      tt on tt.oid = c.casttarget
-        inner join pg_namespace st_ns on st_ns.oid = st.typnamespace
-        inner join pg_namespace tt_ns on tt_ns.oid = tt.typnamespace
-        where d.deptype != 'i'
-;
+        pre
+        inner join obj_object_id oo
+                   on oo.classid = refclassid and oo.objid = refobjid and oo.objsubid = refobjsubid
+    where deptype != 'i';
