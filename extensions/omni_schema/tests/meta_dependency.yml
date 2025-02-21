@@ -47,6 +47,16 @@ tests:
   - id: "column_id((omni_schema,languages,language))"
   - id: "column_id((omni_schema,languages,priority))"
 
+- name: columns from extensions depend on extensions
+  query: |
+    select count(*) > 0 as result from omni_schema.dependency 
+    where
+        dependent_on operator(omni_schema.=) omni_schema.extension_id('omni_schema')::omni_schema.object_id
+      and
+        omni_types.variant(id) = 'omni_schema.column_id'::regtype
+  results:
+  - result: true
+
 - name: types can have dependencies
   query: |
     select id::text from omni_schema.dependency 

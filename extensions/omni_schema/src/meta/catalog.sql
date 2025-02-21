@@ -2111,13 +2111,26 @@ create view dependency as
             union all
             --- columns also depend on tables
             select
-                column_id(ns.nspname, c.relname, a.attname)::object_id                                        as id,
+                column_id(ns.nspname, c.relname, a.attname)::object_id as id,
                 (('pg_attribute'::regclass, c.oid, a.attnum, 'pg_class'::regclass, c.oid, 0,
-                  'n')::pg_depend)                                                                            as dependency
+                  'n')::pg_depend)                                     as dependency
             from
                 pg_attribute            a
                 inner join pg_class     c on c.oid = a.attrelid and c.reltype != 0
                 inner join pg_namespace ns on ns.oid = c.relnamespace
+            where
+                a.attnum > 0
+            union all
+            --- columns also depend on what tables depend on
+            select
+                column_id(ns.nspname, c.relname, a.attname)::object_id as id,
+                (('pg_attribute'::regclass, c.oid, a.attnum, d.refclassid, d.refobjid, d.refobjsubid,
+                  d.deptype)::pg_depend)                               as dependency
+            from
+                pg_attribute            a
+                inner join pg_class     c on c.oid = a.attrelid and c.reltype != 0
+                inner join pg_namespace ns on ns.oid = c.relnamespace
+                inner join pg_depend    d on d.objid = c.oid and d.classid = 'pg_class'::regclass
             where
                 a.attnum > 0
             union all
