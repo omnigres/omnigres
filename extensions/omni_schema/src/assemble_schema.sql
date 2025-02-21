@@ -18,6 +18,8 @@ declare
     error_message                   text;
     error_detail text;
     try_again                       boolean = false;
+    MAX_RETRIES                     int : = 3;
+
 begin
     -- statement execution status
     create temp table omni_schema_execution_status
@@ -36,7 +38,9 @@ begin
         -- whether statement is executed successfully
         execution_successful     boolean not null default false,
         -- error for last execution of the statement
-        last_execution_error     text
+        last_execution_error     text,
+        -- counter for number of retries
+        retry_count              int default 0
     ) on commit drop;
 
     <<top>>
@@ -155,7 +159,11 @@ begin
         while true
             loop
                 <<file>>
-                for current_filename in select distinct filepath from omni_schema_execution_status order by filepath
+                for current_filename in 
+                (select distinct filepath
+                 from omni_schema_execution_status
+                 where retry_count < {MAX_RETRIES}
+                 order by coalesce(auxiliary_tools.priority, languages.priority) desc)
                     loop
                         <<statement>>
                         for rec in select *
@@ -247,15 +255,23 @@ begin
                                     when others then
                                         get stacked diagnostics error_message = message_text, error_detail = pg_exception_detail;
                                         update omni_schema_execution_status
-                                        set last_execution_error = error_message
+                                        set last_execution_error = error_message,
+                                            retry_count = retry_count + 1 -- Increment retry count
                                         where id = rec.id
                                         returning filepath, code into _filepath, _code;
                                         raise notice '%', json_build_object('type', 'error', 'message',
                                                                             sqlerrm, 'detail', error_detail, 'code',
                                                                             _code,
                                                                             'file', _filepath);
-                                        -- go to next file if statement execution fails to preserve serial execution of statements in a file
-                                        continue file;
+                                        if retry_count >= {MAX_RETRIES} then
+                                            update omni_schema_execution_status
+                                            set execution_successful = false
+                                            where id = rec.id;
+                                            raise notice '%', json_build_object('type', 'error', 'message',
+                                                                                'Permanently failed after retries',
+                                                                                'file', rec.filepath);
+                                        end if;
+                                        -- Do NOT `continue file;` here — let the outer loop retry naturally
                                 end;
                             end loop statement;
                     end loop file;
