@@ -2155,7 +2155,47 @@ create view dependency as
             from
                 pg_depend               d
                 inner join pg_type      t on t.oid = d.objid and d.classid = 'pg_type'::regclass
-                inner join pg_namespace ns on ns.oid = t.typnamespace)
+                inner join pg_namespace ns on ns.oid = t.typnamespace
+            ---- not all types were properly connected before Postgres 17 (arrays)
+            union all
+            select
+                type_id(ns.nspname, resolved_type_name(t))::object_id as id,
+                d                                                     as dependency
+            from
+                pg_type                 t
+                inner join pg_namespace ns on ns.oid = t.typnamespace
+                inner join pg_depend    d on d.objid = t.typelem and d.classid = 'pg_type'::regclass
+            where
+                (current_setting('server_version_num')::int / 10000) < 17 and
+                t.typelem != 0
+            ---- not all types were properly connected before Postgres 17 (relations)
+            union all
+            select
+                type_id(ns.nspname, resolved_type_name(t))::object_id as id,
+                d                                                     as dependency
+            from
+                pg_type                 t
+                inner join pg_namespace ns on ns.oid = t.typnamespace
+                inner join pg_depend    d on d.objid = t.typrelid and d.classid = 'pg_class'::regclass
+            where
+                (current_setting('server_version_num')::int / 10000) < 17 and
+                t.typrelid != 0
+            ---- not all types were properly connected before Postgres 17 (relation arrays)
+            union all
+            select
+                type_id(ns.nspname, resolved_type_name(t))::object_id as id,
+                d                                                     as dependency
+            from
+                pg_type                 t
+                inner join pg_type      tr on tr.oid = t.typelem and tr.typrelid != 0
+                inner join pg_namespace ns on ns.oid = t.typnamespace
+                inner join pg_depend    d on d.objid = tr.typrelid and d.classid = 'pg_class'::regclass
+            where
+                (current_setting('server_version_num')::int / 10000) < 17 and
+                t.typelem != 0
+            -- TODO: add support for multirange types
+        )
+
     select
         pre.id,
         oo.object_id as dependent_on
