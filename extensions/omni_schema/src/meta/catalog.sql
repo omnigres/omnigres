@@ -2194,7 +2194,20 @@ create view dependency as
                 (current_setting('server_version_num')::int / 10000) < 17 and
                 t.typelem != 0
             -- TODO: add support for multirange types
-        )
+            -- operator
+            union all
+            select
+                operator_id(ns.nspname, o.oprname, lns.nspname, resolved_type_name(lt), rns.nspname,
+                            resolved_type_name(rt))::object_id as id,
+                d                                              as dependency
+            from
+                pg_depend               d
+                inner join pg_operator  o on o.oid = d.objid and d.classid = 'pg_operator'::regclass
+                inner join pg_namespace ns on ns.oid = o.oprnamespace
+                left join  pg_type      lt on lt.oid = o.oprleft
+                left join  pg_type      rt on rt.oid = o.oprright
+                left join  pg_namespace lns on ns.oid = lt.typnamespace
+                left join  pg_namespace rns on ns.oid = rt.typnamespace)
 
     select
         pre.id,
