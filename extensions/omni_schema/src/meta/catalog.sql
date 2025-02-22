@@ -591,26 +591,24 @@ create view relation_column_nullable as
  * relation
  *****************************************************************************/
 create view relation as
-    select relation_id(t.table_schema, t.table_name) as id,
-           schema_id(t.table_schema) as schema_id,
-           t.table_schema::text as schema_name,
-           t.table_name::text as name
-    from information_schema.tables t;
+    select relation_id(ns.nspname, c.relname) as id,
+           schema_id(ns.nspname) as schema_id,
+           ns.nspname::text as schema_name,
+           c.relname::text as name
+    from pg_class c
+    inner join pg_namespace ns on ns.oid = c.relnamespace
+    where reltype != 0;
 
 create view relation_primary_key as
-    select relation_id(t.table_schema, t.table_name) as id,
-           column_id(c.table_schema, c.table_name, k.column_name),
-           k.ordinal_position as position
-    from information_schema.tables t
-         inner join information_schema.table_constraints c
-                   on t.table_catalog = c.table_catalog and
-                      t.table_schema = c.table_schema and
-                      t.table_name = c.table_name and
-                      c.constraint_type = 'PRIMARY KEY'
-         inner join information_schema.key_column_usage k
-                   on k.constraint_catalog = c.constraint_catalog and
-                      k.constraint_schema = c.constraint_schema and
-                      k.constraint_name = c.constraint_name;
+    select relation_id(ns.nspname, c.relname) as id,
+           column_id(ns.nspname, c.relname, a.attname),
+           position
+    from pg_class c
+    inner join pg_namespace ns on ns.oid = c.relnamespace
+    inner join pg_constraint ct on ct.conrelid = c.oid and ct.contype = 'p'
+    join lateral (select * from unnest(ct.conkey) with ordinality as t(key, position)) on true
+    inner join pg_attribute a on a.attrelid = c.oid and a.attnum = key
+    where reltype != 0;
 
 /******************************************************************************
  * foreign_key
