@@ -9,6 +9,7 @@ tests:
   query: |
     select id::text from omni_schema.dependency 
     where dependent_on operator(omni_schema.=) omni_schema.extension_id('plpgsql')::omni_schema.object_id
+      and omni_types.variant(id) = 'omni_schema.function_id'::regtype
       order by id::text
   results:
   - id: "function_id((pg_catalog,plpgsql_call_handler,{}))"
@@ -100,5 +101,13 @@ tests:
     select count(*) > 0 as result from omni_schema.dependency 
     where dependent_on operator(omni_schema.=) omni_schema.extension_id('omni_schema')::omni_schema.object_id
       and omni_types.variant(id) = 'omni_schema.index_id'::regtype
+  results:
+  - result: true
+
+- name: languages can have dependencies
+  query: |
+    select count(*) > 0 as result from omni_schema.dependency 
+    where dependent_on operator(omni_schema.=) omni_schema.extension_id('plpgsql')::omni_schema.object_id
+      and omni_types.variant(id) = 'omni_schema.language_id'::regtype
   results:
   - result: true

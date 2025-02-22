@@ -2227,7 +2227,15 @@ create view dependency as
                 pg_depend               d
                 inner join pg_index     i on i.indrelid = d.objid and d.classid = 'pg_class'::regclass
                 inner join pg_class     r on r.oid = i.indrelid
-                inner join pg_namespace ns on ns.oid = r.relnamespace)
+                inner join pg_namespace ns on ns.oid = r.relnamespace
+            -- language
+            union all
+            select
+                language_id(l.lanname)::object_id as id,
+                d                                 as dependency
+            from
+                pg_depend              d
+                inner join pg_language l on l.oid = d.objid and d.classid = 'pg_language'::regclass)
 
     select
         pre.id,
