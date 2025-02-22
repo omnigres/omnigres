@@ -597,7 +597,7 @@ create view relation as
            t.table_name::text as name
     from information_schema.tables t;
 
-create view relation_primary_keys as
+create view relation_primary_key as
     select relation_id(t.table_schema, t.table_name) as id,
            column_id(c.table_schema, c.table_name, k.column_name),
            k.ordinal_position as position

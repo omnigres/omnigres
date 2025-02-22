@@ -75,7 +75,7 @@ tests:
 - name: created table primary keys show up with expected values
   steps:
     - create table test.table_with_pk (id integer primary key);
-    - query: select id, column_id, position from omni_schema.relation_primary_keys where id in (omni_schema.relation_id('test', 'table_with_pk'))
+    - query: select id, column_id, position from omni_schema.relation_primary_key where id in (omni_schema.relation_id('test', 'table_with_pk'))
       results:
       - id: "(test,table_with_pk)"
         column_id: "(test,table_with_pk,id)"
@@ -84,7 +84,7 @@ tests:
 - name: created table composite primary keys show up with expected values
   steps:
     - create table test.table_with_composite_pk (id integer, created_at timestamptz, primary key (id, created_at));
-    - query: select id, column_id, position from omni_schema.relation_primary_keys where id in (omni_schema.relation_id('test', 'table_with_composite_pk')) order by position
+    - query: select id, column_id, position from omni_schema.relation_primary_key where id in (omni_schema.relation_id('test', 'table_with_composite_pk')) order by position
       results:
       - id: "(test,table_with_composite_pk)"
         column_id: "(test,table_with_composite_pk,id)"
@@ -153,7 +153,7 @@ tests:
   steps:
     - create table test.table_with_pk (id integer primary key);
     - create view test.view_without_pk as select * from test.table_with_pk;
-    - query: select id, column_id, position from omni_schema.relation_primary_keys where id in (omni_schema.relation_id('test', 'view_with_pk'))
+    - query: select id, column_id, position from omni_schema.relation_primary_key where id in (omni_schema.relation_id('test', 'view_with_pk'))
       results: []
 
 - name: meta relation column type should not refer to system columns
