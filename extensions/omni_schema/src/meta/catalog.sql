@@ -2207,7 +2207,17 @@ create view dependency as
                 left join  pg_type      lt on lt.oid = o.oprleft
                 left join  pg_type      rt on rt.oid = o.oprright
                 left join  pg_namespace lns on ns.oid = lt.typnamespace
-                left join  pg_namespace rns on ns.oid = rt.typnamespace)
+                left join  pg_namespace rns on ns.oid = rt.typnamespace
+            -- sequence
+            union all
+            select
+                sequence_id(ns.nspname, r.relname)::object_id as id,
+                d                                             as dependency
+            from
+                pg_depend               d
+                inner join pg_sequence  s on s.seqrelid = d.objid and d.classid = 'pg_class'::regclass
+                inner join pg_class     r on r.oid = s.seqrelid
+                inner join pg_namespace ns on ns.oid = r.relnamespace)
 
     select
         pre.id,
