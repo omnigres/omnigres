@@ -19,7 +19,6 @@
                                 "callable_acl", "callable_body",
                     "trigger",
                     "role","role_inheritance",
-                    "table_privilege",
                     "policy","policy_role",
                     "constraint_relation_non_null","constraint_relation_non_null_column",
                     "constraint_relation_check", "constraint_relation_check_expr",
@@ -39,7 +38,8 @@
                             "index_attribute","index_partial",
                     "language", "language_internal", "language_trusted", "language_handler", "language_inline_handler",
                                 "language_validator", "language_acl",
-                    "comment", "dependency"
+                    "comment", "dependency",
+                    "acl"
                     ]
  %}*/
 
