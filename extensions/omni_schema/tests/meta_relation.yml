@@ -91,7 +91,18 @@ tests:
         position: 1
       - id: "(test,table_with_composite_pk)"
         column_id: "(test,table_with_composite_pk,created_at)"
-        position: 2 
+        position: 2
+
+- name: created table foreign keys show up with expected values
+  steps:
+    - create table test.table_with_pk (id integer primary key)
+    - create table test.table_with_fk (id integer references test.table_with_pk(id))
+    - query: select id, column_id, position, constraint_id from omni_schema.relation_foreign_key natural join omni_schema.relation_foreign_key_constraint where id in (omni_schema.relation_id('test', 'table_with_fk'))
+      results:
+      - id: "(test,table_with_fk)"
+        column_id: "(test,table_with_fk,id)"
+        position: 1
+        constraint_id: "(test,table_with_fk,table_with_fk_id_fkey)"
 
 - name: created view shows up with expected values
   steps:

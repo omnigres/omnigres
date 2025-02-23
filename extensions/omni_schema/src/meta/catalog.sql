@@ -610,77 +610,26 @@ create view relation_primary_key as
     inner join pg_attribute a on a.attrelid = c.oid and a.attnum = key
     where reltype != 0;
 
-/******************************************************************************
- * foreign_key
- *****************************************************************************/
-create or replace view foreign_key as
-select constraint_id(from_schema_name, from_table_name, constraint_name) as id,
-    from_schema_name::text as schema_name,
-    from_table_name::text as table_name,
-    constraint_name::text,
-    array_agg(from_column_name::text order by from_col_key_position) as from_column_names,
-    to_schema_name::text,
-    to_table_name::text,
-    array_agg(to_column_name::text order by to_col_key_position) as to_column_names,
-    match_option::text,
-    on_update::text,
-    on_delete::text
-from (
-    select
-        ns.nspname as from_schema_name,
-        cl.relname as from_table_name,
-        c.conname as constraint_name,
-        a.attname as from_column_name,
-        from_cols.elem as from_column_num,
-        from_cols.nr as from_col_key_position,
-        to_ns.nspname as to_schema_name,
-        to_cl.relname as to_table_name,
-        to_a.attname as to_column_name,
-        to_cols.elem as to_column_num,
-        to_cols.nr as to_col_key_position,
+create view relation_foreign_key as
+    select relation_id(ns.nspname, c.relname) as id,
+           column_id(ns.nspname, c.relname, a.attname),
+           position
+    from pg_class c
+    inner join pg_namespace ns on ns.oid = c.relnamespace
+    inner join pg_constraint ct on ct.conrelid = c.oid and ct.contype = 'f'
+    join lateral (select * from unnest(ct.conkey) with ordinality as t(key, position)) on true
+    inner join pg_attribute a on a.attrelid = c.oid and a.attnum = key
+    where reltype != 0;
 
-/* big gank from information_schema.referential_constraints view */
-        CASE c.confmatchtype
-            WHEN 'f'::"char" THEN 'FULL'::text
-            WHEN 'p'::"char" THEN 'PARTIAL'::text
-            WHEN 's'::"char" THEN 'SIMPLE'::text -- was 'NONE'
-            ELSE NULL::text
-        END::information_schema.character_data AS match_option,
-        CASE c.confupdtype
-            WHEN 'c'::"char" THEN 'CASCADE'::text
-            WHEN 'n'::"char" THEN 'SET NULL'::text
-            WHEN 'd'::"char" THEN 'SET DEFAULT'::text
-            WHEN 'r'::"char" THEN 'RESTRICT'::text
-            WHEN 'a'::"char" THEN 'NO ACTION'::text
-            ELSE NULL::text
-        END::information_schema.character_data AS on_update,
-        CASE c.confdeltype
-            WHEN 'c'::"char" THEN 'CASCADE'::text
-            WHEN 'n'::"char" THEN 'SET NULL'::text
-            WHEN 'd'::"char" THEN 'SET DEFAULT'::text
-            WHEN 'r'::"char" THEN 'RESTRICT'::text
-            WHEN 'a'::"char" THEN 'NO ACTION'::text
-            ELSE NULL::text
-        END::information_schema.character_data AS on_delete
-/* end big gank */
-
-    from pg_constraint c
-    join lateral unnest(c.conkey) with ordinality as from_cols(elem, nr) on true
-    join lateral unnest(c.confkey) with ordinality as to_cols(elem, nr) on to_cols.nr = from_cols.nr -- FTW!
-    join pg_namespace ns on ns.oid = c.connamespace
-    join pg_class cl on cl.oid = c.conrelid
-    join pg_attribute a on a.attrelid = c.conrelid and a.attnum = from_cols.elem
-
-    -- to_cols
-    join pg_class to_cl on to_cl.oid = c.confrelid
-    join pg_namespace to_ns on to_cl.relnamespace = to_ns.oid
-    join pg_attribute to_a on to_a.attrelid = to_cl.oid and to_a.attnum = to_cols.elem
-
-    where contype = 'f'
-) c_cols
-group by 1,2,3,4,6,7,9,10,11;
-
-
+create view relation_foreign_key_constraint as
+    select relation_id(ns.nspname, c.relname) as id,
+           constraint_id(ns.nspname, c.relname, ct.conname)
+    from pg_class c
+    inner join pg_namespace ns on ns.oid = c.relnamespace
+    inner join pg_constraint ct on ct.conrelid = c.oid and ct.contype = 'f'
+    join lateral (select * from unnest(ct.conkey) with ordinality as t(key, position)) on true
+    inner join pg_attribute a on a.attrelid = c.oid and a.attnum = key
+    where reltype != 0;
 
 /******************************************************************************
  * function
@@ -1675,6 +1624,120 @@ create view constraint_relation_unique_column as
     where
         c.contype = 'u';
 
+/******************************************************************************
+ * constraint_relation_foreign_key*
+ *****************************************************************************/
+create view constraint_relation_foreign_key as
+    select
+        constraint_id(ns.nspname, cc.relname, c.conname) as id,
+        relation_id(cns.nspname, cc.relname),
+        c.conname                                        as name
+
+    from
+        pg_constraint           c
+        inner join pg_namespace ns on ns.oid = c.connamespace
+        inner join pg_class     cc on cc.oid = c.conrelid
+        inner join pg_namespace cns on cns.oid = cc.relnamespace
+    where
+        c.contype = 'f';
+
+create view constraint_relation_foreign_key_update as
+    select
+        constraint_id(ns.nspname, cc.relname, c.conname) as id,
+        (case when c.confupdtype = 'a' then 'no action'
+         when c.confupdtype = 'r' then 'restrict'
+         when c.confupdtype = 'c' then 'cascade'
+         when c.confupdtype = 'n' then 'set null'
+         when c.confupdtype = 'd' then 'set default'
+         else null end) as update_action
+    from
+        pg_constraint           c
+        inner join pg_namespace ns on ns.oid = c.connamespace
+        inner join pg_class     cc on cc.oid = c.conrelid
+        inner join pg_namespace cns on cns.oid = cc.relnamespace
+    where
+        c.contype = 'f';
+
+create view constraint_relation_foreign_key_delete as
+    select
+        constraint_id(ns.nspname, cc.relname, c.conname) as id,
+        (case when c.confdeltype = 'a' then 'no action'
+         when c.confdeltype = 'r' then 'restrict'
+         when c.confdeltype = 'c' then 'cascade'
+         when c.confdeltype = 'n' then 'set null'
+         when c.confdeltype = 'd' then 'set default'
+         else null end) as delete_action
+    from
+        pg_constraint           c
+        inner join pg_namespace ns on ns.oid = c.connamespace
+        inner join pg_class     cc on cc.oid = c.conrelid
+        inner join pg_namespace cns on cns.oid = cc.relnamespace
+    where
+        c.contype = 'f';
+
+create view constraint_relation_foreign_key_match_full as
+    select
+        constraint_id(ns.nspname, cc.relname, c.conname) as id
+    from
+        pg_constraint           c
+        inner join pg_namespace ns on ns.oid = c.connamespace
+        inner join pg_class     cc on cc.oid = c.conrelid
+        inner join pg_namespace cns on cns.oid = cc.relnamespace
+    where
+        c.contype = 'f' and c.confmatchtype = 'f';
+
+create view constraint_relation_foreign_key_match_partial as
+    select
+        constraint_id(ns.nspname, cc.relname, c.conname) as id
+    from
+        pg_constraint           c
+        inner join pg_namespace ns on ns.oid = c.connamespace
+        inner join pg_class     cc on cc.oid = c.conrelid
+        inner join pg_namespace cns on cns.oid = cc.relnamespace
+    where
+        c.contype = 'f' and c.confmatchtype = 'p';
+
+create view constraint_relation_foreign_key_match_simple as
+    select
+        constraint_id(ns.nspname, cc.relname, c.conname) as id
+    from
+        pg_constraint           c
+        inner join pg_namespace ns on ns.oid = c.connamespace
+        inner join pg_class     cc on cc.oid = c.conrelid
+        inner join pg_namespace cns on cns.oid = cc.relnamespace
+    where
+        c.contype = 'f' and c.confmatchtype = 's';
+
+create view constraint_relation_foreign_key_references as
+    select
+        constraint_id(ns.nspname, cc.relname, c.conname) as id,
+        relation_id(rns.nspname, rc.relname)
+    from
+        pg_constraint           c
+        inner join pg_namespace ns on ns.oid = c.connamespace
+        inner join pg_class     cc on cc.oid = c.conrelid
+        inner join pg_namespace cns on cns.oid = cc.relnamespace
+        inner join pg_class rc on rc.oid = c.confrelid
+        inner join pg_namespace rns on rns.oid = rc.relnamespace
+    where
+        c.contype = 'f';
+
+create view constraint_relation_foreign_key_references_column as
+    select
+        constraint_id(ns.nspname, cc.relname, c.conname) as id,
+        column_id(rns.nspname, rc.relname, a.attname),
+        position
+    from
+        pg_constraint           c
+        inner join pg_namespace ns on ns.oid = c.connamespace
+        inner join pg_class     cc on cc.oid = c.conrelid
+        inner join pg_namespace cns on cns.oid = cc.relnamespace
+        inner join pg_class rc on rc.oid = c.confrelid
+        inner join pg_namespace rns on rns.oid = rc.relnamespace
+        join lateral (select * from unnest(c.confkey) with ordinality as t(key, position)) on true
+        inner join pg_attribute a on a.attrelid = rc.oid and a.attnum = key
+    where
+        c.contype = 'f';
 /******************************************************************************
  * extension
  *****************************************************************************/
