@@ -129,7 +129,8 @@ void prepare_share_fd() {
 
   socket_fd = socket(PF_UNIX, SOCK_STREAM, 0);
   if (socket_fd < 0) {
-    ereport(ERROR, errmsg("can't create sharing socket"));
+    int e = errno;
+    ereport(ERROR, errmsg("can't create sharing socket: %s", strerror(e)));
   }
 
   int enable = 1;
