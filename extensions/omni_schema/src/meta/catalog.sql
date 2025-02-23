@@ -1424,16 +1424,10 @@ create view role_setting as
         left join pg_database pgd on pgd.oid = pgrs.setdatabase,
         unnest(pgrs.setconfig) as setting;
 
-/******************************************************************************
- * role_inheritance
- *****************************************************************************/
-create view role_inheritance as
+create view role_member as
 select
     role_id(r.rolname::text) as id,
-    r.rolname::text || '<-->' || r2.rolname::text as inheritance,
-    r.rolname::text as role_name,
-    role_id(r2.rolname::text) as member_role_id,
-    r2.rolname::text as member_role_name
+    role_id(r2.rolname::text) as member_role_id
 from pg_auth_members m
     join pg_roles r on r.oid = m.roleid
     join pg_roles r2 on r2.oid = m.member;
