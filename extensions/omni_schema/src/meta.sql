@@ -6,6 +6,7 @@
                                 "sequence_cycle", "sequence_increment", "sequence_type", "sequence_cache",
                                 "sequence_table",
                     "relation_column","relation_column_type","relation_column_position","relation_column_default",
+                                      "relation_column_identity", "relation_column_generated",
                                       "relation_column_nullable","relation",
                     "table","table_permanent", "table_temporary", "table_partitioned", "table_rowsecurity", "table_forcerowsecurity",
                     "view",

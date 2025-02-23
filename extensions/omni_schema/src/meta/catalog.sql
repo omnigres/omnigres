@@ -570,6 +570,31 @@ create view relation_column_default as
     where
         a.attnum > 0;
 
+create view relation_column_identity as
+    select
+        column_id(ns.nspname, c.relname, a.attname)                                                     as id,
+        a.attidentity = 'a' as always
+    from
+        pg_attribute a
+        inner join pg_class                                                               c on a.attrelid = c.oid
+            and c.relkind = any ('{r,v,m,f,p}')
+        inner join pg_namespace                                                           ns on ns.oid = c.relnamespace
+    where
+        a.attnum > 0 and a.attidentity in ('a','d');
+
+create view relation_column_generated as
+    select
+        column_id(ns.nspname, c.relname, a.attname)                                                     as id,
+        _pg_get_expr(ad.adbin, ad.adrelid)::text as generated
+    from
+        pg_attribute a inner join pg_attrdef ad on attrelid = adrelid and attnum = adnum
+        inner join pg_class                                                               c on a.attrelid = c.oid
+            and c.relkind = any ('{r,v,m,f,p}')
+        inner join pg_namespace                                                           ns on ns.oid = c.relnamespace
+    where
+        a.attnum > 0 and a.attgenerated in ('s');
+
+
 create view relation_column_type as
     select
         column_id(ns.nspname, c.relname, col.attname)                                                      as id,
