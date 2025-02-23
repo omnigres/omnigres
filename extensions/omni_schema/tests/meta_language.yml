@@ -1,0 +1,16 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_schema cascade
+
+tests:
+
+- name: smoke test
+  query: select id::text from omni_schema.language order by id::text
+  results:
+  - id: (c)
+  - id: (internal)
+  - id: (plpgsql)
+  - id: (sql)
+
+# TODO: cover more of the surface

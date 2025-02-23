@@ -1,0 +1,17 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_schema cascade
+    - create schema test
+
+tests:
+
+- name: created cast shows up with expected values
+  steps:
+    - query: create type test_type as enum ('t')
+    - query: create cast (test_type as text) with inout as implicit
+    - query: select id, "from", "to" from omni_schema.cast where id = omni_schema.cast_id('test_type', 'test_type', 'text', 'text')
+      results:
+      - id: "(test_type,test_type,text,text)"
+        from: test_type
+        to: text

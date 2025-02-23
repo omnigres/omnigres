@@ -1,0 +1,109 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_schema cascade
+  - create schema baseline
+  - select omni_schema.materialize_meta('omni_schema', 'baseline')
+  - create schema diff
+  - select omni_schema.create_meta_diff('baseline', 'omni_schema', 'diff')
+
+tests:
+
+- name: adding a type
+  steps:
+  - create domain t as text
+  - query: select name from diff.added_type where schema_name = 'public' order by name
+    results:
+    - name: t
+    - name: t[]
+  - query: select name from diff.added_type where schema_name = 'public' order by name
+    results:
+    - name: t
+    - name: t[]
+
+- name: dropping a type
+  steps:
+  - create domain t as text
+  - select baseline.refresh_meta()
+  - drop domain t
+  - query: select name from diff.removed_type where schema_name = 'public' order by name
+    results:
+    - name: t
+    - name: t[]
+
+- name: renaming a type
+  steps:
+  - create domain t as text
+  - select baseline.refresh_meta()
+  - alter domain t rename to t1
+  - query: select name from diff.removed_type where schema_name = 'public' order by name
+    results:
+    - name: t
+    - name: t[]
+  - query: select name from diff.added_type where schema_name = 'public' order by name
+    results:
+    - name: t1
+    - name: t1[]
+
+- name: changing type's type
+  steps:
+  - create domain t as text
+  - select baseline.refresh_meta()
+  - drop domain t
+  - create type t as (i int)
+  - query: |
+      select name from diff.removed_type_domain rtd
+      inner join baseline.type t on t.id = rtd.id
+      where schema_name = 'public'
+    results:
+    - name: t
+  - query: |
+      select name from diff.added_type_composite atc
+      inner join omni_schema.type t on t.id = atc.id
+      where schema_name = 'public'
+    results:
+    - name: t
+
+- name: changing domain
+  steps:
+    - create domain t as text
+    - select baseline.refresh_meta()
+    - drop domain t
+    - create domain t as int
+    - query: |
+        select typ.name from diff.removed_type_domain rtd
+               inner join omni_schema.type t on t.id = rtd.id
+               inner join omni_schema.type typ on typ.id = rtd.base_type_id
+        where t.schema_name = 'public' and t.name = 't'
+      results:
+        - name: text
+    - query: |
+        select typ.name from diff.added_type_domain atd
+                             inner join omni_schema.type t on t.id = atd.id
+                             inner join omni_schema.type typ on typ.id = atd.base_type_id
+        where t.schema_name = 'public' and t.name = 't'
+      results:
+        - name: int4
+
+- name: changing enum
+  steps:
+  - create type t as enum ('t1')
+  - select baseline.refresh_meta()
+  - alter type t add value 't2'
+  - query: |
+      select label, sortorder from diff.added_type_enum_label atel
+          inner join omni_schema.type t on t.id = atel.id
+          where schema_name = 'public' and name = 't'
+    results:
+    - label: t2
+      sortorder: 2
+  - select baseline.refresh_meta()
+  - drop type t
+  - create type t as enum ('t1')
+  - query: |
+      select label, sortorder from diff.removed_type_enum_label rtel
+                                   inner join omni_schema.type t on t.id = rtel.id
+      where schema_name = 'public' and name = 't'
+    results:
+    - label: t2
+      sortorder: 2

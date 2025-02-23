@@ -1,0 +1,13 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_schema cascade
+
+tests:
+
+- name: array type smoke test
+  query: select type.id, base_type_id from omni_schema.type natural join omni_schema.type_array where type.name = 'text[]'
+  results:
+  - id: "(pg_catalog,text[])"
+    base_type_id: "(pg_catalog,text)"
+
