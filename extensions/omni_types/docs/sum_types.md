@@ -162,3 +162,7 @@ select omni_types.add_variant('geom', 'my_box');
 
 [^fixed-size-alteration]: This is done so that Postgres would not try to read existing values using an updated, larger size, which
 is erroneous.
+
+## Indexing
+
+Sum type creation will attempt to create hashing and comparison operators if all the underlying variants support these operations. 
