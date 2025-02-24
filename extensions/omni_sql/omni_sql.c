@@ -910,3 +910,32 @@ Datum execute_parameterized(PG_FUNCTION_ARGS) {
     SRF_RETURN_NEXT(funcctx, result);
   }
 }
+
+PG_FUNCTION_INFO_V1(explain);
+
+Datum explain(PG_FUNCTION_ARGS) {
+  if (PG_ARGISNULL(0)) {
+    ereport(ERROR, errmsg("statement should not be NULL"));
+  }
+
+  text *statement = PG_GETARG_TEXT_PP(0);
+  char *cstatement = text_to_cstring(statement);
+
+  SPI_connect();
+
+  StringInfoData buf;
+  initStringInfo(&buf);
+  appendStringInfo(&buf, "EXPLAIN (FORMAT JSON) %s", cstatement);
+
+  int ret = SPI_execute(buf.data, true, 0);
+  if (ret != SPI_OK_SELECT) {
+    SPI_finish();
+    ereport(ERROR, errmsg("EXPLAIN failed: %s", SPI_result_code_string(ret)));
+  }
+
+  Datum result = SPI_getbinval(SPI_tuptable->vals[0], SPI_tuptable->tupdesc, 1, NULL);
+
+  SPI_finish();
+
+  PG_RETURN_DATUM(result);
+}

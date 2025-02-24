@@ -27,4 +27,6 @@ bool omni_sql_is_returning_statement(List *stmts);
 
 bool omni_sql_is_replace_statement(List *stmts);
 
+Datum explain(PG_FUNCTION_ARGS);
+
 #endif // OMNI_SQL_H
