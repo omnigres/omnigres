@@ -362,7 +362,7 @@ for f in $(ls \"$_dir/\"*.sql | sort -V)
   pushd $(pwd) >/dev/null
   cd \"${CMAKE_CURRENT_SOURCE_DIR}\"
   $<TARGET_FILE:inja> \"$f\" >> \"$1/_$$_${NAME}--${_ext_VERSION}.sql\"
-  echo >> \"$1/_$$_${NAME}--${_ext_VERSION}.sql\"
+  echo ';' >> \"$1/_$$_${NAME}--${_ext_VERSION}.sql\"
   popd >/dev/null
 done
 # Move it into proper location at once
