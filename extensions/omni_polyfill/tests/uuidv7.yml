@@ -42,6 +42,12 @@ tests:
   results:
   - result: true
 
+- name: extract timestamp (null)
+  query: |
+      select uuid_extract_timestamp(null) is null as result
+  results:
+  - result: true
+
 - name: extract timestamp
   query: |
     select uuid_extract_timestamp(uuidv7_interval(interval '1 minute')) >
@@ -53,3 +59,15 @@ tests:
   query: select uuidv7_interval(interval '1 minute') is not null as result
   results:
   - result: true
+
+- name: extract version
+  query: |
+    select uuid_extract_version(uuidv7()) as version
+  results:
+  - version: 7
+
+- name: extract version
+  query: |
+    select uuid_extract_version(null) as version
+  results:
+  - version: null
