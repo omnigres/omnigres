@@ -579,7 +579,8 @@ void master_worker(Datum db_oid) {
           .bgw_flags = BGWORKER_SHMEM_ACCESS | BGWORKER_BACKEND_DATABASE_CONNECTION,
           .bgw_start_time = BgWorkerStart_RecoveryFinished};
       strncpy(worker.bgw_extra, socket_path, BGW_EXTRALEN - 1);
-      strncpy(worker.bgw_library_name, MyBgworkerEntry->bgw_library_name, BGW_MAXLEN - 1);
+      strncpy(worker.bgw_library_name, MyBgworkerEntry->bgw_library_name,
+              sizeof(worker.bgw_library_name) - 1);
       for (int i = 0; i < *num_http_workers; i++) {
         BackgroundWorkerHandle *handle;
         if (RegisterDynamicBackgroundWorker(&worker, &handle)) {

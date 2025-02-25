@@ -187,7 +187,8 @@ static void start_master_worker(const omni_handle *handle, omni_bgworker_handle 
         .bgw_main_arg = MyDatabaseId,
         .bgw_notify_pid = MyProcPid,
         .bgw_start_time = BgWorkerStart_RecoveryFinished};
-    strncpy(bgw.bgw_library_name, handle->get_library_name(handle), BGW_MAXLEN);
+    strncpy(bgw.bgw_library_name, handle->get_library_name(handle),
+            sizeof(bgw.bgw_library_name) - 1);
 
     handle->request_bgworker_start(handle, &bgw, bgw_handle,
                                    (omni_bgworker_options){.timing = timing});
