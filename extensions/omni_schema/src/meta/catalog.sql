@@ -605,7 +605,7 @@ create view relation_primary_key as
     from pg_class c
     inner join pg_namespace ns on ns.oid = c.relnamespace
     inner join pg_constraint ct on ct.conrelid = c.oid and ct.contype = 'p'
-    join lateral (select * from unnest(ct.conkey) with ordinality as t(key, position)) on true
+    join lateral (select * from unnest(ct.conkey) with ordinality as t(key, position)) as k on true
     inner join pg_attribute a on a.attrelid = c.oid and a.attnum = key
     where reltype != 0;
 
@@ -616,7 +616,7 @@ create view relation_foreign_key as
     from pg_class c
     inner join pg_namespace ns on ns.oid = c.relnamespace
     inner join pg_constraint ct on ct.conrelid = c.oid and ct.contype = 'f'
-    join lateral (select * from unnest(ct.conkey) with ordinality as t(key, position)) on true
+    join lateral (select * from unnest(ct.conkey) with ordinality as t(key, position)) as k on true
     inner join pg_attribute a on a.attrelid = c.oid and a.attnum = key
     where reltype != 0;
 
@@ -626,7 +626,7 @@ create view relation_foreign_key_constraint as
     from pg_class c
     inner join pg_namespace ns on ns.oid = c.relnamespace
     inner join pg_constraint ct on ct.conrelid = c.oid and ct.contype = 'f'
-    join lateral (select * from unnest(ct.conkey) with ordinality as t(key, position)) on true
+    join lateral (select * from unnest(ct.conkey) with ordinality as t(key, position)) as k on true
     inner join pg_attribute a on a.attrelid = c.oid and a.attnum = key
     where reltype != 0;
 
@@ -1695,7 +1695,7 @@ create view constraint_relation_foreign_key_references_column as
         inner join pg_namespace cns on cns.oid = cc.relnamespace
         inner join pg_class rc on rc.oid = c.confrelid
         inner join pg_namespace rns on rns.oid = rc.relnamespace
-        join lateral (select * from unnest(c.confkey) with ordinality as t(key, position)) on true
+        join lateral (select * from unnest(c.confkey) with ordinality as t(key, position)) as k on true
         inner join pg_attribute a on a.attrelid = rc.oid and a.attnum = key
     where
         c.contype = 'f';
