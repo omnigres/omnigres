@@ -1,4 +1,4 @@
-omni=0.2.5
+omni=0.2.7
 omni_aws=0.1.2
 omni_auth=0.1.3
 omni_containers=0.2.0
@@ -25,7 +25,7 @@ omni_session=0.2.0
 omni_sql=0.5.1
 omni_test=0.1.0
 omni_txn=0.5.0
-omni_types=0.3.2
+omni_types=0.3.3
 omni_var=0.3.0
 omni_vfs_types_v1=0.1.0
 omni_vfs=0.2.1
