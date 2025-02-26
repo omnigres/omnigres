@@ -746,8 +746,10 @@ static cvec_fd_fd accept_fds(char *socket_name) {
 
   socket_fd = socket(PF_UNIX, SOCK_STREAM, 0);
   if (socket_fd < 0) {
-    ereport(ERROR, errmsg("can't create sharing socket"));
+    int e = errno;
+    ereport(ERROR, errmsg("can't create sharing socket"), errdetail(strerror(e)));
   }
+
   int err = fcntl(socket_fd, F_SETFL, fcntl(socket_fd, F_GETFL, 0) | O_NONBLOCK);
   if (err != 0) {
     ereport(ERROR, errmsg("Error setting O_NONBLOCK: %s", strerror(err)));
@@ -1559,8 +1561,10 @@ static int handler(handler_message_t *msg) {
       MemoryContextSwitchTo(memory_context);
       WITH_TEMP_MEMCXT {
         ErrorData *error = CopyErrorData();
-        ereport(WARNING, errmsg("Error executing omni_httpd.on_websocket_message"),
-                errdetail("%s: %s", error->message, error->detail));
+        const char *fn = msg->type == handler_message_websocket_open
+                             ? "Error executing omni_httpd.websocket_on_open"
+                             : "Error executing omni_httpd.websocket_on_close";
+        ereport(WARNING, errmsg(fn), errdetail("%s: %s", error->message, error->detail));
       }
 
       FlushErrorState();
