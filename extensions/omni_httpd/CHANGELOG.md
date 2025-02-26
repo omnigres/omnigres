@@ -11,6 +11,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * HTTP response should contain correct status code reasons [#781](https://github.com/omnigres/omnigres/pull/781)
 * Rejected WebSocket requests are sent an HTTP response [#797](https://github.com/omnigres/omnigres/pull/797)
+* File descriptor exhaustion prevention [#810](https://github.com/omnigres/omnigres/pull/810)
 
 ### Changed
 
