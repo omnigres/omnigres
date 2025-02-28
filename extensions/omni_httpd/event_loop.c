@@ -172,24 +172,31 @@ static inline void prepare_req_for_reprocess(h2o_req_t *req) {
   req->conn->ctx->proxy.client_ctx.max_buffer_size = H2O_SOCKET_INITIAL_INPUT_BUFFER_SIZE * 2;
 }
 
+typedef struct on_ws_message_data {
+  websocket_uuid_t ws_uuid;
+  int unix_socket;
+} on_ws_message_data_t;
+
 static void on_ws_message(h2o_websocket_conn_t *conn,
                           const struct wslay_event_on_msg_recv_arg *arg) {
-  char *uuid = (char *)conn->data;
-  if (conn->data != NULL && (arg == NULL || arg->opcode == WSLAY_CONNECTION_CLOSE)) {
+  on_ws_message_data_t *data = (on_ws_message_data_t *)conn->data;
+
+  if (data != NULL && arg == NULL) {
     handler_message_t *msg = malloc(sizeof(*msg));
     msg->super = (h2o_multithread_message_t){{NULL}};
     msg->type = handler_message_websocket_close;
-    memcpy(msg->payload.websocket_close.uuid, uuid, sizeof(msg->payload.websocket_close.uuid));
+    memcpy(msg->payload.websocket_close.uuid, data->ws_uuid,
+           sizeof(msg->payload.websocket_close.uuid));
 
     h2o_multithread_send_message(&handler_receiver, &msg->super);
 
-    // Remove the socket
-    struct sockaddr_un server;
-    websocket_unix_domain_socket(conn->data, &server, true);
+    // Close & remove the socket
+    close(data->unix_socket);
+    unlink_websocket_unix_socket(&data->ws_uuid);
+
     // Mark this connection as closed and dispose the UUID
-    if (arg == NULL) {
-      h2o_websocket_close(conn);
-    }
+    h2o_websocket_close(conn);
+
     free(conn->data);
     conn->data = NULL;
     return;
@@ -203,7 +210,8 @@ static void on_ws_message(h2o_websocket_conn_t *conn,
     msg->payload.websocket_message.message = (uint8_t *)malloc(arg->msg_length);
     msg->payload.websocket_message.message_len = arg->msg_length;
     memcpy(msg->payload.websocket_message.message, arg->msg, arg->msg_length);
-    memcpy(msg->payload.websocket_message.uuid, uuid, sizeof(msg->payload.websocket_open.uuid));
+    memcpy(msg->payload.websocket_message.uuid, data->ws_uuid,
+           sizeof(msg->payload.websocket_open.uuid));
 
     h2o_multithread_send_message(&handler_receiver, &msg->super);
   }
@@ -252,24 +260,31 @@ static void format_uuid_rfc4122(char *dst, uint8_t *octets, uint8_t version) {
 
   /* '\0' is set by h2o_hex_encode() */
 }
-int websocket_unix_domain_socket(websocket_uuid_t *uuid, struct sockaddr_un *server_addr,
-                                 bool producer) {
+
+int websocket_unix_socket_path(struct sockaddr_un *addr, websocket_uuid_t *uuid) {
+#define SOCK_PREFIX "/omni_httpd.sock."
+#define RFC4122_UUID_LEN 36
+
   extern char **temp_dir; // from omni_httpd
-  int fd = socket(AF_UNIX, SOCK_STREAM, 0);
+  const int len_with_sock_prefix = strlen(*temp_dir) + sizeof(SOCK_PREFIX) - 1;
 
-  memset(server_addr, 0, sizeof(struct sockaddr_un));
-  server_addr->sun_family = AF_UNIX;
+  if (len_with_sock_prefix + RFC4122_UUID_LEN + 1 > sizeof(addr->sun_path))
+    return -EINVAL;
 
-  snprintf(server_addr->sun_path, sizeof(server_addr->sun_path), "%s/omni_httpd.sock.", *temp_dir);
-  int len = strlen(server_addr->sun_path);
+  snprintf(addr->sun_path, sizeof(addr->sun_path), "%s" SOCK_PREFIX, *temp_dir);
 
-  format_uuid_rfc4122(server_addr->sun_path + len, *uuid, 4);
+  format_uuid_rfc4122(addr->sun_path + len_with_sock_prefix, *uuid, 4);
 
-  if (producer) {
-    unlink(server_addr->sun_path);
-  }
+  return 0;
+}
 
-  return fd;
+int unlink_websocket_unix_socket(websocket_uuid_t *uuid) {
+  struct sockaddr_un addr = {0};
+
+  if (websocket_unix_socket_path(&addr, uuid) < 0)
+    return -EINVAL;
+
+  return unlink(addr.sun_path);
 }
 
 static void on_message(h2o_multithread_receiver_t *receiver, h2o_linklist_t *messages) {
@@ -324,19 +339,38 @@ static void on_message(h2o_multithread_receiver_t *receiver, h2o_linklist_t *mes
       break;
     }
     case MSG_KIND_UPGRADE_TO_WEBSOCKET: {
-      h2o_websocket_conn_t *websocket_conn =
-          h2o_upgrade_to_websocket(req, reqmsg->ws_client_key, reqmsg, on_ws_message);
-      websocket_conn->data = malloc(sizeof(reqmsg->ws_uuid));
-      memcpy(websocket_conn->data, reqmsg->ws_uuid, sizeof(reqmsg->ws_uuid));
+      on_ws_message_data_t *data = malloc(sizeof(on_ws_message_data_t));
+      if (!data) {
+        perror("malloc on_ws_message_data_t");
+        goto done;
+      }
 
-      // Create a Unix domain socket
-      struct sockaddr_un server_addr;
-      int server_fd = websocket_unix_domain_socket(&reqmsg->ws_uuid, &server_addr, true);
-      bind(server_fd, (struct sockaddr *)&server_addr, sizeof(struct sockaddr_un));
-      listen(server_fd, SOMAXCONN);
+      memcpy(data->ws_uuid, reqmsg->ws_uuid, sizeof(reqmsg->ws_uuid));
+
+      // Create and listen on a Unix domain socket
+      struct sockaddr_un server_addr = {.sun_family = AF_UNIX};
+
+      if (websocket_unix_socket_path(&server_addr, &reqmsg->ws_uuid) < 0 ||
+          (data->unix_socket = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
+        perror("creating unix listen socket");
+        free(data);
+        goto done;
+      }
+
+      if ((bind(data->unix_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) ||
+          (listen(data->unix_socket, SOMAXCONN) < 0)) {
+        perror("bind listen unix socket");
+        close(data->unix_socket);
+        free(data);
+        goto done;
+      }
+
+      h2o_websocket_conn_t *websocket_conn =
+          h2o_upgrade_to_websocket(req, reqmsg->ws_client_key, data, on_ws_message);
+      assert(websocket_conn->data == data);
 
       h2o_socket_t *sock =
-          h2o_evloop_socket_create(worker_event_loop, server_fd, H2O_SOCKET_FLAG_DONT_READ);
+          h2o_evloop_socket_create(worker_event_loop, data->unix_socket, H2O_SOCKET_FLAG_DONT_READ);
       sock->data = websocket_conn;
 
       h2o_socket_read_start(sock, on_accept_ws_unix);
@@ -430,6 +464,7 @@ void on_accept(h2o_socket_t *listener, const char *err) {
   }
 
   if ((sock = h2o_evloop_socket_accept(listener)) == NULL) {
+    perror("accept http listener");
     return;
   }
   h2o_accept(listener_accept_ctx(listener), sock);

@@ -12,7 +12,7 @@ instance:
     values ('127.0.0.1', 0)
   - call omni_httpd.wait_for_configuration_reloads(1)
   - |
-    create or replace procedure omni_httpd.handler(int, omni_httpd.http_request, inout omni_httpd.http_outcome)
+    create or replace procedure omni_httpd.handler(int, omni_httpd.http_request, out omni_httpd.http_outcome)
         language plpgsql as
     $$
     begin

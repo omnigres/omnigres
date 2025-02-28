@@ -102,10 +102,8 @@ handle = pg(flask.Adapter(app))
 To connect the endpoint:
 
 ```sql
-update omni_httpd.handlers
-set
-    query =
-        $$select handle(request.*) from request$$;
+insert into omni_httpd.urlpattern_router (match, handler)
+values (omni_httpd.urlpattern('/'), 'my_handler'::regproc);
 ```
 
 **NB**: Please note that you will need to
@@ -120,12 +118,13 @@ for the time being before our CLI tooling is ready.
 You can also achieve the same using plain SQL with very little setup.
 
 ```sql
-update omni_httpd.handlers
-set
-    query =
-        $$select omni_httpd.http_response('Hello, world!') from request$$;
-```
+create function my_handler()
+  returns omni_httpd.http_outcome
+  return omni_httpd.http_response('Hello world!');
 
+insert into omni_httpd.urlpattern_router (match, handler)
+values (omni_httpd.urlpattern('/'), 'my_handler'::regproc);
+```
 </details>
 
 Now, let's make it more personal and let it greet the requester by name.

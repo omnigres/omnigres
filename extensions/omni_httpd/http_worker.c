@@ -47,10 +47,16 @@
 #if PG_MAJORVERSION_NUM >= 13
 #include <postmaster/interrupt.h>
 #endif
+#include <access/heapam.h>
+#include <access/table.h>
+#include <catalog/pg_proc.h>
+#include <common/hashfn.h>
 #include <parser/parse_func.h>
 #include <storage/ipc.h>
 #include <tcop/pquery.h>
+#include <utils/datum.h>
 #include <utils/pidfile.h>
+#include <utils/typcache.h>
 #include <utils/uuid.h>
 
 #include <metalang99.h>
@@ -63,10 +69,13 @@
 #include "fd.h"
 #include "http_worker.h"
 #include "omni_httpd.h"
+#include "urlpattern.h"
 
 #if H2O_USE_LIBUV == 1
 #error "only evloop is supported, ensure H2O_USE_LIBUV is not set to 1"
 #endif
+
+#include "http_status_reasons.h"
 
 h2o_multithread_receiver_t handler_receiver;
 h2o_multithread_queue_t *handler_queue;
@@ -96,6 +105,29 @@ enum http_method {
 static Oid http_method_oids[http_method_last] = {InvalidOid};
 static char *http_method_names[http_method_last] = {"GET",     "HEAD",    "POST",  "PUT",  "DELETE",
                                                     "CONNECT", "OPTIONS", "TRACE", "PATCH"};
+
+typedef struct {
+  Oid routeroid;
+  uint32 hash;
+  SPIPlanPtr plan;
+  uint32 status;
+} RouterQueryHashEntry;
+
+struct routerqueryhash_hash;
+static struct routerqueryhash_hash *routerqueryhash = NULL;
+
+#define SH_PREFIX routerqueryhash
+#define SH_ELEMENT_TYPE RouterQueryHashEntry
+#define SH_KEY_TYPE Oid
+#define SH_KEY routeroid
+#define SH_HASH_KEY(tb, key) key
+#define SH_EQUAL(tb, a, b) a == b
+#define SH_SCOPE static
+#define SH_STORE_HASH
+#define SH_GET_HASH(tb, a) a->hash
+#define SH_DECLARE
+#define SH_DEFINE
+#include <lib/simplehash.h>
 
 /**
  * Portal that we re-use in the handler
@@ -168,6 +200,8 @@ static void sigusr2() {
 
 static int exit_code = 0;
 
+SPIPlanPtr router_query;
+
 static void sigterm() {
   atomic_store(&worker_running, false);
   // master_worker sets semaphore to INT32_MAX to signal normal termination
@@ -227,6 +261,9 @@ void http_worker(Datum db_oid) {
     return;
   }
 
+  // Initialize the router query cache
+  routerqueryhash = routerqueryhash_create(TopMemoryContext, 8192, NULL);
+
   // Get necessary OIDs and tuple descriptors
   PG_TRY();
   {
@@ -240,20 +277,8 @@ void http_worker(Datum db_oid) {
     http_header_oid();
     http_response_oid();
     http_outcome_oid();
-
-    {
-      // omni_httpd.handler(int,http_request,http_outcome)
-      List *handler_proc = list_make2(makeString("omni_httpd"), makeString("handler"));
-      List *handler_inputs = list_make3(makeNode(TypeName), makeNode(TypeName), makeNode(TypeName));
-      list_nth_node(TypeName, handler_inputs, 0)->typeOid = INT4OID;
-      list_nth_node(TypeName, handler_inputs, 1)->typeOid = http_request_oid();
-      list_nth_node(TypeName, handler_inputs, 2)->typeOid = http_outcome_oid();
-      ObjectWithArgs args = {.objname = handler_proc, .objargs = handler_inputs};
-      handler_oid = LookupFuncWithArgs(OBJECT_PROCEDURE, &args, false);
-      Assert(OidIsValid(handler_oid));
-      list_free(handler_proc);
-      list_free(handler_inputs);
-    }
+    urlpattern_oid();
+    route_priority_oid();
 
     {
       // omni_httpd.websocket_handler(int,uuid,http_request)
@@ -340,6 +365,29 @@ void http_worker(Datum db_oid) {
 #endif
     );
     PortalStart(execution_portal, NULL, 0, InvalidSnapshot);
+  }
+
+  {
+    // Prepare query plans
+    SetCurrentStatementStartTimestamp();
+    StartTransactionCommand();
+    PushActiveSnapshot(GetTransactionSnapshot());
+
+    SPI_connect();
+
+    // Find tables of a certain type
+    router_query = SPI_prepare("select router_relation, match_col_idx, handler_col_idx, "
+                               "priority_col_idx from omni_httpd.available_routers",
+                               0, (Oid[0]){});
+    if (router_query == NULL) {
+      ereport(ERROR, errmsg("can't prepare query"));
+    }
+    SPI_keepplan(router_query);
+
+    SPI_finish();
+
+    PopActiveSnapshot();
+    AbortCurrentTransaction();
   }
 
   {
@@ -698,8 +746,10 @@ static cvec_fd_fd accept_fds(char *socket_name) {
 
   socket_fd = socket(PF_UNIX, SOCK_STREAM, 0);
   if (socket_fd < 0) {
-    ereport(ERROR, errmsg("can't create sharing socket"));
+    int e = errno;
+    ereport(ERROR, errmsg("can't create sharing socket"), errdetail(strerror(e)));
   }
+
   int err = fcntl(socket_fd, F_SETFL, fcntl(socket_fd, F_GETFL, 0) | O_NONBLOCK);
   if (err != 0) {
     ereport(ERROR, errmsg("Error setting O_NONBLOCK: %s", strerror(err)));
@@ -740,6 +790,313 @@ try_connect:
   return result;
 }
 
+struct Router {
+  Oid oid;
+  int match_index;
+  int handler_index;
+  int priority_index;
+};
+
+static struct Router *routers = NULL;
+static int NumRouters = 0;
+
+struct Route {
+  // Router it came from
+  struct Router *router;
+  // URLPattern match
+  omni_httpd_urlpattern_t match;
+  // HTTP method
+  Oid method;
+  // Route priority
+  int priority;
+  // Argument index for the tuple
+  int tuple_index;
+  // Argument index for the outcome
+  int http_outcome_index;
+  // Argument index for the request
+  int http_request_index;
+  // Argument index for the listener ID
+  int listener_index;
+  // Is this a handler or middleware?
+  bool handler;
+  // Does it return an outcome?
+  bool returns_outcome;
+  Datum tuple;
+  Form_pg_proc proc;
+};
+
+static struct Route *routes = NULL;
+static int NumRoutes = 0;
+static int RouteCompare(const void *a1, const void *a2) {
+  const struct Route *r1 = a1;
+  const struct Route *r2 = a2;
+  int ia = r1->priority;
+  int ib = r2->priority;
+  return (ib > ia) - (ib < ia);
+}
+
+static bool prepare_routers() {
+  uint64 allocatedRoutes = 0;
+  static MemoryContext RouterMemoryContext = NULL;
+  if (RouterMemoryContext == NULL) {
+    RouterMemoryContext =
+        AllocSetContextCreate(TopMemoryContext, "RouterMemoryContext", ALLOCSET_DEFAULT_SIZES);
+  } else {
+    MemoryContextResetOnly(RouterMemoryContext);
+  }
+  bool result = true;
+  SPI_connect();
+  int rc = SPI_execute_plan(router_query, (Datum[0]){}, (char[0]){}, true, 0);
+  if (rc != SPI_OK_SELECT) {
+    ereport(WARNING, errmsg("failure retrieving routing tables"));
+    result = false;
+    goto cleanup;
+  }
+
+  // Reset routers
+  if (routers) {
+    routers = NULL;
+    routes = NULL;
+    NumRouters = 0;
+    NumRoutes = 0;
+  }
+
+  int nvals = SPI_tuptable->numvals;
+  routers = MemoryContextAlloc(RouterMemoryContext, sizeof(struct Router) * nvals);
+  for (int i = 0; i < nvals; i++) {
+    HeapTuple data = SPI_tuptable->vals[i];
+
+    bool table_is_null = false;
+    Datum taboid = SPI_getbinval(data, SPI_tuptable->tupdesc, 1, &table_is_null);
+
+    bool match_index_is_null = false;
+    Datum match_index = SPI_getbinval(data, SPI_tuptable->tupdesc, 2, &match_index_is_null);
+
+    bool handler_index_is_null = false;
+    Datum handler_index = SPI_getbinval(data, SPI_tuptable->tupdesc, 3, &handler_index_is_null);
+
+    if (table_is_null || match_index_is_null || handler_index_is_null) {
+      continue;
+    }
+
+    bool priority_index_is_null = false;
+    Datum priority_index = SPI_getbinval(data, SPI_tuptable->tupdesc, 4, &priority_index_is_null);
+
+    routers[NumRouters].oid = DatumGetObjectId(taboid);
+    routers[NumRouters].match_index = DatumGetInt32(match_index);
+    routers[NumRouters].handler_index = DatumGetInt32(handler_index);
+    routers[NumRouters].priority_index = priority_index_is_null ? 0 : DatumGetInt32(priority_index);
+
+    // Figure out the underlying table's type OID
+    Oid tabtypoid = InvalidOid;
+    HeapTuple tabtup = SearchSysCache1(RELOID, ObjectIdGetDatum(routers[NumRouters].oid));
+    if (HeapTupleIsValid(tabtup)) {
+      tabtypoid = ((Form_pg_class)GETSTRUCT(tabtup))->reltype;
+    }
+    ReleaseSysCache(tabtup);
+
+    SPI_connect();
+
+    bool found;
+    RouterQueryHashEntry *entry = routerqueryhash_insert(routerqueryhash, taboid, &found);
+    if (!found) {
+      char *query =
+          psprintf("select t, t.* from %s.%s t",
+                   quote_identifier(get_namespace_name(get_rel_namespace(routers[NumRouters].oid))),
+                   quote_identifier(get_rel_name(routers[NumRouters].oid)));
+
+      entry->plan = SPI_prepare(query, 0, NULL);
+      SPI_keepplan(entry->plan);
+    }
+
+    if (SPI_OK_SELECT == SPI_execute_plan(entry->plan, NULL, NULL, true, 0)) {
+
+      if (SPI_gettypeid(SPI_tuptable->tupdesc, routers[NumRouters].match_index + 1) !=
+          urlpattern_oid()) {
+        SPI_finish();
+        continue;
+      }
+
+      if (SPI_gettypeid(SPI_tuptable->tupdesc, routers[NumRouters].handler_index + 1) !=
+          REGPROCEDUREOID) {
+        SPI_finish();
+        continue;
+      }
+
+      if (routers[NumRouters].priority_index > 0 &&
+          SPI_gettypeid(SPI_tuptable->tupdesc, routers[NumRouters].priority_index + 1) !=
+              route_priority_oid()) {
+        SPI_finish();
+        continue;
+      }
+
+      allocatedRoutes = allocatedRoutes + SPI_tuptable->numvals;
+      if (routes == NULL) {
+        routes = MemoryContextAlloc(RouterMemoryContext, sizeof(struct Route) * allocatedRoutes);
+      } else {
+        routes = repalloc(routes, sizeof(struct Route) * allocatedRoutes);
+      }
+
+      for (int j = 0; j < SPI_tuptable->numvals; j++) {
+        bool match_is_null;
+        Datum match_data = SPI_getbinval(SPI_tuptable->vals[j], SPI_tuptable->tupdesc,
+                                         routers[NumRouters].match_index + 1, &match_is_null);
+        bool handler_is_null;
+        Datum handler_data = SPI_getbinval(SPI_tuptable->vals[j], SPI_tuptable->tupdesc,
+                                           routers[NumRouters].handler_index + 1, &handler_is_null);
+        if (match_is_null || handler_is_null) {
+          continue;
+        }
+
+        Oid handler = DatumGetObjectId(handler_data);
+
+        HeapTupleHeader match_tup = DatumGetHeapTupleHeader(match_data);
+
+        /* Build a HeapTuple control structure */
+        HeapTupleData tuple;
+        tuple.t_len = HeapTupleHeaderGetDatumLength(match_tup);
+        ItemPointerSetInvalid(&(tuple.t_self));
+        tuple.t_tableOid = InvalidOid;
+        tuple.t_data = match_tup;
+
+        /* Get the tuple descriptor */
+        TupleDesc tupleDesc = lookup_rowtype_tupdesc(HeapTupleHeaderGetTypeId(match_tup),
+                                                     HeapTupleHeaderGetTypMod(match_tup));
+
+        routes[NumRoutes].router = &routers[NumRouters];
+
+        if (!priority_index_is_null) {
+          bool priority_is_null;
+          Datum priority_data =
+              SPI_getbinval(SPI_tuptable->vals[j], SPI_tuptable->tupdesc,
+                            routers[NumRouters].priority_index + 1, &priority_is_null);
+
+          routes[NumRoutes].priority = priority_is_null ? 0 : DatumGetInt32(priority_data);
+        } else {
+          routes[NumRoutes].priority = 0;
+        }
+
+        MemoryContext oldcontext = MemoryContextSwitchTo(RouterMemoryContext);
+        HeapTuple proc = SearchSysCacheCopy1(PROCOID, DatumGetObjectId(handler));
+        MemoryContextSwitchTo(oldcontext);
+        if (!HeapTupleIsValid(proc)) {
+          continue;
+        }
+        routes[NumRoutes].proc = (Form_pg_proc)GETSTRUCT(proc);
+
+        // Tuple index argument
+        routes[NumRoutes].tuple_index = -1;
+        routes[NumRoutes].http_request_index = -1;
+        routes[NumRoutes].http_outcome_index = -1;
+        routes[NumRoutes].listener_index = -1;
+        routes[NumRoutes].returns_outcome =
+            routes[NumRoutes].proc->prorettype == http_outcome_oid();
+
+        {
+
+          char **allargnames;
+
+          Oid *allargtypes;
+          char *allargmodes;
+          routes[NumRoutes].handler = true;
+
+          int numtypes = get_func_arg_info(proc, &allargtypes, &allargnames, &allargmodes);
+
+          int argpos = 0;
+          for (int arg = 0; arg < numtypes; arg++) {
+            if (allargtypes[arg] == tabtypoid) {
+              routes[NumRoutes].tuple_index = argpos;
+            } else if (allargtypes[arg] == http_request_oid()) {
+              routes[NumRoutes].http_request_index = argpos;
+            } else if (allargtypes[arg] == http_outcome_oid()) {
+              if (allargmodes[arg] == 'b') {
+                routes[NumRoutes].http_outcome_index = argpos;
+                routes[NumRoutes].handler = false;
+              }
+              if (allargmodes[arg] != 'i') {
+                routes[NumRoutes].returns_outcome = true;
+              }
+            } else if (allargtypes[arg] == INT4OID) {
+              routes[NumRoutes].listener_index = argpos;
+            }
+            if (!allargmodes || allargmodes[arg] != 'o') {
+              argpos++;
+            }
+          }
+        }
+
+        {
+          bool isnull;
+          Datum route_tup = SPI_getbinval(SPI_tuptable->vals[j], SPI_tuptable->tupdesc, 1, &isnull);
+          if (!isnull) {
+            oldcontext = MemoryContextSwitchTo(RouterMemoryContext);
+            routes[NumRoutes].tuple = datumTransfer(route_tup, false, -1);
+            MemoryContextSwitchTo(oldcontext);
+          }
+        }
+        // ReleaseSysCache
+
+        omni_httpd_urlpattern_t *match = &routes[NumRoutes].match;
+
+#define heap_match(index, name)                                                                    \
+  {                                                                                                \
+    bool attr_isnull;                                                                              \
+    Datum d = heap_getattr(&tuple, index, tupleDesc, &attr_isnull);                                \
+    if (attr_isnull) {                                                                             \
+      match->name = NULL;                                                                          \
+      match->name##_len = 0;                                                                       \
+    } else {                                                                                       \
+      MemoryContext o = MemoryContextSwitchTo(RouterMemoryContext);                                \
+      text *t = DatumGetTextPCopy(d);                                                              \
+      MemoryContextSwitchTo(o);                                                                    \
+      match->name = VARDATA_ANY(t);                                                                \
+      match->name##_len = VARSIZE_ANY_EXHDR(t);                                                    \
+    }                                                                                              \
+  }
+
+        heap_match(1, protocol);
+        heap_match(2, username);
+        heap_match(3, password);
+        heap_match(4, hostname);
+        {
+          bool attr_isnull;
+          Datum d = heap_getattr(&tuple, 5, tupleDesc, &attr_isnull);
+          if (attr_isnull) {
+            match->port = 0;
+          } else {
+            match->port = DatumGetInt32(d);
+          }
+        }
+        heap_match(6, pathname);
+        heap_match(7, search);
+        heap_match(8, hash);
+        {
+          bool attr_isnull;
+          Datum d = heap_getattr(&tuple, 9, tupleDesc, &attr_isnull);
+          if (attr_isnull) {
+            routes[NumRoutes].method = InvalidOid;
+          } else {
+            routes[NumRoutes].method = DatumGetObjectId(d);
+          }
+        }
+
+#undef heap_match
+
+        NumRoutes++;
+
+        ReleaseTupleDesc(tupleDesc);
+      }
+    }
+    SPI_finish();
+    //
+    NumRouters++;
+  }
+  qsort(routes, NumRoutes, sizeof(struct Route), RouteCompare);
+cleanup:
+  SPI_finish();
+  return result;
+}
+
 static int handler(handler_message_t *msg) {
   MemoryContext memory_context = CurrentMemoryContext;
   if (msg->type == handler_message_http) {
@@ -771,13 +1128,15 @@ static int handler(handler_message_t *msg) {
                                        [REQUEST_PLAN_QUERY_STRING] = req->query_at == SIZE_MAX,
                                        [REQUEST_PLAN_BODY] = is_websocket_upgrade,
                                        [REQUEST_PLAN_HEADERS] = false};
+    Oid method = InvalidOid;
     Datum values[REQUEST_PLAN_PARAMS] = {
         [REQUEST_PLAN_METHOD] = ({
           PointerGetDatum(cstring_to_text_with_len(req->method.base, req->method.len));
           Datum result = InvalidOid;
           for (int i = 0; i < http_method_last; i++) {
             if (strncmp(req->method.base, http_method_names[i], req->method.len) == 0) {
-              result = ObjectIdGetDatum(http_method_oids[i]);
+              method = http_method_oids[i];
+              result = ObjectIdGetDatum(method);
               goto found;
             }
           }
@@ -877,18 +1236,20 @@ static int handler(handler_message_t *msg) {
 
     Datum outcome;
     bool isnull = false;
+
     PG_TRY();
     {
-      FmgrInfo flinfo;
-
-      Oid function = is_websocket_upgrade ? websocket_handler_oid : handler_oid;
-      fmgr_info(function, &flinfo);
-
-      Snapshot snapshot = GetTransactionSnapshot();
-      PushActiveSnapshot(snapshot);
-      execution_portal->portalSnapshot = snapshot;
 
       if (is_websocket_upgrade) {
+        FmgrInfo flinfo;
+
+        Oid function = websocket_handler_oid;
+        fmgr_info(function, &flinfo);
+
+        Snapshot snapshot = GetTransactionSnapshot();
+        PushActiveSnapshot(snapshot);
+        execution_portal->portalSnapshot = snapshot;
+
         LOCAL_FCINFO(fcinfo, 3);
         InitFunctionCallInfoData(*fcinfo, &flinfo, 3, InvalidOid /* collation */, NULL, NULL);
 
@@ -901,24 +1262,94 @@ static int handler(handler_message_t *msg) {
         fcinfo->context = (fmNodePtr)non_atomic_call_context;
         outcome = FunctionCallInvoke(fcinfo);
         isnull = fcinfo->isnull;
+
+        PopActiveSnapshot();
+        execution_portal->portalSnapshot = NULL;
+
       } else {
-        LOCAL_FCINFO(fcinfo, 2);
-        InitFunctionCallInfoData(*fcinfo, &flinfo, 2, InvalidOid /* collation */, NULL, NULL);
 
-        fcinfo->args[0].value = Int32GetDatum(lctx->listener_id);
-        fcinfo->args[0].isnull = false;
-        fcinfo->args[1].value = HeapTupleGetDatum(request_tuple);
-        fcinfo->args[1].isnull = false;
-        fcinfo->args[2].isnull = true; // initial outcome is always null
-        fcinfo->context = (fmNodePtr)non_atomic_call_context;
-        Datum record = FunctionCallInvoke(fcinfo);
-        HeapTupleHeader th = DatumGetHeapTupleHeader(record);
-        outcome = GetAttributeByNum(th, 1, &isnull);
+        Snapshot snapshot = GetTransactionSnapshot();
+        PushActiveSnapshot(snapshot);
+        execution_portal->portalSnapshot = snapshot;
+
+        prepare_routers();
+
+        // If no handler will be selected, go for null answer (no data)
+        isnull = true;
+        int selected_handler = 0;
+
+        for (int i = 0; i < NumRoutes; i++) {
+          FmgrInfo flinfo;
+
+          if (OidIsValid(routes[i].method) && routes[i].method != method) {
+            continue;
+          }
+
+          if (!match_urlpattern(&routes[i].match, req->path.base, req->path.len)) {
+            continue;
+          }
+
+          selected_handler++;
+
+          fmgr_info(routes[i].proc->oid, &flinfo);
+
+          int tuple_index = routes[i].tuple_index;
+          int http_outcome_index = routes[i].http_outcome_index;
+          int http_request_index = routes[i].http_request_index;
+          int listener_index = routes[i].listener_index;
+
+          int nargs = routes[i].proc->pronargs;
+
+          LOCAL_FCINFO(fcinfo, 100); // max number of arguments
+          InitFunctionCallInfoData(*fcinfo, &flinfo, nargs, InvalidOid /* collation */, NULL, NULL);
+
+          // By default, all arguments are null
+          for (int j = 0; j < nargs; j++) {
+            fcinfo->args[j].isnull = true;
+          }
+
+          if (listener_index >= 0) {
+            fcinfo->args[listener_index].value = Int32GetDatum(lctx->listener_id);
+            fcinfo->args[listener_index].isnull = false;
+          }
+          if (http_request_index >= 0) {
+            fcinfo->args[http_request_index].value = HeapTupleGetDatum(request_tuple);
+            fcinfo->args[http_request_index].isnull = false;
+          }
+          if (http_outcome_index >= 0) {
+            fcinfo->args[http_outcome_index].isnull =
+                selected_handler == 1; // initial outcome is always null
+            fcinfo->args[http_outcome_index].value = outcome;
+          }
+          if (tuple_index >= 0) {
+            fcinfo->args[tuple_index].isnull = false;
+            fcinfo->args[tuple_index].value = routes[i].tuple;
+          }
+          if (routes[i].proc->prokind == PROKIND_PROCEDURE) {
+            fcinfo->context = (fmNodePtr)non_atomic_call_context;
+          }
+          Datum result = FunctionCallInvoke(fcinfo);
+          isnull = fcinfo->isnull;
+          if (routes[i].returns_outcome && !isnull) {
+            if (routes[i].proc->prorettype == http_outcome_oid()) {
+              outcome = result;
+            } else if (routes[i].proc->prorettype == RECORDOID) {
+              HeapTupleHeader th = DatumGetHeapTupleHeader(result);
+              outcome = GetAttributeByNum(th, 1, &isnull);
+            } else {
+              isnull = true;
+            }
+          } else {
+            isnull = true;
+          }
+          if (routes[i].handler) {
+            break;
+          }
+        }
+
+        PopActiveSnapshot();
+        execution_portal->portalSnapshot = NULL;
       }
-
-      PopActiveSnapshot();
-      execution_portal->portalSnapshot = NULL;
-
       heap_freetuple(request_tuple);
     }
     PG_CATCH();
@@ -934,6 +1365,7 @@ static int handler(handler_message_t *msg) {
       FlushErrorState();
 
       req->res.status = 500;
+      req->res.reason = http_status_reasons[req->res.status];
       h2o_queue_send_inline(&msg->payload.http.msg, H2O_STRLIT("Internal server error"));
       goto cleanup;
     }
@@ -944,12 +1376,10 @@ static int handler(handler_message_t *msg) {
       if (is_websocket_upgrade) {
         // Commit before sending a response
         CommitTransactionCommand();
-        if (isnull) {
-          h2o_queue_abort(&msg->payload.http.msg);
+        if (!isnull && DatumGetBool(outcome)) {
+          h2o_queue_upgrade_to_websocket(&msg->payload.http.msg);
         } else {
-          if (DatumGetBool(outcome)) {
-            h2o_queue_upgrade_to_websocket(&msg->payload.http.msg);
-          }
+          h2o_queue_abort(&msg->payload.http.msg);
         }
 
         break;
@@ -969,6 +1399,8 @@ static int handler(handler_message_t *msg) {
           if (isnull) {
             req->res.status = 200;
           }
+
+          req->res.reason = http_status_reasons[req->res.status];
 
           bool content_length_specified = false;
           long long content_length = 0;
@@ -1085,6 +1517,7 @@ static int handler(handler_message_t *msg) {
         // Commit before sending a response
         CommitTransactionCommand();
         req->res.status = 204;
+        req->res.reason = http_status_reasons[req->res.status];
         h2o_queue_send_inline(&msg->payload.http.msg, "", 0);
       }
       break;
@@ -1128,8 +1561,10 @@ static int handler(handler_message_t *msg) {
       MemoryContextSwitchTo(memory_context);
       WITH_TEMP_MEMCXT {
         ErrorData *error = CopyErrorData();
-        ereport(WARNING, errmsg("Error executing omni_httpd.on_websocket_message"),
-                errdetail("%s: %s", error->message, error->detail));
+        const char *fn = msg->type == handler_message_websocket_open
+                             ? "Error executing omni_httpd.websocket_on_open"
+                             : "Error executing omni_httpd.websocket_on_close";
+        ereport(WARNING, errmsg(fn), errdetail("%s: %s", error->message, error->detail));
       }
 
       FlushErrorState();

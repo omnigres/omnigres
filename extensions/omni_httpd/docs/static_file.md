@@ -3,42 +3,58 @@ static assets through `omni_vfs` virtual filesystem later.
 
 ## Requirements
 
-The following extensions are required:
+The following extensions are required for this functionality:
 
 * omni_vfs
 * omni_mimetypes
 
-
 ## Setup
 
-As discussed in `omni_vfs` documentation, one needs to define a mount point. 
+To get the handler provisioned, one need to call `instantiate_static_file_handler`:
 
 ```postgresql
-create function mount_point() 
-    returns omni_vfs.local_fs
-    language sql as
-$$
-select omni_vfs.local_fs('/path/to/dir')
-$$
+select omni_httpd.instantiate_static_file_handler(schema => 'public');
 ```
 
-This example above returns a local filesystem-based VFS. In production, you 
-may want to consider other filesystems.
+This will create the `static_file_handler` function in the `public` schema. Its name can be configured
+by passing `name` argument with a desired function name.
 
-Now, we want to update our listener handler to serve this filesystem 
-alongside with some other endpoints:
+## Configuring 
+
+First, we'll define a static file router relation for the type of the virtual file
+system we need (in this example, `omni_vfs.local_fs`):
 
 ```postgresql
- update omni_httpd.handlers
- set
-     query =
-(select
-    omni_httpd.cascading_query(name, query order by priority desc nulls last)
- from (select * from omni_httpd.static_file_handlers('mount_point', 0)
-      union (values
-                 ('test',
-                  $$ select omni_httpd.http_response('passed') from request where request.path = '/test'$$, 1))) routes)
+create table static_file_router
+(
+    like omni_httpd.urlpattern_router,
+    fs omni_vfs.local_fs
+);
 ```
 
-The above connects `mount_point()` filesystem and defines a handler for 
-`/test` (with a higher priority).
+Now, we can implement the handler for the router:
+
+```postgresql
+create function fs_handler(req omni_httpd.http_request, router static_file_router)
+    returns omni_httpd.http_outcome
+    return static_file_handler(req, router.fs);
+```
+
+This function will take the request path as is, and it will try to find it in the given file system. 
+
+!!! tip "Directory listing"
+
+    `static_file_handler` also takes an optional boolean `listing` argument that will make it
+    generate a list of files in a directory if there's no `index.html` present. It's disabled by default.
+
+Finally, we need to provision a routing entry in the router:
+
+```postgresql
+insert
+into
+    static_file_router (match, handler, fs)
+values
+    (omni_httpd.urlpattern('/assets/*'), 'docs_handler'::regproc,
+     omni_vfs.local_fs('/path/to/files'));
+```
+Now, all requests to `/assets/*` will be served the local filesystem pointing to `/path/to/files`.
