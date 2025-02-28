@@ -176,8 +176,9 @@ begin
                            (revision::text || '_diff')::regnamespace || ',' || revision::text::regnamespace || ',' ||
                            old_search_path, true);
 
---## for direction in ["added","removed"]
 --## for view in meta_views
+        perform progress_report('Diffing /*{{ view }}*/...');
+--## for direction in ["added","removed"]
         diffs := jsonb_strip_nulls(jsonb_set(diffs, '{/*{{ direction }}*/_/*{{ view }}*/}',
                                              coalesce((with
                                                            t
@@ -231,8 +232,9 @@ begin
                     perform set_config('search_path',
                                        diff_schema::regnamespace || ',' || old_search_path, true);
 
---## for direction in ["added","removed"]
 --## for view in meta_views
+                    perform progress_report('Diffing /*{{ view }}*/...');
+--## for direction in ["added","removed"]
                     diffs := jsonb_strip_nulls(jsonb_set(diffs, '{/*{{ direction }}*/_/*{{ view }}*/}',
                                                          coalesce((with
                                                                        t

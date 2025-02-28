@@ -20,11 +20,13 @@ begin
     $refresh_meta$
     begin
 --## for view in meta_views
+        perform progress_report('Materializing /*{{ view }}*/...');
         refresh materialized view "/*{{ view }}*/";
 --## endfor
     end;
     $refresh_meta$;
-    execute format('alter function refresh_meta() set search_path = %s', to_schema || ',' || from_schema);
+    -- TODO: remove hard-coded dependency on omni_schema
+    execute format('alter function refresh_meta() set search_path = %s', to_schema || ',' || from_schema || ',omni_schema');
 
     perform refresh_meta();
 
