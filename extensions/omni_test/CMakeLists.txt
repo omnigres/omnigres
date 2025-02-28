@@ -13,6 +13,6 @@ add_postgresql_extension(
         omni_test
         SCHEMA omni_test
         COMMENT "Testing framework"
-        REQUIRES dblink
+        REQUIRES dblink omni_cloudevents
         TESTS_REQUIRE omni_schema omni_httpd
         RELOCATABLE false)
