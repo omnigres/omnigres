@@ -1,3 +1,16 @@
+create function progress_report(message text) returns text 
+language sql
+as $$
+        select omni_cloudevents.publish(
+            omni_cloudevents.cloudevent(
+                id => gen_random_uuid(),
+                source => format('psql://%s/%s', (select system_identifier from pg_control_system()), current_database()),
+                type => 'org.omnigres.omni_schema.progress_report.v1',
+                data => message
+            )
+        );
+$$;
+
 create function capture_schema_revision(fs anyelement, source_path text, revisions_path text,
                                         rollback bool default true,
                                         parents revision_id[] default null) returns revision_id
@@ -43,6 +56,7 @@ begin
 
     ---- Prepare the database in which we'll be assembling it. Make it a template database
     ---- so that services know it is not an operational database
+    perform progress_report(format('Creating revision database %s', revision_database));
     perform dblink(self_conn, format('create database %I', revision_database));
     update pg_database set datistemplate = true where datname = revision_database;
 
@@ -59,6 +73,7 @@ begin
         execute format('create user mapping for %1$I server %2$I options (user %1$L)',
                        current_user, revision_database || '_empty');
         ---- Define remote meta
+        perform progress_report('Creating empty revision schema since there are no parents revision');
         execute format('create schema %I', revision || '_empty');
         perform create_remote_meta((revision::text || '_empty')::regnamespace, 'omni_schema'::name,
                                    revision::text || '_empty'::name, materialize => true);
@@ -74,6 +89,7 @@ begin
                            'create table omni_schema.deployed_revision as select %L::omni_schema.revision_id as revision',
                            revision::text));
 
+    perform progress_report('Assembling schema for revision');
     perform from assemble_schema(revision_conninfo, fs, source_path) where execution_error is not null;
     if found then
         raise exception 'New revision cannot be assembled due to errors' using hint = 'Run assemble_schema to see errors';
@@ -89,6 +105,8 @@ begin
     begin
         foreach current_parent in array revision_parents
             loop
+
+                perform progress_report(format('Assembling parent revision %s', current_parent::text));
             ---- Prepare the database in which we'll be assembling it. Make it a template database
             ---- so that services know it is not an operational database
                 perform dblink(self_conn, format('drop database if exists %I', current_parent::text));
@@ -111,6 +129,7 @@ begin
     end;
 
     --- 3. Write metadata
+    perform progress_report(format('Writing metadata to %s', revision || '/metadata.yaml'));
     metadata := json_build_object('parents', revision_parents);
     perform omni_vfs.write(transactional_fs, revision || '/metadata.yaml',
                            convert_to(omni_yaml.to_yaml(metadata), 'utf8'), create_file => true);
@@ -118,6 +137,7 @@ begin
     --- 4. Capture current source
 
     ---- FIXME: saving to YAML for now just to make _a_ decision
+    perform progress_report(format('Writing sources to %s', revision || '/sources.yaml'));
     select
         jsonb_object_agg(name, encode(omni_vfs.read(fs, source_path || '/' || name), 'base64'))
     into sources
@@ -139,6 +159,7 @@ begin
                    current_user, revision_database);
 
     ---- Define remote meta
+    perform progress_report(format('Creating %s meta schema for diff', revision));
     execute format('create schema %I', revision);
     perform create_remote_meta(revision::text::regnamespace, 'omni_schema'::name, revision::text::name,
                                materialize => true);
@@ -274,6 +295,7 @@ begin
             schema_name != 'pg_catalog' and
             schema_name != 'information_schema'
         loop
+            perform progress_report(format('Capturing data for %I.%I', rec.schema_name, rec.name));
             perform omni_vfs.write(transactional_fs,
                                    revision || '/data/' || rec.schema_name || '.' || rec.name || '.yaml',
                                    convert_to(omni_yaml.to_yaml(rec.json), 'utf8'), create_file => true);
@@ -297,6 +319,7 @@ begin
     ----        but the connections won't be released until the very end of the
     ----        transaction. For now, this has to be cleaned up manually.
     ---- perform dblink(self_conn, format('drop database %I', revision_database));
+    perform progress_report('Cleaning up');
     update pg_database set datistemplate = false where datname = revision_database;
     raise notice '%', format('Target database %I remained', revision_database)
         using
