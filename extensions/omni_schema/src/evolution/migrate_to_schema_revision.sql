@@ -145,7 +145,7 @@ begin
     end if;
 
     ---- Stamp new revision
-    perform dblink_exec(source_conn,
+    perform dblink_exec(conn,
                         format('insert into omni_schema.deployed_revision (revision) values (%L)',
                                target));
 
