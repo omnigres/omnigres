@@ -110,9 +110,9 @@ begin
             migration      text;
             rec            record;
         begin
-            perform progress_report(format('Applying migrations'));
             migration_path := revisions_path || '/' || target || '/migrate.sql';
-            if omni_vfs.file_info(fs, migration_path) is not null then
+            if omni_vfs.file_info(fs, migration_path) is distinct from null then
+                perform progress_report(format('Applying migrations'));
                 migration := convert_from(omni_vfs.read(fs, migration_path), 'utf8');
                 for rec in select * from omni_sql.raw_statements(migration::cstring, true)
                     loop
