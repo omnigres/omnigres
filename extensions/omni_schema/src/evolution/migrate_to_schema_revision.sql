@@ -89,7 +89,7 @@ begin
         where
             execution_error is not null;
         if found then
-            raise exception 'Starting migration % cannot be assembled due to errors', current_parent
+            raise exception 'Starting migration cannot be assembled due to errors'
                 using hint = 'Run assemble_schema to see errors';
         end if;
     else
