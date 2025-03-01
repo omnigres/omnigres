@@ -205,6 +205,7 @@ begin
         declare
             current_parent revision_id;
             diff_schema    text;
+            any_diff       bool := false;
         begin
 
             foreach current_parent in array revision_parents
@@ -257,7 +258,12 @@ begin
                     perform omni_vfs.write(transactional_fs,
                                            revision || '/' || current_parent || '.diffs.yaml',
                                            convert_to(omni_yaml.to_yaml(diffs::json), 'utf8'), create_file => true);
+
+                    any_diff := any_diff or (diffs != '{}');
                 end loop;
+            if not any_diff then
+                raise exception 'There are no differences between revisions';
+            end if;
         end;
     end if;
 
