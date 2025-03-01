@@ -171,7 +171,7 @@ begin
         foreach current_parent in array parents
             loop
                 diff_path := revisions_path || '/' || target || '/' || current_parent || '.diffs.yaml';
-                if omni_vfs.file_info(fs, diff_path) is not null then
+                if omni_vfs.file_info(fs, diff_path) is distinct from null then
                     diff := omni_yaml.to_json(convert_from(omni_vfs.read(fs, diff_path), 'utf8'))::jsonb;
 
 
