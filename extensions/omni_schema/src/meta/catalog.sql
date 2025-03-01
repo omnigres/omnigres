@@ -1412,7 +1412,7 @@ create view role_connection_limit as
 create view role_valid_until as
    select role_id(pgr.rolname) as id,
           pgr.rolvaliduntil   as valid_until
-   from pg_roles pgr;
+   from pg_roles pgr where pgr.rolvaliduntil is not null;
 
 create view role_setting as
     select role_setting_id(pgr.rolname, pgd.datname, split_part(setting, '=', 1)) as id,
