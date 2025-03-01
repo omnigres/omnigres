@@ -12,6 +12,12 @@ instance:
 
 tests:
 
+- name: installed packages
+  query: select * from omni_python.installed_package
+  results:
+  - name: omni_python
+    version: 0.1.0
+
 - name: error
   steps:
   - query: select * from omni_python.create_functions($1)

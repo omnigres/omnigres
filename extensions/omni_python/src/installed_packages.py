@@ -25,32 +25,23 @@ find_links = plpy.execute(
                  0][
                  'value'] or []
 
-requirements_txt = tempfile.mktemp()
-with open(requirements_txt, 'w') as f:
-    f.write(requirements)
-
-class PipOutputHandler:
-    def __init__(self):
-        pass
-
-    def write(selfself, text):
-        plpy.notice(text.strip('\n'))
-
-    def flush(self):
-        pass
-
 os.makedirs(site_packages, exist_ok=True)
 stderr_str = io.StringIO()
-stdout_handler = PipOutputHandler()
-with contextlib.redirect_stdout(stdout_handler), contextlib.redirect_stderr(stderr_str):
+stdout_str = io.StringIO()
+with contextlib.redirect_stdout(stdout_str), contextlib.redirect_stderr(stderr_str):
     try:
         from pip._internal.cli.main import main as pip
 
-        rc = pip(["install", "--disable-pip-version-check", "--upgrade", "-r", requirements_txt, "--target", site_packages]
-                 + (["--extra-index-url", index] if index is not None else [])
-                 + [item for x in find_links for item in ("--find-links", x)]
-                 )
+        rc = pip(["freeze", "--path", site_packages])
         if rc != 0:
             raise SystemExit(rc)
     except SystemExit as e:
         plpy.error("pip failure", detail=stderr_str.getvalue())
+
+result = [
+    {"name": name, "version": version}
+    for line in stdout_str.getvalue().strip().split("\n")
+    for name, version in [line.split("==")]
+]
+
+return result
