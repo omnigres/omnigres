@@ -22,7 +22,7 @@ begin
     -- For now, we assume the case of direct Source->Target migration but we should be able to find
     -- the path and apply this function for all steps.
 
-    if omni_vfs.file_info(fs, revisions_path || '/' || target || '/metadata.yaml') is not null then
+    if omni_vfs.file_info(fs, revisions_path || '/' || target || '/metadata.yaml') is distinct from null then
         revision_metadata :=
                 omni_yaml.to_json(convert_from(omni_vfs.read(fs, revisions_path || '/' || target || '/metadata.yaml'),
                                                'utf8'))::jsonb;
