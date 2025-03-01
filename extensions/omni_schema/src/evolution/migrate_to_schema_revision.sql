@@ -28,13 +28,15 @@ begin
                                                'utf8'))::jsonb;
         parents := array((select jsonb_array_elements_text(revision_metadata -> 'parents')))::revision_id[];
     else
-        raise exception 'Metadata file %s is not found', revisions_path || '/' || target || '/meta.yaml';
+        raise exception 'Metadata file % is not found', revisions_path || '/' || target || '/metadata.yaml';
     end if;
 
     --- 1. Check for pre-conditions
 
     --- 1.0. Make sure source database has omni_schema and omni_schema.deployed_revision
 
+
+    perform progress_report(format('Preparing the database'));
     ---- Install omni_schema in the target schema to get its meta
     perform dblink(source_conn, format('create extension if not exists omni_schema version %L cascade',
                                        (select extversion from pg_extension where extname = 'omni_schema')));
@@ -80,6 +82,7 @@ begin
     perform dblink(conn, 'begin');
     if cardinality(parents) = 0 then
         --- 3.0. Just assemble it if there are no parents (first migration)
+        perform progress_report(format('Assembling'));
         perform
         from
             assemble_schema_revision(fs, revisions_path, target, source_conn)
@@ -96,6 +99,7 @@ begin
             migration      text;
             rec            record;
         begin
+            perform progress_report(format('Applying migrations'));
             migration_path := revisions_path || '/' || target || '/migrate.sql';
             if omni_vfs.file_info(fs, migration_path) is not null then
                 migration := convert_from(omni_vfs.read(fs, migration_path), 'utf8');
@@ -165,8 +169,9 @@ begin
                                        diff_schema::regnamespace::text || ',' || old_search_path, true);
 
 
---## for direction in ["added","removed"]
 --## for view in meta_views
+                    perform progress_report(format('Diffing /*{{ view }}*/'));
+--## for direction in ["added","removed"]
                         expected_diff :=
                                 jsonb_strip_nulls(jsonb_set(expected_diff, '{/*{{ direction }}*/_/*{{ view }}*/}',
                                                             coalesce((with
@@ -254,9 +259,11 @@ begin
     end;
 
     if result is null then
+        perform progress_report(format('Migrations applied successfully'));
         perform dblink(conn, 'commit');
         perform dblink_disconnect(conn);
     else
+        perform progress_report(format('Schema is not matching expectations, rolled back'));
         raise notice 'Schema is not matching expectation, rolling back';
         perform dblink(conn, 'rollback');
         perform dblink_disconnect(conn);
