@@ -187,3 +187,13 @@ tests:
     results:
         - migrate_to_schema_revision: null
         - migrate_to_schema_revision: null
+  - name: trying to remigrate doesn't fail
+    query: |
+      with results as (
+      select omni_schema.migrate_to_schema_revision(omni_vfs.table_fs('evolution'), 'revisions',revision, 'dbname=test '  ||
+           ' host=' || current_setting('unix_socket_directories') || ' port=' || current_setting('port') || ' user=' || current_user)
+      from omni_schema.schema_revisions(omni_vfs.table_fs('evolution'), 'revisions')
+      order by cardinality(parents)) select * from results
+    results:
+        - migrate_to_schema_revision: null
+        - migrate_to_schema_revision: null

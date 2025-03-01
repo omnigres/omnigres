@@ -18,6 +18,17 @@ declare
 begin
     select db into source_db from dblink(source_conn, 'select current_database()') t(db name);
 
+    perform from dblink(source_conn, $q$select relname from pg_class c
+        inner join pg_namespace ns on ns.oid = c.relnamespace and ns.nspname = 'omni_schema' where relname = 'deployed_revision'$q$) t(relname name);
+
+    if found then
+        perform from dblink(source_conn, format($q$select true from omni_schema.deployed_revision where revision = %L$q$, target)) t(found bool);
+        if found then
+            -- Don't try to provision an existing revision
+            return null;
+        end if;
+    end if;
+
     -- TODO:
     -- For now, we assume the case of direct Source->Target migration but we should be able to find
     -- the path and apply this function for all steps.
