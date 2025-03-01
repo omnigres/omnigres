@@ -1,0 +1,19 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_schema cascade
+    - create schema test
+
+tests:
+
+- name: smoke test
+  steps:
+    - create role test
+    - create table test.test ()
+    - grant select on table test.test to test
+    - query: |
+        select privilege_type, is_grantable from omni_schema.acl where id operator(omni_schema.=) omni_schema.relation_id('test','test')::omni_schema.object_id 
+                and grantee = omni_schema.role_id('test') and not "default"
+      results:
+      - privilege_type: SELECT
+        is_grantable: false

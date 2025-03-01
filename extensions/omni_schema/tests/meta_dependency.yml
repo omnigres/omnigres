@@ -1,0 +1,96 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_schema cascade
+
+tests:
+
+- name: smoke test
+  query: |
+    select id::text from omni_schema.dependency 
+    where dependent_on operator(omni_schema.=) omni_schema.extension_id('plpgsql')::omni_schema.object_id
+      and omni_types.variant(id) = 'omni_schema.function_id'::regtype
+      order by id::text
+  results:
+  - id: "function_id((pg_catalog,plpgsql_call_handler,{}))"
+  - id: "function_id((pg_catalog,plpgsql_inline_handler,{internal}))"
+  - id: "function_id((pg_catalog,plpgsql_validator,{oid}))"
+
+- name: smoke test (tables)
+  query: |
+    select id::text from omni_schema.dependency 
+    where dependent_on operator(omni_schema.=) omni_schema.extension_id('omni_vfs')::omni_schema.object_id
+      and omni_types.variant(id) = 'omni_schema.relation_id'::regtype
+      order by id::text
+  results:
+  - id: "relation_id((omni_vfs,local_fs_mounts))"
+  - id: "relation_id((omni_vfs,local_fs_mounts_id_seq))"
+  - id: "relation_id((omni_vfs,table_fs_file_data))"
+  - id: "relation_id((omni_vfs,table_fs_files))"
+  - id: "relation_id((omni_vfs,table_fs_files_id_seq))"
+  - id: "relation_id((omni_vfs,table_fs_filesystems))"
+  - id: "relation_id((omni_vfs,table_fs_filesystems_id_seq))"
+
+- name: columns from extensions depend on extensions
+  query: |
+    select count(*) > 0 as result from omni_schema.dependency 
+    where
+        dependent_on operator(omni_schema.=) omni_schema.extension_id('omni_schema')::omni_schema.object_id
+      and
+        omni_types.variant(id) = 'omni_schema.column_id'::regtype
+  results:
+  - result: true
+
+- name: types can have dependencies
+  query: |
+    select id::text from omni_schema.dependency 
+    where dependent_on operator(omni_schema.=) omni_schema.extension_id('omni_vfs')::omni_schema.object_id
+      and omni_types.variant(id) = 'omni_schema.type_id'::regtype
+      order by id::text
+  results:
+  - id: "type_id((omni_vfs,local_fs))"
+  - id: "type_id((omni_vfs,local_fs[]))"
+  - id: "type_id((omni_vfs,local_fs_mounts))"
+  - id: "type_id((omni_vfs,local_fs_mounts[]))"
+  - id: "type_id((omni_vfs,remote_fs))"
+  - id: "type_id((omni_vfs,remote_fs[]))"
+  - id: "type_id((omni_vfs,table_fs))"
+  - id: "type_id((omni_vfs,table_fs[]))"
+  - id: "type_id((omni_vfs,table_fs_file_data))"
+  - id: "type_id((omni_vfs,table_fs_file_data[]))"
+  - id: "type_id((omni_vfs,table_fs_files))"
+  - id: "type_id((omni_vfs,table_fs_files[]))"
+  - id: "type_id((omni_vfs,table_fs_filesystems))"
+  - id: "type_id((omni_vfs,table_fs_filesystems[]))"
+
+- name: operators can have dependencies
+  query: |
+    select count(*) > 0 as result from omni_schema.dependency 
+    where dependent_on operator(omni_schema.=) omni_schema.extension_id('omni_schema')::omni_schema.object_id
+      and omni_types.variant(id) = 'omni_schema.operator_id'::regtype
+  results:
+  - result: true
+
+- name: sequences can have dependencies
+  query: |
+    select count(*) > 0 as result from omni_schema.dependency 
+    where dependent_on operator(omni_schema.=) omni_schema.extension_id('omni_schema')::omni_schema.object_id
+      and omni_types.variant(id) = 'omni_schema.sequence_id'::regtype
+  results:
+  - result: true
+
+- name: indices can have dependencies
+  query: |
+    select count(*) > 0 as result from omni_schema.dependency 
+    where dependent_on operator(omni_schema.=) omni_schema.extension_id('omni_schema')::omni_schema.object_id
+      and omni_types.variant(id) = 'omni_schema.index_id'::regtype
+  results:
+  - result: true
+
+- name: languages can have dependencies
+  query: |
+    select count(*) > 0 as result from omni_schema.dependency 
+    where dependent_on operator(omni_schema.=) omni_schema.extension_id('plpgsql')::omni_schema.object_id
+      and omni_types.variant(id) = 'omni_schema.language_id'::regtype
+  results:
+  - result: true

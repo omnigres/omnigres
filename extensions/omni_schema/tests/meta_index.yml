@@ -1,0 +1,12 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_schema cascade
+
+tests:
+
+- name: no pg_toast indices
+  steps:
+    - query: select count(*) from omni_schema.index where name like 'pg_toast%'
+      results:
+      - count: 0

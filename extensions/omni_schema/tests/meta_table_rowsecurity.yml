@@ -1,0 +1,20 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_schema cascade
+    - create schema test
+    - create table test.empty_table ();
+
+tests:
+
+- name: created table without row security does not show up
+  steps:
+    - query: select id from omni_schema.table_rowsecurity where id = omni_schema.relation_id('test', 'empty_table');
+      results: []
+
+- name: created table with row security enabled show up
+  steps:
+    - query: alter table test.empty_table enable row level security;
+    - query: select id from omni_schema.table_rowsecurity where id = omni_schema.relation_id('test', 'empty_table');
+      results:
+      - id: "(test,empty_table)"

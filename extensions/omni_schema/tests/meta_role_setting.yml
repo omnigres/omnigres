@@ -1,0 +1,34 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_schema cascade
+
+tests:
+
+- name: created role shows up with expected values for different settings
+  steps:
+    - query: create role test_with_settings
+    - query: alter role test_with_settings set work_mem to '11MB'
+    - query: alter role test_with_settings set log_min_messages to 'debug'
+    - query: select id, setting_name, setting_value from omni_schema.role_setting where id in (omni_schema.role_setting_id('test_with_settings',null::text,'work_mem'), omni_schema.role_setting_id('test_with_settings',null::text,'log_min_messages')) order by id
+      results:
+      - id: "(test_with_settings,,log_min_messages)"
+        setting_name: log_min_messages
+        setting_value: debug
+      - id: "(test_with_settings,,work_mem)"
+        setting_name: work_mem
+        setting_value: 11MB    
+
+- name: created role shows up with expected values for different databases
+  steps:
+    - query: create role test_with_settings
+    - query: alter role test_with_settings in database template1 set work_mem to '11MB'
+    - query: alter role test_with_settings set work_mem to '11MB'
+    - query: select id, setting_name, setting_value from omni_schema.role_setting where setting_name = 'work_mem' order by id
+      results:
+      - id: "(test_with_settings,template1,work_mem)"
+        setting_name: work_mem
+        setting_value: 11MB 
+      - id: "(test_with_settings,,work_mem)"
+        setting_name: work_mem
+        setting_value: 11MB 

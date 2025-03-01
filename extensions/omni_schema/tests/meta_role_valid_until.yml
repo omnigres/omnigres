@@ -1,0 +1,14 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_schema cascade
+
+tests:
+
+- name: created role shows up with expected values
+  steps:
+    - query: create role test_valid_until valid until '2024-01-01 00:00:00';
+    - query: select id, valid_until::timestamp from omni_schema.role_valid_until where id = omni_schema.role_id('test_valid_until');
+      results:
+      - id: (test_valid_until)
+        valid_until: '2024-01-01 00:00:00'

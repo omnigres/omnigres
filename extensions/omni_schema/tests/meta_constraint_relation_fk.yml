@@ -1,0 +1,76 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_schema cascade
+    - create schema test
+    - create table test.my_table (id int primary key, i int, unique (id, i))
+
+tests:
+
+- name: constraint present
+  steps:
+  - create table test.ref_table (id int references test.my_table (id))
+  - query: select id from omni_schema.constraint_relation_foreign_key where relation_id = omni_schema.relation_id('test','ref_table')
+    results:
+    - id: "(test,ref_table,ref_table_id_fkey)"
+
+- name: constraint match
+  steps:
+  - create table test.ref_table (id int references test.my_table (id))
+  - query: select id from omni_schema.constraint_relation_foreign_key_match_simple where id = omni_schema.constraint_id('test','ref_table','ref_table_id_fkey')
+    results:
+    - id: "(test,ref_table,ref_table_id_fkey)"
+
+- name: constraint match (full)
+  steps:
+  - create table test.ref_table (id int references test.my_table (id) match full)
+  - query: select id from omni_schema.constraint_relation_foreign_key_match_full where id = omni_schema.constraint_id('test','ref_table','ref_table_id_fkey')
+    results:
+    - id: "(test,ref_table,ref_table_id_fkey)"
+
+- name: constraint match (partial)
+  todo: true # when postgres gets it implemented
+  steps:
+  - create table test.ref_table (id int references test.my_table (id) match partial)
+  - query: select id from omni_schema.constraint_relation_foreign_key_match_partial where id = omni_schema.constraint_id('test','ref_table','ref_table_id_fkey')
+    results:
+    - id: "(test,ref_table,ref_table_id_fkey)"
+
+- name: constraint references
+  steps:
+  - create table test.ref_table (id int references test.my_table (id))
+  - query: select relation_id from omni_schema.constraint_relation_foreign_key_references where id = omni_schema.constraint_id('test','ref_table','ref_table_id_fkey')
+    results:
+    - relation_id: "(test,my_table)"
+
+- name: on update action
+  steps:
+    - create table test.ref_table ( id int references test.my_table (id) on update cascade)
+    - query: select update_action from omni_schema.constraint_relation_foreign_key_update where id = omni_schema.constraint_id('test', 'ref_table', 'ref_table_id_fkey')
+      results:
+      - update_action: cascade
+
+- name: on delete action
+  steps:
+    - create table test.ref_table ( id int references test.my_table (id) on delete cascade)
+    - query: select delete_action from omni_schema.constraint_relation_foreign_key_delete where id = omni_schema.constraint_id('test', 'ref_table', 'ref_table_id_fkey')
+      results:
+      - delete_action: cascade
+
+- name: constraint references column
+  steps:
+  - create table test.ref_table (id int references test.my_table (id))
+  - query: select column_id, position from omni_schema.constraint_relation_foreign_key_references_column where id = omni_schema.constraint_id('test','ref_table','ref_table_id_fkey')
+    results:
+    - column_id: "(test,my_table,id)"
+      position: 1
+
+- name: constraint references multiple columns
+  steps:
+  - create table test.ref_table (id int, i int unique, constraint fk foreign key (id, i) references test.my_table (id, i))
+  - query: select column_id, position from omni_schema.constraint_relation_foreign_key_references_column where id = omni_schema.constraint_id('test','ref_table','fk') order by position
+    results:
+    - column_id: "(test,my_table,id)"
+      position: 1
+    - column_id: "(test,my_table,i)"
+      position: 2
