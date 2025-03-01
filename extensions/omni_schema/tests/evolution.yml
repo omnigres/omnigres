@@ -176,7 +176,7 @@ tests:
              alter table person alter column name set not null;
              $$, create_file => true) from
          omni_schema.schema_revisions(omni_vfs.table_fs('evolution'), 'revisions')
-        where cardinality(parents) = 1
+      offset 1 limit 1
   - name: try to migrate with a migration now
     query: |
       with results as (
