@@ -511,7 +511,11 @@ void master_worker(Datum db_oid) {
         goto terminate;
       }
     }
+#if PG_MAJORVERSION_NUM >= 18
+    ProcessMainLoopInterrupts();
+#else
     HandleMainLoopInterrupts();
+#endif
 
     // If HTTP workers have already been started, notify them of the change.
     // It is okay to notify them at this time as they will try to connect to the UNIX socket
@@ -537,7 +541,11 @@ void master_worker(Datum db_oid) {
       uint32 expected = cvec_bgwhandle_size(&http_workers);
       while (!pg_atomic_compare_exchange_u32(semaphore, &expected, 0)) {
         expected = cvec_bgwhandle_size(&http_workers);
+#if PG_MAJORVERSION_NUM >= 18
+        ProcessMainLoopInterrupts();
+#else
         HandleMainLoopInterrupts();
+#endif
         if (shutdown_worker) {
           SPI_finish();
           PopActiveSnapshot();
@@ -615,7 +623,11 @@ void master_worker(Datum db_oid) {
 
       while (!pg_atomic_compare_exchange_u32(semaphore, &expected, 0)) {
         expected = cvec_bgwhandle_size(&http_workers);
+#if PG_MAJORVERSION_NUM >= 18
+        ProcessMainLoopInterrupts();
+#else
         HandleMainLoopInterrupts();
+#endif
         if (shutdown_worker) {
           goto terminate;
         }
