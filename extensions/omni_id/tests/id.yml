@@ -3,8 +3,8 @@ instance:
   init:
   - create extension omni_id
   - create extension omni_polyfill
-  - alter role yregress set search_path to omni_polyfill, pg_catalog, '$user', public
-  - set search_path to omni_polyfill, pg_catalog, '$user', public
+  - alter role yregress set search_path to '$user', public, omni_polyfill, pg_catalog
+  - set search_path to '$user', public, omni_polyfill, pg_catalog
   - select identity_type('my_id')
   - select identity_type('my_id1')
   - select identity_type('my_uuid', type => 'uuid', nextval => 'uuidv7()')
@@ -80,3 +80,11 @@ tests:
   results:
   - not_null: true
     typ: my_uuid
+
+- name: uuid nextval without uuidv7 in the search_path
+  steps:
+  - set search_path to public
+  - query: select my_uuid_nextval() is not null not_null, pg_typeof(my_uuid_nextval()) as typ
+    results:
+    - not_null: true
+      typ: my_uuid

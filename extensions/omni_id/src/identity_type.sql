@@ -185,7 +185,7 @@ begin
     -- If sequence API is desired for UUID, supply it as `_nextval`
     if not create_sequence and nextval is not null then
         execute format(
-                'create function %I() returns %I language sql as $sql$ select %s()::%4$I.%2$I $sql$',
+                'create function %I() returns %I return %s()::%4$I.%2$I',
                 name || '_nextval', name, nextval::regproc, ns);
     end if;
 
@@ -196,7 +196,7 @@ begin
         end if;
 
         execute format(
-                'create function %1$I(value %2$I) returns %3$I language sql as $sql$ select value::%4$I.%3$I $sql$ immutable strict parallel safe',
+                'create function %1$I(value %2$I) returns %3$I  immutable strict parallel safe return value::%4$I.%3$I',
                 constructor, type_name, name, ns);
 
     end if;
