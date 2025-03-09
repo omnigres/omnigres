@@ -4,7 +4,8 @@ title: Usage of pg_yregress
 
 # Usage of pg_yregress
 
-Despite being inspired by `pg_regress`, `pg_yregress` is not in any way compatible with `pg_regress` as it has a different workflow and an execution model.
+Despite being inspired by `pg_regress`, `pg_yregress` is not in any way compatible with `pg_regress` as it has a
+different workflow and an execution model.
 
 {% include-markdown "./_install.md" heading-offset=1 %}
 
@@ -15,16 +16,18 @@ This tool uses YAML to describe tests. Let's start with
 
 ```yaml
 tests:
-- name: simple
-  query: select 1 as value
+  - name: simple
+    query: select 1 as value
 ```
 
-The above specification will test the `select 1...` query be executing it and ensuring it was successful. The test will be executed against a
+The above specification will test the `select 1...` query be executing it and ensuring it was successful. The test will
+be executed against a
 _managed instance_[^managed] of Postgres.
 
 [^managed]: Postgres instance that is provisioned and deprovisioned by `pg_yregress` tool without any user involvement.
 
-Running `pg_yregress` against this file will produce output adhering to [TAP](https://testanything.org), Test Anything Protocol for human or machine consumption.
+Running `pg_yregress` against this file will produce output adhering to [TAP](https://testanything.org), Test Anything
+Protocol for human or machine consumption.
 
 ```shell
 $ pg_yregress test.yml
@@ -48,13 +51,14 @@ As the tool will evolve, we might add other ways to get this information.
     - select 1 as value
     ```
 
-Nothing very interesting. Now, let's amend this test to test the result of this query. For a moment, let's assume we don't know what results are to be returned.
+Nothing very interesting. Now, let's amend this test to test the result of this query. For a moment, let's assume we
+don't know what results are to be returned.
 
 ```yaml
 tests:
-- name: simple
-  query: select 1 as value
-  results: [ ] # (1)
+  - name: simple
+    query: select 1 as value
+    results: [ ] # (1)
 ```
 
 1. Here we specify an empty result set
@@ -75,7 +79,8 @@ As you can see, it shows what test specification __should__
 contain in order to pass. You can also observe, that `pg_yregress`
 exited with a __non-zero error code__.
 
-For better visibility into changes, YAML-specific diff tools can be of use, such as [dyff](https://github.com/homeport/dyff). To make it easier to use these tools, `pg_yregress` takes an additional
+For better visibility into changes, YAML-specific diff tools can be of use, such
+as [dyff](https://github.com/homeport/dyff). To make it easier to use these tools, `pg_yregress` takes an additional
 _optional_ argument where it will output the updated specification instead of stdout.
 
 Copying `results` to the original specification will make `pg_yregress`
@@ -97,21 +102,21 @@ return zero again (thus, signal that the specification is executed as expected.)
 - name: json and jsonb params
   query: select $1::json as json, $2::jsonb as jsonb
   params:
-  - hello: 1
-  - hello: 2
+    - hello: 1
+    - hello: 2
   results:
-  - json:
-      hello: 1
-    jsonb:
-      hello: 2
+    - json:
+        hello: 1
+      jsonb:
+        hello: 2
 
 - name: json and jsonb results
   query: select json_build_object('hello', 1), jsonb_build_object('hello', 2)
   results:
-  - json_build_object:
-      hello: 1
-    jsonb_build_object:
-      hello: 2
+    - json_build_object:
+        hello: 1
+      jsonb_build_object:
+        hello: 2
 ```
 
 ## Testing for failures
@@ -120,9 +125,9 @@ You can simply test that a certain query will fail:
 
 ```yaml
 tests:
-- name: error
-  query: selec 1 as value
-  error: true
+  - name: error
+    query: selec 1 as value
+    error: true
 ```
 
 The above will succeed, since we have set `error` to `true`.
@@ -132,11 +137,11 @@ setting `error` to a more specific value:
 
 ```yaml
 tests:
-- name: error
-  query: selec 1 as value
-  error:
-    severity: ERROR
-    message: syntax error at or near "selec"
+  - name: error
+    query: selec 1 as value
+    error:
+      severity: ERROR
+      message: syntax error at or near "selec"
 ```
 
 The above will pass as this is the error this test fails with.
@@ -165,35 +170,38 @@ In this form, both severity and message can be specified.
 
 ## Negative tests
 
-A test can be marked negative when it should fail if the test itself passes. This is useful when testing scenarios where something specific should
+A test can be marked negative when it should fail if the test itself passes. This is useful when testing scenarios where
+something specific should
 **not** happen.
 
 ```yaml
 - name: 'string' should not be returned
   query: select my_fun() as result
   results:
-  - result: string
+    - result: string
   negative: true
 ```
 
-The example is slightly contrived as we can test the assumption in the query itself, but at times it is easier or clearer to have this specified as such "negative test".
+The example is slightly contrived as we can test the assumption in the query itself, but at times it is easier or
+clearer to have this specified as such "negative test".
 
 ## Multi-step tests
 
-Some test inolve more than one query and we need to check for more than just the final result, so simply executing all statements and queries delimited by a semicolon wouldn't be great.
+Some test inolve more than one query and we need to check for more than just the final result, so simply executing all
+statements and queries delimited by a semicolon wouldn't be great.
 
 For this use-case, instead of using `query`, use `steps`:
 
 ```yaml
 tests:
-- name: Test
-  steps:
-  - query: create table tab as (select generate_series(1,3) as i)
-  - query: select * from tab
-    results:
-    - i: 1
-    - i: 2
-    - i: 3
+  - name: Test
+    steps:
+      - query: create table tab as (select generate_series(1,3) as i)
+      - query: select * from tab
+        results:
+          - i: 1
+          - i: 2
+          - i: 3
 ```
 
 !!! tip
@@ -214,20 +222,20 @@ For this, one can use `tests`:
 
 ```yaml
 tests:
-- name: fib
-  tests:
-  - query: select fib(0)
-    results:
-    - fib: 0
-  - query: select fib(1)
-    results:
-    - fib: 1
-  - query: select fib(2)
-    results:
-    - fib: 1
-  - query: select fib(3)
-    results:
-    - fib: 2
+  - name: fib
+    tests:
+      - query: select fib(0)
+        results:
+          - fib: 0
+      - query: select fib(1)
+        results:
+          - fib: 1
+      - query: select fib(2)
+        results:
+          - fib: 1
+      - query: select fib(3)
+        results:
+          - fib: 2
 ```
 
 ## Committing tests
@@ -246,23 +254,38 @@ to `true`:
 This can be also used for multi-step tests. If any of the steps is committed but
 the multi-step test itself isn't, it'll roll back the uncommitted steps.
 
+## Reusing connections across tests
+
+By default, new connections are created to execute each test. However, in
+some cases, tests need to reuse the same connection.
+
+When this is necessary, add `connection` key:
+
+```yaml
+- tests
+    - name: reuse connection
+    tests:
+      - alter session set session_name='A';
+      - connection: connA 
+```
+
 ## Notices
 
 One can also check their tests for notices:
 
 ```yaml
 tests:
-- name: notices
-  query: |
-    do $$
-      begin
-        raise notice 'test 1';
-        raise notice 'test 2';
-      end;
-    $$ language plpgsql
-  notices:
-  - test 1
-  - test 2
+  - name: notices
+    query: |
+      do $$
+        begin
+          raise notice 'test 1';
+          raise notice 'test 2';
+        end;
+      $$ language plpgsql
+    notices:
+      - test 1
+      - test 2
 ```
 
 One can also check a `steps`-based test the accumulated sequence of notices
@@ -270,24 +293,24 @@ One can also check a `steps`-based test the accumulated sequence of notices
 
 ```yaml
 tests:
-- name: multi-step notices (individual)
-  steps:
-  - query: |
-      do $$
-        begin
-          raise notice 'test 1';
-        end;
-      $$ language plpgsql
-    notices:
-    - test 1
-  - query: |
-      do $$
-        begin
-          raise notice 'test 2';
-        end;
-      $$ language plpgsql
-    notices:
-    - test 2
+  - name: multi-step notices (individual)
+    steps:
+      - query: |
+          do $$
+            begin
+              raise notice 'test 1';
+            end;
+          $$ language plpgsql
+        notices:
+          - test 1
+      - query: |
+          do $$
+            begin
+              raise notice 'test 2';
+            end;
+          $$ language plpgsql
+        notices:
+          - test 2
 ```
 
 ## Binary format
@@ -295,11 +318,11 @@ tests:
 Sometimes there's a need to test binary encoding of types[^send-recv]. `pg_yregress`
 allows this to be done by manipulating the `binary` property of the `query` test.
 
-| Value | Description |
-|------|-------------|
-| `true` | Both `params` and `results` are binary |
-| `params` | `params` are binary |
-| `results` | `results` are binary |
+| Value     | Description                            |
+|-----------|----------------------------------------|
+| `true`    | Both `params` and `results` are binary |
+| `params`  | `params` are binary                    |
+| `results` | `results` are binary                   |
 
 Binary encodings are done using hexadecimal notiation prefixed by `0x`.
 
@@ -307,38 +330,40 @@ This will return results as binary:
 
 ```yaml
 tests:
-- name: binary format
-  query: select true as value
-  binary: true
-  results:
-  - value: 0x01
+  - name: binary format
+    query: select true as value
+    binary: true
+    results:
+      - value: 0x01
 ```
 
 And this will return results as characters but take parameters as binary:
 
 ```yaml
 tests:
-- name: binary format for params
-  query: select $1::bool as value
-  binary: params
-  params:
-  - 0x01
-  results:
-  - value: true
+  - name: binary format for params
+    query: select $1::bool as value
+    binary: params
+    params:
+      - 0x01
+    results:
+      - value: true
 ```
 
 [^send-recv]: The encoding that is used by `SEND` and `RECEIVE` functions of the type.
 
 ## Skipping tests
 
-If a test not meant to be executed, one can use `skip` directive to suppress its execution. Given a boolean scalar, if it is positive, the test will be skipped. If a negative boolean scalar will be given, it will not be skipped. If any other scalar will be given, it will be used as a reason for skipping the test.
+If a test not meant to be executed, one can use `skip` directive to suppress its execution. Given a boolean scalar, if
+it is positive, the test will be skipped. If a negative boolean scalar will be given, it will not be skipped. If any
+other scalar will be given, it will be used as a reason for skipping the test.
 
 ```yaml
 tests:
-- name: skip this
-  skip: true
-- name: skip this for a reason
-  skip: reason
+  - name: skip this
+    skip: true
+  - name: skip this for a reason
+    skip: reason
 ```
 
 Skipped tests don't need to have a valid instruction (`query` or `steps`).
@@ -348,9 +373,9 @@ If a skipped test is meant to be executed but shouldn't fail the execution of te
 
 ```yaml
 tests:
-- name: WIP
-  todo: true
-  query: select
+  - name: WIP
+    todo: true
+    query: select
 ```
 
 ## Resetting connection
@@ -361,15 +386,18 @@ backend instances). For this, `reset` property can be set to `true`:
 
 ```yaml
 tests:
-# ...
-- name: clean slate test
-  reset: true
-  query: ...
+  # ...
+  - name: clean slate test
+    reset: true
+    query: ...
 ```
 
 ## Running queries outside explicit transaction block
 
-All the test queries are executed inside an explicit transaction block (by executing `BEGIN`) to rollback or commit side effects of tests but some queries like `CREATE DATABASE` fail with `CREATE DATABASE cannot run inside a transaction block` if executed in a transaction block. To run such queries set `transaction` property(`true` by default) to `false`:
+All the test queries are executed inside an explicit transaction block (by executing `BEGIN`) to rollback or commit side
+effects of tests but some queries like `CREATE DATABASE` fail
+with `CREATE DATABASE cannot run inside a transaction block` if executed in a transaction block. To run such queries
+set `transaction` property(`true` by default) to `false`:
 
 ```yaml
 - name: create database outside transaction
@@ -386,12 +414,13 @@ To connect to other database in a test set `database` property to name of the ot
   database: another_db
   query: select current_database()
   results:
-  - current_database: another_db
+    - current_database: another_db
 ```
 
 ## Configuring instances
 
-Tests may have one more instances they run on. By default, `pg_yregress` will provision one. However, if you want to configure the instance or add more than one, you can use
+Tests may have one more instances they run on. By default, `pg_yregress` will provision one. However, if you want to
+configure the instance or add more than one, you can use
 `instances` configuration which is a mapping of names to the configuration dictionaries:
 
 ```yaml
@@ -406,15 +435,15 @@ instances:
       log_connections = yes
   default:
     init:
-    # Executes a sequence of queries
-    - create extension my_extension
+      # Executes a sequence of queries
+      - create extension my_extension
     # One instance may be specified as default 
     default: yes
   other:
     init:
-    - alter system set config_param = '...'
-    # Initialization may require restarting the instance
-    - restart: true
+      - alter system set config_param = '...'
+      # Initialization may require restarting the instance
+      - restart: true
 ```
 
 Each test will run on a default instance, unless `instance` property is
@@ -452,7 +481,7 @@ instead of using `instances` and naming the default instance, one can use
 ```yaml
 instance:
   init:
-  - create extension ltree
+    - create extension ltree
 ```
 
 ## Unmanaged instances
@@ -505,9 +534,9 @@ retrieve configuration specified through environment variables:
 - name: env
   query: select $1::text as user
   params:
-  - */env/USER
+    - */env/USER
   results:
-  - user: */env/USER
+    - user: */env/USER
 ```
 
 ### Named test suites
