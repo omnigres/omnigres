@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.2.0] - TBD
 
+### Added
+
+* Credentials now have kind, principal and scope [#826](https://github.com/omnigres/omnigres/pull/826)
+
 ## [0.1.0] - 2024-12-26
 
 Initial release
