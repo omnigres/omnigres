@@ -5,7 +5,10 @@ as
 $$
 
 with
-    match(id) as (select table_fs_file_id(fs, path))
+    match(id) as (select table_fs_file_id(fs, path)
+    union all
+    select null where path = '/' and fs is not null
+    )
 select
     coalesce(length(d.data), 0) as size,
     d.created_at,
