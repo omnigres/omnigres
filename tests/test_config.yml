@@ -1,0 +1,12 @@
+docker:
+  host: "unix:///var/run/docker.sock"
+  images:
+    - "ghcr.io/yrashk/psql"
+    - "fedora:33"
+    - "alpine:latest"
+database:
+  host: "localhost"
+  port: 5432
+  user: "your_db_user"
+  password: "your_db_password"
+  name: "your_db_name"
