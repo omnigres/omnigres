@@ -144,6 +144,7 @@ postgres_function(
 
       int rc;
       do {
+        CHECK_FOR_INTERRUPTS();
         rc = sqlite3_step(stmt);
       } while (rc == SQLITE_ROW);
       if (rc != SQLITE_DONE) {
@@ -162,6 +163,7 @@ std::generator<cppgres::record> query_results(int sqlite_rc, int column_count, s
                                               cppgres::tuple_descriptor td) {
   if (sqlite_rc == SQLITE_ROW) {
     do {
+      CHECK_FOR_INTERRUPTS();
       std::vector<cppgres::nullable_datum> datums;
       for (int i = 0; i < column_count; i++) {
         auto value = sqlite3_column_value(stmt, i);
