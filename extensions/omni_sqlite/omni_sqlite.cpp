@@ -168,7 +168,8 @@ std::generator<cppgres::record> query_results(int sqlite_rc, int column_count, s
         auto value_type = sqlite3_value_type(value);
         switch (value_type) {
         case SQLITE_INTEGER:
-          datums.emplace_back(cppgres::into_nullable_datum(sqlite3_column_int64(stmt, i)));
+          datums.emplace_back(
+              cppgres::into_nullable_datum(static_cast<int64_t>(sqlite3_column_int64(stmt, i))));
           break;
         case SQLITE_FLOAT:
           datums.emplace_back(cppgres::into_nullable_datum(sqlite3_column_double(stmt, i)));
