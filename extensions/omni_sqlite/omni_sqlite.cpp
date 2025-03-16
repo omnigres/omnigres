@@ -27,29 +27,29 @@ postgres_function(sqlite_in, ([](const char *query) -> cppgres::expanded_varlena
                     return db;
                   }));
 
-postgres_function(
-    sqlite_out, ([](cppgres::expanded_varlena<sqlite> db) -> const char * {
-      sqlite &sql = db;
-      std::string s;
+postgres_function(sqlite_out, ([](cppgres::expanded_varlena<sqlite> db) -> const char * {
+                    sqlite &sql = db;
+                    std::string s;
 
-      int rc;
-      if ((rc = sqlite3_db_dump(
-               sql, "main", nullptr,
-               [](const char *str, void *sinfo) {
-                 auto s = reinterpret_cast<std::string *>(sinfo);
-                 s->append(str);
-                 return 1;
-               },
-               reinterpret_cast<void *>(&s))) != SQLITE_OK) {
-        throw std::runtime_error(
-            cppgres::fmt::format("Failed to dump SQLite: {}", sqlite3_errstr(rc)));
-      }
+                    int rc;
+                    if ((rc = sqlite3_db_dump(
+                             sql, "main", nullptr,
+                             [](const char *str, void *sinfo) {
+                               auto s = reinterpret_cast<std::string *>(sinfo);
+                               s->append(str);
+                               return 1;
+                             },
+                             reinterpret_cast<void *>(&s))) != SQLITE_OK) {
+                      throw std::runtime_error(
+                          cppgres::fmt::format("Failed to dump SQLite: {}", sqlite3_errstr(rc)));
+                    }
 
-      auto allocator = cppgres::memory_context_allocator<char>(cppgres::memory_context(), true);
-      char *str = new (allocator.allocate(s.size() + 1)) char[s.size() + 1];
-      std::copy(s.c_str(), s.c_str() + s.size() + 1, str);
-      return str;
-    }));
+                    auto allocator =
+                        cppgres::memory_context_allocator<char>(cppgres::memory_context(), true);
+                    char *str = new (allocator.allocate(s.size() + 1)) char[s.size() + 1];
+                    std::copy(s.c_str(), s.c_str() + s.size() + 1, str);
+                    return str;
+                  }));
 
 postgres_function(sqlite_deserialize, ([](const cppgres::byte_array input) {
                     cppgres::expanded_varlena<sqlite> db;
@@ -128,30 +128,29 @@ static void bind_params(sqlite3_stmt *stmt, std::optional<cppgres::record> param
   }
 }
 
-postgres_function(sqlite_exec, ([](cppgres::expanded_varlena<sqlite> db, std::string_view query,
-                                   std::optional<cppgres::record> params) {
-                    char *msg = NULL;
-                    sqlite &sql = db;
+postgres_function(
+    sqlite_exec, ([](cppgres::expanded_varlena<sqlite> db, std::string_view query,
+                     std::optional<cppgres::record> params) {
+      char *msg = NULL;
+      sqlite &sql = db;
 
-                    sqlite3_stmt *stmt;
-                    if (sqlite3_prepare_v2(sql, query.data(), query.size(), &stmt, nullptr) !=
-                        SQLITE_OK) {
-                      throw std::runtime_error(cppgres::fmt::format(
-                          "Failed to prepare SQLite query: {}", sqlite3_errmsg(sql)));
-                    }
+      sqlite3_stmt *stmt;
+      if (sqlite3_prepare_v2(sql, query.data(), query.size(), &stmt, nullptr) != SQLITE_OK) {
+        throw std::runtime_error(
+            cppgres::fmt::format("Failed to prepare SQLite query: {}", sqlite3_errmsg(sql)));
+      }
 
-                    bind_params(stmt, std::move(params));
+      bind_params(stmt, std::move(params));
 
-                    int rc;
-                    do {
-                      rc = sqlite3_step(stmt);
-                    } while (rc == SQLITE_ROW);
-                    if (rc != SQLITE_DONE) {
-                      throw std::runtime_error(
-                          cppgres::fmt::format("Failed to execute query: {}", msg));
-                    }
-                    return db;
-                  }));
+      int rc;
+      do {
+        rc = sqlite3_step(stmt);
+      } while (rc == SQLITE_ROW);
+      if (rc != SQLITE_DONE) {
+        throw std::runtime_error(cppgres::fmt::format("Failed to execute query: {}", msg));
+      }
+      return db;
+    }));
 
 #if __has_include(<generator>)
 #include <generator>
