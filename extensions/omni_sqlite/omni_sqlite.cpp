@@ -246,7 +246,7 @@ postgres_function(sqlite_query, ([](cppgres::expanded_varlena<sqlite> db, std::s
 
 postgres_function(sqlite_serialize, ([](cppgres::expanded_varlena<sqlite> db) {
                     void *data;
-                    int64_t size;
+                    sqlite3_int64 size;
 
                     data = sqlite3_serialize(db.operator sqlite &(), "main", &size, 0);
                     if (data == nullptr) {
