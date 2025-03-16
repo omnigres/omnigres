@@ -9,7 +9,7 @@ std::size_t sqlite::flat_size() {
   unsigned char *v = sqlite3_serialize(db.get(), "main", &_flat_size, 0);
   if (v == nullptr) {
     throw std::runtime_error(
-        std::format("Failed to serialize SQLite: {}", sqlite3_errmsg(db.get())));
+        cppgres::fmt::format("Failed to serialize SQLite: {}", sqlite3_errmsg(db.get())));
   }
 
   return static_cast<std::size_t>(_flat_size);
@@ -19,7 +19,7 @@ void sqlite::flatten_into(std::span<std::byte> buffer) {
   auto ptr = sqlite3_serialize(db.get(), "main", &_flat_size, 0);
   if (ptr == nullptr) {
     throw std::runtime_error(
-        std::format("Failed to serialize SQLite: {}", sqlite3_errmsg(db.get())));
+        cppgres::fmt::format("Failed to serialize SQLite: {}", sqlite3_errmsg(db.get())));
   }
   std::span<std::byte> bytes(reinterpret_cast<std::byte *>(ptr),
                              static_cast<std::size_t>(_flat_size));
@@ -36,7 +36,8 @@ sqlite sqlite::restore_from(std::span<std::byte> buffer) {
                           buffer.size_bytes(), buffer.size_bytes(),
                           SQLITE_DESERIALIZE_RESIZEABLE | SQLITE_DESERIALIZE_FREEONCLOSE) !=
       SQLITE_OK) {
-    throw std::runtime_error(std::format("can't deserialize SQLite: {}", sqlite3_errmsg(sql)));
+    throw std::runtime_error(
+        cppgres::fmt::format("can't deserialize SQLite: {}", sqlite3_errmsg(sql)));
   }
   return sql;
 }
@@ -46,7 +47,7 @@ sqlite::sqlite()
         sqlite3 *db;
         if (sqlite3_open(":memory:", &db) != SQLITE_OK) {
           throw std::runtime_error(
-              std::format("can't create a new SQLite database: {}", sqlite3_errmsg(db)));
+              cppgres::fmt::format("can't create a new SQLite database: {}", sqlite3_errmsg(db)));
         }
         return std::shared_ptr<sqlite3>(db, sqlite3_close);
       }()) {}

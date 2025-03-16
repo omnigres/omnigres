@@ -20,8 +20,8 @@ postgres_function(sqlite_in, ([](const char *query) -> cppgres::expanded_varlena
                     char *msg = nullptr;
 
                     if (sqlite3_exec(sql, query, nullptr, nullptr, &msg) != SQLITE_OK) {
-                      throw std::runtime_error(
-                          std::format("Failed to create SQLite in-memory database: {}", msg));
+                      throw std::runtime_error(cppgres::fmt::format(
+                          "Failed to create SQLite in-memory database: {}", msg));
                     }
 
                     return db;
@@ -41,7 +41,8 @@ postgres_function(
                  return 1;
                },
                reinterpret_cast<void *>(&s))) != SQLITE_OK) {
-        throw std::runtime_error(std::format("Failed to dump SQLite: {}", sqlite3_errstr(rc)));
+        throw std::runtime_error(
+            cppgres::fmt::format("Failed to dump SQLite: {}", sqlite3_errstr(rc)));
       }
 
       auto allocator = cppgres::memory_context_allocator<char>(cppgres::memory_context(), true);
@@ -62,7 +63,7 @@ postgres_function(sqlite_deserialize, ([](const cppgres::byte_array input) {
                                             input.size_bytes(), input.size_bytes(),
                                             SQLITE_DESERIALIZE_RESIZEABLE |
                                                 SQLITE_DESERIALIZE_FREEONCLOSE) != SQLITE_OK) {
-                      throw std::runtime_error(std::format(
+                      throw std::runtime_error(cppgres::fmt::format(
                           "Could not deserialize SQLite database: {}", sqlite3_errmsg(sql)));
                     }
 
@@ -135,8 +136,8 @@ postgres_function(sqlite_exec, ([](cppgres::expanded_varlena<sqlite> db, std::st
                     sqlite3_stmt *stmt;
                     if (sqlite3_prepare_v2(sql, query.data(), query.size(), &stmt, nullptr) !=
                         SQLITE_OK) {
-                      throw std::runtime_error(
-                          std::format("Failed to prepare SQLite query: {}", sqlite3_errmsg(sql)));
+                      throw std::runtime_error(cppgres::fmt::format(
+                          "Failed to prepare SQLite query: {}", sqlite3_errmsg(sql)));
                     }
 
                     bind_params(stmt, std::move(params));
@@ -146,7 +147,8 @@ postgres_function(sqlite_exec, ([](cppgres::expanded_varlena<sqlite> db, std::st
                       rc = sqlite3_step(stmt);
                     } while (rc == SQLITE_ROW);
                     if (rc != SQLITE_DONE) {
-                      throw std::runtime_error(std::format("Failed to execute query: {}", msg));
+                      throw std::runtime_error(
+                          cppgres::fmt::format("Failed to execute query: {}", msg));
                     }
                     return db;
                   }));
@@ -205,8 +207,8 @@ postgres_function(sqlite_query, ([](cppgres::expanded_varlena<sqlite> db, std::s
                     sqlite3_stmt *stmt;
                     if (sqlite3_prepare_v2(sql, query.data(), query.size(), &stmt, nullptr) !=
                         SQLITE_OK) {
-                      throw std::runtime_error(
-                          std::format("Failed to prepare SQLite query: {}", sqlite3_errmsg(sql)));
+                      throw std::runtime_error(cppgres::fmt::format(
+                          "Failed to prepare SQLite query: {}", sqlite3_errmsg(sql)));
                     }
 
                     bind_params(stmt, std::move(params));
@@ -250,8 +252,9 @@ postgres_function(sqlite_serialize, ([](cppgres::expanded_varlena<sqlite> db) {
 
                     data = sqlite3_serialize(db.operator sqlite &(), "main", &size, 0);
                     if (data == nullptr) {
-                      throw std::runtime_error(std::format("Failed to serialize SQLite db: {}",
-                                                           sqlite3_errmsg(db.operator sqlite &())));
+                      throw std::runtime_error(
+                          cppgres::fmt::format("Failed to serialize SQLite db: {}",
+                                               sqlite3_errmsg(db.operator sqlite &())));
                     }
                     cppgres::byte_array barr(reinterpret_cast<std::byte *>(data), size);
                     auto arr = cppgres::bytea(barr, cppgres::memory_context());

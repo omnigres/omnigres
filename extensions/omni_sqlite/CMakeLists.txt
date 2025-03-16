@@ -24,4 +24,4 @@ add_postgresql_extension(
 
 target_compile_features(omni_sqlite PUBLIC cxx_std_20)
 
-target_include_directories(omni_sqlite PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../../deps/sqlite-3.48.0/)
+target_include_directories(omni_sqlite PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../../deps/sqlite-3.48.0/ ${CMAKE_CURRENT_LIST_DIR}/../../deps/fmt/include)

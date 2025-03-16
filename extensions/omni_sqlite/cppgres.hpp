@@ -35,6 +35,33 @@
 #ifndef cppgres_hpp
 #define cppgres_hpp
 
+#if !defined(cppgres_prefer_fmt) && __has_include(<format>)
+#include <format>
+#if (defined(__clang__) && defined(_LIBCPP_HAS_NO_INCOMPLETE_FORMAT))
+#if __has_include(<fmt/core.h>)
+#define FMT_HEADER_ONLY
+#include <fmt/core.h>
+namespace cppgres::fmt {
+using ::fmt::format;
+}
+#else
+#error "Neither functional <format> nor <fmt/core.h> available"
+#endif
+#else
+namespace cppgres::fmt {
+using std::format;
+}
+#endif
+#elif __has_include(<fmt/core.h>)
+#define FMT_HEADER_ONLY
+#include <fmt/core.h>
+namespace cppgres::fmt {
+using ::fmt::format;
+}
+#else
+#error "Neither functional <format> nor <fmt/core.h> available"
+#endif
+
 /**
  * \file
  */
@@ -7848,7 +7875,6 @@ struct pointer_gone_exception : public std::exception {
 } // namespace cppgres
 
 #include <cstdint>
-#include <format>
 #include <optional>
 #include <string>
 
@@ -7980,8 +8006,8 @@ T from_nullable_datum(const nullable_datum &d,
     }
   } else {
     if (d.is_null()) {
-      throw std::runtime_error(
-          std::format("datum is null and can't be coerced into {}", utils::type_name<T>()));
+      throw std::runtime_error(cppgres::fmt::format("datum is null and can't be coerced into {}",
+                                                    utils::type_name<T>()));
     }
     return datum_conversion<T>::from_datum(d, context);
   }
@@ -8839,7 +8865,7 @@ struct tuple_descriptor {
 private:
   inline void check_bounds(int n) const {
     if (n + 1 > tupdesc->natts || n < 0) {
-      throw std::out_of_range(std::format(
+      throw std::out_of_range(cppgres::fmt::format(
           "attribute index {} is out of bounds for the tuple descriptor with the size of {}", n,
           tupdesc->natts));
     }
@@ -8971,7 +8997,7 @@ struct record {
         return get_attribute(i);
       }
     }
-    throw std::out_of_range(std::format("no attribute by the name of {}", name));
+    throw std::out_of_range(cppgres::fmt::format("no attribute by the name of {}", name));
   }
 
   /**
@@ -8999,7 +9025,7 @@ struct record {
 private:
   inline void check_bounds(int n) const {
     if (n + 1 > attributes() || n < 0) {
-      throw std::out_of_range(std::format(
+      throw std::out_of_range(cppgres::fmt::format(
           "attribute index {} is out of bounds for record with the size of {}", n, attributes()));
     }
   }
@@ -9252,7 +9278,7 @@ template <datumable_function Func> struct postgres_function {
             if (!checked) {
               if (rsinfo->expectedDesc != nullptr && nargs != natts) {
                 throw std::runtime_error(
-                    std::format("expected record with {} value{}, got {} instead", nargs,
+                    cppgres::fmt::format("expected record with {} value{}, got {} instead", nargs,
                                 nargs == 1 ? "" : "s", natts));
               }
               if (rsinfo->expectedDesc != nullptr &&
@@ -9273,7 +9299,7 @@ template <datumable_function Func> struct postgres_function {
           auto natts = rsinfo->expectedDesc->natts;
 
           if (nargs != natts) {
-            throw std::runtime_error(std::format("expected set with {} value{}, got {} instead",
+            throw std::runtime_error(cppgres::fmt::format("expected set with {} value{}, got {} instead",
                                                  nargs, nargs == 1 ? "" : "s", natts));
           }
 
@@ -9284,7 +9310,7 @@ template <datumable_function Func> struct postgres_function {
                using typ = utils::tuple_element_t<Is, set_value_type>;
                if (!type_traits<typ>::is(t)) {
                  throw std::invalid_argument(
-                     std::format("invalid type in record's position {} ({}), got OID {}", Is,
+                     cppgres::fmt::format("invalid type in record's position {} ({}), got OID {}", Is,
                                  utils::type_name<typ>(), oid));
                }
              }()),
@@ -9544,7 +9570,7 @@ struct spi_executor : public executor {
            auto t = type{.oid = oid};
            if (!type_traits<utils::tuple_element_t<Is, Ret>>::is(t)) {
              throw std::invalid_argument(
-                 std::format("invalid return type in position {} ({}), got OID {}", Is,
+                 cppgres::fmt::format("invalid return type in position {} ({}), got OID {}", Is,
                              utils::type_name<utils::tuple_element_t<Is, Ret>>(), oid));
            }
          }()),
@@ -9555,7 +9581,7 @@ struct spi_executor : public executor {
           // okay, this is just a type we can convert
         } else {
           throw std::runtime_error(
-              std::format("expected {} return values, got {}", utils::tuple_size_v<Ret>, natts));
+              cppgres::fmt::format("expected {} return values, got {}", utils::tuple_size_v<Ret>, natts));
         }
       }
     }
@@ -9632,7 +9658,7 @@ struct spi_executor : public executor {
     if (rc >= 0) {
       return SPI_processed;
     } else {
-      throw std::runtime_error(std::format("spi error"));
+      throw std::runtime_error(cppgres::fmt::format("spi error"));
     }
   }
 
@@ -10943,7 +10969,8 @@ private:
  *
  * Its argument types must conform to the @ref cppgres::convertible_from_nullable_datum concept and
  * its return type must conform to the @ref cppgres::convertible_into_nullable_datum or
- * @ref cppgres::datumable_iterator concepts. This requirement is inherited from @ref cppgres::postgres_function.
+ * @ref cppgres::datumable_iterator concepts. This requirement is inherited from @ref
+ * cppgres::postgres_function.
  *
  * \arg name Name to export it under
  * \arg function C++ function or lambda
