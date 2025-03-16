@@ -30,7 +30,7 @@ tests:
       select key, value from omni_sqlite.sqlite_query(
                                  (select data from customer),
                                  'select rowid, key, value from user_config')
-                             as (id integer, key text, value text)
+                                 as (id int8, key text, value text)
     results:
     - key: color
       value: blue

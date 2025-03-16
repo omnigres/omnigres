@@ -45,7 +45,6 @@
 ** first three arguments of a single call to the library routine.
 */
 // clang-format off
-#include "omni_sqlite.h"
 #include <sqlite3.h>
 #include <stdarg.h>
 #include <string.h>

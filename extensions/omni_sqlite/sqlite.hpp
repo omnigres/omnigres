@@ -31,25 +31,39 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include "omni_sqlite.h"
+#ifndef OMNI_SQLITE_H
+#define OMNI_SQLITE_H
 
-PG_FUNCTION_INFO_V1(sqlite_serialize);
-
-Datum sqlite_serialize(PG_FUNCTION_ARGS) {
-  sqlite_Sqlite *sqlite;
-  void *data;
-  sqlite3_int64 size;
-  bytea *result;
-
-  sqlite = SQLITE_GETARG(0);
-
-  data = sqlite3_serialize(sqlite->db, "main", &size, 0);
-  if (data == NULL) {
-    ereport(ERROR, (errmsg("Failed to serialize sqlite db %s", sqlite3_errmsg(sqlite->db))));
-  }
-  result = (bytea *)palloc(size + VARHDRSZ);
-  SET_VARSIZE(result, size + VARHDRSZ);
-  memcpy(VARDATA(result), data, size);
-  sqlite3_free(data);
-  PG_RETURN_BYTEA_P(result);
+extern "C" {
+#include <sqlite3.h>
 }
+
+#ifdef __cplusplus
+
+#include <cppgres.hpp>
+
+struct sqlite {
+
+  sqlite();
+
+  operator sqlite3 *() const;
+
+  std::size_t flat_size();
+
+  void flatten_into(std::span<std::byte> buffer);
+  static cppgres::type type();
+
+  static sqlite restore_from(std::span<std::byte> buffer);
+
+private:
+  std::shared_ptr<sqlite3> db;
+  std::int64_t _flat_size = 0;
+};
+#endif
+
+extern "C" {
+int sqlite3_db_dump(sqlite3 *db, const char *zSchema, const char *zTable,
+                    int (*xCallback)(const char *, void *), void *pArg);
+}
+
+#endif /* OMNI_SQLITE_H */

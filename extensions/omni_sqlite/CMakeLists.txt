@@ -12,9 +12,10 @@ find_package(PostgreSQL REQUIRED)
 add_postgresql_extension(
         omni_sqlite
         SOURCES ${CMAKE_CURRENT_LIST_DIR}/../../deps/sqlite-3.48.0/sqlite3.c
-        omni_sqlite.c omni_sqlite_exec.c omni_sqlite_query.c omni_sqlite_serialize.c omni_sqlite_deserialize.c
-        sqlite3_db_dump.c
+        omni_sqlite.cpp sqlite.cpp sqlite3_db_dump.c
         SCHEMA omni_sqlite
         RELOCATABLE false)
+
+target_compile_features(omni_sqlite PUBLIC cxx_std_20)
 
 target_include_directories(omni_sqlite PRIVATE ${CMAKE_CURRENT_LIST_DIR}/../../deps/sqlite-3.48.0/)
