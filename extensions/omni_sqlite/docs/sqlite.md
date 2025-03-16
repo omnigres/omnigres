@@ -105,6 +105,25 @@ query as an argument, executes that query and returns the same
 database, so this can be used for chaining updates to the same
 database through multiple calls.
 
+You can optionally pass parameters to bind using a record:
+
+```postgresql
+omni_sqlite=#
+select omni_sqlite.sqlite_exec('create table tab (val text)', 'insert into tab values ($1)', row ('hello'));
+```
+
+```
+                  sqlite_exec                  
+-----------------------------------------------
+ PRAGMA foreign_keys=OFF;                     +
+ BEGIN TRANSACTION;                           +
+ CREATE TABLE tab (val text);                 +
+ INSERT INTO tab(rowid,val) VALUES(1,'hello');+
+ COMMIT;                                      +
+ 
+(1 row)
+```
+
 ## Querying SQLite Objects
 
 The `sqlite_query(db, query)` function is a Set Returning Function
@@ -116,16 +135,26 @@ syntax these values can be mapped to table like Postgres results:
 select * from omni_sqlite.sqlite_query(
         (select data from customer),
         'SELECT rowid, key, value from user_config')
-    as (id integer, key text, value text);
+                  as (id bigint, key text, value text);
  id |  key  | value 
 ----+-------+-------
   1 | color | blue
 (1 row)
 ```
 
-!!! question "What types are supported?"
+You can optionally pass parameters to bind using a record:
 
-    This extension currently support integers, floats and text.
+```postgresql
+select *
+from omni_sqlite.sqlite_query('', 'select $1', row (1)) as (id bigint);
+```
+
+```
+ id 
+----
+  1
+(1 row)
+```
 
 ## Serialize/Deserialize
 
