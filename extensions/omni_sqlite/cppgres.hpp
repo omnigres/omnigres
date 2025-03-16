@@ -8627,7 +8627,7 @@ struct named_type : public type {
    *
    * @param name unqualified type name
    */
-  named_type(const std::string_view name) : type(::TypenameGetTypid(name.data())) {}
+  named_type(const std::string_view name) : type(type{.oid = ::TypenameGetTypid(name.data())}) {}
   /**
    * @brief Type identified by a qualified name
    *
@@ -8635,16 +8635,16 @@ struct named_type : public type {
    * @param name type name
    */
   named_type(const std::string_view schema, const std::string_view name)
-      : type(([&]() {
-          cppgres::oid nsoid = ffi_guard{::LookupExplicitNamespace}(schema.data(), false);
-          cppgres::oid oid = InvalidOid;
-          if (OidIsValid(nsoid)) {
-            oid = (*syscache<Form_pg_type, const char *, cppgres::oid>(
-                       TYPENAMENSP, std::string(name).c_str(), nsoid))
-                      .oid;
-          }
-          return oid;
-        })()) {}
+      : type({.oid = ([&]() {
+                cppgres::oid nsoid = ffi_guard{::LookupExplicitNamespace}(schema.data(), false);
+                cppgres::oid oid = InvalidOid;
+                if (OidIsValid(nsoid)) {
+                  oid = (*syscache<Form_pg_type, const char *, cppgres::oid>(
+                             TYPENAMENSP, std::string(name).c_str(), nsoid))
+                            .oid;
+                }
+                return oid;
+              })()}) {}
 };
 
 } // namespace cppgres
