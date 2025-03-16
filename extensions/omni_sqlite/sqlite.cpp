@@ -12,7 +12,7 @@ std::size_t sqlite::flat_size() {
         std::format("Failed to serialize SQLite: {}", sqlite3_errmsg(db.get())));
   }
 
-  return _flat_size;
+  return static_cast<std::size_t>(_flat_size);
 }
 
 void sqlite::flatten_into(std::span<std::byte> buffer) {

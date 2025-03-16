@@ -57,7 +57,7 @@ struct sqlite {
 
 private:
   std::shared_ptr<sqlite3> db;
-  std::int64_t _flat_size = 0;
+  sqlite3_int64 _flat_size = 0;
 };
 #endif
 
