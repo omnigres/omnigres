@@ -30,16 +30,13 @@ postgres_function(sqlite_in, ([](const char *query) -> cppgres::expanded_varlena
 postgres_function(
     sqlite_out, ([](cppgres::expanded_varlena<sqlite> db) -> const char * {
       sqlite &sql = db;
-      using string_type =
-          std::basic_string<char, std::char_traits<char>, cppgres::memory_context_allocator<char>>;
-      auto allocator = cppgres::memory_context_allocator<char>(cppgres::memory_context(), true);
-      string_type s(allocator);
+      std::string s;
 
       int rc;
       if ((rc = sqlite3_db_dump(
                sql, "main", nullptr,
                [](const char *str, void *sinfo) {
-                 auto s = reinterpret_cast<string_type *>(sinfo);
+                 auto s = reinterpret_cast<std::string *>(sinfo);
                  s->append(str);
                  return 1;
                },
@@ -47,7 +44,9 @@ postgres_function(
         throw std::runtime_error(std::format("Failed to dump SQLite: {}", sqlite3_errstr(rc)));
       }
 
-      const char *str = s.c_str();
+      auto allocator = cppgres::memory_context_allocator<char>(cppgres::memory_context(), true);
+      char *str = new (allocator.allocate(s.size() + 1)) char[s.size() + 1];
+      std::copy(s.c_str(), s.c_str() + s.size() + 1, str);
       return str;
     }));
 
