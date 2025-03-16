@@ -9,12 +9,16 @@
 
 extern "C" {
 PG_MODULE_MAGIC;
+
+#include <mb/pg_wchar.h>
+#include <utils/lsyscache.h>
 }
 
 postgres_function(sqlite_in, ([](const char *query) -> cppgres::expanded_varlena<sqlite> {
                     cppgres::expanded_varlena<sqlite> db;
                     sqlite sql = db;
                     char *msg = nullptr;
+
                     if (sqlite3_exec(sql, query, nullptr, nullptr, &msg) != SQLITE_OK) {
                       throw std::runtime_error(
                           std::format("Failed to create SQLite in-memory database: {}", msg));
@@ -47,31 +51,102 @@ postgres_function(
       return str;
     }));
 
-postgres_function(
-    sqlite_deserialize, ([](const cppgres::byte_array input) {
-      cppgres::expanded_varlena<sqlite> db;
-      sqlite &sql = db;
+postgres_function(sqlite_deserialize, ([](const cppgres::byte_array input) {
+                    cppgres::expanded_varlena<sqlite> db;
+                    sqlite &sql = db;
 
-      std::byte *sqlite3_alloc =
-          reinterpret_cast<std::byte *>(sqlite3_malloc64(input.size_bytes()));
-      std::copy(input.begin(), input.end(), sqlite3_alloc);
-      if (sqlite3_deserialize(sql, "main", reinterpret_cast<unsigned char *>(sqlite3_alloc),
-                              input.size_bytes(), input.size_bytes(),
-                              SQLITE_DESERIALIZE_RESIZEABLE | SQLITE_DESERIALIZE_FREEONCLOSE) !=
-          SQLITE_OK) {
-        throw std::runtime_error(
-            std::format("Could not deserialize SQLite database: {}", sqlite3_errmsg(sql)));
+                    std::byte *sqlite3_alloc =
+                        reinterpret_cast<std::byte *>(sqlite3_malloc64(input.size_bytes()));
+                    std::copy(input.begin(), input.end(), sqlite3_alloc);
+                    if (sqlite3_deserialize(sql, "main",
+                                            reinterpret_cast<unsigned char *>(sqlite3_alloc),
+                                            input.size_bytes(), input.size_bytes(),
+                                            SQLITE_DESERIALIZE_RESIZEABLE |
+                                                SQLITE_DESERIALIZE_FREEONCLOSE) != SQLITE_OK) {
+                      throw std::runtime_error(std::format(
+                          "Could not deserialize SQLite database: {}", sqlite3_errmsg(sql)));
+                    }
+
+                    return db;
+                  }));
+
+static void bind_params(sqlite3_stmt *stmt, std::optional<cppgres::record> params) {
+  if (params.has_value()) {
+    auto p = params.value();
+    for (int i = 0; i < p.attributes(); i++) {
+      auto nd = p.get_attribute(i);
+      if (nd.is_null()) {
+        sqlite3_bind_null(stmt, i + 1);
+      } else {
+        auto typoid = p.attribute_type(i).oid;
+        switch (typoid) {
+        case INT2OID:
+        case INT4OID:
+        case INT8OID:
+          sqlite3_bind_int64(stmt, i + 1,
+                             cppgres::datum_conversion<int64_t>::from_datum(nd, std::nullopt));
+          break;
+        case FLOAT4OID:
+        case FLOAT8OID:
+          sqlite3_bind_double(stmt, i + 1,
+                              cppgres::datum_conversion<double>::from_datum(nd, std::nullopt));
+          break;
+        case BYTEAOID: {
+          auto ba = cppgres::datum_conversion<cppgres::byte_array>::from_datum(nd, std::nullopt);
+          sqlite3_bind_blob64(stmt, i + 1, ba.data(), ba.size_bytes(), nullptr);
+          break;
+        }
+        case TEXTOID: {
+          auto str = cppgres::datum_conversion<std::string_view>::from_datum(nd, std::nullopt);
+          auto encoding = ::GetDatabaseEncoding();
+
+          if (encoding != PG_UTF8) {
+            unsigned char *utf8_str = cppgres::ffi_guard{::pg_do_encoding_conversion}(
+                reinterpret_cast<unsigned char *>(const_cast<char *>(str.data())), str.length(),
+                encoding, PG_UTF8);
+            if (utf8_str != nullptr) {
+              str = std::string_view(reinterpret_cast<char *>(utf8_str));
+            }
+          }
+          sqlite3_bind_text64(stmt, i + 1, str.data(), str.size(), nullptr, SQLITE_UTF8);
+          break;
+        }
+        case UNKNOWNOID: {
+          bool is_varlena;
+          cppgres::oid outfun;
+          cppgres::ffi_guard{::getTypeOutputInfo}(typoid, &outfun, &is_varlena);
+          auto fc = cppgres::current_postgres_function::call_info();
+          auto d = cppgres::ffi_guard{::OidFunctionCall1Coll}(outfun, (*fc)->fncollation, nd);
+          auto cc =
+              cppgres::datum_conversion<const char *>::from_datum(cppgres::datum(d), std::nullopt);
+          sqlite3_bind_text64(stmt, i + 1, cc, ::strlen(cc), nullptr, SQLITE_UTF8);
+          break;
+        }
+        }
       }
+    }
+  }
+}
 
-      return db;
-    }));
-
-postgres_function(sqlite_exec, ([](cppgres::expanded_varlena<sqlite> db, std::string_view query) {
+postgres_function(sqlite_exec, ([](cppgres::expanded_varlena<sqlite> db, std::string_view query,
+                                   std::optional<cppgres::record> params) {
                     char *msg = NULL;
                     sqlite &sql = db;
 
-                    if (sqlite3_exec(sql, std::string(query).c_str(), nullptr, nullptr, &msg) !=
+                    sqlite3_stmt *stmt;
+                    if (sqlite3_prepare_v2(sql, query.data(), query.size(), &stmt, nullptr) !=
                         SQLITE_OK) {
+                      throw std::runtime_error(
+                          std::format("Failed to prepare SQLite query: {}", sqlite3_errmsg(sql)));
+                    }
+
+                    bind_params(stmt, std::move(params));
+
+                    int rc;
+                    do {
+                      rc = sqlite3_step(stmt);
+                    } while (rc == SQLITE_ROW);
+                    if (rc != SQLITE_DONE) {
                       throw std::runtime_error(std::format("Failed to execute query: {}", msg));
                     }
                     return db;
@@ -124,13 +199,18 @@ std::generator<cppgres::record> query_results(int sqlite_rc, int column_count, s
 
 static_assert(cppgres::datumable_iterator<std::generator<cppgres::record>>);
 
-postgres_function(sqlite_query, ([](cppgres::expanded_varlena<sqlite> db, std::string_view query) {
+postgres_function(sqlite_query, ([](cppgres::expanded_varlena<sqlite> db, std::string_view query,
+                                    std::optional<cppgres::record> params) {
                     sqlite &sql = db;
                     sqlite3_stmt *stmt;
                     if (sqlite3_prepare_v2(sql, query.data(), query.size(), &stmt, nullptr) !=
                         SQLITE_OK) {
-                      throw std::runtime_error(std::format("Failed to prepare SQLite query: {}", sqlite3_errmsg(sql)));
+                      throw std::runtime_error(
+                          std::format("Failed to prepare SQLite query: {}", sqlite3_errmsg(sql)));
                     }
+
+                    bind_params(stmt, std::move(params));
+
                     auto column_count = sqlite3_column_count(stmt);
                     cppgres::tuple_descriptor td(column_count);
 
@@ -170,8 +250,7 @@ postgres_function(sqlite_serialize, ([](cppgres::expanded_varlena<sqlite> db) {
 
                     data = sqlite3_serialize(db.operator sqlite &(), "main", &size, 0);
                     if (data == nullptr) {
-                      throw std::runtime_error(
-                          std::format("Failed to serialize SQLite db: {}",
+                      throw std::runtime_error(std::format("Failed to serialize SQLite db: {}",
                                                            sqlite3_errmsg(db.operator sqlite &())));
                     }
                     cppgres::byte_array barr(reinterpret_cast<std::byte *>(data), size);

@@ -34,19 +34,19 @@ begin
         internallength = -1
     );
 
-    create function sqlite_query(sqlite, text)
+    create function sqlite_query(sqlite, text, params record default null)
         returns setof record
     as
     'MODULE_PATHNAME',
     'sqlite_query'
-        language c strict;
+        language c;
 
-    create function sqlite_exec(sqlite, text)
+    create function sqlite_exec(sqlite, text, params record default null)
         returns sqlite
     as
     'MODULE_PATHNAME',
     'sqlite_exec'
-        language c strict;
+        language c;
 
     create function sqlite_serialize(sqlite)
         returns bytea

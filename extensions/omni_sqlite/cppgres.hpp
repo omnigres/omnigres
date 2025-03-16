@@ -8663,12 +8663,16 @@ struct tuple_descriptor {
   /**
    * @brief Create a tuple descriptor for a given number of attributes
    *
-   * Creates in the current memory context
-   *
    * @param nattrs number of attributes
+   * @param ctx memory context, current transaction context by default
    */
-  tuple_descriptor(int nattrs)
-      : tupdesc(ffi_guard{::CreateTemplateTupleDesc}(nattrs)), blessed(false) {
+  tuple_descriptor(int nattrs, memory_context ctx = memory_context())
+      : tupdesc(([&]() {
+          memory_context_scope<memory_context> scope(ctx);
+          auto res = ffi_guard{::CreateTemplateTupleDesc}(nattrs);
+          return res;
+        }())),
+        blessed(false), owned(true) {
     for (int i = 0; i < nattrs; i++) {
       operator[](i).attcollation = InvalidOid;
       operator[](i).attisdropped = false;
@@ -8680,7 +8684,8 @@ struct tuple_descriptor {
    * @param tupdesc existing attribute
    * @param blessed true if already blessed (default)
    */
-  tuple_descriptor(TupleDesc tupdesc, bool blessed = true) : tupdesc(tupdesc), blessed(blessed) {}
+  tuple_descriptor(TupleDesc tupdesc, bool blessed = true)
+      : tupdesc(tupdesc), blessed(blessed), owned(false) {}
 
   /**
    * @brief Copy constructor
@@ -8688,19 +8693,21 @@ struct tuple_descriptor {
    * Creates a copy instance of the tuple descriptor in the current memory contet
    */
   tuple_descriptor(tuple_descriptor &other)
-      : tupdesc(ffi_guard{::CreateTupleDescCopyConstr}(other.tupdesc)), blessed(other.blessed) {}
+      : tupdesc(ffi_guard{::CreateTupleDescCopyConstr}(other.tupdesc)), blessed(other.blessed),
+        owned(other.owned) {}
 
   /**
    * @brief Move constructor
    */
-  tuple_descriptor(tuple_descriptor &&other) : tupdesc(other.tupdesc), blessed(other.blessed) {}
+  tuple_descriptor(tuple_descriptor &&other)
+      : tupdesc(other.tupdesc), blessed(other.blessed), owned(other.owned) {}
 
   /**
    * @brief Copy assignment
    *
    * Creates a copy instance of the tuple descriptor in the current memory contet
    */
-  tuple_descriptor &operator=(tuple_descriptor &other) {
+  tuple_descriptor &operator=(const tuple_descriptor &other) {
     tupdesc = ffi_guard{::CreateTupleDescCopyConstr}(other.tupdesc);
     blessed = other.blessed;
     return *this;
@@ -8826,6 +8833,8 @@ struct tuple_descriptor {
    */
   bool is_blessed() const { return blessed; }
 
+  operator TupleDesc() const { return tupdesc; }
+
 private:
   inline void check_bounds(int n) const {
     if (n + 1 > tupdesc->natts || n < 0) {
@@ -8842,7 +8851,12 @@ private:
 
   TupleDesc tupdesc;
   bool blessed;
+  bool owned;
 };
+
+static_assert(std::copy_constructible<tuple_descriptor>);
+static_assert(std::move_constructible<tuple_descriptor>);
+static_assert(std::is_copy_assignable_v<tuple_descriptor>);
 
 /**
  * @brief Runtime-typed value of `record` type
@@ -8855,11 +8869,12 @@ struct record {
   friend struct datum_conversion<record>;
 
   record(HeapTupleHeader heap_tuple, abstract_memory_context &ctx)
-      : tupdesc(ffi_guard{::lookup_rowtype_tupdesc}(HeapTupleHeaderGetTypeId(heap_tuple),
-                                                    HeapTupleHeaderGetTypMod(heap_tuple))),
+      : tupdesc(/* FIXME: can we use the non-copy version with refcounting? */ ffi_guard{
+            ::lookup_rowtype_tupdesc_copy}(HeapTupleHeaderGetTypeId(heap_tuple),
+                                           HeapTupleHeaderGetTypMod(heap_tuple))),
         tuple(ctx.template alloc<HeapTupleData>()) {
 #if PG_MAJORVERSION_NUM < 18
-    tuple->t_len = HeapTupleHeaderGetDatumLength(tupdesc);
+    tuple->t_len = HeapTupleHeaderGetDatumLength(tupdesc.operator TupleDesc());
 #else
     tuple->t_len = HeapTupleHeaderGetDatumLength(heap_tuple);
 #endif
@@ -8900,7 +8915,7 @@ struct record {
   /**
    * @brief Number of attributes in the record
    */
-  int attributes() const { return tupdesc->natts; }
+  int attributes() const { return tupdesc.operator TupleDesc()->natts; }
 
   /**
    * @brief Type of attribute using a 0-based index
@@ -8909,7 +8924,7 @@ struct record {
    */
   type attribute_type(int n) const {
     check_bounds(n);
-    return {.oid = TupleDescAttr(tupdesc, n)->atttypid};
+    return {.oid = TupleDescAttr(tupdesc.operator TupleDesc(), n)->atttypid};
   }
 
   /**
@@ -8919,7 +8934,7 @@ struct record {
    */
   std::string_view attribute_name(int n) const {
     check_bounds(n);
-    return {NameStr(TupleDescAttr(tupdesc, n)->attname)};
+    return {NameStr(TupleDescAttr(tupdesc.operator TupleDesc(), n)->attname)};
   }
 
   /**
@@ -8962,6 +8977,14 @@ struct record {
    */
   tuple_descriptor get_tuple_descriptor() const { return tupdesc; }
 
+  record(const record &other) : tupdesc(other.tupdesc), tuple(other.tuple) {}
+  record(const record &&other) : tupdesc(std::move(other.tupdesc)), tuple(other.tuple) {}
+  record &operator=(const record &other) {
+    tupdesc = other.tupdesc;
+    tuple = other.tuple;
+    return *this;
+  }
+
 private:
   inline void check_bounds(int n) const {
     if (n + 1 > attributes() || n < 0) {
@@ -8970,9 +8993,12 @@ private:
     }
   }
 
-  TupleDesc tupdesc;
+  tuple_descriptor tupdesc;
   HeapTuple tuple;
 };
+static_assert(std::copy_constructible<record>);
+static_assert(std::move_constructible<record>);
+static_assert(std::is_copy_assignable_v<record>);
 
 template <> struct datum_conversion<record> {
   static record from_datum(const datum &d, std::optional<memory_context> ctx) {
@@ -8985,7 +9011,7 @@ template <> struct datum_conversion<record> {
 };
 
 template <> struct type_traits<record> {
-  static bool is(type &t) { return t.oid == RECORDOID; }
+  static bool is(const type &t) { return t.oid == RECORDOID; }
   static constexpr type type_for() { return {.oid = RECORDOID}; }
 };
 
@@ -9061,6 +9087,14 @@ struct current_postgres_function {
       if (ctx != nullptr && IsA(ctx, CallContext)) {
         return reinterpret_cast<::CallContext *>(ctx)->atomic;
       }
+    }
+
+    return std::nullopt;
+  }
+
+  static std::optional<::FunctionCallInfo> call_info() {
+    if (!calls.empty()) {
+      return calls.top();
     }
 
     return std::nullopt;
