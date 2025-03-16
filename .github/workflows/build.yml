@@ -47,17 +47,17 @@ jobs:
     steps:
 
     # Ada URL library requires a relatively modern compiler
-    - name: Prepare GCC 12.2
+    - name: Prepare GCC 13
       if: matrix.os == 'warp-ubuntu-2204-x64-4x'
       run: |
         sudo add-apt-repository ppa:ubuntu-toolchain-r/test
         sudo apt-get update
-        sudo apt-get install gcc-12 g++-12
+        sudo apt-get install gcc-13 g++-13
         sudo apt-get remove gcc-11 gcc-11 libstdc++-11-dev
-        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-12 20
-        sudo update-alternatives --install /usr/bin/g++ gcc /usr/bin/g++-12 20
-        sudo update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-12 20
-        sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-12 20
+        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 20
+        sudo update-alternatives --install /usr/bin/g++ gcc /usr/bin/g++-13 20
+        sudo update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-13 20
+        sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-13 20
 
     - uses: actions/checkout@v3
 
