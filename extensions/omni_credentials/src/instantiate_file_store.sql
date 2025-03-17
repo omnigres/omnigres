@@ -22,7 +22,22 @@ begin
         if filename not like '/%' then
             filename := current_setting('data_directory') || '/' || filename;
         end if;
-        perform pg_stat_file(filename);
+        
+        select encode(
+            omni_vfs.read(
+                omni_var.get_session(
+                    'fs',
+                    null::omni_vfs.remote_fs
+                ),
+                filename
+            ),
+            'escape'
+        ) into file_contents;
+
+        if file_contents is null then
+            raise exception 'File does not exist: %', path;
+        end if;
+
         create temp table __new_encrypted_credentials__
         (
             like encrypted_credentials
