@@ -155,7 +155,8 @@ postgres_function(
 
 #if __has_include(<generator>)
 #include <generator>
-#else
+#endif
+#if !defined(__cpp_lib_generator) || (__cpp_lib_generator < 202107L)
 #include "__generator.hpp"
 #endif
 
