@@ -204,6 +204,7 @@ Below is the current list of components being worked on, experimented with and d
 | [omni_python](extensions/omni_python/README.md)                                          | :ballot_box_with_check: Initial prototype    | First-class Python Development Experience             |
 | [omni_regex](extensions/omni_python/README.md)                                           | :white_check_mark: First release candidate   | Feature-rich regular expresssions                     |
 | [omni_os](extensions/omni_os/README.md)                                                  | :ballot_box_with_check: Initial prototype    | Access to the operating system                        |
+| [omni_worker](extensions/omni_worker/README.md)                                          | :white_check_mark: First release             | Generalized worker pool                               |
 | [omni_polyfill](extensions/omni_polyfill/README.md)                                      | :white_check_mark: First release             | Provides polyfills for older versions of Postgres     |
 | omni_git                                                                                 | :lab_coat: Early experiments (unpublished)   | Postgres Git client                                   |
 | omni_reactive                                                                            | :spiral_calendar: Haven't started yet        | Reactive queries                                      |
