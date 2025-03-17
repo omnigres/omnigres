@@ -44,8 +44,13 @@ begin
         (
             like encrypted_credentials
         ) on commit drop;
-        execute format('copy __new_encrypted_credentials__ from %L', filename);
-        raise notice '%', pg_read_file(filename);
+
+        insert into __new_encrypted_credentials__ (name, value)
+        select
+            split_part(line, ' ', 1) AS name, 
+            split_part(line, ' ', 2)::bytea AS value
+        from regexp_split_to_table(file_contents, E'\n') AS line
+        where line is not null and line <> '';
 
         insert into encrypted_credentials (name, value, kind, principal, scope)
         select name, value, kind, principal, scope
