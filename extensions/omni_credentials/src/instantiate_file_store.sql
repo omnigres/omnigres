@@ -18,6 +18,8 @@ begin
         language plpgsql
     as
     $code$
+    declare
+        file_contents text;
     begin
         if filename not like '/%' then
             filename := current_setting('data_directory') || '/' || filename;
