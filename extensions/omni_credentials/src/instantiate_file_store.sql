@@ -66,7 +66,31 @@ begin
     insert into credential_file_stores (filename) values (instantiate_file_store.filename);
 
     perform credential_file_store_reload(filename);
-    execute format('copy encrypted_credentials to %L', filename);
+
+    create or replace function update_file(filename text) returns boolean
+        language plpgsql
+    as
+    $code$
+    declare
+        r record;
+        content text := '';
+    begin
+        for r in select name, value from encrypted_credentials order by name
+        loop
+            content := content || r.name || ' ' || encode(r.value, 'hex') || E'\n';
+        end loop;
+
+        perform omni_vfs.write(
+            omni_var.get_session('fs', null::omni_vfs.remote_fs),
+            filename,
+            convert_to(content, 'utf8')
+        );
+
+        return TRUE;
+    end;
+    $code$;
+
+    perform update_file(filename);
 
     create or replace function file_store_credentials_update() returns trigger
         security definer
