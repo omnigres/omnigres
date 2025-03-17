@@ -101,7 +101,7 @@ begin
     begin
         for rec in select * from credential_file_stores
             loop
-                execute format('copy encrypted_credentials to %L', rec.filename);
+                perform update_file(rec.filename);
             end loop;
         return new;
     end;
