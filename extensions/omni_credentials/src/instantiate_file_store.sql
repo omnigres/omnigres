@@ -1,4 +1,4 @@
-create function instantiate_file_store(filename text, schema regnamespace default 'omni_credentials') returns void
+create function instantiate_file_store(fs anyelement, filename text, schema regnamespace default 'omni_credentials') returns void
     language plpgsql
 as
 $$
