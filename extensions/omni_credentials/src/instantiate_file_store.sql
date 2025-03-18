@@ -47,23 +47,22 @@ begin
 
         insert into __new_encrypted_credentials__ (name, value, kind, principal, scope)
         select
-            split_part(line, ' ', 1) AS name, 
-            decode(split_part(line, ' ', 2), 'base64') AS value,
+            cred->>'name' AS name,
+            decode(cred->>'value', 'base64') AS value,
             coalesce(
-                nullif(split_part(line, ' ', 3), '')::credential_kind,
+                nullif(cred->>'kind', '')::credential_kind,
                 'credential'::credential_kind
             ) AS kind,
             coalesce(
-                nullif(split_part(line, ' ', 4), '')::regrole, 
+                nullif(cred->>'principal', '')::regrole, 
                 current_user::regrole
             ) AS principal,
-            case 
-                when position('{' in line) > 0 
-                then substring(line from position('{' in line))::jsonb
-                else '{"all": true}'::jsonb
-            end AS scope
-        from regexp_split_to_table(file_contents, E'\n') AS line
-        where line is not null and line <> '';
+            coalesce(
+                (cred->>'scope')::jsonb,
+                '{"all": true}'::jsonb
+            ) AS scope
+        from jsonb_array_elements(file_contents::jsonb) AS cred;
+
 
         insert into encrypted_credentials (name, value, kind, principal, scope)
         select name, value, kind, principal, scope
@@ -86,17 +85,24 @@ begin
     $code$
     declare
         r record;
-        content text := '';
+        json_content jsonb;
     begin
-        for r in select name, value, kind, principal, scope from encrypted_credentials order by name
-        loop
-            content := content || r.name || ' ' || replace(encode(r.value, 'base64'), E'\n', '') || ' ' || r.kind || ' ' || r.principal || ' ' || r.scope ||  E'\n';
-        end loop;
+        select jsonb_agg(
+            jsonb_build_object(
+                'name', name,
+                'value', replace(encode(value, 'base64'), E'\n', ''),
+                'kind', kind,
+                'principal', principal,
+                'scope', scope
+            )
+        )
+        into json_content
+        from encrypted_credentials;
 
         perform omni_vfs.write(
             omni_var.get_session('fs', null::omni_vfs.remote_fs),
             filename,
-            convert_to(content, 'utf8')
+            convert_to(json_content::text, 'utf8')
         );
 
         return TRUE;
