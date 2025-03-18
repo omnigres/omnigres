@@ -48,7 +48,7 @@ begin
         insert into __new_encrypted_credentials__ (name, value)
         select
             split_part(line, ' ', 1) AS name, 
-            decode(split_part(line, ' ', 2), 'hex') AS value
+            decode(split_part(line, ' ', 2), 'base64') AS value
         from regexp_split_to_table(file_contents, E'\n') AS line
         where line is not null and line <> '';
 
@@ -77,7 +77,7 @@ begin
     begin
         for r in select name, value from encrypted_credentials order by name
         loop
-            content := content || r.name || ' ' || encode(r.value, 'hex') || E'\n';
+            content := content || r.name || ' ' || encode(r.value, 'base64') || E'\n';
         end loop;
 
         perform omni_vfs.write(
