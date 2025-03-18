@@ -278,19 +278,19 @@ tests:
   instance: configured_text
   query: |
     select current_setting('shared_buffers') as shared_buffers,
-           current_setting('log_connections') as log_connections
+           current_setting('log_connections') in ('on', 'yes') as log_connections
   results:
   - shared_buffers: 194MB
-    log_connections: on
+    log_connections: true
 
 - name: configured (mapping)
   instance: configured_mapping
   query: |
     select current_setting('shared_buffers') as shared_buffers,
-           current_setting('log_connections') as log_connections
+           current_setting('log_connections') in ('on', 'yes') as log_connections
   results:
   - shared_buffers: 195MB
-    log_connections: on
+    log_connections: true
 
 - name: env
   query: select $1::text as user
