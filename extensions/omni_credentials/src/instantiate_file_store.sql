@@ -25,7 +25,7 @@ begin
             filename := current_setting('data_directory') || '/' || filename;
         end if;
         
-        select encode(
+        select convert_from(
             omni_vfs.read(
                 omni_var.get_session(
                     'fs',
@@ -33,11 +33,11 @@ begin
                 ),
                 filename
             ),
-            'escape'
+            'utf8'
         ) into file_contents;
 
         if file_contents is null then
-            raise exception 'File does not exist: %', path;
+            raise exception 'File does not exist: %', filename;
         end if;
 
         create temp table __new_encrypted_credentials__
@@ -48,7 +48,7 @@ begin
         insert into __new_encrypted_credentials__ (name, value)
         select
             split_part(line, ' ', 1) AS name, 
-            split_part(line, ' ', 2)::bytea AS value
+            decode(split_part(line, ' ', 2), 'hex') AS value
         from regexp_split_to_table(file_contents, E'\n') AS line
         where line is not null and line <> '';
 
