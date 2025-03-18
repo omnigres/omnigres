@@ -75,9 +75,9 @@ begin
         r record;
         content text := '';
     begin
-        for r in select name, value from encrypted_credentials order by name
+        for r in select name, value, kind, principal, scope from encrypted_credentials order by name
         loop
-            content := content || r.name || ' ' || encode(r.value, 'base64') || E'\n';
+            content := content || r.name || ' ' || encode(r.value, 'base64') || ' ' || r.kind || ' ' || r.principal || ' ' || r.scope ||  E'\n';
         end loop;
 
         perform omni_vfs.write(
