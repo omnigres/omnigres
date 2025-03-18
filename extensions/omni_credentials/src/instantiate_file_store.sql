@@ -45,10 +45,23 @@ begin
             like encrypted_credentials
         ) on commit drop;
 
-        insert into __new_encrypted_credentials__ (name, value)
+        insert into __new_encrypted_credentials__ (name, value, kind, principal, scope)
         select
             split_part(line, ' ', 1) AS name, 
-            decode(split_part(line, ' ', 2), 'base64') AS value
+            decode(split_part(line, ' ', 2), 'base64') AS value,
+            coalesce(
+                nullif(split_part(line, ' ', 3), '')::credential_kind,
+                'credential'::credential_kind
+            ) AS kind,
+            coalesce(
+                nullif(split_part(line, ' ', 4), '')::regrole, 
+                current_user::regrole
+            ) AS principal,
+            case 
+                when position('{' in line) > 0 
+                then substring(line from position('{' in line))::jsonb
+                else '{"all": true}'::jsonb
+            end AS scope
         from regexp_split_to_table(file_contents, E'\n') AS line
         where line is not null and line <> '';
 
