@@ -428,3 +428,9 @@ tests:
     results:
     - data1: 0x75706461746564
       data2: 0x7365636f6e64
+
+- name: can get root directory info
+  query: select size > 0 as non_zero, kind from omni_vfs.file_info(omni_vfs.table_fs('fs'), '/')
+  results:
+  - non_zero: true
+    kind: dir
