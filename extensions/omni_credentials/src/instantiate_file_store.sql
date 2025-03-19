@@ -49,20 +49,10 @@ begin
         select
             cred->>'name' AS name,
             decode(cred->>'value', 'base64') AS value,
-            coalesce(
-                nullif(cred->>'kind', '')::credential_kind,
-                'credential'::credential_kind
-            ) AS kind,
-            coalesce(
-                nullif(cred->>'principal', '')::regrole, 
-                current_user::regrole
-            ) AS principal,
-            coalesce(
-                (cred->>'scope')::jsonb,
-                '{"all": true}'::jsonb
-            ) AS scope
+            nullif(cred->>'kind', '')::credential_kind AS kind,
+            nullif(cred->>'principal', '')::regrole AS principal,
+            (cred->>'scope')::jsonb AS scope
         from jsonb_array_elements(file_contents::jsonb) AS cred;
-
 
         insert into encrypted_credentials (name, value, kind, principal, scope)
         select name, value, kind, principal, scope
