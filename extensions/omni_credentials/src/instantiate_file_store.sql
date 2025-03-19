@@ -105,7 +105,7 @@ begin
             convert_to(json_content::text, 'utf8')
         );
 
-        return TRUE;
+        return true;
     end;
     $code$;
 
