@@ -334,6 +334,11 @@ tests:
     results:
     - kind: dir
 
+  - name: returns null on non-existent directory
+    query: select kind from omni_vfs.file_info(omni_vfs.table_fs('fs'), '/test')
+    results:
+    - kind: null
+
 - name: insert data entry for a dir failure
   steps:
   - name: create dir
