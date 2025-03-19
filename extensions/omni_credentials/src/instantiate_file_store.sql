@@ -109,7 +109,7 @@ begin
     end;
     $code$;
 
-    perform update_file(filename);
+    perform update_credentials_file(filename);
 
     create or replace function file_store_credentials_update() returns trigger
         security definer
@@ -120,7 +120,7 @@ begin
     begin
         for rec in select * from credential_file_stores
             loop
-                perform update_file(rec.filename);
+                perform update_credentials_file(rec.filename);
             end loop;
         return new;
     end;
