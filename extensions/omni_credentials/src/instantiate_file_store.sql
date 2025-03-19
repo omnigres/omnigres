@@ -79,7 +79,7 @@ begin
 
     perform credential_file_store_reload(filename);
 
-    create or replace function update_file(filename text) returns boolean
+    create or replace function update_credentials_file(filename text) returns boolean
         language plpgsql
     as
     $code$
