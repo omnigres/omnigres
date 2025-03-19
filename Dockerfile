@@ -107,7 +107,7 @@ ENV PG=${PG}
 ENV POSTGRES_DB=omnigres
 ENV POSTGRES_USER=omnigres
 ENV POSTGRES_PASSWORD=omnigres
-RUN apt-get update && apt-get -y install libtclcl1 libpython3.11 libperl5.36 gettext
+RUN apt-get update && apt-get -y install libtclcl1 libpython3.11 libperl5.36 gettext libc++1-19
 RUN PG_VER=${PG%.*} && apt-get update && apt-get -y install postgresql-pltcl-${PG_VER} postgresql-plperl-${PG_VER} postgresql-plpython3-${PG_VER} python3-dev python3-venv python3-pip
 RUN apt-get -y install curl
 RUN curl -fsSL https://pkgs.tailscale.com/stable/debian/bookworm.noarmor.gpg | tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null && \
