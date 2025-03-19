@@ -226,6 +226,22 @@ tests:
     results:
     - file_info: null
   
+  - name: can get root directory info
+    query: select kind from omni_vfs.file_info(omni_vfs.table_fs('fs'), '/')
+    results:
+    - kind: dir
+
+  - name: can get directory info
+    steps:
+    - name: create directory
+      query: |
+        select omni_vfs.write(omni_vfs.table_fs('fs'), '/to/test', 'hello world', create_file => true)
+    
+    - name: get directory info
+      query: select kind from omni_vfs.file_info(omni_vfs.table_fs('fs'), '/to')
+      results:
+      - kind: dir
+
   - name: all file timestamps are equal
     query: |
       select created_at = all(array[created_at, accessed_at, modified_at]) as equal
@@ -429,8 +445,3 @@ tests:
     - data1: 0x75706461746564
       data2: 0x7365636f6e64
 
-- name: can get root directory info
-  query: select size > 0 as non_zero, kind from omni_vfs.file_info(omni_vfs.table_fs('fs'), '/')
-  results:
-  - non_zero: true
-    kind: dir
