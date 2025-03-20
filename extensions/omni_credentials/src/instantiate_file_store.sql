@@ -1,4 +1,4 @@
-create function instantiate_file_store(filename text, schema regnamespace default 'omni_credentials') returns void
+create function instantiate_file_store(fs anyelement, filename text, schema regnamespace default 'omni_credentials') returns void
     language plpgsql
 as
 $$
@@ -18,17 +18,41 @@ begin
         language plpgsql
     as
     $code$
+    declare
+        file_contents text;
     begin
         if filename not like '/%' then
             filename := current_setting('data_directory') || '/' || filename;
         end if;
-        perform pg_stat_file(filename);
+        
+        select convert_from(
+            omni_vfs.read(
+                omni_var.get_session(
+                    'fs',
+                    null::omni_vfs.remote_fs
+                ),
+                filename
+            ),
+            'utf8'
+        ) into file_contents;
+
+        if file_contents is null then
+            raise exception 'File does not exist: %', filename;
+        end if;
+
         create temp table __new_encrypted_credentials__
         (
             like encrypted_credentials
         ) on commit drop;
-        execute format('copy __new_encrypted_credentials__ from %L', filename);
-        raise notice '%', pg_read_file(filename);
+
+        insert into __new_encrypted_credentials__ (name, value, kind, principal, scope)
+        select
+            cred->>'name' AS name,
+            decode(cred->>'value', 'base64') AS value,
+            nullif(cred->>'kind', '')::credential_kind AS kind,
+            nullif(cred->>'principal', '')::regrole AS principal,
+            (cred->>'scope')::jsonb AS scope
+        from jsonb_array_elements(file_contents::jsonb) AS cred;
 
         insert into encrypted_credentials (name, value, kind, principal, scope)
         select name, value, kind, principal, scope
@@ -44,7 +68,38 @@ begin
     insert into credential_file_stores (filename) values (instantiate_file_store.filename);
 
     perform credential_file_store_reload(filename);
-    execute format('copy encrypted_credentials to %L', filename);
+
+    create or replace function update_credentials_file(filename text) returns boolean
+        language plpgsql
+    as
+    $code$
+    declare
+        r record;
+        json_content jsonb;
+    begin
+        select jsonb_agg(
+            jsonb_build_object(
+                'name', name,
+                'value', replace(encode(value, 'base64'), E'\n', ''),
+                'kind', kind,
+                'principal', principal,
+                'scope', scope
+            )
+        )
+        into json_content
+        from encrypted_credentials;
+
+        perform omni_vfs.write(
+            omni_var.get_session('fs', null::omni_vfs.remote_fs),
+            filename,
+            convert_to(json_content::text, 'utf8')
+        );
+
+        return true;
+    end;
+    $code$;
+
+    perform update_credentials_file(filename);
 
     create or replace function file_store_credentials_update() returns trigger
         security definer
@@ -55,7 +110,7 @@ begin
     begin
         for rec in select * from credential_file_stores
             loop
-                execute format('copy encrypted_credentials to %L', rec.filename);
+                perform update_credentials_file(rec.filename);
             end loop;
         return new;
     end;
