@@ -9,7 +9,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
-* Return 'dir' as type when calling omni_vfs.file_info(dir)
+* Return 'dir' as type when calling omni_vfs.file_info(dir) [#834][https://github.com/omnigres/omnigres/pull/834]
 
 ## [0.2.1] - 2025-02-12
 
