@@ -7,15 +7,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.2.0] - TBD
 
-Implement omni_vfs support
-
-[Unreleased]: https://github.com/omnigres/omnigres/commits/next/omni_credentials
-
-[0.1.1]: [https://github.com/omnigres/omnigres/pull/728]
-
 ### Added
 
 * Credentials now have kind, principal and scope [#826](https://github.com/omnigres/omnigres/pull/826)
+
+* Implement omni_vfs support [#833](https://github.com/omnigres/omnigres/pull/833)
 
 ## [0.1.0] - 2024-12-26
 
