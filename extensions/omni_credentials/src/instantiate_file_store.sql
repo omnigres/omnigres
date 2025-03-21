@@ -28,11 +28,12 @@ begin
             like encrypted_credentials
         ) on commit drop;
         execute format('copy __new_encrypted_credentials__ from %L', filename);
+        raise notice '%', pg_read_file(filename);
 
-        insert into encrypted_credentials (name, value)
-        select name, value
+        insert into encrypted_credentials (name, value, kind, principal, scope)
+        select name, value, kind, principal, scope
         from __new_encrypted_credentials__
-        on conflict (name) do update set value = excluded.value;
+        on conflict (name, kind, principal, scope) do update set value = excluded.value;
         return true;
     exception
         when others then return false;
