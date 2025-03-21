@@ -15,7 +15,7 @@ select
 from
     table_fs_files                f
     inner join match              m on f.id = m.id
-    inner join table_fs_file_data d on m.id = d.file_id
+    left join table_fs_file_data d on m.id = d.file_id
 where
     filesystem_id = fs.id
 $$;
