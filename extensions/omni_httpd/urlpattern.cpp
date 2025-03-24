@@ -2,6 +2,14 @@
 #include <ada_c.h>
 #include <ada_regex.h>
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wignored-attributes"
+#endif
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wregister"
+#endif
 extern "C" {
 // clang-format off
 #include <postgres.h>
@@ -9,9 +17,16 @@ extern "C" {
 // clang-format on
 
 #include <nodes/execnodes.h>
+#include <utils/builtins.h>
 
 #include "urlpattern.h"
 }
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 template <typename T> static void hash_combine(std::size_t &seed, const std::optional<T> &value) {
   if (value.has_value()) {

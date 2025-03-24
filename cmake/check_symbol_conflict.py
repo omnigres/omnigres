@@ -26,8 +26,8 @@ if __name__ == "__main__":
         print("Usage: %s <binary1> <binary2>" % sys.argv[0])
         sys.exit(1)
     binary1, binary2 = sys.argv[1:]
-    symbols1 = get_symbols(binary1)
-    symbols2 = get_symbols(binary2)
+    symbols1 = get_symbols(binary1) - {'_end', '_edata', '__bss_start'}
+    symbols2 = get_symbols(binary2) - {'_end', '_edata', '__bss_start'}
     intersection = symbols1 & symbols2
     if symbols1 & symbols2:
         sys.stderr.write("Conflicting symbols with `postgres`:\n  ")

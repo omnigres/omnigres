@@ -970,8 +970,13 @@ static void do_start_bgworker(XactEvent event, void *arg) {
     RegisterDynamicBackgroundWorker(&payload->bgworker, &bgw_handle);
     payload->handle->registered = true;
     if (!payload->options.dont_wait) {
-      pid_t pid;
-      WaitForBackgroundWorkerStartup(bgw_handle, &pid);
+      if (payload->bgworker.bgw_start_time == BgWorkerStart_RecoveryFinished &&
+          RecoveryInProgress()) {
+        // don't wait, it's not going to start at this time
+      } else {
+        pid_t pid;
+        WaitForBackgroundWorkerStartup(bgw_handle, &pid);
+      }
     }
     payload->handle->bgw_handle = *bgw_handle;
   }

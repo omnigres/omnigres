@@ -2,6 +2,14 @@
 #include <ada_c.h>
 #include <ada_regex.h>
 
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wignored-attributes"
+#endif
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wregister"
+#endif
 extern "C" {
 // clang-format off
 #include <postgres.h>
@@ -13,6 +21,12 @@ extern "C" {
 
 #include "urlpattern.h"
 }
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
 
 using regex_provider = ada::pcre2_regex_provider;
 

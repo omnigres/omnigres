@@ -580,6 +580,7 @@ if [ \"$(shopt -s nullglob; shopt -s dotglob; files=($PSQLDB/*); echo $\{#files[
 else
     ${INITDB} -D \"$PSQLDB\" --no-clean --no-sync --locale=C --encoding=UTF8
 fi
+rm -f \"$PSQLDB/standby.signal\"
 export SOCKDIR=$(mktemp -d)
 if [ -z \"$POSTGRESQLCONF\" ]; then
   if [ -f \"${CMAKE_CURRENT_SOURCE_DIR}/postgresql.conf\" ]; then
@@ -613,6 +614,14 @@ if [ -z \"$PSQLRC\" ]; then
 else
   echo \"Using supplied .psqlrc: $PSQLRC\"
   export PSQLRC
+fi
+if [ -n \"$STANDBY\" ]; then
+  touch \"$PSQLDB/standby.signal\"
+  echo \"hot_standby = on\" >> \"$PSQLDB/postgresql.conf\"
+  echo \"restore_command = 'false'\" >> \"$PSQLDB/postgresql.conf\"
+  ${_cli} --set=CMAKE_BINARY_DIR=${CMAKE_BINARY_DIR} -h \"$SOCKDIR\" ${NAME} -c select
+  PGSHAREDIR=${_share_dir} ${PG_CTL} restart -D  \"$PSQLDB\"
+  unset PSQLRC
 fi
 ${_cli} --set=CMAKE_BINARY_DIR=${CMAKE_BINARY_DIR} -h \"$SOCKDIR\" ${NAME}
 ${PG_CTL} stop -D  \"$PSQLDB\" -m smart

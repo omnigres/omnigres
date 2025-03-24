@@ -20,13 +20,16 @@ ARG PLRUST_VERSION=1.2.8
 
 # Base builder image
 FROM debian:${DEBIAN_VER}-slim AS builder
-RUN echo "deb http://deb.debian.org/debian bookworm-backports main contrib non-free" >> /etc/apt/sources.list
-RUN apt-get update
-RUN apt-get install -y wget build-essential git clang lld flex libreadline-dev zlib1g-dev libssl-dev tmux lldb gdb make perl python3-dev python3-venv python3-pip netcat-traditional bison
-# current cmake is too old
 ARG DEBIAN_VER
 ENV DEBIAN_VER=${DEBIAN_VER}
-RUN apt-get install -y cmake -t ${DEBIAN_VER}-backports
+RUN echo "deb http://deb.debian.org/debian ${DEBIAN_VER}-backports main contrib non-free" >> /etc/apt/sources.list
+RUN apt-get update
+RUN apt-get install -y wget clang-16 libc++-16-dev libc++abi-16-dev git cmake lld flex libreadline-dev zlib1g-dev libssl-dev tmux lldb gdb make perl python3-dev python3-venv python3-pip netcat-traditional bison
+RUN update-alternatives --install /usr/bin/clang clang /usr/bin/clang-16 100 && \
+    update-alternatives --install /usr/bin/cc cc /usr/bin/clang-16 100 && \
+    update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-16 100 && \
+    update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++-16 100
+RUN apt-get remove -y gcc
 ARG USER
 ARG UID
 ARG PG
@@ -54,7 +57,8 @@ FROM builder AS build
 COPY --chown=${UID} . /omni
 COPY --link --from=postgres-build --chown=${UID} /omni/.pg /omni/.pg
 WORKDIR /build
-RUN cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DPGVER=${PG} /omni
+COPY docker/clang-libcxx.cmake clang-libcxx.cmake
+RUN cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DPGVER=${PG} /omni -DCMAKE_TOOLCHAIN_FILE=clang-libcxx.cmake
 RUN make -j ${BUILD_PARALLEL_LEVEL} all
 RUN make package_extensions
 
@@ -103,7 +107,7 @@ ENV PG=${PG}
 ENV POSTGRES_DB=omnigres
 ENV POSTGRES_USER=omnigres
 ENV POSTGRES_PASSWORD=omnigres
-RUN apt-get update && apt-get -y install libtclcl1 libpython3.11 libperl5.36 gettext
+RUN apt-get update && apt-get -y install libtclcl1 libpython3.11 libperl5.36 gettext libc++1-19
 RUN PG_VER=${PG%.*} && apt-get update && apt-get -y install postgresql-pltcl-${PG_VER} postgresql-plperl-${PG_VER} postgresql-plpython3-${PG_VER} python3-dev python3-venv python3-pip
 RUN apt-get -y install curl
 RUN curl -fsSL https://pkgs.tailscale.com/stable/debian/bookworm.noarmor.gpg | tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null && \

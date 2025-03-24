@@ -7,3 +7,4 @@ wslay=https://github.com/tatsuhiro-t/wslay@0e7d106
 libfyaml=https://github.com/yrashk/libfyaml@4f1a4b1
 pcre2=https://github.com/PCRE2Project/pcre2@pcre2-10.44
 Format.cmake=https://github.com/omnigres/Format.cmake@fc50a0f
+fmt=https://github.com/fmtlib/fmt@332da79

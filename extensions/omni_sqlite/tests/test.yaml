@@ -1,0 +1,59 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_sqlite cascade
+
+tests:
+
+- name: create database
+  query: select 'create table user_config (key text, value text)'::omni_sqlite.sqlite
+  results:
+  - sqlite: "PRAGMA foreign_keys=OFF;\nBEGIN TRANSACTION;\nCREATE TABLE user_config (key text, value text);\nCOMMIT;\n"
+
+- name: modify database
+  steps:
+  - |
+    create table customer
+      ( id bigserial primary key,
+       name text not null,
+       data omni_sqlite.sqlite default 'create table user_config (key text, value text);'
+      )
+  - insert into customer (name) values ('bob')
+  - query: |
+      update customer
+      set data = omni_sqlite.sqlite_exec(data, $$insert into user_config values ('color', 'blue')$$)
+      returning data
+    results:
+    - data: "PRAGMA foreign_keys=OFF;\nBEGIN TRANSACTION;\nCREATE TABLE user_config (key text, value text);\nINSERT INTO user_config(rowid,\"key\",value) VALUES(1,'color','blue');\nCOMMIT;\n"
+  - name: querying sqlite object
+    query: |
+      select key, value from omni_sqlite.sqlite_query(
+                                 (select data from customer),
+                                 'select rowid, key, value from user_config')
+                                 as (id int8, key text, value text)
+    results:
+    - key: color
+      value: blue
+
+- name: serialize
+  query: select pg_typeof(omni_sqlite.sqlite_serialize('create table foo (x)'))
+  results:
+  - pg_typeof: bytea
+
+- name: deserialize
+  query: select omni_sqlite.sqlite_deserialize(omni_sqlite.sqlite_serialize('create table foo (x)'))
+  results:
+  - sqlite_deserialize: "PRAGMA foreign_keys=OFF;\nBEGIN TRANSACTION;\nCREATE TABLE foo (x);\nCOMMIT;\n"
+
+- name: querying with params
+  query: select *
+         from omni_sqlite.sqlite_query('', 'select $1,$2', row (1, 'hi!')) as (i int8, t text)
+  results:
+  - i: 1
+    t: hi!
+
+- name: executing with params
+  query: select omni_sqlite.sqlite_exec('create table a (i int, t text)', 'insert into a (i,t) values($1,$2)',
+                                        row (1, 'hi!'));
+  results:
+  - sqlite_exec: "PRAGMA foreign_keys=OFF;\nBEGIN TRANSACTION;\nCREATE TABLE a (i int, t text);\nINSERT INTO a(rowid,i,t) VALUES(1,1,'hi!');\nCOMMIT;\n"
