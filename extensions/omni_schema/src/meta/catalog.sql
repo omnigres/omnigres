@@ -2285,115 +2285,94 @@ WITH DATA;
 
 CREATE UNIQUE INDEX idx_dependency_pre_mv_unique ON dependency_pre_mv USING btree (id, classid, objid, objsubid, refclassid, refobjid, refobjsubid, deptype);
 
-
-CREATE OR REPLACE FUNCTION check_and_refresh_mv(mv_name text)
- RETURNS void
- LANGUAGE plpgsql
+CREATE OR REPLACE FUNCTION check_and_refresh_mv(mv_name TEXT)
+RETURNS void
+LANGUAGE plpgsql
 AS $function$
 DECLARE
-    current_max_xid bigint;
-    last_max_xid bigint;
-    current_max_xmin bigint;
-    is_refresh_in_progress boolean;
-    lock_acquired boolean;
+    current_max_xid BIGINT;
+    last_max_xid BIGINT;
+    current_max_xmin BIGINT;
+    is_refresh_in_progress BOOLEAN;
+    dblink_connection TEXT;
 BEGIN
-    -- 1. Get the last stored max XID from the log table for the specified mv_name
-    SELECT mv_refresh_log.last_max_xid INTO last_max_xid
-    FROM mv_refresh_log
-    WHERE view_name = mv_name;
+    -- Ensure we have fresh visibility of catalog changes
+    PERFORM pg_stat_clear_snapshot();
 
-    -- If no record exists, initialize last_max_xid to a low value
-    IF last_max_xid IS NULL THEN
-        last_max_xid := 0;
-        -- Insert a new log entry with the current XID (this is a first-time refresh)
+    -- Fetch the last stored max XID from the log table for the specified mv_name
+    SELECT COALESCE(mv_refresh_log.last_max_xid, 0)
+    INTO last_max_xid
+    FROM mv_refresh_log
+    WHERE view_name = mv_name
+    FOR UPDATE;  -- Prevent race conditions
+
+    -- If no record exists, initialize and insert a default entry
+    IF last_max_xid = 0 THEN
         INSERT INTO mv_refresh_log (view_name, last_max_xid)
         VALUES (mv_name, last_max_xid)
         ON CONFLICT(view_name) DO UPDATE
         SET last_max_xid = EXCLUDED.last_max_xid;
     END IF;
 
-    -- 2. Get the current maximum XID (xmin) from the relevant system tables
+    -- Determine how to track changes based on mv_name
     IF mv_name = 'acl_mv' THEN
-        -- For acl_mv, track changes using relminmxid from pg_class
-        SELECT COALESCE(max(c.relminmxid::text::bigint), 0)  
+        -- Use relminmxid from pg_class for acl_mv
+        SELECT COALESCE(MAX(c.relminmxid::text::BIGINT), 0)  
         INTO current_max_xmin
         FROM pg_class c
         JOIN pg_namespace n ON c.relnamespace = n.oid
         WHERE c.relname = mv_name AND n.nspname = 'omni_schema';
     ELSIF mv_name = 'dependency_pre_mv' THEN
-        -- For dependency_pre_mv, track changes using pg_depend (get max xmin)
-        SELECT MAX(xmin::text::bigint) INTO current_max_xmin
+        -- Use xmin from pg_depend for dependency_pre_mv
+        SELECT COALESCE(MAX(xmin::text::BIGINT), 0)
+        INTO current_max_xmin
         FROM pg_depend;
     ELSE
         RAISE EXCEPTION 'Unknown materialized view name: %', mv_name;
     END IF;
 
-    -- Debugging output to confirm current_max_xmin and last_max_xid
+    -- Debugging output
     RAISE NOTICE 'Checking materialized view: %, last_max_xid: %, current_max_xmin: %', mv_name, last_max_xid, current_max_xmin;
 
-    -- 3. Check if any refresh operation is already in progress
+    -- Check if another refresh operation is already in progress
     SELECT EXISTS (
         SELECT 1
         FROM pg_stat_activity
         WHERE state = 'active' 
-          AND query LIKE 'REFRESH MATERIALIZED VIEW CONCURRENTLY%' 
-          AND query LIKE mv_name
+          AND query LIKE 'REFRESH MATERIALIZED VIEW%'
+          AND query LIKE '%' || mv_name || '%'
     ) INTO is_refresh_in_progress;
 
     IF is_refresh_in_progress THEN
-        RAISE NOTICE 'Refresh operation is already in progress for materialized view %, skipping refresh.', mv_name;
-        RETURN;  -- Skip refresh if another refresh is in progress
-    END IF;
-
-    -- 4. Attempt to acquire the advisory lock without blocking indefinitely
-    lock_acquired := pg_try_advisory_lock(hashtext(mv_name));  -- Try to acquire the lock
-
-    IF NOT lock_acquired THEN
-        RAISE NOTICE 'Could not acquire lock for materialized view %, skipping refresh.', mv_name;
-        RETURN;  -- Skip refresh if lock could not be acquired
+        RAISE NOTICE 'Refresh already in progress for materialized view %, skipping.', mv_name;
+        RETURN;  -- Skip refresh
     END IF;
 
     BEGIN
-        -- 5. Connect to the remote database using dblink
-        PERFORM dblink_connect(format('dbname=omnigres user=%s', current_user));
-
-        -- 6. If the current maximum XID (xmin) is greater than the last stored XID, refresh the materialized view
+        -- Only refresh if the new max_xmin is greater than the last recorded XID
         IF current_max_xmin > last_max_xid THEN
             RAISE NOTICE 'Materialized view % is stale. Refreshing...', mv_name;
 
-            -- Refresh the materialized view concurrently
-            IF mv_name = 'acl_mv' THEN
-                PERFORM dblink_exec('REFRESH MATERIALIZED VIEW CONCURRENTLY omni_schema.acl_mv');
-            ELSIF mv_name = 'dependency_pre_mv' THEN
-                PERFORM dblink_exec('REFRESH MATERIALIZED VIEW CONCURRENTLY omni_schema.dependency_pre_mv');
-            END IF;
+            -- Perform the refresh
+            EXECUTE format('SELECT dblink_exec($$REFRESH MATERIALIZED VIEW omni_schema.%I$$)', mv_name);
 
-            -- Update the refresh log with the new last_max_xid (current_max_xmin in this case)
+            -- Update refresh log
             UPDATE mv_refresh_log
             SET last_max_xid = current_max_xmin
             WHERE view_name = mv_name;
 
             RAISE NOTICE 'Materialized view % refreshed successfully.', mv_name;
         ELSE
-            RAISE NOTICE 'Materialized view % is not stale. No refresh needed.', mv_name;
+            RAISE NOTICE 'Materialized view % is up to date. No refresh needed.', mv_name;
         END IF;
     EXCEPTION
         WHEN OTHERS THEN
-            -- In case of error during refresh, release the lock and re-raise the error
-            PERFORM pg_advisory_unlock(hashtext(mv_name));  -- Release lock in case of error
-            PERFORM dblink_disconnect();  -- Close the dblink connection
-            RAISE;  -- Re-raise the exception to propagate the error
+            RAISE WARNING 'Error during refresh: %', SQLERRM;
+            RAISE;
     END;
 
-    -- 7. Release the advisory lock after completing the operation (either success or failure)
-    PERFORM pg_advisory_unlock(hashtext(mv_name));  -- Lock is released here
-
-    -- 8. Disconnect from the remote database using dblink
-    PERFORM dblink_disconnect();  -- Close the dblink connection
-
 END;
-$function$
-;
+$function$;
 
 
 CREATE OR REPLACE FUNCTION check_and_refresh_mv_once(mv_name text)
