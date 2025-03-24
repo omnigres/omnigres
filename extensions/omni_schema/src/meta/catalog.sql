@@ -2316,12 +2316,89 @@ BEGIN
 
     -- Determine how to track changes based on mv_name
     IF mv_name = 'acl_mv' THEN
-        -- Use relminmxid from pg_class for acl_mv
-        SELECT COALESCE(MAX(c.relminmxid::text::BIGINT), 0)  
-        INTO current_max_xmin
-        FROM pg_class c
-        JOIN pg_namespace n ON c.relnamespace = n.oid
-        WHERE c.relname = mv_name AND n.nspname = 'omni_schema';
+        WITH base_objects AS (
+            -- Tables, views, materialized views, sequences, indices
+            SELECT c.xmin::text::BIGINT AS obj_xmin
+            FROM pg_class c
+            WHERE c.relacl IS NOT NULL
+            
+            UNION ALL
+            
+            -- Schemas
+            SELECT n.xmin::text::BIGINT AS obj_xmin
+            FROM pg_namespace n
+            WHERE n.nspacl IS NOT NULL
+            
+            UNION ALL
+            
+            -- Databases
+            SELECT d.xmin::text::BIGINT AS obj_xmin
+            FROM pg_database d
+            WHERE d.datacl IS NOT NULL
+            
+            UNION ALL
+            
+            -- Functions and procedures
+            SELECT p.xmin::text::BIGINT AS obj_xmin
+            FROM pg_proc p
+            WHERE p.proacl IS NOT NULL
+            
+            UNION ALL
+            
+            -- Types
+            SELECT t.xmin::text::BIGINT AS obj_xmin
+            FROM pg_type t
+            WHERE t.typacl IS NOT NULL
+            
+            UNION ALL
+            
+            -- Foreign servers
+            SELECT s.xmin::text::BIGINT AS obj_xmin
+            FROM pg_foreign_server s
+            WHERE s.srvacl IS NOT NULL
+            
+            UNION ALL
+            
+            -- Foreign data wrappers
+            SELECT f.xmin::text::BIGINT AS obj_xmin
+            FROM pg_foreign_data_wrapper f
+            WHERE f.fdwacl IS NOT NULL
+            
+            UNION ALL
+            
+            -- Languages
+            SELECT l.xmin::text::BIGINT AS obj_xmin
+            FROM pg_language l
+            WHERE l.lanacl IS NOT NULL
+            
+            UNION ALL
+            
+            -- Large objects
+            SELECT lo.xmin::text::BIGINT AS obj_xmin
+            FROM pg_largeobject_metadata lo
+            WHERE lo.lomacl IS NOT NULL
+            
+            UNION ALL
+            
+            -- Tablespaces
+            SELECT t.xmin::text::BIGINT AS obj_xmin
+            FROM pg_tablespace t
+            WHERE t.spcacl IS NOT NULL
+            
+            UNION ALL
+            
+            -- Default ACLs
+            SELECT d.xmin::text::BIGINT AS obj_xmin
+            FROM pg_default_acl d
+            
+            UNION ALL
+            
+            -- Role membership changes
+            SELECT a.xmin::text::BIGINT AS obj_xmin
+            FROM pg_auth_members a
+        )
+        SELECT COALESCE(MAX(obj_xmin), 0)  INTO current_max_xmin
+        FROM base_objects;
     ELSIF mv_name = 'dependency_pre_mv' THEN
         -- Use xmin from pg_depend for dependency_pre_mv
         SELECT COALESCE(MAX(xmin::text::BIGINT), 0)
@@ -2353,8 +2430,11 @@ BEGIN
         IF current_max_xmin > last_max_xid THEN
             RAISE NOTICE 'Materialized view % is stale. Refreshing...', mv_name;
 
+            -- Connect to the remote database using dblink
+            PERFORM dblink_connect(format('dbname=%s user=%s', current_database(), current_user));
+
             -- Perform the refresh
-            EXECUTE format('SELECT dblink_exec($$REFRESH MATERIALIZED VIEW omni_schema.%I$$)', mv_name);
+            EXECUTE format('SELECT dblink_exec($$REFRESH MATERIALIZED VIEW CONCURRENTLY omni_schema.%I$$)', mv_name);
 
             -- Update refresh log
             UPDATE mv_refresh_log
@@ -2362,12 +2442,16 @@ BEGIN
             WHERE view_name = mv_name;
 
             RAISE NOTICE 'Materialized view % refreshed successfully.', mv_name;
+
+            PERFORM dblink_disconnect();  -- Close the dblink connection
         ELSE
             RAISE NOTICE 'Materialized view % is up to date. No refresh needed.', mv_name;
         END IF;
     EXCEPTION
         WHEN OTHERS THEN
+            -- In case of error during refresh, release the lock and re-raise the error
             RAISE WARNING 'Error during refresh: %', SQLERRM;
+            PERFORM dblink_disconnect();  -- Close the dblink connection
             RAISE;
     END;
 
