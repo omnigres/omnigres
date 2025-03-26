@@ -6,7 +6,7 @@ begin
     perform set_config('search_path', schema::text || ',public', true);
 
     if filename not like '/%' then
-        filename := current_setting('data_directory') || '/' || filename;
+        filename := '/' || filename;
     end if;
 
     create table if not exists credential_file_stores
