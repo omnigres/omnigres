@@ -2112,16 +2112,16 @@ CREATE TYPE pg_depend_type AS (
 
 CREATE MATERIALIZED VIEW dependency_pre_mv
 AS WITH depend_data AS (
-         SELECT pg_depend.classid,
-            pg_depend.objid,
-            pg_depend.objsubid,
-            pg_depend.refclassid,
-            pg_depend.refobjid,
-            pg_depend.refobjsubid,
-            pg_depend.deptype
-           FROM pg_depend
-          WHERE pg_depend.deptype <> 'i'::"char"
-        )
+    SELECT pg_depend.classid,
+           pg_depend.objid,
+           pg_depend.objsubid,
+           pg_depend.refclassid,
+           pg_depend.refobjid,
+           pg_depend.refobjsubid,
+           pg_depend.deptype
+    FROM pg_depend
+    WHERE pg_depend.deptype <> 'i'::"char"
+)
  SELECT DISTINCT id,
     classid,
     objid,
@@ -2130,157 +2130,125 @@ AS WITH depend_data AS (
     refobjid,
     refobjsubid,
     deptype
-   FROM ( SELECT DISTINCT relation_id(ns.nspname, c.relname)::object_id AS id,
-            d.classid,
-            d.objid,
-            d.objsubid,
-            d.refclassid,
-            d.refobjid,
-            d.refobjsubid,
-            d.deptype
-           FROM depend_data d
-             JOIN pg_class c ON c.oid = d.objid AND d.classid = 'pg_class'::regclass::oid AND c.relkind <> 't'::"char"
-             JOIN pg_namespace ns ON ns.oid = c.relnamespace
-          WHERE d.objsubid = 0
-        UNION ALL
-         SELECT DISTINCT function_id(ns.nspname, p.proname, _get_function_type_sig_array(p.*)::name[])::object_id AS id,
-            d.classid,
-            d.objid,
-            d.objsubid,
-            d.refclassid,
-            d.refobjid,
-            d.refobjsubid,
-            d.deptype
-           FROM depend_data d
-             JOIN pg_proc p ON p.oid = d.objid AND d.classid = 'pg_proc'::regclass::oid
-             JOIN pg_namespace ns ON ns.oid = p.pronamespace
-          WHERE d.objsubid = 0
-        UNION ALL
-         SELECT DISTINCT column_id(ns.nspname, c.relname, a.attname)::object_id AS id,
-            d.classid,
-            d.objid,
-            d.objsubid,
-            d.refclassid,
-            d.refobjid,
-            d.refobjsubid,
-            d.deptype
-           FROM depend_data d
-             JOIN pg_class c ON c.oid = d.objid AND d.classid = 'pg_class'::regclass::oid
-             JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0
-             JOIN pg_namespace ns ON ns.oid = c.relnamespace
-          WHERE d.objsubid <> 0
-        UNION ALL
-         SELECT DISTINCT column_id(ns.nspname, c.relname, a.attname)::object_id AS id,
-            d.classid,
-            d.objid,
-            d.objsubid,
-            d.refclassid,
-            d.refobjid,
-            d.refobjsubid,
-            d.deptype
-           FROM depend_data d
-             JOIN pg_class c ON c.oid = d.refobjid AND d.refclassid = 'pg_class'::regclass::oid
-             JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0
-             JOIN pg_namespace ns ON ns.oid = c.relnamespace
-          WHERE d.objsubid <> 0
-        UNION ALL
-         SELECT DISTINCT cast_id(st_ns.nspname, st.typname, tt_ns.nspname, tt.typname)::object_id AS id,
-            d.classid,
-            d.objid,
-            d.objsubid,
-            d.refclassid,
-            d.refobjid,
-            d.refobjsubid,
-            d.deptype
-           FROM depend_data d
-             JOIN pg_cast c ON c.oid = d.objid AND d.classid = 'pg_cast'::regclass::oid
-             JOIN pg_type st ON st.oid = c.castsource
-             JOIN pg_type tt ON tt.oid = c.casttarget
-             JOIN pg_namespace st_ns ON st_ns.oid = st.typnamespace
-             JOIN pg_namespace tt_ns ON tt_ns.oid = tt.typnamespace
-          WHERE d.objsubid = 0
-        UNION ALL
-         SELECT DISTINCT type_id(ns.nspname, t.typname)::object_id AS id,
-            d.classid,
-            d.objid,
-            d.objsubid,
-            d.refclassid,
-            d.refobjid,
-            d.refobjsubid,
-            d.deptype
-           FROM depend_data d
-             JOIN pg_type t ON t.oid = d.objid AND d.classid = 'pg_type'::regclass::oid
-             JOIN pg_namespace ns ON ns.oid = t.typnamespace
-          WHERE d.objsubid = 0
-        UNION ALL
-         SELECT DISTINCT type_id(ns.nspname, t.typname)::object_id AS id,
-            d.classid,
-            d.objid,
-            d.objsubid,
-            d.refclassid,
-            d.refobjid,
-            d.refobjsubid,
-            d.deptype
-           FROM depend_data d
-             JOIN pg_type t ON t.oid = d.objid AND d.classid = 'pg_type'::regclass::oid AND t.typcategory = 'A'::"char"
-             JOIN pg_namespace ns ON ns.oid = t.typnamespace
-          WHERE d.objsubid = 0
-        UNION ALL
-         SELECT DISTINCT relation_id(ns.nspname, c.relname)::object_id AS id,
-            d.classid,
-            d.objid,
-            d.objsubid,
-            d.refclassid,
-            d.refobjid,
-            d.refobjsubid,
-            d.deptype
-           FROM depend_data d
-             JOIN pg_class c ON c.oid = d.objid AND d.classid = 'pg_class'::regclass::oid
-             JOIN pg_namespace ns ON ns.oid = c.relnamespace
-          WHERE d.objsubid = 0
-        UNION ALL
-         SELECT DISTINCT relation_id(ns.nspname, c.relname)::object_id AS id,
-            d.classid,
-            d.objid,
-            d.objsubid,
-            d.refclassid,
-            d.refobjid,
-            d.refobjsubid,
-            d.deptype
-           FROM depend_data d
-             JOIN pg_class c ON c.oid = d.objid AND d.classid = 'pg_class'::regclass::oid AND c.relkind = 'r'::"char"
-             JOIN pg_namespace ns ON ns.oid = c.relnamespace
-          WHERE d.objsubid = 0
-        UNION ALL
-         SELECT DISTINCT operator_id(ns.nspname, o.oprname, lns.nspname, resolved_type_name(lt.*), rns.nspname, resolved_type_name(rt.*))::object_id AS id,
-            d.classid,
-            d.objid,
-            d.objsubid,
-            d.refclassid,
-            d.refobjid,
-            d.refobjsubid,
-            d.deptype
-           FROM depend_data d
-             JOIN pg_operator o ON o.oid = d.objid AND d.classid = 'pg_operator'::regclass::oid
-             JOIN pg_namespace ns ON ns.oid = o.oprnamespace
-             LEFT JOIN pg_type lt ON lt.oid = o.oprleft
-             LEFT JOIN pg_namespace lns ON lns.oid = lt.typnamespace
-             LEFT JOIN pg_type rt ON rt.oid = o.oprright
-             LEFT JOIN pg_namespace rns ON rns.oid = rt.typnamespace
-          WHERE d.objsubid = 0
-        UNION ALL
-         SELECT DISTINCT sequence_id(ns.nspname, c.relname)::object_id AS id,
-            d.classid,
-            d.objid,
-            d.objsubid,
-            d.refclassid,
-            d.refobjid,
-            d.refobjsubid,
-            d.deptype
-           FROM depend_data d
-             JOIN pg_class c ON c.oid = d.objid AND d.classid = 'pg_class'::regclass::oid
-             JOIN pg_namespace ns ON ns.oid = c.relnamespace
-          WHERE d.objsubid = 0) union_results
+FROM (    
+    -- Relations (tables, columns, etc.)
+    SELECT DISTINCT
+        COALESCE(
+            CASE WHEN d.objsubid = 0 AND c.relkind != 't' THEN relation_id(ns.nspname, c.relname)::object_id END,
+            column_id(ns.nspname, c.relname, a.attname)::object_id
+        ) AS id,
+        d.classid, d.objid, d.objsubid, d.refclassid, d.refobjid, d.refobjsubid, d.deptype
+    FROM
+        depend_data d
+        INNER JOIN pg_class c ON c.oid = d.objid
+        LEFT JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0
+        INNER JOIN pg_namespace ns ON ns.oid = c.relnamespace
+    WHERE
+        d.classid = 'pg_class'::regclass
+        AND (
+            (d.objsubid = 0 AND c.relkind != 't')
+            OR (d.objsubid != 0)
+            OR (a.attnum > 0)
+        )
+
+    UNION ALL
+
+    -- Columns also depend on what tables depend on
+    SELECT DISTINCT
+        column_id(ns.nspname, c.relname, a.attname)::object_id AS id,
+        d.classid, d.objid, d.objsubid, d.refclassid, d.refobjid, d.refobjsubid, d.deptype
+    FROM
+        pg_attribute a
+        INNER JOIN pg_class c ON c.oid = a.attrelid AND c.reltype != 0
+        INNER JOIN pg_namespace ns ON ns.oid = c.relnamespace
+        INNER JOIN pg_depend d ON d.objid = c.oid AND d.classid = 'pg_class'::regclass
+    WHERE
+        a.attnum > 0
+
+    UNION ALL
+
+    -- Functions and procedures
+    SELECT DISTINCT
+        function_id(ns.nspname, p.proname, _get_function_type_sig_array(p))::object_id AS id,
+        d.classid, d.objid, d.objsubid, d.refclassid, d.refobjid, d.refobjsubid, d.deptype
+    FROM
+        depend_data d
+        INNER JOIN pg_proc p ON p.oid = d.objid
+        INNER JOIN pg_namespace ns ON ns.oid = p.pronamespace
+    WHERE
+        d.classid = 'pg_proc'::regclass
+        AND d.objsubid = 0
+
+    UNION ALL
+
+    -- Type casts
+    SELECT DISTINCT
+        cast_id(st_ns.nspname, st.typname, tt_ns.nspname, tt.typname)::object_id AS id,
+        d.classid, d.objid, d.objsubid, d.refclassid, d.refobjid, d.refobjsubid, d.deptype
+    FROM
+        depend_data d
+        INNER JOIN pg_cast c ON c.oid = d.objid
+        INNER JOIN pg_type st ON st.oid = c.castsource
+        INNER JOIN pg_type tt ON tt.oid = c.casttarget
+        INNER JOIN pg_namespace st_ns ON st_ns.oid = st.typnamespace
+        INNER JOIN pg_namespace tt_ns ON tt_ns.oid = tt.typnamespace
+    WHERE
+        d.classid = 'pg_cast'::regclass
+        AND d.objsubid = 0
+
+    UNION ALL
+
+    -- Types (direct dependencies, arrays, relation arrays, etc.)
+    SELECT DISTINCT
+        type_id(ns.nspname, resolved_type_name(t))::object_id AS id,
+        d.classid, d.objid, d.objsubid, d.refclassid, d.refobjid, d.refobjsubid, d.deptype
+    FROM
+        depend_data d
+        INNER JOIN pg_type t ON t.oid = d.objid
+        INNER JOIN pg_namespace ns ON ns.oid = t.typnamespace
+    WHERE
+        d.classid = 'pg_type'::regclass
+        AND (t.typelem != 0 OR t.typrelid != 0)
+
+    UNION ALL
+
+    -- Operators
+    SELECT DISTINCT
+        operator_id(ns.nspname, o.oprname, lns.nspname, resolved_type_name(lt), rns.nspname, resolved_type_name(rt))::object_id AS id,
+        d.classid, d.objid, d.objsubid, d.refclassid, d.refobjid, d.refobjsubid, d.deptype
+    FROM
+        depend_data d
+        INNER JOIN pg_operator o ON o.oid = d.objid
+        INNER JOIN pg_namespace ns ON ns.oid = o.oprnamespace
+        LEFT JOIN pg_type lt ON lt.oid = o.oprleft
+        LEFT JOIN pg_namespace lns ON lns.oid = lt.typnamespace
+        LEFT JOIN pg_type rt ON rt.oid = o.oprright
+        LEFT JOIN pg_namespace rns ON rns.oid = rt.typnamespace
+    WHERE
+        d.classid = 'pg_operator'::regclass
+
+    UNION ALL
+
+    -- Sequences, indexes, and languages
+    SELECT DISTINCT
+        CASE
+            WHEN s.seqrelid IS NOT NULL THEN sequence_id(ns.nspname, r.relname)::object_id
+            WHEN i.indrelid IS NOT NULL THEN index_id(ns.nspname, r.relname)::object_id
+            WHEN l.oid IS NOT NULL THEN language_id(l.lanname)::object_id
+        END AS id,
+        d.classid, d.objid, d.objsubid, d.refclassid, d.refobjid, d.refobjsubid, d.deptype
+    FROM
+        depend_data d
+        LEFT JOIN pg_sequence s ON s.seqrelid = d.objid AND d.classid = 'pg_class'::regclass
+        LEFT JOIN pg_index i ON i.indrelid = d.objid AND d.classid = 'pg_class'::regclass
+        LEFT JOIN pg_language l ON l.oid = d.objid AND d.classid = 'pg_language'::regclass
+        LEFT JOIN pg_class r ON r.oid = d.objid
+        LEFT JOIN pg_namespace ns ON ns.oid = r.relnamespace
+    WHERE
+        (s.seqrelid IS NOT NULL AND d.classid = 'pg_class'::regclass) -- Sequences
+        OR (i.indrelid IS NOT NULL AND d.classid = 'pg_class'::regclass) -- Indexes
+        OR (l.oid IS NOT NULL AND d.classid = 'pg_language'::regclass) -- Languages
+    ) union_results
 WITH DATA;
 
 CREATE UNIQUE INDEX idx_dependency_pre_mv_unique ON dependency_pre_mv USING btree (id, classid, objid, objsubid, refclassid, refobjid, refobjsubid, deptype);
@@ -2295,6 +2263,7 @@ DECLARE
     current_max_xmin BIGINT;
     is_refresh_in_progress BOOLEAN;
     dblink_connection TEXT;
+    is_running BOOLEAN;
 BEGIN
     -- Ensure we have fresh visibility of catalog changes
     PERFORM pg_stat_clear_snapshot();
@@ -2436,6 +2405,19 @@ BEGIN
             -- Perform the refresh
             EXECUTE format('SELECT dblink_exec($$REFRESH MATERIALIZED VIEW CONCURRENTLY omni_schema.%I$$)', mv_name);
 
+            -- Poll the system catalog to check if the refresh is still running
+            LOOP
+                SELECT EXISTS (
+                    SELECT 1 FROM pg_stat_activity 
+                    WHERE query LIKE format('REFRESH MATERIALIZED VIEW CONCURRENTLY omni_schema.%I%%', mv_name) 
+                    AND state != 'idle'
+                ) INTO is_running;
+                
+                EXIT WHEN NOT is_running;  -- Exit loop when the refresh is done
+
+                PERFORM pg_sleep(1);  -- Wait 1 second before checking again
+            END LOOP;
+
             -- Update refresh log
             UPDATE mv_refresh_log
             SET last_max_xid = current_max_xmin
@@ -2478,6 +2460,7 @@ END;
 $function$
 ;
 
+-- dependency
 CREATE OR REPLACE VIEW dependency
 AS WITH refresh AS (
          SELECT check_and_refresh_mv_once('dependency_pre_mv') AS refreshed
@@ -2488,7 +2471,7 @@ AS WITH refresh AS (
      JOIN obj_object_id oo ON oo.classid = sub.refclassid AND oo.objid = sub.refobjid AND oo.objsubid = sub.refobjsubid::oid
      JOIN refresh ON true;
 
-
+-- ACL
 CREATE MATERIALIZED VIEW acl_mv
 AS WITH dedup AS (
          SELECT function_id(ns.nspname, p.proname, _get_function_type_sig_array(p.*)::name[])::object_id AS id,
