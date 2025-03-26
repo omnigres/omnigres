@@ -13,7 +13,7 @@ begin
     (
         filename text unique,
         fs_type text,
-        fs_id integer,
+        fs_name text,
         fs_mount text,
         connstr text,
         constructor text
@@ -24,7 +24,7 @@ begin
     as
     $code$
     declare
-        fs_id int;
+        fs_name text;
         connstr text;
         constructor text;
         fs_type text;
@@ -32,8 +32,8 @@ begin
     begin
         fs_type := format_type(pg_typeof(fs), NULL);
 
-        if fs_type = 'omni_vfs.local_fs' or fs_type = 'omni_vfs.table_fs' then
-            execute 'select ($1).id' into fs_id using fs;
+        if fs_type = 'omni_vfs.table_fs' then
+            execute 'select name from omni_vfs.table_fs_filesystems where id = ($1).id' into fs_name using fs;
         end if;
 
         if fs_type = 'omni_vfs.local_fs' then
@@ -48,14 +48,14 @@ begin
         insert into credential_file_stores (
             filename, 
             fs_type, 
-            fs_id,
+            fs_name,
             fs_mount,
             connstr, 
             constructor
         ) values (
             filename,
             fs_type,
-            fs_id,
+            fs_name,
             fs_mount,
             connstr,
             constructor
@@ -74,7 +74,7 @@ begin
     declare
         file_contents text;
         fs_type text;
-        fs_id int;
+        fs_name text;
         fs_mount text;
         connstr text;
         constructor text;
@@ -85,11 +85,11 @@ begin
 
         select 
             credential_file_stores.fs_type, 
-            credential_file_stores.fs_id, 
+            credential_file_stores.fs_name,
             credential_file_stores.fs_mount, 
             credential_file_stores.connstr, 
             credential_file_stores.constructor 
-        into fs_type, fs_id, fs_mount, connstr, constructor
+        into fs_type, fs_name, fs_mount, connstr, constructor
         from credential_file_stores 
         where credential_file_stores.filename = credential_file_store_reload.filename;
 
@@ -105,7 +105,7 @@ begin
         elsif fs_type = 'omni_vfs.table_fs' then
             select convert_from(
                 omni_vfs.read(
-                    omni_vfs.table_fs(fs_id),
+                    omni_vfs.table_fs(fs_name),
                     filename
                 ),
                 'utf8'
@@ -161,18 +161,18 @@ begin
         r record;
         json_content jsonb;
         fs_type text;
-        fs_id int;
+        fs_name text;
         fs_mount text;
         connstr text;
         constructor text;
     begin
         select 
             credential_file_stores.fs_type, 
-            credential_file_stores.fs_id, 
+            credential_file_stores.fs_name, 
             credential_file_stores.fs_mount, 
             credential_file_stores.connstr, 
             credential_file_stores.constructor 
-        into fs_type, fs_id, fs_mount, connstr, constructor
+        into fs_type, fs_name, fs_mount, connstr, constructor
         from credential_file_stores 
         where credential_file_stores.filename = update_credentials_file.filename;
 
@@ -196,7 +196,7 @@ begin
             );
         elsif fs_type = 'omni_vfs.table_fs' then
             perform omni_vfs.write(
-                omni_vfs.table_fs(fs_id),
+                omni_vfs.table_fs(fs_name),
                 filename,
                 convert_to(json_content::text, 'utf8')
             );
