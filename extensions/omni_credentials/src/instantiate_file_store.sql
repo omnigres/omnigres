@@ -19,56 +19,6 @@ begin
         constructor text
     );
 
-    create or replace function credential_file_store_reload(fs anyelement, filename text) returns boolean
-        language plpgsql
-    as
-    $code$
-    declare
-        file_contents text;
-    begin
-        if filename not like '/%' then
-            filename := current_setting('data_directory') || '/' || filename;
-        end if;
-        
-        select convert_from(
-            omni_vfs.read(
-                fs,
-                filename
-            ),
-            'utf8'
-        ) into file_contents;
-
-        if file_contents is null then
-            raise exception 'File does not exist: %', filename;
-        end if;
-
-        create temp table __new_encrypted_credentials__
-        (
-            like encrypted_credentials
-        ) on commit drop;
-
-        insert into __new_encrypted_credentials__ (name, value, kind, principal, scope)
-        select
-            nullif(cred->>'name', '') as name,
-            decode(cred->>'value', 'base64') as value,
-            nullif(cred->>'kind', '')::credential_kind as kind,
-            nullif(cred->>'principal', '')::regrole as principal,
-            nullif(cred->>'scope','')::jsonb as scope
-        from jsonb_array_elements(file_contents::jsonb) as cred;
-
-        insert into encrypted_credentials (name, value, kind, principal, scope)
-        select name, value, kind, principal, scope
-        from __new_encrypted_credentials__
-        on conflict (name, kind, principal, scope) do update set value = excluded.value;
-        return true;
-    exception
-        when others then return false;
-    end;
-    $code$;
-    execute format('alter function credential_file_store_reload set search_path to %I,public', schema);
-
-    perform credential_file_store_reload(fs, filename);
-
     create or replace function register_file_store(fs anyelement, filename text) returns boolean
         language plpgsql
     as
@@ -116,6 +66,92 @@ begin
     $code$;
 
     perform register_file_store(fs, filename);
+
+    create or replace function credential_file_store_reload(filename text) returns boolean
+        language plpgsql
+    as
+    $code$
+    declare
+        file_contents text;
+        fs_type text;
+        fs_id int;
+        fs_mount text;
+        connstr text;
+        constructor text;
+    begin
+        if filename not like '/%' then
+            filename := current_setting('data_directory') || '/' || filename;
+        end if;
+
+        select 
+            credential_file_stores.fs_type, 
+            credential_file_stores.fs_id, 
+            credential_file_stores.fs_mount, 
+            credential_file_stores.connstr, 
+            credential_file_stores.constructor 
+        into fs_type, fs_id, fs_mount, connstr, constructor
+        from credential_file_stores 
+        where credential_file_stores.filename = credential_file_store_reload.filename;
+
+
+        if fs_type = 'omni_vfs.local_fs' then
+            select convert_from(
+                omni_vfs.read(
+                    omni_vfs.local_fs(fs_mount),
+                    filename
+                ),
+                'utf8'
+            ) into file_contents;
+        elsif fs_type = 'omni_vfs.table_fs' then
+            select convert_from(
+                omni_vfs.read(
+                    omni_vfs.table_fs(fs_id),
+                    filename
+                ),
+                'utf8'
+            ) into file_contents;
+        elsif fs_type = 'omni_vfs.remote_fs' then
+            select convert_from(
+                omni_vfs.read(
+                    omni_vfs.remote_fs(connstr, constructor),
+                    filename
+                ),
+                'utf8'
+            ) into file_contents;
+        else
+            raise exception 'Unknown filesystem type: %', fs_type;
+        end if;
+
+        if file_contents is null then
+            raise exception 'File does not exist: %', filename;
+        end if;
+
+        create temp table __new_encrypted_credentials__
+        (
+            like encrypted_credentials
+        ) on commit drop;
+
+        insert into __new_encrypted_credentials__ (name, value, kind, principal, scope)
+        select
+            nullif(cred->>'name', '') as name,
+            decode(cred->>'value', 'base64') as value,
+            nullif(cred->>'kind', '')::credential_kind as kind,
+            nullif(cred->>'principal', '')::regrole as principal,
+            nullif(cred->>'scope','')::jsonb as scope
+        from jsonb_array_elements(file_contents::jsonb) as cred;
+
+        insert into encrypted_credentials (name, value, kind, principal, scope)
+        select name, value, kind, principal, scope
+        from __new_encrypted_credentials__
+        on conflict (name, kind, principal, scope) do update set value = excluded.value;
+        return true;
+    exception
+        when others then return false;
+    end;
+    $code$;
+    execute format('alter function credential_file_store_reload set search_path to %I,public', schema);
+
+    perform credential_file_store_reload(filename);
 
     create or replace function update_credentials_file(filename text) returns boolean
         language plpgsql
