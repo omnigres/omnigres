@@ -11,6 +11,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Credentials now have kind, principal and scope [#826](https://github.com/omnigres/omnigres/pull/826)
 
+* Credential filestore omni_vfs support  [#833](https://github.com/omnigres/omnigres/pull/833)
+
 ## [0.1.0] - 2024-12-26
 
 Initial release
