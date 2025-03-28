@@ -57,6 +57,31 @@ create procedure my_test(inout omni_test.test) -- ..
     Procedures are to be used if the test is to be **non-atomic**, that is, if it uses
     `commit` or `rollback`.
 
+### Settings
+
+Test functions and procedures have optionally supplied settings, that can be set using `create procedure ... set param = value`
+(or `alter ... set param value`):
+
+|                       **Setting** | **Description**                                                                                                                          |
+|----------------------------------:|------------------------------------------------------------------------------------------------------------------------------------------|
+| `omni_test.transaction_isolation` | Transaction isolation level, follows [`transaction_isolation` setting](https://www.postgresql.org/docs/current/sql-set-transaction.html) |
+
+Example:
+
+```postgresql
+create procedure tx_iso(inout test omni_test.test)
+    set omni_test.transaction_isolation = serializable
+    language plpgsql
+as
+$$
+begin
+    if current_setting('transaction_isolation') != 'serializable' then
+        raise exception 'transaction isolation level was not set';
+    end if;
+end;
+$$;
+```
+
 ## Running tests
 
 To run tests, simply pass the name of the database to the `run_tests` function:
