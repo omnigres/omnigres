@@ -1,3 +1,4 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
 instances:
   default:
     init:
@@ -208,19 +209,12 @@ tests:
   steps:
   - name: create file
     query: |
-      insert into omni_vfs.table_fs_files (filesystem_id, filename, kind)
-      values 
-      ((omni_vfs.table_fs('fs')).id, '/file', 'file')
-  
-  - name: insert data
+      select omni_vfs.write(omni_vfs.table_fs('fs'), '/file', 'hello world', create_file => true)
+
+  - name: create file with null content
     query: |
-      insert into omni_vfs.table_fs_file_data (file_id, data)
-      values
-      (
-        omni_vfs.table_fs_file_id(omni_vfs.table_fs('fs'), '/file'),
-        'hello world'::bytea
-      )
-  
+      select omni_vfs.write(omni_vfs.table_fs('fs'), '/null', null, create_file => true)
+
   - name: can get file info
     query: select size, kind from omni_vfs.file_info(omni_vfs.table_fs('fs'), 'file')
     results:
@@ -244,7 +238,13 @@ tests:
     binary: true
     results:
     - data: 0x68656c6c6f20776f726c64
-  
+
+  - name: read data from null file
+    query: select omni_vfs.read(omni_vfs.table_fs('fs'), '/null') as data
+    binary: true
+    results:
+      - data: 0x
+
   - name: read data from file with offset
     # should return world (skipping 'hello ')
     query: select omni_vfs.read(omni_vfs.table_fs('fs'), '/file', 7) as data
@@ -268,14 +268,10 @@ tests:
     results:
     - create_update_equal: true
       access_greater_than_create: true
-  
-  - name: update data
+
+  - name: write data
     query: |
-      update omni_vfs.table_fs_file_data
-      set
-        data = 'new data'::bytea
-      where
-        file_id = omni_vfs.table_fs_file_id(omni_vfs.table_fs('fs'), '/file')
+      select omni_vfs.write(omni_vfs.table_fs('fs'), '/file', 'new data')
 
   - name: both accessed_at and modified_at is updated after data update
     query: |
@@ -287,12 +283,15 @@ tests:
     - access_update_equal: true
       access_greater_than_create: true
 
-  - name: read data from file after update
-    query: select omni_vfs.read(omni_vfs.table_fs('fs'), '/file') as data
-    binary: true
+  - name: append data
+    query: |
+      select omni_vfs.write(omni_vfs.table_fs('fs'), '/file', '!', append => true)
+
+  - name: read data from file after all the updates
+    query: select convert_from(omni_vfs.read(omni_vfs.table_fs('fs'), '/file'),'utf8') as data
     results:
-    - data: 0x6e65772064617461
-  
+    - data: new data!
+
   - name: delete file data
     query: |
       with deleted as (

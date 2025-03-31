@@ -137,6 +137,20 @@ Returns a `bytea` value
 
 [^chunk_size-limit]: Chunk size is currently limited to 1GB.
 
+## `omni_vfs.write()`
+
+Reads a chunk of the file.
+
+|       Parameter | Type              | Description                                             |
+|----------------:|-------------------|---------------------------------------------------------|
+|          **fs** | _Filesystem type_ | Filesystem                                              |
+|        **path** | `text`            | Path to the file                                        |
+|     **content** | `bytea`           | Bytes to write                                          |
+| **create_file** | `boolean`         | Create a file if it does not exist. `false` by default. |
+|      **append** | `boolean`         | Append file. `false` by default. |
+
+Returns the number of bytes written, as `bigint`.
+
 ## Backends
 
 Currently, omni_vfs provides the following backends:
@@ -209,6 +223,22 @@ The [API](#api) described above works for `omni_vfs.table_fs` files as well. It 
 !!! tip "Directory listing performance"
 
     Although `omni_vfs.table_fs` can handle millions of files, it is recommended not to have more than few hundred files in one single directory to ensure optimal listing performance.
+
+### `omni_vfs.remote_fs` (remote file system)
+
+Remote filesystem takes a connection string (just like `dblink` does) and a snippet of SQL that
+defines a filesystem remotely:
+
+```postgresql
+select omni_vfs.remote_fs('dbname=otherdb host=127.0.0.1', $$omni_vfs.local_fs('/path')$$)
+```
+
+All normal VFS operations called over this filesystem are proxied to that remote connection.
+
+!!! tip "Performance considerations"
+
+    At this time, connections are not reused, and every time a call is made, a new connection
+    is established.
 
 ### Runtime backend dispatch
 

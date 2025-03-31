@@ -205,6 +205,8 @@ function(add_postgresql_extension NAME)
                     add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../${dependency}" "${CMAKE_CURRENT_BINARY_DIR}/${dependency}")
                 elseif(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../../${dependency}")
                     add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../../${dependency}" "${CMAKE_CURRENT_BINARY_DIR}/${dependency}")
+                elseif (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/../../deps/${dependency}")
+                    add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../../deps/${dependency}" "${CMAKE_CURRENT_BINARY_DIR}/${dependency}")
                 else()
                     message(FATAL_ERROR "Can't find dependency ${dependency}")
                 endif()
@@ -323,6 +325,7 @@ $<$<NOT:$<BOOL:${_ext_COMMENT}>>:#>comment = '${_ext_COMMENT}'
                 OUTPUT ${_packaged_default_control_file}
                 CONTENT
                 "default_version = '${_ext_VERSION}'
+$<$<NOT:$<BOOL:${_ext_COMMENT}>>:#>comment = '${_ext_COMMENT}'
 ")
     endif()
     endif()
@@ -359,7 +362,7 @@ for f in $(ls \"$_dir/\"*.sql | sort -V)
   pushd $(pwd) >/dev/null
   cd \"${CMAKE_CURRENT_SOURCE_DIR}\"
   $<TARGET_FILE:inja> \"$f\" >> \"$1/_$$_${NAME}--${_ext_VERSION}.sql\"
-  echo >> \"$1/_$$_${NAME}--${_ext_VERSION}.sql\"
+  echo ';' >> \"$1/_$$_${NAME}--${_ext_VERSION}.sql\"
   popd >/dev/null
 done
 # Move it into proper location at once
@@ -380,11 +383,23 @@ $command $@
     if (_ext_SOURCES AND NOT ${_ext_PRIVATE})
         add_custom_target(package_${_ext_TARGET}_extension
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-                DEPENDS omni_check_symbol_conflict_${_ext_TARGET}
+                DEPENDS omni_check_symbol_conflict_${_ext_TARGET} ${_ext_TARGET}
                 COMMAND
                 ${CMAKE_COMMAND} -E copy_if_different
                 "${CMAKE_CURRENT_BINARY_DIR}/$<TARGET_FILE_NAME:${_ext_TARGET}>"
                 ${_pkg_dir})
+        add_custom_target(install_${_ext_TARGET}_extension
+                WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                DEPENDS package_${_ext_TARGET}_extension package_${_ext_TARGET}_migrations
+                COMMAND
+                ${CMAKE_COMMAND} -E copy_if_different
+                "${_pkg_dir}/$<TARGET_FILE_NAME:${_ext_TARGET}>"
+                ${PostgreSQL_PACKAGE_LIBRARY_DIR}
+                COMMAND
+                ${CMAKE_COMMAND} -E copy_if_different
+                "${_pkg_dir}/extension/${NAME}.control" "${_pkg_dir}/extension/${NAME}--${_ext_VERSION}.control" "${_pkg_dir}/extension/${NAME}--${_ext_VERSION}.sql"
+                ${PostgreSQL_EXTENSION_DIR}
+        )
         # Check that the extension has no conflicting symbols with the Postgres binary
         # otherwise the linker might use the symbols from Postgres
         find_package(Python COMPONENTS Interpreter REQUIRED)
@@ -394,6 +409,16 @@ $command $@
     endif()
 
     if (NOT ${_ext_PRIVATE})
+        if (NOT TARGET install_${_ext_TARGET}_extension)
+            add_custom_target(install_${_ext_TARGET}_extension
+                    DEPENDS ${_ext_TARGET} package_${_ext_TARGET}_migrations
+                    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                    COMMAND
+                    ${CMAKE_COMMAND} -E copy_if_different
+                    "${_pkg_dir}/extension/${NAME}.control" "${_pkg_dir}/extension/${NAME}--${_ext_VERSION}.control" "${_pkg_dir}/extension/${NAME}--${_ext_VERSION}.sql"
+                    ${PostgreSQL_EXTENSION_DIR}
+            )
+        endif ()
         add_custom_target(package_${_ext_TARGET}_migrations
                 WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
                 COMMAND ${CMAKE_BINARY_DIR}/script_${_ext_TARGET} ${_pkg_dir}/extension)
@@ -409,6 +434,13 @@ $command $@
             add_dependencies(package_extensions package_${_ext_TARGET}_migrations)
         endif()
     endif()
+
+    if (NOT TARGET install_extensions)
+        add_custom_target(install_extensions)
+    endif ()
+    if (NOT ${_ext_PRIVATE})
+        add_dependencies(install_extensions install_${_ext_TARGET}_extension)
+    endif ()
 
     if(NOT _ext_PRIVATE)
         add_custom_target(prepare_${_ext_TARGET}
@@ -548,6 +580,7 @@ if [ \"$(shopt -s nullglob; shopt -s dotglob; files=($PSQLDB/*); echo $\{#files[
 else
     ${INITDB} -D \"$PSQLDB\" --no-clean --no-sync --locale=C --encoding=UTF8
 fi
+rm -f \"$PSQLDB/standby.signal\"
 export SOCKDIR=$(mktemp -d)
 if [ -z \"$POSTGRESQLCONF\" ]; then
   if [ -f \"${CMAKE_CURRENT_SOURCE_DIR}/postgresql.conf\" ]; then
@@ -581,6 +614,14 @@ if [ -z \"$PSQLRC\" ]; then
 else
   echo \"Using supplied .psqlrc: $PSQLRC\"
   export PSQLRC
+fi
+if [ -n \"$STANDBY\" ]; then
+  touch \"$PSQLDB/standby.signal\"
+  echo \"hot_standby = on\" >> \"$PSQLDB/postgresql.conf\"
+  echo \"restore_command = 'false'\" >> \"$PSQLDB/postgresql.conf\"
+  ${_cli} --set=CMAKE_BINARY_DIR=${CMAKE_BINARY_DIR} -h \"$SOCKDIR\" ${NAME} -c select
+  PGSHAREDIR=${_share_dir} ${PG_CTL} restart -D  \"$PSQLDB\"
+  unset PSQLRC
 fi
 ${_cli} --set=CMAKE_BINARY_DIR=${CMAKE_BINARY_DIR} -h \"$SOCKDIR\" ${NAME}
 ${PG_CTL} stop -D  \"$PSQLDB\" -m smart

@@ -80,6 +80,8 @@ CACHED_OID(omni_http, http_method);
 CACHED_OID(http_response);
 CACHED_OID(http_request);
 CACHED_OID(http_outcome);
+CACHED_OID(urlpattern);
+CACHED_OID(route_priority);
 
 bool IsOmniHttpdWorker;
 
@@ -185,7 +187,8 @@ static void start_master_worker(const omni_handle *handle, omni_bgworker_handle 
         .bgw_main_arg = MyDatabaseId,
         .bgw_notify_pid = MyProcPid,
         .bgw_start_time = BgWorkerStart_RecoveryFinished};
-    strncpy(bgw.bgw_library_name, handle->get_library_name(handle), BGW_MAXLEN);
+    strncpy(bgw.bgw_library_name, handle->get_library_name(handle),
+            sizeof(bgw.bgw_library_name) - 1);
 
     handle->request_bgworker_start(handle, &bgw, bgw_handle,
                                    (omni_bgworker_options){.timing = timing});
@@ -524,36 +527,6 @@ Datum unload(PG_FUNCTION_ARGS) {
   PG_RETURN_VOID();
 }
 
-typedef struct {
-  pg_uuid_t uuid;
-  int fd;
-  uint32 hash;
-  uint32 status;
-} SocketHashEntry;
-
-struct sockethash_hash;
-
-static inline uint32 sh_uuid_hash(struct sockethash_hash *tb, const pg_uuid_t uuid) {
-  return hash_bytes(uuid.data, sizeof(uuid.data));
-}
-
-static inline bool sh_uuid_eq(struct sockethash_hash *tb, const pg_uuid_t a, const pg_uuid_t b) {
-  return memcmp(a.data, b.data, UUID_LEN) == 0;
-}
-
-#define SH_PREFIX sockethash
-#define SH_ELEMENT_TYPE SocketHashEntry
-#define SH_KEY_TYPE pg_uuid_t
-#define SH_KEY uuid
-#define SH_HASH_KEY(tb, key) sh_uuid_hash(tb, key)
-#define SH_EQUAL(tb, a, b) sh_uuid_eq(tb, a, b)
-#define SH_SCOPE static
-#define SH_STORE_HASH
-#define SH_GET_HASH(tb, a) a->hash
-#define SH_DECLARE
-#define SH_DEFINE
-#include <lib/simplehash.h>
-
 Datum websocket_send(PG_FUNCTION_ARGS, int8 kind) {
   if (PG_ARGISNULL(0)) {
     ereport(ERROR, errmsg("socket can't be null"));
@@ -562,39 +535,49 @@ Datum websocket_send(PG_FUNCTION_ARGS, int8 kind) {
     ereport(ERROR, errmsg("data can't be null"));
   }
 
-  static sockethash_hash *sockethash = NULL;
-  if (sockethash == NULL) {
-    sockethash = sockethash_create(TopMemoryContext, 8192, NULL);
-  }
   pg_uuid_t *uuid = PG_GETARG_UUID_P(0);
   struct varlena *payload = PG_GETARG_VARLENA_PP(1);
 
-  bool found;
-  SocketHashEntry *entry = sockethash_insert(sockethash, *uuid, &found);
-  if (!found) {
-    struct sockaddr_un server_addr;
-    entry->fd = websocket_unix_domain_socket(&uuid->data, &server_addr, false);
+  int sock;
+  struct sockaddr_un server_addr = {.sun_family = AF_UNIX};
 
-    // Connect to the server
-    if (connect(entry->fd, (struct sockaddr *)&server_addr, sizeof(struct sockaddr_un)) < 0) {
-      char *s = strerror(errno);
-      ereport(ERROR, errmsg("connect %s", s));
-    }
+  if (websocket_unix_socket_path(&server_addr, &uuid->data) < 0) {
+    ereport(ERROR, errmsg("websocket_unix_socket_path"), errdetail("socket path too long"));
   }
-  int client_fd = entry->fd;
+
+  if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
+    const int e = errno;
+    ereport(ERROR, errmsg("socket"), errdetail(strerror(e)));
+  }
+
+  if (connect(sock, (struct sockaddr *)&server_addr, sizeof(struct sockaddr_un)) < 0) {
+    const int e = errno;
+    close(sock);
+    ereport(ERROR, errmsg("connect"), errdetail(strerror(e)));
+  }
 
   // Send a message to the server
   struct {
     int8_t kind;
     size_t length;
   } __attribute__((packed)) msg = {.kind = kind, .length = VARSIZE_ANY_EXHDR(payload)};
-  if (send(client_fd, &msg, sizeof(msg), 0) < 0) {
-    ereport(ERROR, errmsg("send"));
-  }
-  if (send(client_fd, VARDATA_ANY(payload), msg.length, 0) < 0) {
-    ereport(ERROR, errmsg("send"));
+
+  struct iovec iov[2];
+  iov[0].iov_base = &msg;
+  iov[0].iov_len = sizeof(msg);
+  iov[1].iov_base = VARDATA_ANY(payload);
+  iov[1].iov_len = msg.length;
+
+  struct msghdr sendhdr = {0};
+  sendhdr.msg_iov = iov;
+  sendhdr.msg_iovlen = 2;
+
+  if (sendmsg(sock, &sendhdr, 0) < 0) {
+    int e = errno;
+    ereport(ERROR, errmsg("sendmsg"), errdetail(strerror(e)));
   }
 
+  close(sock);
   PG_RETURN_VOID();
 }
 

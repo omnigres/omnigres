@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2025-01-23
+
+### Added
+
+* Support for the upcoming Postgres 18 [#763](https://github.com/omnigres/omnigres/pull/763)
+
+## [0.5.0] - 2025-01-20
+
+### Added
+
+* `raw_statements` now has a second boolean argument indicating whether the function should preserve transaction blocks in a single result row or split them into separate rows. The argument defaults to false in order perserve backwards compatibility. [#753](https://github.com/omnigres/omnigres/pull/753)
+
 ## [0.4.0] - 2025-01-14
 
 ### Added
@@ -120,3 +132,9 @@ Initial release following a few months of iterative development.
 [0.3.6]: [https://github.com/omnigres/omnigres/pull/717]
 
 [0.3.7]: [https://github.com/omnigres/omnigres/pull/718]
+
+[0.4.0]: [https://github.com/omnigres/omnigres/pull/747]
+
+[0.5.0]: [https://github.com/omnigres/omnigres/pull/753]
+
+[0.5.1]: [https://github.com/omnigres/omnigres/pull/763]

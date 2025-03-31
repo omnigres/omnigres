@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2025-03-01
+
+### Added
+
+* Added schema metainformation and its diffing [#766](https://github.com/omnigres/omnigres/pull/766),[#769](https://github.com/omnigres/omnigres/pull/769),[#770](https://github.com/omnigres/omnigres/pull/770)
+* Added schema revision capture and migration capabilities [#790](https://github.com/omnigres/omnigres/pull/790)
+
+### Fixed
+
+* `assemble_schema` no longer uses internal details of `omni_vfs.table_fs` [#767](https://github.com/omnigres/omnigres/pull/767)
+
 ## [0.2.3] - 2025-01-08
 
 ### Added
@@ -48,3 +59,5 @@ Initial release following a few months of iterative development.
 [0.2.2]: [https://github.com/omnigres/omnigres/pull/734]
 
 [0.2.3]: [https://github.com/omnigres/omnigres/pull/738]
+
+[0.3.0]: [https://github.com/omnigres/omnigres/pull/766]

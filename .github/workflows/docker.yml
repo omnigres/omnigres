@@ -21,6 +21,9 @@ env:
   # github.repository as <account>/<repo>
   IMAGE_NAME: ${{ github.repository }}
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -28,7 +31,7 @@ jobs:
     strategy:
       matrix:
         platform: [ amd64, arm64 ]
-        pg: [ 17, 16, 15, 14, 13 ]
+        pg: [ 17, 16, 15, 14 ]
 
     if: github.repository == 'omnigres/omnigres'
     runs-on: ${{ fromJSON('["warp-ubuntu-2204-x64-4x", "warp-ubuntu-2204-arm64-16x"]')[matrix.platform == 'arm64'] }}
@@ -178,7 +181,7 @@ jobs:
   manifest:
     strategy:
       matrix:
-        pg: [ 17, 16, 15, 14, 13 ]
+        pg: [ 17, 16, 15, 14 ]
         flavor: [ "", "-extra", "-dev","-kube" ]
 
     if: github.event_name != 'pull_request' && github.repository == 'omnigres/omnigres'

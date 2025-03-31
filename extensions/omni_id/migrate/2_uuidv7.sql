@@ -8,7 +8,7 @@ $$
     declare
         _p regproc;
     begin
-        _p := 'uuidv7'::regproc;
+        _p := 'uuidv7()'::regprocedure;
         -- Don't create if it is already defined
         execute $sql$ drop function omni_id_uuidv7 $sql$;
     exception

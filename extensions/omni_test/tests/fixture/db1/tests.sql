@@ -46,3 +46,17 @@ end;
 $$;
 
 comment on function test_fun is $$Test function$$;
+
+create procedure tx_iso(inout test omni_test.test)
+    set omni_test.transaction_isolation = serializable
+    language plpgsql
+as
+$$
+begin
+    if current_setting('transaction_isolation') != 'serializable' then
+        raise exception 'transaction isolation level was not set';
+    end if;
+end;
+$$;
+
+comment on procedure tx_iso is $$Transaction isolation level setting$$;

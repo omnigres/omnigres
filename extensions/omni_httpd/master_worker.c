@@ -129,7 +129,8 @@ void prepare_share_fd() {
 
   socket_fd = socket(PF_UNIX, SOCK_STREAM, 0);
   if (socket_fd < 0) {
-    ereport(ERROR, errmsg("can't create sharing socket"));
+    int e = errno;
+    ereport(ERROR, errmsg("can't create sharing socket: %s", strerror(e)));
   }
 
   int enable = 1;
@@ -286,7 +287,12 @@ void master_worker(Datum db_oid) {
   }
   socket_path = psprintf("%s/socket.%d", tmp_path, getpid());
 
-  sigusr1_original_handler = pqsignal(SIGUSR1, sigusr1_handler);
+#if PG_MAJORVERSION_NUM >= 18
+  sigusr1_original_handler = procsignal_sigusr1_handler;
+#else
+  sigusr1_original_handler =
+#endif
+  pqsignal(SIGUSR1, sigusr1_handler);
 
   // Listen for configuration changes
   {
@@ -316,10 +322,10 @@ void master_worker(Datum db_oid) {
 
   while (!shutdown_worker) {
     // Start the transaction
-    SPI_connect();
     SetCurrentStatementStartTimestamp();
     StartTransactionCommand();
     PushActiveSnapshot(GetTransactionSnapshot());
+    SPI_connect();
 
     // We clear this list every time to prepare an up-to-date version
     cvec_fd_clear(&sockets);
@@ -505,7 +511,11 @@ void master_worker(Datum db_oid) {
         goto terminate;
       }
     }
+#if PG_MAJORVERSION_NUM >= 18
+    ProcessMainLoopInterrupts();
+#else
     HandleMainLoopInterrupts();
+#endif
 
     // If HTTP workers have already been started, notify them of the change.
     // It is okay to notify them at this time as they will try to connect to the UNIX socket
@@ -531,7 +541,11 @@ void master_worker(Datum db_oid) {
       uint32 expected = cvec_bgwhandle_size(&http_workers);
       while (!pg_atomic_compare_exchange_u32(semaphore, &expected, 0)) {
         expected = cvec_bgwhandle_size(&http_workers);
+#if PG_MAJORVERSION_NUM >= 18
+        ProcessMainLoopInterrupts();
+#else
         HandleMainLoopInterrupts();
+#endif
         if (shutdown_worker) {
           SPI_finish();
           PopActiveSnapshot();
@@ -574,7 +588,8 @@ void master_worker(Datum db_oid) {
           .bgw_flags = BGWORKER_SHMEM_ACCESS | BGWORKER_BACKEND_DATABASE_CONNECTION,
           .bgw_start_time = BgWorkerStart_RecoveryFinished};
       strncpy(worker.bgw_extra, socket_path, BGW_EXTRALEN - 1);
-      strncpy(worker.bgw_library_name, MyBgworkerEntry->bgw_library_name, BGW_MAXLEN - 1);
+      strncpy(worker.bgw_library_name, MyBgworkerEntry->bgw_library_name,
+              sizeof(worker.bgw_library_name) - 1);
       for (int i = 0; i < *num_http_workers; i++) {
         BackgroundWorkerHandle *handle;
         if (RegisterDynamicBackgroundWorker(&worker, &handle)) {
@@ -608,7 +623,11 @@ void master_worker(Datum db_oid) {
 
       while (!pg_atomic_compare_exchange_u32(semaphore, &expected, 0)) {
         expected = cvec_bgwhandle_size(&http_workers);
+#if PG_MAJORVERSION_NUM >= 18
+        ProcessMainLoopInterrupts();
+#else
         HandleMainLoopInterrupts();
+#endif
         if (shutdown_worker) {
           goto terminate;
         }

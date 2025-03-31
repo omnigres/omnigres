@@ -45,7 +45,8 @@ We considered ignoring malformed inputs, but failing fast is safer.
 
 1. **Version Bump**: In `versions.txt`, increment the version using [Semantic Versioning](https://semver.org/).
 2. **Changelog Entry**: Add an appropriate section to CHANGELOG.md,
-   referencing the PR number (specify it when you create the PR)
+   referencing the PR number (specify it when you create the PR – you can easily get one using
+   [next-pr.sh](next-pr.sh) script, if you have GitHub CLI (`gh`) installed and configured)
 
 ---
 

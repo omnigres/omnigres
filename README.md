@@ -102,10 +102,8 @@ handle = pg(flask.Adapter(app))
 To connect the endpoint:
 
 ```sql
-update omni_httpd.handlers
-set
-    query =
-        $$select handle(request.*) from request$$;
+insert into omni_httpd.urlpattern_router (match, handler)
+values (omni_httpd.urlpattern('/'), 'my_handler'::regproc);
 ```
 
 **NB**: Please note that you will need to
@@ -120,12 +118,13 @@ for the time being before our CLI tooling is ready.
 You can also achieve the same using plain SQL with very little setup.
 
 ```sql
-update omni_httpd.handlers
-set
-    query =
-        $$select omni_httpd.http_response('Hello, world!') from request$$;
-```
+create function my_handler()
+  returns omni_httpd.http_outcome
+  return omni_httpd.http_response('Hello world!');
 
+insert into omni_httpd.urlpattern_router (match, handler)
+values (omni_httpd.urlpattern('/'), 'my_handler'::regproc);
+```
 </details>
 
 Now, let's make it more personal and let it greet the requester by name.
@@ -183,6 +182,7 @@ Below is the current list of components being worked on, experimented with and d
 | [omni_credentials](extensions/omni_schema/README.md)                                     | :white_check_mark: First release candidate   | Application credential management                     |
 | [omni_id](extensions/omni_id/README.md)                                                  | :white_check_mark: First release candidate   | Identity types                                        |
 | [omni_aws](extensions/omni_aws/README.md)                                                | :white_check_mark: First release candidate   | AWS APIs                                              |
+| [omni_cloudevents](extensions/omni_cloudevents/README.md)                                | :white_check_mark: First release candidate   | [CloudEvents](https://cloudevents.io/) support        |
 | [omni_json](extensions/omni_json/README.md)                                              | :white_check_mark: First release candidate   | JSON toolkit                                          |
 | [omni_yaml](extensions/omni_yaml/README.md)                                              | :white_check_mark: First release candidate   | YAML toolkit                                          |
 | [omni_xml](extensions/omni_xml/README.md)                                                | :white_check_mark: First release candidate   | XML toolkit                                           |
@@ -193,6 +193,7 @@ Below is the current list of components being worked on, experimented with and d
 | [omni_mimetypes](extensions/omni_mimetypes/README.md)                                    | :white_check_mark: First release candidate   | MIME types and file extensions                        |
 | [omni_httpc](extensions/omni_httpc/README.md)                                            | :white_check_mark: First release candidate   | HTTP client                                           |
 | [omni_sql](extensions/omni_sql/README.md)                                                | :construction: Extremely limited API surface | Programmatic SQL manipulation                         |
+| [omni_sqlite](extensions/omni_sqlite/README.md)                                          | :white_check_mark: First release candidate   | Embedded SQLite                                       |
 | [omni_vfs](extensions/omni_vfs/README.md)                                                | :ballot_box_with_check: Initial prototype    | Virtual File System interface                         |
 | [omni_containers](extensions/omni_containers/README.md)                                  | :ballot_box_with_check: Initial prototype    | Managing containers                                   |
 | [omni_manifest](extensions/omni_manifest/README.md)                                      | :ballot_box_with_check: Initial prototype    | Improved extension installation                       |
@@ -239,6 +240,14 @@ To build and run Omnigres, you would need:
 cmake -S . -B build
 cmake --build build --parallel
 make -j psql_<COMPONENT_NAME> # for example, `psql_omni_containers`
+```
+
+To install extensions into your target Postgres:
+
+```shell
+cmake --build build --parallel --target install_extensions
+# Or, individually,
+cmake --build build --parallel --target install_<COMPONENT_NAME>_extension
 ```
 
 ### Troubleshooting

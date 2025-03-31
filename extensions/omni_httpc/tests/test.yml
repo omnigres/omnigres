@@ -19,7 +19,7 @@ instance:
                           json_agg(json_build_object(h.name, h.value))
                           from
                               unnest(request.headers) h
-                          where h.name not in ('user-agent')
+                          where h.name not in ('user-agent','omnigres-connecting-ip')
                           ),
       'body', convert_from(request.body, 'utf-8')
       )) from request
@@ -46,6 +46,7 @@ tests:
                                    (select effective_port from omni_httpd.listeners) || '/test?q=1')))
     select
       response.status,
+      response.message,
       (select
            json_agg(json_build_object(h.name, h.value))
        from
@@ -56,6 +57,7 @@ tests:
       from response
   results:
   - status: 200
+    message: OK
     headers:
     - content-type: application/json
     body:

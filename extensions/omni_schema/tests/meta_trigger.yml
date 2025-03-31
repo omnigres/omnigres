@@ -1,0 +1,20 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_schema cascade
+    - create schema test
+
+tests:
+
+- name: created trigger shows up with expected values
+  steps:
+    - query: create table test.test_table (id int generated always as identity);
+    - query: create function test.test_function() returns trigger as 'BEGIN END;' language plpgsql;
+    - query: create trigger test_trigger before insert on test.test_table for each row execute function test.test_function()
+    - query: select id, relation_id, schema_name, relation_name, name from omni_schema.trigger where id = omni_schema.trigger_id('test','test_table','test_trigger')
+      results:
+      - id: "(test,test_table,test_trigger)"
+        relation_id: "(test,test_table)"
+        schema_name: test
+        relation_name: test_table
+        name: test_trigger

@@ -28,6 +28,7 @@ PG_FUNCTION_INFO_V1(local_fs);
 PG_FUNCTION_INFO_V1(local_fs_list);
 PG_FUNCTION_INFO_V1(local_fs_file_info);
 PG_FUNCTION_INFO_V1(local_fs_read);
+PG_FUNCTION_INFO_V1(local_fs_write);
 
 #ifdef PATH_MAX
 #define PATH_MAX_ PATH_MAX
@@ -412,4 +413,84 @@ Datum local_fs_read(PG_FUNCTION_ARGS) {
   fclose(fp);
 
   PG_RETURN_POINTER(data);
+}
+
+Datum local_fs_write(PG_FUNCTION_ARGS) {
+  /*
+   * create function write(fs table_fs, path text, content bytea, create_file boolean default false,
+append boolean default false) returns void
+   */
+  if (PG_ARGISNULL(0)) {
+    ereport(ERROR, errmsg("fs must not be NULL"));
+  }
+
+  if (PG_ARGISNULL(1)) {
+    ereport(ERROR, errmsg("path must not be NULL"));
+  }
+
+  bool isnull;
+
+  HeapTupleHeader fs = PG_GETARG_HEAPTUPLEHEADER(0);
+
+  Datum fs_id = GetAttributeByName(fs, "id", &isnull);
+  if (isnull) {
+    ereport(ERROR, errmsg("filesystem ID must not be NULL"));
+  }
+
+  char *mount_path = get_mount_path(fs_id);
+
+  text *path = PG_GETARG_TEXT_PP(1);
+  char *fullpath = subpath(mount_path, text_to_cstring(path));
+
+  bool create = false;
+  if (!PG_ARGISNULL(3)) {
+    create = PG_GETARG_BOOL(3);
+  }
+
+  bool append = false;
+  if (!PG_ARGISNULL(4)) {
+    append = PG_GETARG_BOOL(4);
+  }
+
+  if (!create) {
+    FILE *fp = fopen(fullpath, "r");
+    if (fp == NULL) {
+      int e = errno;
+      ereport(ERROR, errmsg("can't open file"), errdetail("%s", strerror(e)));
+    }
+  } else {
+    char *last_dir_sep = last_dir_separator(fullpath);
+    char *dirname;
+
+    if (last_dir_sep == NULL) {
+      dirname = fullpath;
+    }
+    size_t len = last_dir_sep - fullpath;
+    if (len > 0) {
+      dirname = palloc0(len + 1);
+      memcpy(dirname, fullpath, len);
+    } else {
+      dirname = "/";
+    }
+    pg_mkdir_p(dirname, 0700);
+  }
+
+  FILE *fp = fopen(fullpath, append ? "a" : "w");
+  if (fp == NULL) {
+    int e = errno;
+    ereport(ERROR, errmsg("can't open file"), errdetail("%s", strerror(e)));
+  }
+
+  text *content;
+  if (!PG_ARGISNULL(2)) {
+    content = PG_GETARG_TEXT_PP(2);
+  } else {
+    content = cstring_to_text("");
+  }
+
+  size_t actual_size = fwrite(VARDATA_ANY(content), 1, VARSIZE_ANY_EXHDR(content), fp);
+
+  fclose(fp);
+
+  PG_RETURN_INT64(actual_size);
 }

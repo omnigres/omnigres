@@ -5,7 +5,7 @@ create type raw_statement as
     col    int
 );
 
-create function raw_statements(cstring) returns setof raw_statement
+create function raw_statements(cstring, boolean default false) returns setof raw_statement
 as
 'MODULE_PATHNAME'
     language c strict

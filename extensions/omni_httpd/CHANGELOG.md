@@ -5,6 +5,57 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.2] - 2025-03-07
+
+### Fixed
+
+* Support for upcoming Postgres 18 [#817](https://github.com/omnigres/omnigres/pull/817)
+
+## [0.4.1] - 2025-03-04
+
+### Fixed
+
+* Fix build under Debian testing [#815](https://github.com/omnigres/omnigres/pull/815)
+
+## [0.4.0] - 2025-02-28
+
+### Fixed
+
+* HTTP response should contain correct status code reasons [#781](https://github.com/omnigres/omnigres/pull/781)
+* Rejected WebSocket requests are sent an HTTP response [#797](https://github.com/omnigres/omnigres/pull/797)
+* File descriptor exhaustion prevention [#810](https://github.com/omnigres/omnigres/pull/810)
+
+### Changed
+
+* Core routing changed to a router mechanism with URLPattern support [#783](https://github.com/omnigres/omnigres/pull/783)
+* Static file handler uses the new router mechanism [#795](https://github.com/omnigres/omnigres/pull/795)
+
+## [0.3.1] - 2025-02-20
+
+### Fixed
+
+* Support for the upcoming Postgres 18 [#805](https://github.com/omnigres/omnigres/pull/805)
+
+## [0.3.0] - 2025-02-04
+
+### Added
+
+* `Omnigres-Connecting-IP` header [#714](https://github.com/omnigres/omnigres/pull/714)
+
+### Changed
+
+* omni_httpd.handler is no longer a function but a procedure [#715](https://github.com/omnigres/omnigres/pull/715)
+
+### Fixed
+
+* Response body is no longer sent before committing the transaction [#778](https://github.com/omnigres/omnigres/pull/778)
+
+## [0.2.10] - 2025-01-23
+
+### Added
+
+* Support for the upcoming Postgres 18 [#763](https://github.com/omnigres/omnigres/pull/763)
+
 ## [0.2.9] - 2025-01-17
 
 ### Fixed
@@ -125,3 +176,15 @@ Initial release following a few months of iterative development.
 [0.2.8]: [https://github.com/omnigres/omnigres/pull/751]
 
 [0.2.9]: [https://github.com/omnigres/omnigres/pull/752]
+
+[0.2.10]: [https://github.com/omnigres/omnigres/pull/763]
+
+[0.3.0]: [https://github.com/omnigres/omnigres/pull/713]
+
+[0.3.1]: [https://github.com/omnigres/omnigres/pull/805]
+
+[0.4.0]: [https://github.com/omnigres/omnigres/pull/780]
+
+[0.4.1]: [https://github.com/omnigres/omnigres/pull/815]
+
+[0.4.2]: [https://github.com/omnigres/omnigres/pull/817]

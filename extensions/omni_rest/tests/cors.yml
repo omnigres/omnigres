@@ -13,7 +13,7 @@ instance:
   - |
     create
         or
-        replace function omni_httpd.handler(int, omni_httpd.http_request) returns omni_httpd.http_outcome
+        replace procedure omni_httpd.handler(int, omni_httpd.http_request, out omni_httpd.http_outcome)
         language plpgsql
     as
     $$
@@ -26,7 +26,7 @@ instance:
         if resp is not distinct from null then
             resp := omni_httpd.http_response(status => 404);
         end if;
-        return resp;
+        $3 := resp;
     end;
     $$
   - |

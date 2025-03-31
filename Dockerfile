@@ -20,13 +20,16 @@ ARG PLRUST_VERSION=1.2.8
 
 # Base builder image
 FROM debian:${DEBIAN_VER}-slim AS builder
-RUN echo "deb http://deb.debian.org/debian bookworm-backports main contrib non-free" >> /etc/apt/sources.list
-RUN apt-get update
-RUN apt-get install -y wget build-essential git clang lld flex libreadline-dev zlib1g-dev libssl-dev tmux lldb gdb make perl python3-dev python3-venv python3-pip netcat-traditional bison
-# current cmake is too old
 ARG DEBIAN_VER
 ENV DEBIAN_VER=${DEBIAN_VER}
-RUN apt-get install -y cmake -t ${DEBIAN_VER}-backports
+RUN echo "deb http://deb.debian.org/debian ${DEBIAN_VER}-backports main contrib non-free" >> /etc/apt/sources.list
+RUN apt-get update
+RUN apt-get install -y wget clang-16 libc++-16-dev libc++abi-16-dev git cmake lld flex libreadline-dev zlib1g-dev libssl-dev tmux lldb gdb make perl python3-dev python3-venv python3-pip netcat-traditional bison
+RUN update-alternatives --install /usr/bin/clang clang /usr/bin/clang-16 100 && \
+    update-alternatives --install /usr/bin/cc cc /usr/bin/clang-16 100 && \
+    update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-16 100 && \
+    update-alternatives --install /usr/bin/c++ c++ /usr/bin/clang++-16 100
+RUN apt-get remove -y gcc
 ARG USER
 ARG UID
 ARG PG
@@ -54,9 +57,16 @@ FROM builder AS build
 COPY --chown=${UID} . /omni
 COPY --link --from=postgres-build --chown=${UID} /omni/.pg /omni/.pg
 WORKDIR /build
-RUN cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DPGVER=${PG} /omni
+COPY docker/clang-libcxx.cmake clang-libcxx.cmake
+RUN cmake -DCMAKE_BUILD_TYPE=${BUILD_TYPE} -DPGVER=${PG} /omni -DCMAKE_TOOLCHAIN_FILE=clang-libcxx.cmake
 RUN make -j ${BUILD_PARALLEL_LEVEL} all
 RUN make package_extensions
+
+FROM squidfunk/mkdocs-material AS docs
+COPY --chown=${UID} . /docs
+RUN pip install -r docs/requirements.txt
+RUN mkdocs build -d /output
+ENTRYPOINT ["/bin/sh"]
 
 # plrust build
 #FROM postgres:${PG}-${DEBIAN_VER_PG}  AS plrust
@@ -84,6 +94,12 @@ RUN make package_extensions
 #RUN PG_VER=${PG%.*} && . "$HOME/.cargo/env" && cd plrust/plrust && \
 #    cargo pgrx package --features "pg${PG_VER} trusted"
 
+FROM ghcr.io/omnigres/omnigres-${PG} AS previous
+ENV PG=${PG}
+RUN mkdir -p /prev/libdir /prev/extension && \
+    cp -R $(pg_config --pkglibdir)/* /prev/libdir/ && \
+    cp -R $(pg_config --sharedir)/extension/* /prev/extension/
+
 # Official slim PostgreSQL build
 FROM postgres:${PG}-${DEBIAN_VER_PG} AS pg-slim
 ARG PG
@@ -91,7 +107,7 @@ ENV PG=${PG}
 ENV POSTGRES_DB=omnigres
 ENV POSTGRES_USER=omnigres
 ENV POSTGRES_PASSWORD=omnigres
-RUN apt-get update && apt-get -y install libtclcl1 libpython3.11 libperl5.36 gettext
+RUN apt-get update && apt-get -y install libtclcl1 libpython3.11 libperl5.36 gettext libc++1-19
 RUN PG_VER=${PG%.*} && apt-get update && apt-get -y install postgresql-pltcl-${PG_VER} postgresql-plperl-${PG_VER} postgresql-plpython3-${PG_VER} python3-dev python3-venv python3-pip
 RUN apt-get -y install curl
 RUN curl -fsSL https://pkgs.tailscale.com/stable/debian/bookworm.noarmor.gpg | tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null && \
@@ -109,6 +125,10 @@ RUN apt-get -y install \
     postgresql-${PG%.*}-repack \
     postgresql-${PG%.*}-wal2json \
     postgresql-${PG%.*}-pgvector postgresql-${PG%.*}-pgvectorscale
+COPY --from=previous /prev /prev
+RUN mv -n /prev/libdir/* $(pg_config --pkglibdir)/ && \
+    mv -n /prev/extension/* $(pg_config --sharedir)/extension/ && \
+    rm -rf /prev
 COPY --from=build /build/packaged /omni
 # need versions.txt to pick versions
 COPY --from=build /omni/versions.txt /omni/versions.txt
@@ -135,6 +155,7 @@ done
 unset OMNI_SO_FILE
 EOF
 RUN rm -rf /omni
+COPY --from=docs /output /omni-docs
 ENTRYPOINT ["omnigres-entrypoint.sh"]
 CMD ["postgres"]
 EXPOSE 22
@@ -145,7 +166,7 @@ EXPOSE 5432
 FROM pg-slim AS pg
 ENV PG=${PG}
 COPY docker/apt-pin /etc/apt/preferences.d/99-pin
-RUN apt-get -y install $(apt-cache search  "^postgresql-${PG%.*}-*" | cut -d' ' -f1 | grep -v 'hunspell' | grep -v 'citus' | grep -v 'pgdg' | grep -v 'timescaledb-tsl' | grep -v 'anonymizer' | grep -v 'dbgsym')
+RUN apt-get -y install $(apt-cache search  "^postgresql-${PG%.*}-*" | cut -d' ' -f1 | grep -v 'omnigres' | grep -v 'pg-duckdb' | grep -v 'hunspell' | grep -v 'citus' | grep -v 'pgdg' | grep -v 'timescaledb-tsl' | grep -v 'anonymizer' | grep -v 'dbgsym' | grep -v "${PG%.*}-zstd" | grep -v "${PG%.*}-tableversion" | grep -v "-documentdb-core")
 #COPY --from=plrust /var/lib/postgresql/plrust/target/release /plrust-release
 ## clear it in case it already exists
 #RUN rm -rf /docker-entrypoint-initdb.d

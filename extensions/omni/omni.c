@@ -211,10 +211,14 @@ static void register_lwlock(const omni_handle *handle, LWLock *lock, const char 
   }
 }
 
-#if PG_MAJORVERSION_NUM >= 13 && PG_MAJORVERSION_NUM <= 17
+#if PG_MAJORVERSION_NUM >= 13 && PG_MAJORVERSION_NUM < 18
 #define LW_FLAG_HAS_WAITERS ((uint32)1 << 30)
 #define LW_FLAG_RELEASE_OK ((uint32)1 << 29)
 #define LW_FLAG_LOCKED ((uint32)1 << 28)
+#elif PG_MAJORVERSION_NUM == 18
+#define LW_FLAG_HAS_WAITERS ((uint32)1 << 31)
+#define LW_FLAG_RELEASE_OK ((uint32)1 << 30)
+#define LW_FLAG_LOCKED ((uint32)1 << 29)
 #else
 #error "Check these constants for this version of Postgres"
 #endif
@@ -966,8 +970,13 @@ static void do_start_bgworker(XactEvent event, void *arg) {
     RegisterDynamicBackgroundWorker(&payload->bgworker, &bgw_handle);
     payload->handle->registered = true;
     if (!payload->options.dont_wait) {
-      pid_t pid;
-      WaitForBackgroundWorkerStartup(bgw_handle, &pid);
+      if (payload->bgworker.bgw_start_time == BgWorkerStart_RecoveryFinished &&
+          RecoveryInProgress()) {
+        // don't wait, it's not going to start at this time
+      } else {
+        pid_t pid;
+        WaitForBackgroundWorkerStartup(bgw_handle, &pid);
+      }
     }
     payload->handle->bgw_handle = *bgw_handle;
   }

@@ -52,18 +52,33 @@ MODULE_FUNCTION void default_planner(omni_hook_handle *handle, Query *parse,
 
 MODULE_FUNCTION void default_executor_start(omni_hook_handle *handle, QueryDesc *queryDesc,
                                             int eflags) {
-  return saved_hooks[omni_hook_executor_start] == NULL
-             ? standard_ExecutorStart(queryDesc, eflags)
-             : ((ExecutorStart_hook_type)saved_hooks[omni_hook_executor_start])(queryDesc, eflags);
+  handle->returns.bool_value =
+#if PG_MAJORVERSION_NUM >= 18
+#else
+      true;
+#endif
+      saved_hooks[omni_hook_executor_start] == NULL
+          ? standard_ExecutorStart(queryDesc, eflags)
+          : ((ExecutorStart_hook_type)saved_hooks[omni_hook_executor_start])(queryDesc, eflags);
 }
 
 MODULE_FUNCTION void default_executor_run(omni_hook_handle *handle, QueryDesc *queryDesc,
                                           ScanDirection direction, uint64 count,
                                           bool execute_once) {
   return saved_hooks[omni_hook_executor_run] == NULL
-             ? standard_ExecutorRun(queryDesc, direction, count, execute_once)
+             ? standard_ExecutorRun(queryDesc, direction, count
+#if PG_MAJORVERSION_NUM < 18
+                                    ,
+                                    execute_once
+#endif
+                                    )
              : ((ExecutorRun_hook_type)saved_hooks[omni_hook_executor_run])(queryDesc, direction,
-                                                                            count, execute_once);
+                                                                            count
+#if PG_MAJORVERSION_NUM < 18
+                                                                            ,
+                                                                            execute_once
+#endif
+               );
 }
 
 MODULE_FUNCTION void default_executor_finish(omni_hook_handle *handle, QueryDesc *queryDesc) {
@@ -169,16 +184,35 @@ MODULE_FUNCTION PlannedStmt *omni_planner_hook(Query *parse, const char *query_s
   return iterate_hooks(planner, parse, query_string, cursorOptions, boundParams).PlannedStmt_value;
 }
 
+#if PG_MAJORVERSION_NUM >= 18
+MODULE_FUNCTION bool omni_executor_start_hook(QueryDesc *queryDesc, int eflags) {
+  load_pending_modules();
+
+  return iterate_hooks(executor_start, queryDesc, eflags).bool_value;
+}
+#else
 MODULE_FUNCTION void omni_executor_start_hook(QueryDesc *queryDesc, int eflags) {
   load_pending_modules();
 
   iterate_hooks(executor_start, queryDesc, eflags);
 }
+#endif
 
 MODULE_FUNCTION void omni_executor_run_hook(QueryDesc *queryDesc, ScanDirection direction,
-                                            uint64 count, bool execute_once) {
+                                            uint64 count
+#if PG_MAJORVERSION_NUM < 18
+                                            ,
+                                            bool execute_once
+#endif
+) {
 
-  iterate_hooks(executor_run, queryDesc, direction, count, execute_once);
+  iterate_hooks(executor_run, queryDesc, direction, count,
+#if PG_MAJORVERSION_NUM < 18
+                execute_once
+#else
+                true
+#endif
+  );
 }
 
 MODULE_FUNCTION void omni_executor_finish_hook(QueryDesc *queryDesc) {

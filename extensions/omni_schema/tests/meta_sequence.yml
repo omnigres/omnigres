@@ -1,0 +1,69 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_schema cascade
+    - create schema test
+    - create sequence test.test_sequence increment 1 minvalue 2 maxvalue 5 start 3 cycle
+    - create table test.test_table (id serial primary key)
+
+tests:
+
+- name: created sequence shows up with expected values
+  steps:
+    - query: |
+        select id, schema_id, schema_name, name, start_value, minimum_value, maximum_value, increment, cache, 
+               (sequence_cycle) is distinct from null as cycle, (sequence_table) is distinct from null as owned, 
+               type_id
+        from omni_schema.sequence
+            natural join omni_schema.sequence_minimum_value
+            natural join omni_schema.sequence_maximum_value
+            natural join omni_schema.sequence_start_value
+            natural join omni_schema.sequence_increment
+            natural join omni_schema.sequence_type
+            natural join omni_schema.sequence_cache
+            natural left join omni_schema.sequence_cycle
+            natural left join omni_schema.sequence_table
+        where id = omni_schema.sequence_id('test', 'test_sequence');
+      results:
+      - id: "(test,test_sequence)"
+        schema_id: (test)
+        schema_name: test
+        name: test_sequence
+        start_value: 3
+        minimum_value: 2
+        maximum_value: 5
+        increment: 1
+        cache: 1
+        cycle: true
+        owned: false
+        type_id: "(pg_catalog,int8)"
+
+- name: automatically created sequence shows up with expected values
+  steps:
+    - query: |
+        select id, schema_id, schema_name, name, start_value, minimum_value, maximum_value, increment, cache,
+               (sequence_cycle) is distinct from null as cycle, table_id,
+               type_id
+        from omni_schema.sequence
+             natural join omni_schema.sequence_minimum_value
+             natural join omni_schema.sequence_maximum_value
+             natural join omni_schema.sequence_start_value
+             natural join omni_schema.sequence_increment
+             natural join omni_schema.sequence_type
+             natural join omni_schema.sequence_cache
+             natural left join omni_schema.sequence_cycle
+             natural left join omni_schema.sequence_table
+        where id = omni_schema.sequence_id('test', 'test_table_id_seq');
+      results:
+        - id: "(test,test_table_id_seq)"
+          schema_id: (test)
+          schema_name: test
+          name: test_table_id_seq
+          start_value: 1
+          minimum_value: 1
+          maximum_value: 2147483647
+          increment: 1
+          cache: 1
+          cycle: false
+          table_id: "(test,test_table)"
+          type_id: "(pg_catalog,int4)"

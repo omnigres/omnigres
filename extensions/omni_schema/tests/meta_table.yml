@@ -1,0 +1,36 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_schema cascade
+    - create schema test
+    - create table test.empty_table ();
+    - create view test.empty_view as select * from test.empty_table;
+    - create materialized view test.empty_materialized_view as select * from test.empty_table;
+
+tests:
+
+- name: created table shows up with expected values
+  steps:
+    - query: select id, schema_id, schema_name, name from omni_schema.table where id = omni_schema.relation_id('test', 'empty_table');
+      results:
+      - id: "(test,empty_table)"
+        schema_id: (test)
+        schema_name: test
+        name: empty_table   
+
+- name: created view does not show up
+  steps:
+    - query: select id, schema_id, schema_name, name from omni_schema.table where id = omni_schema.relation_id('test', 'empty_view');
+      results: []
+
+- name: created materialized view does not show up
+  steps:
+    - query: select id, schema_id, schema_name, name from omni_schema.table where id = omni_schema.relation_id('test', 'empty_materialized_view');
+      results: []
+
+- name: temporary table
+  steps:
+    - create temp table temp ()
+    - query: select t.name from omni_schema.table_temporary tt inner join omni_schema.table t on t.id = tt.id
+      results:
+      - name: temp

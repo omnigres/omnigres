@@ -7,8 +7,6 @@ proxy and re-process the incoming HTTP request to a backend:
 ```postgresql
 select
     omni_httpd.http_proxy('http://127.0.0.1:9000' || request.path)
-from
-    request
 ```
 
 The above will simply redirect all incoming requests to `127.0.0.1` (port `9000`)

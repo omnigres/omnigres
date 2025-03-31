@@ -14,8 +14,10 @@
 #include <catalog/pg_cast.h>
 #include <catalog/pg_collation.h>
 #include <catalog/pg_language.h>
+#include <catalog/pg_operator.h>
 #include <catalog/pg_proc.h>
 #include <catalog/pg_type.h>
+#include <commands/defrem.h>
 #include <commands/typecmds.h>
 #include <executor/spi.h>
 #include <miscadmin.h>
@@ -23,9 +25,13 @@
 #include <utils/builtins.h>
 #include <utils/fmgroids.h>
 #include <utils/lsyscache.h>
+#include <utils/snapmgr.h>
 #include <utils/syscache.h>
 
 #include "sum_type.h"
+
+#include <parser/parse_func.h>
+#include <tcop/pquery.h>
 
 /**
  * Returns sum value's variant
@@ -86,6 +92,62 @@ PG_FUNCTION_INFO_V1(sum_cast_to);
 PG_FUNCTION_INFO_V1(sum_cast_from);
 
 /**
+ * Equality comparison of the sum type
+ * @param fcinfo
+ * @return
+ */
+PG_FUNCTION_INFO_V1(sum_eq);
+
+/**
+ * Non-equality comparison of the sum type
+ * @param fcinfo
+ * @return
+ */
+PG_FUNCTION_INFO_V1(sum_neq);
+
+/**
+ * Comparison of the sum type
+ * @param fcinfo
+ * @return
+ */
+PG_FUNCTION_INFO_V1(sum_lt);
+
+/**
+ * Comparison of the sum type
+ * @param fcinfo
+ * @return
+ */
+PG_FUNCTION_INFO_V1(sum_lte);
+
+/**
+ * Comparison of the sum type
+ * @param fcinfo
+ * @return
+ */
+PG_FUNCTION_INFO_V1(sum_gt);
+
+/**
+ * Comparison of the sum type
+ * @param fcinfo
+ * @return
+ */
+PG_FUNCTION_INFO_V1(sum_gte);
+
+/**
+ * Comparison of the sum type
+ * @param fcinfo
+ * @return
+ */
+PG_FUNCTION_INFO_V1(sum_cmp);
+
+/**
+ * Hash of the sum type
+ * @param fcinfo
+ * @return
+ */
+PG_FUNCTION_INFO_V1(sum_hash);
+
+/**
  * Extract variant value from a sum type.
  *
  * If invalid, `variant` will contain `InvalidOid`.
@@ -97,6 +159,33 @@ PG_FUNCTION_INFO_V1(sum_cast_from);
  */
 static void get_variant_val(Datum arg, Oid sum_type_oid, Oid *variant, Datum *val,
                             Discriminant *discriminant);
+typedef struct SumTypeCacheEntry {
+  Oid sum_type_oid;
+  uint32 hash;
+  uint32 status;
+  TransactionId xmin;
+  oidvector *variant_type_oids;
+  oidvector *variant_eq_ops;
+  oidvector *variant_opc_hash;
+  oidvector *variant_opc_btree;
+} SumTypeCacheEntry;
+
+static SumTypeCacheEntry *lookup_sumtype_cache(Datum sum_type_oid);
+
+static Oid get_fn_expr_argtype_reliable(FmgrInfo *info, int argnum) {
+  if (info == NULL || info->fn_nargs < argnum + 1) {
+    return InvalidOid;
+  }
+  Oid type = get_fn_expr_argtype(info, argnum);
+  if (!OidIsValid(type)) {
+    HeapTuple tup = SearchSysCache1(PROCOID, info->fn_oid);
+    if (HeapTupleIsValid(tup)) {
+      type = ((Form_pg_proc)GETSTRUCT(tup))->proargtypes.values[argnum];
+      ReleaseSysCache(tup);
+    }
+  }
+  return type;
+}
 
 Datum sum_variant(PG_FUNCTION_ARGS) {
 
@@ -104,7 +193,7 @@ Datum sum_variant(PG_FUNCTION_ARGS) {
     ereport(ERROR, errmsg("Sum type value can't be null"));
   }
 
-  Oid sum_type_oid = get_fn_expr_argtype(fcinfo->flinfo, 0);
+  Oid sum_type_oid = get_fn_expr_argtype_reliable(fcinfo->flinfo, 0);
 
   Datum arg = PG_GETARG_DATUM(0);
 
@@ -189,53 +278,18 @@ Datum sum_in(PG_FUNCTION_ARGS) {
   ReleaseSysCache(sum_type_tup);
 
   // Find matching variant
-  Oid types = get_relname_relid("sum_types", get_namespace_oid("omni_types", false));
-
-  Relation rel = table_open(types, AccessShareLock);
-  TupleDesc tupdesc = RelationGetDescr(rel);
-  TableScanDesc scan = table_beginscan_catalog(rel, 0, NULL);
-  Oid variant = InvalidOid;
   Discriminant discriminant = 0;
-  for (;;) {
-    HeapTuple tup = heap_getnext(scan, ForwardScanDirection);
-    // The end
-    if (tup == NULL)
-      break;
-
-    bool isnull;
-    // Matching type
-    if (sum_type_oid == DatumGetObjectId(heap_getattr(tup, 1, tupdesc, &isnull))) {
-      ArrayIterator it = array_create_iterator(
-          DatumGetArrayTypeP(heap_getattr(tup, 2, tupdesc, &isnull)), 0, NULL);
-
-      Datum elem;
-      // Iterate through variants
-      uint32_t i = 0;
-      while (array_iterate(it, &elem, &isnull)) {
-        if (isnull) {
-          continue;
-        }
-        char *type = format_type_be(DatumGetObjectId(elem));
-        if (strncmp(input, type, strlen(type)) == 0 && input[strlen(type)] == '(') {
-          variant = DatumGetObjectId(elem);
-          discriminant = i;
-          break;
-        }
-        i++;
-      }
-      array_free_iterator(it);
-      if (elem != InvalidOid) {
+  Oid variant = InvalidOid;
+  SumTypeCacheEntry *entry = lookup_sumtype_cache(sum_type_oid);
+  if (entry) {
+    for (int i = 0; i < entry->variant_type_oids->dim1; i++) {
+      char *type = format_type_be(entry->variant_type_oids->values[i]);
+      if (strncmp(input, type, strlen(type)) == 0 && input[strlen(type)] == '(') {
+        variant = entry->variant_type_oids->values[i];
+        discriminant = i;
         break;
       }
     }
-  }
-  if (scan->rs_rd->rd_tableam->scan_end) {
-    scan->rs_rd->rd_tableam->scan_end(scan);
-  }
-  table_close(rel, AccessShareLock);
-
-  if (variant == InvalidOid) {
-    ereport(ERROR, errmsg("No valid variant found"));
   }
 
   HeapTuple type_tup = SearchSysCache1(TYPEOID, ObjectIdGetDatum(variant));
@@ -310,39 +364,19 @@ Datum sum_recv(PG_FUNCTION_ARGS) {
   ReleaseSysCache(sum_type_tup);
 
   // Find matching variant
-  Oid types = get_relname_relid("sum_types", get_namespace_oid("omni_types", false));
-
-  Relation rel = table_open(types, AccessShareLock);
-  TupleDesc tupdesc = RelationGetDescr(rel);
-  TableScanDesc scan = table_beginscan_catalog(rel, 0, NULL);
-  Oid variant = InvalidOid;
-  StaticAssertStmt(sizeof(Discriminant) == 4, "must be 32-bit");
   Discriminant discriminant = (Discriminant)pg_ntoh32(*((Discriminant *)VARDATA_ANY(input)));
-  for (;;) {
-    HeapTuple tup = heap_getnext(scan, ForwardScanDirection);
-    // The end
-    if (tup == NULL)
-      break;
-
-    bool isnull;
-    // Matching type
-    if (sum_type_oid == DatumGetObjectId(heap_getattr(tup, 1, tupdesc, &isnull))) {
-      ArrayType *arr = DatumGetArrayTypeP(heap_getattr(tup, 2, tupdesc, &isnull));
-      Assert(ARR_NDIM(arr) == 1);
-      if (ARR_DIMS(arr)[0] < discriminant + 1) {
-        ereport(ERROR, errmsg("invalid discriminant"));
-      }
-
-      Datum element = array_get_element(PointerGetDatum(arr), 1, (int[1]){discriminant + 1}, -1, 4,
-                                        true, TYPALIGN_INT, &isnull);
-      variant = DatumGetObjectId(element);
-      break;
+  ereport(NOTICE, errmsg("discriminant %d", discriminant));
+  StaticAssertStmt(sizeof(Discriminant) == 4, "must be 32-bit");
+  Oid variant = InvalidOid;
+  SumTypeCacheEntry *entry = lookup_sumtype_cache(sum_type_oid);
+  if (entry) {
+    if (entry->variant_type_oids->dim1 < discriminant + 1) {
+      ereport(ERROR, errmsg("invalid discriminant"),
+              errdetail("expected 0..%d, got %d", entry->variant_type_oids->ndim - 1,
+                        (int)discriminant));
     }
+    variant = entry->variant_type_oids->values[discriminant];
   }
-  if (scan->rs_rd->rd_tableam->scan_end) {
-    scan->rs_rd->rd_tableam->scan_end(scan);
-  }
-  table_close(rel, AccessShareLock);
 
   if (variant == InvalidOid) {
     ereport(ERROR, errmsg("No valid variant found"));
@@ -431,47 +465,19 @@ Datum sum_cast_from(PG_FUNCTION_ARGS) {
   ReleaseSysCache(proc_tuple);
 
   // Find matching variant
-  Oid types = get_relname_relid("sum_types", get_namespace_oid("omni_types", false));
-
-  Relation rel = table_open(types, AccessShareLock);
-  TupleDesc tupdesc = RelationGetDescr(rel);
-  TableScanDesc scan = table_beginscan_catalog(rel, 0, NULL);
   bool discriminant_found = false;
   Discriminant discriminant = 0;
-  for (;;) {
-    HeapTuple tup = heap_getnext(scan, ForwardScanDirection);
-    // The end
-    if (tup == NULL)
-      break;
 
-    bool isnull;
-    // Matching type
-    if (sum_type_oid == DatumGetObjectId(heap_getattr(tup, 1, tupdesc, &isnull))) {
-      ArrayIterator it = array_create_iterator(
-          DatumGetArrayTypeP(heap_getattr(tup, 2, tupdesc, &isnull)), 0, NULL);
-
-      Datum elem;
-      // Iterate through variants
-      uint32_t i = 0;
-      while (array_iterate(it, &elem, &isnull)) {
-        if (isnull) {
-          continue;
-        }
-        Oid oid = DatumGetObjectId(elem);
-        if (oid == variant_type_oid) {
-          discriminant = i;
-          discriminant_found = true;
-          break;
-        }
-        i++;
+  SumTypeCacheEntry *entry = lookup_sumtype_cache(sum_type_oid);
+  if (entry) {
+    for (int i = 0; i < entry->variant_type_oids->dim1; i++) {
+      if (entry->variant_type_oids->values[i] == variant_type_oid) {
+        discriminant = i;
+        discriminant_found = true;
+        break;
       }
-      array_free_iterator(it);
     }
   }
-  if (scan->rs_rd->rd_tableam->scan_end) {
-    scan->rs_rd->rd_tableam->scan_end(scan);
-  }
-  table_close(rel, AccessShareLock);
 
   if (!discriminant_found) {
     ereport(ERROR, errmsg("No valid variant found"));
@@ -494,6 +500,201 @@ Datum sum_cast_from(PG_FUNCTION_ARGS) {
                       PG_GETARG_DATUM(0));
 }
 
+struct sumtypehash_hash;
+static struct sumtypehash_hash *sumtypehash = NULL;
+
+#define SH_PREFIX sumtypehash
+#define SH_ELEMENT_TYPE SumTypeCacheEntry
+#define SH_KEY_TYPE Oid
+#define SH_KEY sum_type_oid
+#define SH_HASH_KEY(tb, key) key
+#define SH_EQUAL(tb, a, b) a == b
+#define SH_SCOPE static
+#define SH_STORE_HASH
+#define SH_GET_HASH(tb, a) a->hash
+#define SH_DECLARE
+#define SH_DEFINE
+#include <lib/simplehash.h>
+
+// The function below is extracted from Postgres source code
+
+/* oper_select_candidate()
+ *      Given the input argtype array and one or more candidates
+ *      for the operator, attempt to resolve the conflict.
+ *
+ * Returns FUNCDETAIL_NOTFOUND, FUNCDETAIL_MULTIPLE, or FUNCDETAIL_NORMAL.
+ * In the success case the Oid of the best candidate is stored in *operOid.
+ *
+ * Note that the caller has already determined that there is no candidate
+ * exactly matching the input argtype(s).  Incompatible candidates are not yet
+ * pruned away, however.
+ */
+static FuncDetailCode oper_select_candidate(int nargs, Oid *input_typeids,
+                                            FuncCandidateList candidates,
+                                            Oid *operOid) /* output argument */
+{
+#if PG_MAJORVERSION_NUM > 18
+#error "check if this version of the function is still good"
+#endif
+  int ncandidates;
+
+  /*
+   * Delete any candidates that cannot actually accept the given input
+   * types, whether directly or by coercion.
+   */
+  ncandidates = func_match_argtypes(nargs, input_typeids, candidates, &candidates);
+
+  /* Done if no candidate or only one candidate survives */
+  if (ncandidates == 0) {
+    *operOid = InvalidOid;
+    return FUNCDETAIL_NOTFOUND;
+  }
+  if (ncandidates == 1) {
+    *operOid = candidates->oid;
+    return FUNCDETAIL_NORMAL;
+  }
+
+  /*
+   * Use the same heuristics as for ambiguous functions to resolve the
+   * conflict.
+   */
+  candidates = func_select_candidate(nargs, input_typeids, candidates);
+
+  if (candidates) {
+    *operOid = candidates->oid;
+    return FUNCDETAIL_NORMAL;
+  }
+
+  *operOid = InvalidOid;
+  return FUNCDETAIL_MULTIPLE; /* failed to select a best candidate */
+}
+
+static Oid lookup_operator(Oid type, char *name) {
+  List *op = list_make1(makeString(name));
+  Oid oid = OpernameGetOprid(op, type, type);
+  if (!OidIsValid(oid)) {
+    FuncCandidateList clist = OpernameGetCandidates(op, 'b', false);
+
+    if (clist != NULL) {
+      oper_select_candidate(2, (Oid[2]){type, type}, clist, &oid);
+    }
+  }
+  return oid;
+}
+
+static SumTypeCacheEntry *lookup_sumtype_cache(Datum sum_type_oid) {
+  bool cache_entry_found;
+  bool matching_entry_found = false;
+  SumTypeCacheEntry *entry = NULL;
+
+  if (sumtypehash == NULL) {
+    sumtypehash = sumtypehash_create(TopMemoryContext, 1024, NULL);
+  }
+
+  // If there's no snapshot, assume it to be zero so that when one appears,
+  // we'll purge this entry
+  TransactionId xmin = ActiveSnapshotSet() ? GetActiveSnapshot()->xmin : 0;
+  while (entry == NULL || entry->xmin != xmin) {
+    entry = sumtypehash_insert(sumtypehash, sum_type_oid, &cache_entry_found);
+    if (!cache_entry_found) {
+      entry->xmin = xmin;
+
+      Oid types = get_relname_relid("sum_types", get_namespace_oid("omni_types", false));
+
+      Relation rel = table_open(types, AccessShareLock);
+      TupleDesc tupdesc = RelationGetDescr(rel);
+      TableScanDesc scan = table_beginscan_catalog(rel, 0, NULL);
+      for (;;) {
+        HeapTuple tup = heap_getnext(scan, ForwardScanDirection);
+        // The end
+        if (tup == NULL)
+          break;
+
+        bool isnull;
+        // Matching type
+        if (sum_type_oid == DatumGetObjectId(heap_getattr(tup, 1, tupdesc, &isnull))) {
+          Datum variants = heap_getattr(tup, 2, tupdesc, &isnull);
+          ArrayType *arr = DatumGetArrayTypeP(variants);
+          Assert(ARR_NDIM(arr) == 1);
+          int n = ARR_DIMS(arr)[0];
+
+          Datum *elems;
+          bool *nulls;
+          deconstruct_array(arr, REGTYPEOID, sizeof(Oid), true, TYPALIGN_INT, &elems, &nulls, &n);
+
+          entry->variant_type_oids = (oidvector *)MemoryContextAlloc(
+              TopMemoryContext, n * sizeof(Oid) + sizeof(oidvector));
+          SET_VARSIZE(entry->variant_type_oids, (n * sizeof(Oid) + sizeof(oidvector)));
+          entry->variant_type_oids->ndim = 1;
+          entry->variant_type_oids->dataoffset = 0; /* never any nulls */
+          entry->variant_type_oids->elemtype = OIDOID;
+          entry->variant_type_oids->dim1 = n;
+          entry->variant_type_oids->lbound1 = 0;
+
+          entry->variant_eq_ops = (oidvector *)MemoryContextAlloc(
+              TopMemoryContext, n * sizeof(Oid) + sizeof(oidvector));
+          SET_VARSIZE(entry->variant_eq_ops, (n * sizeof(Oid) + sizeof(oidvector)));
+          entry->variant_eq_ops->ndim = 1;
+          entry->variant_eq_ops->dataoffset = 0; /* never any nulls */
+          entry->variant_eq_ops->elemtype = OIDOID;
+          entry->variant_eq_ops->dim1 = n;
+          entry->variant_eq_ops->lbound1 = 0;
+
+          entry->variant_opc_btree = (oidvector *)MemoryContextAlloc(
+              TopMemoryContext, n * sizeof(Oid) + sizeof(oidvector));
+          SET_VARSIZE(entry->variant_opc_btree, (n * sizeof(Oid) + sizeof(oidvector)));
+          entry->variant_opc_btree->ndim = 1;
+          entry->variant_opc_btree->dataoffset = 0; /* never any nulls */
+          entry->variant_opc_btree->elemtype = OIDOID;
+          entry->variant_opc_btree->dim1 = n;
+          entry->variant_opc_btree->lbound1 = 0;
+
+          entry->variant_opc_hash = (oidvector *)MemoryContextAlloc(
+              TopMemoryContext, n * sizeof(Oid) + sizeof(oidvector));
+          SET_VARSIZE(entry->variant_opc_hash, (n * sizeof(Oid) + sizeof(oidvector)));
+          entry->variant_opc_hash->ndim = 1;
+          entry->variant_opc_hash->dataoffset = 0; /* never any nulls */
+          entry->variant_opc_hash->elemtype = OIDOID;
+          entry->variant_opc_hash->dim1 = n;
+          entry->variant_opc_hash->lbound1 = 0;
+
+          for (int i = 0; i < n; i++) {
+            entry->variant_type_oids->values[i] = DatumGetObjectId(elems[i]);
+            entry->variant_eq_ops->values[i] =
+                lookup_operator(entry->variant_type_oids->values[i], "=");
+            Oid btree_am_oid = get_am_oid("btree", false);
+            entry->variant_opc_btree->values[i] =
+                GetDefaultOpClass(entry->variant_type_oids->values[i], btree_am_oid);
+            Oid hash_am_oid = get_am_oid("hash", false);
+            entry->variant_opc_hash->values[i] =
+                GetDefaultOpClass(entry->variant_type_oids->values[i], hash_am_oid);
+          }
+
+          matching_entry_found = true;
+          break;
+        }
+      }
+      if (scan->rs_rd->rd_tableam->scan_end) {
+        scan->rs_rd->rd_tableam->scan_end(scan);
+      }
+      table_close(rel, AccessShareLock);
+      if (!matching_entry_found) {
+        sumtypehash_delete(sumtypehash, sum_type_oid);
+        break;
+      }
+    } else {
+      if (entry->xmin != xmin) {
+        pfree(entry->variant_eq_ops);
+        pfree(entry->variant_type_oids);
+        sumtypehash_delete(sumtypehash, sum_type_oid);
+      } else {
+        matching_entry_found = true;
+      }
+    }
+  }
+  return matching_entry_found ? entry : NULL;
+}
+
 static void get_variant_val(Datum arg, Oid sum_type_oid, Oid *variant, Datum *val,
                             Discriminant *discriminant) {
   HeapTuple sum_type_tup = SearchSysCache1(TYPEOID, ObjectIdGetDatum(sum_type_oid));
@@ -512,40 +713,12 @@ static void get_variant_val(Datum arg, Oid sum_type_oid, Oid *variant, Datum *va
   }
 
   // Find the variant
-  Oid types = get_relname_relid("sum_types", get_namespace_oid("omni_types", false));
-
-  Relation rel = table_open(types, AccessShareLock);
-  TupleDesc tupdesc = RelationGetDescr(rel);
-  TableScanDesc scan = table_beginscan_catalog(rel, 0, NULL);
   *variant = InvalidOid;
-  for (;;) {
-    HeapTuple tup = heap_getnext(scan, ForwardScanDirection);
-    // The end
-    if (tup == NULL)
-      break;
 
-    bool isnull;
-    // Matching type
-    if (sum_type_oid == DatumGetObjectId(heap_getattr(tup, 1, tupdesc, &isnull))) {
-      ArrayType *arr = DatumGetArrayTypeP(heap_getattr(tup, 2, tupdesc, &isnull));
-      Assert(ARR_NDIM(arr) == 1);
-      if (ARR_DIMS(arr)[0] < value->discriminant + 1) {
-        ereport(ERROR, errmsg("invalid discriminant"));
-      }
+  SumTypeCacheEntry *entry = lookup_sumtype_cache(sum_type_oid);
 
-      Datum element = array_get_element(PointerGetDatum(arr), 1, (int[1]){value->discriminant + 1},
-                                        -1, 4, true, TYPALIGN_INT, &isnull);
-      *variant = DatumGetObjectId(element);
-      break;
-    }
-  }
-  if (scan->rs_rd->rd_tableam->scan_end) {
-    scan->rs_rd->rd_tableam->scan_end(scan);
-  }
-  table_close(rel, AccessShareLock);
-
-  if (*variant != InvalidOid) {
-
+  if (entry) {
+    *variant = entry->variant_type_oids->values[value->discriminant];
     HeapTuple type_tup = SearchSysCache1(TYPEOID, ObjectIdGetDatum(*variant));
     Assert(HeapTupleIsValid(type_tup));
     Form_pg_type typtup = (Form_pg_type)GETSTRUCT(type_tup);
@@ -568,6 +741,201 @@ static void get_variant_val(Datum arg, Oid sum_type_oid, Oid *variant, Datum *va
     }
     ReleaseSysCache(type_tup);
   }
+}
+
+enum cmp_operator {
+  OP_EQUAL,
+  OP_NOT_EQUAL,
+  OP_LESS,
+  OP_LESS_EQUAL,
+  OP_GREATER,
+  OP_GREATER_EQUAL,
+  OP_LAST
+};
+static char *operator_names[OP_LAST] = {
+    [OP_EQUAL] = "=",       [OP_NOT_EQUAL] = "<>", [OP_LESS] = "<",
+    [OP_LESS_EQUAL] = "<=", [OP_GREATER] = ">",    [OP_GREATER_EQUAL] = ">=",
+};
+
+static bool sum_binary_op(Oid type, enum cmp_operator op, Datum arg1, Datum arg2, Oid collation) {
+  Oid variant1, variant2;
+  Datum val1, val2;
+  Discriminant discriminant1;
+  Discriminant discriminant2;
+  get_variant_val(arg1, type, &variant1, &val1, &discriminant1);
+  get_variant_val(arg2, type, &variant2, &val2, &discriminant2);
+
+  // Compare the type first
+  if (variant1 != variant2) {
+    if (op == OP_EQUAL) {
+      return false;
+    }
+    if (op == OP_LESS) {
+      return discriminant1 < discriminant2;
+    }
+    if (op == OP_LESS_EQUAL) {
+      return discriminant1 <= discriminant2;
+    }
+    if (op == OP_GREATER) {
+      return discriminant1 >= discriminant2;
+    }
+    if (op == OP_GREATER_EQUAL) {
+      return discriminant1 >= discriminant2;
+    }
+  }
+
+  Oid op_oid = InvalidOid;
+
+  if (op == OP_EQUAL) {
+    SumTypeCacheEntry *entry = sumtypehash_lookup(sumtypehash, type);
+    if (entry != NULL) {
+      op_oid = entry->variant_eq_ops->values[discriminant1];
+    }
+  } else {
+    op_oid = lookup_operator(variant1, operator_names[op]);
+  }
+
+  if (!OidIsValid(op_oid)) {
+    ereport(ERROR, (errmsg("operator %s does not exist", operator_names[op])));
+  }
+
+  RegProcedure eq_func_oid = get_opcode(op_oid);
+  if (!OidIsValid(eq_func_oid))
+    ereport(ERROR,
+            (errmsg("operator %s does not have a valid underlying function", operator_names[op])));
+
+  FmgrInfo eq_fmgr;
+  fmgr_info(eq_func_oid, &eq_fmgr);
+
+  Datum result = FunctionCall2Coll(&eq_fmgr, collation, val1, val2);
+  return DatumGetBool(result);
+}
+
+static bool sum_equal(Oid type, Datum arg1, Datum arg2, Oid collation) {
+  return sum_binary_op(type, OP_EQUAL, arg1, arg2, collation);
+}
+
+static Datum sum_compare(Oid type, Datum arg1, Datum arg2, Oid collation) {
+  Oid variant1, variant2;
+  Datum val1, val2;
+  Discriminant discriminant1, discriminant2;
+  get_variant_val(arg1, type, &variant1, &val1, &discriminant1);
+  get_variant_val(arg2, type, &variant2, &val2, &discriminant2);
+
+  // Compare the type first
+  if (variant1 != variant2) {
+    PG_RETURN_INT32(discriminant1 < discriminant2 ? -1 : 1);
+  }
+
+  Oid opclass = InvalidOid;
+  SumTypeCacheEntry *entry = sumtypehash_lookup(sumtypehash, type);
+  if (entry != NULL) {
+    opclass = entry->variant_opc_btree->values[discriminant1];
+  } else {
+    Oid btree_am_oid = get_am_oid("btree", false);
+    opclass = GetDefaultOpClass(variant1, btree_am_oid);
+  }
+
+  if (!OidIsValid(opclass))
+    ereport(ERROR, errmsg("No default btree opclass for type %u", variant1));
+
+  // For btree opclasses, support function number 1 is the cmp function.
+  Oid operand = (get_typtype(variant1) == TYPTYPE_COMPOSITE) ? RECORDOID : variant1;
+  Oid cmp_proc_oid = get_opfamily_proc(get_opclass_family(opclass), operand, operand, 1);
+
+  if (!OidIsValid(cmp_proc_oid))
+    ereport(ERROR, errmsg("No cmp function found in opclass %u for type %u", opclass, variant1));
+  return OidFunctionCall2Coll(cmp_proc_oid, collation, val1, val2);
+}
+
+Datum sum_eq(PG_FUNCTION_ARGS) {
+  Oid type = get_fn_expr_argtype_reliable(fcinfo->flinfo, 0);
+
+  Datum arg1 = PG_GETARG_DATUM(0);
+  Datum arg2 = PG_GETARG_DATUM(1);
+
+  return sum_equal(type, arg1, arg2, PG_GET_COLLATION());
+}
+
+Datum sum_neq(PG_FUNCTION_ARGS) {
+  Oid type = get_fn_expr_argtype_reliable(fcinfo->flinfo, 0);
+
+  Datum arg1 = PG_GETARG_DATUM(0);
+  Datum arg2 = PG_GETARG_DATUM(1);
+
+  return !sum_equal(type, arg1, arg2, PG_GET_COLLATION());
+}
+
+Datum sum_lt(PG_FUNCTION_ARGS) {
+  Oid type = get_fn_expr_argtype_reliable(fcinfo->flinfo, 0);
+
+  Datum arg1 = PG_GETARG_DATUM(0);
+  Datum arg2 = PG_GETARG_DATUM(1);
+  PG_RETURN_BOOL(sum_binary_op(type, OP_LESS, arg1, arg2, PG_GET_COLLATION()));
+}
+
+Datum sum_lte(PG_FUNCTION_ARGS) {
+  Oid type = get_fn_expr_argtype_reliable(fcinfo->flinfo, 0);
+
+  Datum arg1 = PG_GETARG_DATUM(0);
+  Datum arg2 = PG_GETARG_DATUM(1);
+  PG_RETURN_BOOL(sum_binary_op(type, OP_LESS_EQUAL, arg1, arg2, PG_GET_COLLATION()));
+}
+
+Datum sum_gt(PG_FUNCTION_ARGS) {
+  Oid type = get_fn_expr_argtype_reliable(fcinfo->flinfo, 0);
+
+  Datum arg1 = PG_GETARG_DATUM(0);
+  Datum arg2 = PG_GETARG_DATUM(1);
+  PG_RETURN_BOOL(sum_binary_op(type, OP_GREATER, arg1, arg2, PG_GET_COLLATION()));
+}
+
+Datum sum_gte(PG_FUNCTION_ARGS) {
+  Oid type = get_fn_expr_argtype_reliable(fcinfo->flinfo, 0);
+
+  Datum arg1 = PG_GETARG_DATUM(0);
+  Datum arg2 = PG_GETARG_DATUM(1);
+  PG_RETURN_BOOL(sum_binary_op(type, OP_GREATER_EQUAL, arg1, arg2, PG_GET_COLLATION()));
+}
+
+Datum sum_cmp(PG_FUNCTION_ARGS) {
+  Oid type = get_fn_expr_argtype_reliable(fcinfo->flinfo, 0);
+
+  Datum arg1 = PG_GETARG_DATUM(0);
+  Datum arg2 = PG_GETARG_DATUM(1);
+
+  return sum_compare(type, arg1, arg2, PG_GET_COLLATION());
+}
+
+Datum sum_hash(PG_FUNCTION_ARGS) {
+  Oid type = get_fn_expr_argtype_reliable(fcinfo->flinfo, 0);
+
+  Datum arg1 = PG_GETARG_DATUM(0);
+  Oid variant1;
+  Datum val1;
+  Discriminant discriminant;
+  get_variant_val(arg1, type, &variant1, &val1, &discriminant);
+
+  Oid opclass = InvalidOid;
+  SumTypeCacheEntry *entry = sumtypehash_lookup(sumtypehash, type);
+  if (entry != NULL) {
+    opclass = entry->variant_opc_hash->values[discriminant];
+  } else {
+    Oid hash_am_oid = get_am_oid("hash", false);
+    opclass = GetDefaultOpClass(variant1, hash_am_oid);
+  }
+
+  if (!OidIsValid(opclass))
+    ereport(ERROR, errmsg("No default hash opclass for type %u", variant1));
+
+  // For hash opclasses, support function number 1 is the hash function.
+  Oid hash_proc_oid = get_opfamily_proc(get_opclass_family(opclass), variant1, variant1, 1);
+
+  if (!OidIsValid(hash_proc_oid))
+    ereport(ERROR, errmsg("No hash function found in opclass %u for type %u", opclass, variant1));
+
+  int h = DatumGetInt32(OidFunctionCall1Coll(hash_proc_oid, PG_GET_COLLATION(), val1));
+  PG_RETURN_INT32(h ^ (discriminant + 0x9e3779b9 + (h << 6) + (h >> 2)));
 }
 
 Datum sum_type(PG_FUNCTION_ARGS) {
@@ -601,7 +969,10 @@ Datum sum_type(PG_FUNCTION_ARGS) {
   bool varlen = false;
   bool binary_io = true;
 
-  // Figure out sum type size
+  bool can_hash = true;
+  bool can_cmp = true;
+
+  // Figure out sum type size, availability of binary I/O, hashability, etc.
   {
     ArrayIterator it = array_create_iterator(arr, 0, NULL);
 
@@ -642,6 +1013,24 @@ Datum sum_type(PG_FUNCTION_ARGS) {
         binary_io = false;
       }
 
+      {
+        Oid hash_am_oid = get_am_oid("hash", false);
+        Oid opclass = GetDefaultOpClass(DatumGetObjectId(elem), hash_am_oid);
+        // All variants must be hashable to support hashing for the type
+        if (get_typtype(DatumGetObjectId(elem)) == TYPTYPE_COMPOSITE || !OidIsValid(opclass)) {
+          can_hash = false;
+        }
+      }
+
+      {
+        Oid btree_am_oid = get_am_oid("btree", false);
+        Oid opclass = GetDefaultOpClass(DatumGetObjectId(elem), btree_am_oid);
+        // All variants must be hashable to support hashing for the type
+        if (!OidIsValid(opclass)) {
+          can_cmp = false;
+        }
+      }
+
       ReleaseSysCache(type_tuple);
     }
 
@@ -652,17 +1041,6 @@ Datum sum_type(PG_FUNCTION_ARGS) {
 
   // Create shell type first
   ObjectAddress shell = TypeShellMake(NameStr(*name), namespace, GetUserId());
-
-  // Register the type and ensure constraints are checked
-  SPI_connect();
-  SPI_execute_with_args("insert into omni_types.sum_types (typ, variants) values ($1, $2)", 2,
-                        (Oid[2]){REGTYPEOID, REGTYPEARRAYOID},
-                        (Datum[2]){
-                            shell.objectId,
-                            PointerGetDatum(arr),
-                        },
-                        (char[2]){' ', ' '}, false, 0);
-  SPI_finish();
 
   Oid array_oid = AssignTypeArrayOid();
 
@@ -748,6 +1126,165 @@ Datum sum_type(PG_FUNCTION_ARGS) {
 #endif
                  type.objectId, true, InvalidOid, InvalidOid, NULL, NULL, false, TYPALIGN_INT,
                  TYPSTORAGE_EXTENDED, -1, 0, false, DEFAULT_COLLATION_OID);
+
+  // Create hashing function
+  if (can_hash) {
+    char *hash_sum = psprintf("%s_hash", NameStr(*name));
+    ProcedureCreate(hash_sum, namespace, false, false, INT4OID, GetUserId(), ClanguageId,
+                    F_FMGR_C_VALIDATOR, "sum_hash", probin,
+#if PG_MAJORVERSION_NUM > 13
+                    NULL,
+#endif
+                    PROKIND_FUNCTION,
+
+                    false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
+                    buildoidvector((Oid[1]){type.objectId}, 1), PointerGetDatum(NULL),
+                    PointerGetDatum(NULL), PointerGetDatum(NULL), NIL, PointerGetDatum(NULL),
+                    PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
+  }
+
+  // Create comparison operators
+  {
+    char *eq_sum = psprintf("%s_eq", NameStr(*name));
+    ObjectAddress eq_sum_proc =
+        ProcedureCreate(eq_sum, namespace, false, false, BOOLOID, GetUserId(), ClanguageId,
+                        F_FMGR_C_VALIDATOR, "sum_eq", probin,
+#if PG_MAJORVERSION_NUM > 13
+                        NULL,
+#endif
+                        PROKIND_FUNCTION,
+
+                        false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
+                        buildoidvector((Oid[2]){type.objectId, type.objectId}, 2),
+                        PointerGetDatum(NULL), PointerGetDatum(NULL), PointerGetDatum(NULL), NIL,
+                        PointerGetDatum(NULL), PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
+
+    ObjectAddress eqop =
+        OperatorCreate("=", namespace, type.objectId, type.objectId, eq_sum_proc.objectId,
+                       list_make1(makeString("=")), list_make1(makeString("<>")), InvalidOid,
+                       InvalidOid, can_cmp, can_hash);
+
+    char *neq_sum = psprintf("%s_neq", NameStr(*name));
+    ObjectAddress neq_sum_proc =
+        ProcedureCreate(neq_sum, namespace, false, false, BOOLOID, GetUserId(), ClanguageId,
+                        F_FMGR_C_VALIDATOR, "sum_neq", probin,
+#if PG_MAJORVERSION_NUM > 13
+                        NULL,
+#endif
+                        PROKIND_FUNCTION,
+
+                        false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
+                        buildoidvector((Oid[2]){type.objectId, type.objectId}, 2),
+                        PointerGetDatum(NULL), PointerGetDatum(NULL), PointerGetDatum(NULL), NIL,
+                        PointerGetDatum(NULL), PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
+    ObjectAddress neqop =
+        OperatorCreate("<>", namespace, type.objectId, type.objectId, neq_sum_proc.objectId,
+                       list_make1(makeString("<>")), list_make1(makeString("=")), InvalidOid,
+                       InvalidOid, can_cmp, can_hash);
+
+    // Create comparison function
+    if (can_cmp) {
+      char *cmp_sum = psprintf("%s_cmp", NameStr(*name));
+      ProcedureCreate(cmp_sum, namespace, false, false, INT4OID, GetUserId(), ClanguageId,
+                      F_FMGR_C_VALIDATOR, "sum_cmp", probin,
+#if PG_MAJORVERSION_NUM > 13
+                      NULL,
+#endif
+                      PROKIND_FUNCTION,
+
+                      false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
+                      buildoidvector((Oid[2]){type.objectId, type.objectId}, 2),
+                      PointerGetDatum(NULL), PointerGetDatum(NULL), PointerGetDatum(NULL), NIL,
+                      PointerGetDatum(NULL), PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
+
+      char *lt_sum = psprintf("%s_lt", NameStr(*name));
+      ObjectAddress lt_proc =
+          ProcedureCreate(lt_sum, namespace, false, false, BOOLOID, GetUserId(), ClanguageId,
+                          F_FMGR_C_VALIDATOR, "sum_lt", probin,
+#if PG_MAJORVERSION_NUM > 13
+                          NULL,
+#endif
+                          PROKIND_FUNCTION,
+
+                          false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
+                          buildoidvector((Oid[2]){type.objectId, type.objectId}, 2),
+                          PointerGetDatum(NULL), PointerGetDatum(NULL), PointerGetDatum(NULL), NIL,
+                          PointerGetDatum(NULL), PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
+
+      ObjectAddress ltop =
+          OperatorCreate("<", namespace, type.objectId, type.objectId, lt_proc.objectId,
+                         list_make1(makeString(">")), list_make1(makeString(">=")), InvalidOid,
+                         InvalidOid, can_cmp, can_hash);
+
+      char *lte_sum = psprintf("%s_lte", NameStr(*name));
+      ObjectAddress lte_proc =
+          ProcedureCreate(lte_sum, namespace, false, false, BOOLOID, GetUserId(), ClanguageId,
+                          F_FMGR_C_VALIDATOR, "sum_lte", probin,
+#if PG_MAJORVERSION_NUM > 13
+                          NULL,
+#endif
+                          PROKIND_FUNCTION,
+
+                          false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
+                          buildoidvector((Oid[2]){type.objectId, type.objectId}, 2),
+                          PointerGetDatum(NULL), PointerGetDatum(NULL), PointerGetDatum(NULL), NIL,
+                          PointerGetDatum(NULL), PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
+
+      ObjectAddress lteop =
+          OperatorCreate("<=", namespace, type.objectId, type.objectId, lte_proc.objectId,
+                         list_make1(makeString(">=")), list_make1(makeString(">")), InvalidOid,
+                         InvalidOid, can_cmp, can_hash);
+
+      char *gt_sum = psprintf("%s_gt", NameStr(*name));
+      ObjectAddress gt_proc =
+          ProcedureCreate(gt_sum, namespace, false, false, BOOLOID, GetUserId(), ClanguageId,
+                          F_FMGR_C_VALIDATOR, "sum_gt", probin,
+#if PG_MAJORVERSION_NUM > 13
+                          NULL,
+#endif
+                          PROKIND_FUNCTION,
+
+                          false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
+                          buildoidvector((Oid[2]){type.objectId, type.objectId}, 2),
+                          PointerGetDatum(NULL), PointerGetDatum(NULL), PointerGetDatum(NULL), NIL,
+                          PointerGetDatum(NULL), PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
+
+      ObjectAddress gtop =
+          OperatorCreate(">", namespace, type.objectId, type.objectId, gt_proc.objectId,
+                         list_make1(makeString("<")), list_make1(makeString("<=")), InvalidOid,
+                         InvalidOid, can_cmp, can_hash);
+
+      char *gte_sum = psprintf("%s_gte", NameStr(*name));
+      ObjectAddress gte_proc =
+          ProcedureCreate(gte_sum, namespace, false, false, BOOLOID, GetUserId(), ClanguageId,
+                          F_FMGR_C_VALIDATOR, "sum_gte", probin,
+#if PG_MAJORVERSION_NUM > 13
+                          NULL,
+#endif
+                          PROKIND_FUNCTION,
+
+                          false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
+                          buildoidvector((Oid[2]){type.objectId, type.objectId}, 2),
+                          PointerGetDatum(NULL), PointerGetDatum(NULL), PointerGetDatum(NULL), NIL,
+                          PointerGetDatum(NULL), PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
+
+      ObjectAddress gteop =
+          OperatorCreate(">=", namespace, type.objectId, type.objectId, gte_proc.objectId,
+                         list_make1(makeString("<=")), list_make1(makeString("<")), InvalidOid,
+                         InvalidOid, can_cmp, can_hash);
+    }
+  }
+
+  // Register the type and ensure constraints are checked
+  SPI_connect();
+  SPI_execute_with_args("insert into omni_types.sum_types (typ, variants) values ($1, $2)", 2,
+                        (Oid[2]){REGTYPEOID, REGTYPEARRAYOID},
+                        (Datum[2]){
+                            shell.objectId,
+                            PointerGetDatum(arr),
+                        },
+                        (char[2]){' ', ' '}, false, 0);
+  SPI_finish();
 
   // Create casts
   {

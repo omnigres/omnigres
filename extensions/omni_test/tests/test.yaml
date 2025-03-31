@@ -36,3 +36,71 @@ tests:
     - name: public.test_fun
       description: Test function
       error_message: null
+    - name: public.tx_iso
+      description: Transaction isolation level setting
+      error_message: null
+  - query: |
+     select case when subject = '' || pg_backend_pid() then 'backend' else 'run_id' end as subject, 
+       type,
+     convert_from(data, 'utf8')::jsonb - '{id,start_time,end_time}'::text[] as data
+     from omni_cloudevents.cloudevents_egress
+    results:
+    - subject: backend
+      type: org.omnigres.omni_test.run.v1
+      data:
+       database: db1
+    - subject: run_id
+      type: org.omnigres.omni_test.test.v1
+      data:
+        name: public.err
+        description: Error test
+    - subject: run_id
+      type: org.omnigres.omni_test.test.failed.v1
+      data:
+        name: public.err
+        error: failed test
+        description: Error test
+    - subject: run_id
+      type: org.omnigres.omni_test.test.v1
+      data:
+        name: public.test1
+        description: Test 1
+    - subject: run_id
+      type: org.omnigres.omni_test.test.passed.v1
+      data:
+        name: public.test1
+        description: Test 1
+    - subject: run_id
+      type: org.omnigres.omni_test.test.v1
+      data:
+        name: public.test2
+        description: Test 2
+    - subject: run_id
+      type: org.omnigres.omni_test.test.passed.v1
+      data:
+        name: public.test2
+        description: Test 2
+    - subject: run_id
+      type: org.omnigres.omni_test.test.v1
+      data:
+        name: public.test_fun
+        description: Test function
+    - subject: run_id
+      type: org.omnigres.omni_test.test.passed.v1
+      data:
+        name: public.test_fun
+        description: Test function
+    - subject: run_id
+      type: org.omnigres.omni_test.test.v1
+      data:
+        name: public.tx_iso
+        description: Transaction isolation level setting
+    - subject: run_id
+      type: org.omnigres.omni_test.test.passed.v1
+      data:
+        name: public.tx_iso
+        description: Transaction isolation level setting
+    - subject: backend
+      type: org.omnigres.omni_test.run.end.v1
+      data:
+        database: db1

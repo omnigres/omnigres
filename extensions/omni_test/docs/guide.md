@@ -30,11 +30,68 @@ update pg_database set datistemplate = true where datname = 'myapp_test';
                                    omni_vfs.local_fs('/path/to/tests'))
     ```
 
+## Writing tests
+
+Tests are found by signature, they can be either **functions** or **procedures**. 
+
+Functions must follow this signature:
+
+```postgresql
+create function my_test() returns omni_test.test -- ...
+```
+
+!!! question "What's `omni_test.test` type?"
+
+    At this time, `omni_test.test` is am empty composite type and its value is ignored. It is simply
+    used for finding tests. **This may change in the future**.
+
+
+Procedures must follow this signature:
+
+```postgresql
+create procedure my_test(inout omni_test.test) -- ..
+```
+
+??? question "When to use procedures instead of functions?"
+
+    Procedures are to be used if the test is to be **non-atomic**, that is, if it uses
+    `commit` or `rollback`.
+
+### Settings
+
+Test functions and procedures have optionally supplied settings, that can be set using `create procedure ... set param = value`
+(or `alter ... set param value`):
+
+|                       **Setting** | **Description**                                                                                                                          |
+|----------------------------------:|------------------------------------------------------------------------------------------------------------------------------------------|
+| `omni_test.transaction_isolation` | Transaction isolation level, follows [`transaction_isolation` setting](https://www.postgresql.org/docs/current/sql-set-transaction.html) |
+
+Example:
+
+```postgresql
+create procedure tx_iso(inout test omni_test.test)
+    set omni_test.transaction_isolation = serializable
+    language plpgsql
+as
+$$
+begin
+    if current_setting('transaction_isolation') != 'serializable' then
+        raise exception 'transaction isolation level was not set';
+    end if;
+end;
+$$;
+```
+
+## Running tests
+
 To run tests, simply pass the name of the database to the `run_tests` function:
 
 ```postgresql
 select * from omni_test.run_tests('myapp_test')
 ```
+
+Every test function and procedure is going to be executed in a fresh copy of the
+`myapp_test` "template" database.
 
 The results will conform to this structure:
 

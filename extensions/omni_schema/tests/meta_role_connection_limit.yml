@@ -1,0 +1,14 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_schema cascade
+
+tests:
+
+- name: created role shows up with expected values
+  steps:
+    - query: create role test_connection_limit connection limit 1;
+    - query: select id, connection_limit from omni_schema.role_connection_limit where id = omni_schema.role_id('test_connection_limit');
+      results:
+      - id: (test_connection_limit)
+        connection_limit: 1

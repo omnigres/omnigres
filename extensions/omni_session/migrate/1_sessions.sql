@@ -1,4 +1,4 @@
-select identity_type('session_id', type => 'uuid', nextval => 'uuidv7');
+select identity_type('session_id', type => 'uuid', nextval => 'uuidv7()');
 
 create unlogged table sessions
 (

@@ -1,0 +1,28 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_web
+
+tests:
+
+  - name: smoke test
+    query: select *
+           from
+               omni_web.match('/:resource/:action', '/product/edit')
+           order by
+               name
+    results:
+      - name: action
+        component: pathname
+        value: edit
+      - name: resource
+        component: pathname
+        value: product
+
+  - name: smoke test with baseURL
+    query: select *
+           from
+               omni_web.match('/:resource/:action', 'https://example.com/product/edit', baseURL => 'https://foo.bar')
+           order by
+               name
+    results: []

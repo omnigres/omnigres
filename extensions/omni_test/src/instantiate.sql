@@ -69,6 +69,7 @@ begin
         self_conn      text := 'dbname=' || current_database() || host;
         template_conn  text := 'dbname=' || db || host;
         rec            record;
+        run_id         text := gen_random_uuid()::text;
         -- TODO: temporary workaround until we have omni_service fully integrated
         has_omni_httpd bool;
     begin
@@ -100,6 +101,17 @@ begin
 
         begin
 
+            perform omni_cloudevents.publish(omni_cloudevents.cloudevent(
+                    id => gen_random_uuid(),
+                    source =>
+                        'psql://' || (select system_identifier from pg_control_system()) || '/' ||
+                        db,
+                    subject => '' || pg_backend_pid(),
+                    type => 'org.omnigres.omni_test.run.v1',
+                    data => jsonb_build_object('database', db,
+                                               'id', run_id)
+                                             ));
+
             -- Find qualifying tests
             for rec in
                 select *
@@ -110,7 +122,8 @@ begin
                                pg_proc.prokind,
                                pg_proc.proname,
                                ns.nspname,
-                               d.description
+                               d.description,
+                               pg_proc.proconfig
                            from
                                pg_proc
                                    inner join pg_namespace ns on ns.oid = pg_proc.pronamespace
@@ -120,7 +133,8 @@ begin
                                    and prokind = 'p') or
                                (cardinality(proargtypes) = 0 and
                                    prorettype = 'omni_test.test'::regtype)
-                           $sql$) t(prokind "char", proname name, nspname name, description text)
+                           $sql$) t(prokind "char", proname name, nspname name, description text, proconfig text[])
+                order by proname
                 loop
                     -- Clone the database
                     perform dblink(self_conn, format('create database %I template %I', test_run, db));
@@ -132,24 +146,67 @@ begin
 
                     -- Run the test
                     test_report.start_time := clock_timestamp();
+                    perform omni_cloudevents.publish(omni_cloudevents.cloudevent(
+                            id => gen_random_uuid(),
+                            source =>
+                                'psql://' || (select system_identifier from pg_control_system()) || '/' ||
+                                current_database(),
+                            subject => run_id,
+                            type => 'org.omnigres.omni_test.test.v1',
+                            data => jsonb_build_object('name', test_report.name,
+                                                       'description', test_report.description,
+                                                       'start_time', test_report.start_time)
+                                                     ));
+                    declare
+                        preamble text := '';
+                        cfg text;
                     begin
+                        foreach cfg in array coalesce(rec.proconfig, '{}'::text[]) loop
+                           case when split_part(cfg,'=', 1) = 'omni_test.transaction_isolation' then
+                               preamble := preamble || format('set transaction isolation level %s;', split_part(cfg,'=',2));
+                           else null;
+                           end case;
+                        end loop;
                         if rec.prokind = 'p' then
                             perform *
                             from
-                                dblink(conn, format('call %I.%I(null)', rec.nspname, rec.proname)) r(result test);
+                                dblink(conn, format('%s call %I.%I(null);', preamble, rec.nspname, rec.proname)) r(result test);
                         else
                             perform *
                             from
-                                dblink(conn, format('select %I.%I()', rec.nspname, rec.proname)) r(result test);
+                                dblink(conn, format('%s select %I.%I()', preamble, rec.nspname, rec.proname)) r(result test);
                         end if;
-                        raise notice 'ok – %', test_report.name;
+                        test_report.end_time := clock_timestamp();
+                        perform omni_cloudevents.publish(omni_cloudevents.cloudevent(
+                                id => gen_random_uuid(),
+                                source =>
+                                    'psql://' || (select system_identifier from pg_control_system()) || '/' ||
+                                    current_database(),
+                                subject => run_id,
+                                type => 'org.omnigres.omni_test.test.passed.v1',
+                                data => jsonb_build_object('name', test_report.name,
+                                                           'description', test_report.description,
+                                                           'start_time', test_report.start_time, 'end_time',
+                                                           test_report.end_time)
+                                                         ));
                     exception
                         when others then
-                            raise notice 'failure – % – %', test_report.name, sqlerrm;
+                            test_report.end_time := clock_timestamp();
                             test_report.error_message = sqlerrm;
+                            perform omni_cloudevents.publish(omni_cloudevents.cloudevent(
+                                    id => gen_random_uuid(),
+                                    source =>
+                                        'psql://' || (select system_identifier from pg_control_system()) || '/' ||
+                                        current_database(),
+                                    subject => run_id,
+                                    type => 'org.omnigres.omni_test.test.failed.v1',
+                                    data => jsonb_build_object('name', test_report.name,
+                                                               'description', test_report.description,
+                                                               'start_time', test_report.start_time, 'end_time',
+                                                               test_report.end_time,
+                                                               'error', test_report.error_message)));
                             null;
                     end;
-                    test_report.end_time := clock_timestamp();
                     return next;
                     test_report.error_message = null;
 
@@ -160,6 +217,17 @@ begin
                     perform dblink_disconnect(conn);
                     perform _omni_test_dropdb_helper(self_conn, test_run);
                 end loop;
+
+            perform omni_cloudevents.publish(omni_cloudevents.cloudevent(
+                    id => gen_random_uuid(),
+                    source =>
+                        'psql://' || (select system_identifier from pg_control_system()) || '/' ||
+                        db,
+                    subject => '' || pg_backend_pid(),
+                    type => 'org.omnigres.omni_test.run.end.v1',
+                    data => jsonb_build_object('database', db,
+                                               'id', run_id)));
+
         exception
             when others then
                 perform from unnest(dblink_get_connections()) t(name) where name = conn;
@@ -171,6 +239,17 @@ begin
                     perform dblink_exec('dbname=' || test_run || host, 'call omni_httpd.stop()');
                 end if;
                 perform _omni_test_dropdb_helper(self_conn, test_run);
+                perform omni_cloudevents.publish(omni_cloudevents.cloudevent(
+                        id => gen_random_uuid(),
+                        source =>
+                            'psql://' || (select system_identifier from pg_control_system()) || '/' ||
+                            db,
+                        subject => '' || pg_backend_pid(),
+                        type => 'org.omnigres.omni_test.run.abort.v1',
+                        data => jsonb_build_object('database', db,
+                                                   'id', run_id,
+                                                   'error', sqlerrm)
+                                                 ));
                 raise;
         end;
         return;

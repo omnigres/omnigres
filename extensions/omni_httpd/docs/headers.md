@@ -17,30 +17,24 @@ The header name these functions take is case-insensitive.
 For instance, having:
 
 ```sql
-create extension omni_httpd cascade;
+create function my_handler(request omni_httpd.http_request)
+  returns omni_httpd.http_outcome
+  return omni_httpd.http_response('Hi there');
 
-update
-omni_httpd.handlers
-set query = $$
-  select *
-  from omni_httpd.http_response(
-    headers => array [omni_http.http_header('Content-Type', 'text/plain')],
-    body => 'Hi there'
-  )
-$$
-where id = 1;
-```
+insert into omni_httpd.urlpattern_router (match, handler)
+values (omni_httpd.urlpattern('/hi'), 'my_handler'::regproc);
+``` 
 
 Will produce the response:
 
 ```bash
-curl localhost:8080 -i
+$ curl localhost:8080/hi -i
 
 HTTP/1.1 200 OK
 Connection: keep-alive
 Content-Length: 8
-Server: omni_httpd-0.1
-Content-Type: text/plain
+Server: omni_httpd-0.4.0
+content-type: text/plain; charset=utf-8
 
 Hi there
 ```

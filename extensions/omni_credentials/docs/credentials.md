@@ -16,10 +16,24 @@
 ## Core Architecture
 
 The central object of interest is the `credentials` view (instantiated into `omni_credentials` schema by default), it
-only contains `name` and `value` columns that represent credential name
-and value.
+contains `name` and `value` columns that represent credential name and value. To help with producing a more unified,
+shareable credential ecosystem, we add few more columns
+
+|      **Name** | Type            | Description                                                                                                                                                                                                                   |
+|--------------:|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+|      **name** | text            | An identifier for the credential.                                                                                                                                                                                             |
+|     **value** | bytea           | Credential data (such as an API key, password, or token)                                                                                                                                                                      |
+|      **kind** | credential_kind | An enumerated type that categorizes the credential. Common values might include `api_key`, `api_secret`, `password`, etc., with a default of `credential` for generic cases.                                                  |
+| **principal** | regrole         | Specifies the authenticated entity (the principal) for whom the credential is intended. Uses Postgres rolese, defaulting to the current user, ensuring the credential is tied to an identity.                                 |
+|     **scope** | jsonb           | A JSON object defining the domain or resource constraints where the credential is valid. For example, `{ "all": true }` (default) indicates a wildcard scope, while more structured scopes can specify domains or conditions. |
 
 You can simply query and update it as you see fit. Behind the scene, it will propage changes as necessary.
+
+## Encryption & Access Control
+
+The `credentials` view is based on the `encrypted_credentials` view that has `value` encrypted and is a
+Row-Level Security-enabled relation. The default policy on it requires current user to have a grant for the
+role of `principal` (`encrypted_credentials_principal` policy). Additional policies can be provisioned.
 
 ## Credential Encryption
 

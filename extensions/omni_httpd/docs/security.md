@@ -12,18 +12,6 @@
     significantly decreases performance). Please consider
     [contributing](https://github.com/omnigres/omnigres/pulls).
     
-
-
-## Handler Queries
-
-The security model behind handler query execution relies on the
-`role_name` column in the `handlers` table. It can be set only
-to the role that is "accessible" to the current user (meaning either
-it is the same role or the current user can set this role given its
-permissions.)
-
-Each request will be executed with this role as a _security
-restricted mode that disallows `SET ROLE`_ (`SECURITY_LOCAL_USERID_CHANGE`)[^unless-superuser],
-prevent the code to elevate its privileges.
-
-[^unless-superuser]: unless this role is a superuser itself
+`omni_httpd` relies on Postgres security primitives. In order to enforce a role on
+a handler, it must be made `security definer` and has to be owned by the role it is
+intended to be running under.

@@ -675,3 +675,203 @@ tests:
     results:
     - typname: sum_type
       variants: '{ok,result}'
+
+- name: implicit casting into sum type
+  steps:
+  - select omni_types.sum_type('typ', 'int','text')
+  - create table tab (v typ)
+  - name: casting from variant
+    query: insert into tab values (1)
+
+- name: assignment casting from sum type
+  steps:
+  - select omni_types.sum_type('typ', 'int','text')
+  - create table tab (v int)
+  - name: casting into variant
+    query: insert into tab values (1::typ)
+
+- name: implicit casting from sum type
+  # Should not work
+  steps:
+  - select omni_types.sum_type('typ', 'int','text')
+  - create function test(int) returns int language sql as $$select $1 $$
+  - query: select test(1::typ)
+    error: function test(typ) does not exist
+
+- name: sum type equality
+  steps:
+    - select omni_types.sum_type('typ', 'int','text')
+    - query: select 1::typ = 1::typ as result
+      results:
+      - result: true
+    - query: select 1::typ != 2::typ as result
+      results:
+      - result: true
+    - query: select 1::typ = 2::typ as result
+      results:
+        - result: false
+    - query: select 1::typ = 'text'::text::typ as result
+      results:
+        - result: false
+    - query: select 'a'::text::typ = 'b'::text::typ as result
+      results:
+        - result: false
+
+- name: composite variant sum type equality
+  steps:
+    - create type comp as (a int)
+    - select omni_types.sum_type('typ', 'int','comp')
+    - query: select row(1)::comp::typ = row(1)::comp::typ as result
+      results:
+      - result: true
+    - query: select row (1)::comp::typ = row (2)::comp::typ as result
+      results:
+        - result: false
+
+- name: composite variant sum type equality without search path
+  steps:
+    - create schema test
+    - create type test.comp as (a int)
+    - select omni_types.sum_type('typ', 'int','test.comp')
+    - query: select row(1)::test.comp::typ = row(1)::test.comp::typ as result
+      results:
+      - result: true
+    - query: select row (1)::test.comp::typ = row (2)::test.comp::typ as result
+      results:
+        - result: false
+
+- name: hash
+  steps:
+    - select omni_types.sum_type('typ', 'int', 'text')
+    - query: select typ_hash('hello'::text::typ) = typ_hash('hello'::text::typ) as equal
+      results:
+      - equal: true
+    - query: select typ_hash('hello'::text::typ) = typ_hash('goodbye'::text::typ) as equal
+      results:
+      - equal: false
+    - query: select hashtext('hello'::text) = typ_hash('hello'::text::typ) as equal
+      results:
+      - equal: false
+
+- name: we will need dblink now
+  transaction: false
+  query: create extension dblink
+
+- name: hash index
+  transaction: false
+  tests:
+  - select omni_types.sum_type('typ', 'int','text')
+  - |
+    create table test
+    (
+        val typ
+    )
+  - create index test_val on test using hash (val)
+  - query: |
+       select result->0->'Plan'->>'Node Type' as type from 
+         dblink('host=127.0.0.1 dbname=yregress user=yregress port=' || current_setting('port'),
+                'explain (format json, costs off) select * from test natural join test t1') t(result json)
+    results:
+    - type: Hash Join
+  - insert into test values (1), ('2'::text)
+  - query: select test.* from test natural join test t1 order by val
+    results:
+      - val: integer(1)
+      - val: text(2)
+  - drop type typ cascade
+  - drop operator family typ_hash_ops using hash cascade
+  - drop operator family typ_btree_ops using btree cascade
+  - drop table test
+
+- name: no hash indexing for composite types
+  steps:
+  - create type comp as (a int)
+  - select omni_types.sum_type('typ', 'int','comp')
+  - |
+    create table test
+    (
+        val typ
+    )
+  - query: create index test_val on test using hash (val)
+    error: data type typ has no default operator class for access method "hash"
+
+- name: comparison
+  steps:
+  - select omni_types.sum_type('typ', 'int','text')
+  - query: select 1::typ < 2::typ as result
+    results:
+    - result: true
+  - query: select 1::typ <= 2::typ as result
+    results:
+    - result: true
+  - query: select 1::typ <= 1::typ as result
+    results:
+    - result: true
+  - query: select 2::typ > 1::typ as result
+    results:
+    - result: true
+  - query: select 2::typ >= 1::typ as result
+    results:
+    - result: true
+  - query: select 2::typ >= 2::typ as result
+    results:
+    - result: true
+  # Use canonical ordering
+  - query: select 2::typ < '1'::text::typ as result
+    results:
+      - result: true
+  # Check the cmp function
+  - query: select typ_cmp(2::typ, '1'::text::typ) as result
+    results:
+    - result: -1
+
+- name: btree index
+  transaction: false
+  tests:
+  - select omni_types.sum_type('typ', 'int','text')
+  - |
+    create table test
+    (
+        val typ
+    )
+  - create index test_val on test using btree (val)
+  - query: |
+       select result->0->'Plan'->>'Node Type' as type from 
+         dblink('host=127.0.0.1 dbname=yregress user=yregress port=' || current_setting('port'),
+                'set local enable_hashjoin = off; explain (format json, costs off) select * from test natural join test t1') t(result json)
+    results:
+    - type: Merge Join
+  - insert into test values (1), ('2'::text)
+  - query: select test.* from test natural join test t1 order by val
+    results:
+      - val: integer(1)
+      - val: text(2)
+  - drop type typ cascade
+  - drop operator family typ_btree_ops using btree cascade
+  - drop table test
+
+- name: btree index for composite types
+  transaction: false
+  tests:
+  - create type comp as (a int)
+  - select omni_types.sum_type('typ', 'int','comp')
+  - |
+    create table test
+    (
+        val typ
+    )
+  - create index test_val on test using btree (val)
+  - query: |
+       select result->0->'Plan'->>'Node Type' as type from 
+         dblink('host=127.0.0.1 dbname=yregress user=yregress port=' || current_setting('port'),
+                'set local enable_hashjoin = off; explain (format json, costs off) select * from test natural join test t1') t(result json)
+    results:
+    - type: Merge Join
+  - insert into test values (1), (row(0)::comp)
+  - query: select test.* from test natural join test t1 order by val
+    results:
+      - val: integer(1)
+      - val: comp((0))
+  - drop type typ cascade
+  - drop operator family typ_btree_ops using btree cascade
+  - drop table test

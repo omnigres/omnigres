@@ -1,0 +1,110 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_vfs cascade
+  - create extension omni_os cascade
+  - create extension omni_var cascade
+
+tests:
+
+- name: can create a local filesystem
+  query: |
+    select omni_var.set_session('fs', omni_vfs.remote_fs('dbname=yregress user=yregress host=127.0.0.1 port = ' || current_setting('port'),
+    $$omni_vfs.local_fs('../../../../extensions/omni_vfs/tests')$$))
+
+- name: can list files in a directory
+  query: |
+    select * from omni_vfs.list(omni_var.get_session('fs', null::omni_vfs.remote_fs), '')
+    order by name
+  results:
+  - name: deleted.yml
+    kind: file
+  - name: empty
+    kind: dir
+  - name: local_fs.yml
+    kind: file
+  - name: path_functions.yml
+    kind: file
+  - name: remote_fs.yml
+    kind: file
+  - name: table_fs.yml
+    kind: file
+
+- name: can list a file
+  query: select * from omni_vfs.list(omni_var.get_session('fs', null::omni_vfs.remote_fs), 'remote_fs.yml')
+  results:
+  - kind: file
+    name: remote_fs.yml
+
+- name: list skips a non-existent file
+  query: select * from omni_vfs.list(omni_var.get_session('fs', null::omni_vfs.remote_fs), 'local_fs_does_not_exist.yml')
+  results: [ ]
+
+- name: recursively list
+  query: |
+    select * from omni_vfs.list_recursively(omni_var.get_session('fs', null::omni_vfs.remote_fs), '.')
+    order by name
+  results:
+  - name: deleted.yml
+    kind: file
+  - name: empty
+    kind: dir
+  - name: empty/.keepme
+    kind: file
+  - name: local_fs.yml
+    kind: file
+  - name: path_functions.yml
+    kind: file
+  - name: remote_fs.yml
+    kind: file
+  - name: table_fs.yml
+    kind: file
+
+- name: recursive listing respects path
+  query: |
+    select * from omni_vfs.list_recursively(omni_var.get_session('fs', null::omni_vfs.remote_fs), 'empty')
+    order by name
+  results:
+  - name: .keepme
+    kind: file
+
+- name: can get file info
+  query: select size > 0 as non_zero, kind from omni_vfs.file_info(omni_var.get_session('fs', null::omni_vfs.remote_fs), 'remote_fs.yml')
+  results:
+  - non_zero: true
+    kind: file
+
+- name: can read file
+  query: select length(convert_from(omni_vfs.read(omni_var.get_session('fs', null::omni_vfs.remote_fs), 'remote_fs.yml'), 'utf8')) > 0 as result
+  results:
+  - result: true
+
+- name: creating a file in a remote filesystem
+  query: |
+    with filesystems as (select 'omni_vfs_local_fs_test_' || gen_random_uuid() || '/test'                    as filename,
+                                omni_vfs.remote_fs('dbname=yregress user=yregress host=127.0.0.1 port = ' || current_setting('port'),
+                                $$omni_vfs.local_fs((select value from omni_os.env where variable = 'TMPDIR'))$$) as fs),
+         written as (select fs, filename, omni_vfs.write(fs, filename, 'hello world', create_file => true) as bytes
+                     from filesystems)
+    select convert_from(omni_vfs.read(fs, filename), 'utf-8') as content,
+           bytes = octet_length('hello world')                as fully_written
+    from written
+  results:
+  - content: hello world
+    fully_written: true
+
+- name: appending a file in a remote filesystem
+  query: |
+    with filesystems as (select 'omni_vfs_local_fs_test_' || gen_random_uuid() || '/test'                    as filename,
+                                omni_vfs.remote_fs('dbname=yregress user=yregress host=127.0.0.1 port = ' || current_setting('port'),
+                                                   $$omni_vfs.local_fs((select value from omni_os.env where variable = 'TMPDIR'))$$) as fs),
+         written as (select fs, filename, omni_vfs.write(fs, filename, 'hello world', create_file => true) as bytes
+                     from filesystems),
+         appended as (select fs, filename, omni_vfs.write(fs, filename, '!', append => true) + bytes as bytes
+                      from written)
+    select convert_from(omni_vfs.read(fs, filename), 'utf-8') as content,
+           bytes = octet_length('hello world!')               as fully_written
+    from appended
+  results:
+  - content: hello world!
+    fully_written: true

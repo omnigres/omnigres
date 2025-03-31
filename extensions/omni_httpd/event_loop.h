@@ -182,9 +182,22 @@ void h2o_queue_upgrade_to_websocket(request_message_t *msg);
 void event_loop_register_receiver();
 
 /**
- * Prepares a UNIX domain socket for WebSocket producer/consumer
+ * Sets addr->sun_path to a temporary socket path for the given uuid.
+ *
+ * This may subtly modify the given uuid.
+ *
+ * Returns 0 on success or -EINVAL if the socket path is too long.
  */
-int websocket_unix_domain_socket(websocket_uuid_t *uuid, struct sockaddr_un *server_addr,
-                                 bool producer);
+int websocket_unix_socket_path(struct sockaddr_un *addr, websocket_uuid_t *uuid);
+
+/**
+ * unlink(2) the temporary socket path for the given uuid.
+ *
+ * This may subtly modify the given uuid.
+ *
+ * Returns 0 on success or -EINVAL if the socket path is too long or -1 and
+ * sets errno if unlink fails.
+ */
+int unlink_websocket_unix_socket(websocket_uuid_t *uuid);
 
 #endif // OMNI_HTTPD_EVENT_LOOP_H

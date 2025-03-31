@@ -4,7 +4,7 @@ $$
         _p regproc;
     begin
         begin
-            _p := 'uuidv4'::regproc;
+            _p := 'uuidv4()'::regprocedure;
             -- Don't create if it is already defined
         exception
             when others then
@@ -13,7 +13,7 @@ $$
                 'gen_random_uuid';
         end;
         begin
-            _p := 'uuidv7'::regproc;
+            _p := 'uuidv7()'::regprocedure;
             -- Don't create if it is already defined
         exception
             when others then

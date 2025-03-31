@@ -10,37 +10,26 @@ instance:
   - create extension omni_httpc cascade
   - create extension omni_vfs cascade
   - create extension omni_mimetypes
+  - select omni_httpd.instantiate_static_file_handler(schema => current_schema)
   - |
-    create function mount_point() returns omni_vfs.local_fs language sql
-    as
-    $$
-    select omni_vfs.local_fs('../../../../extensions/omni_httpd/tests/static')
-    $$
-  - name: provision the server
-    query: |
-      update omni_httpd.handlers
-        set
-        query = (select
-                   omni_httpd.cascading_query(name, query order by priority desc nulls last)
-                 from (select * from omni_httpd.static_file_handlers('mount_point', 0, listing => true)
-                       union (values
-                      ('test',
-                       $$ select omni_httpd.http_response('passed') from request where request.path = '/test'$$, 1))) routes)
-
+    create table static_file_router
+    (
+        like omni_httpd.urlpattern_router,
+        fs omni_vfs.local_fs,
+        path text,
+        listing  boolean,
+        priority omni_httpd.route_priority default 0
+    )
+  - |
+     create function static_handler(req omni_httpd.http_request, r static_file_router) 
+         returns omni_httpd.http_outcome return static_file_handler(req, r.fs, path => r.path, listing => r.listing)
+  - insert into static_file_router (match, handler, fs, path, listing)
+    values (omni_httpd.urlpattern('/*?'), 'static_handler'::regproc,
+            omni_vfs.local_fs('../../../../extensions/omni_httpd/tests/static'), null, true)
+  - insert into static_file_router (match, handler, fs, path, listing, priority)
+    values (omni_httpd.urlpattern('/override/*'), 'static_handler'::regproc,
+            omni_vfs.local_fs('../../../../extensions/omni_httpd/tests/static'), '/test.json', true, 1)
 tests:
-
-- name: handle API endpoint
-  query: |
-    with response as (select * from omni_httpc.http_execute(
-           omni_httpc.http_request('http://127.0.0.1:' ||
-                                   (select effective_port from omni_httpd.listeners) || '/test')))
-    select
-      response.status,
-      convert_from(response.body, 'utf-8') as body
-      from response
-  results:
-  - status: 200
-    body: passed
 
 - name: handle file
   query: |
@@ -58,6 +47,37 @@ tests:
       - content-type: application/json
     body:
       test: passed
+
+- name: handle file path overriding
+  query: |
+    with response as (select *
+                      from omni_httpc.http_execute(
+                              omni_httpc.http_request('http://127.0.0.1:' ||
+                                                      (select effective_port from omni_httpd.listeners) ||
+                                                      '/override/test')))
+    select (select json_agg(json_build_object(h.name, h.value))
+            from unnest(response.headers) h
+            where h.name = 'content-type')            as headers,
+           response.status,
+           convert_from(response.body, 'utf-8')::json as body
+    from response
+  results:
+  - status: 200
+    headers:
+    - content-type: application/json
+    body:
+      test: passed
+
+- name: handle file not being found
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+           omni_httpc.http_request('http://127.0.0.1:' ||
+                                   (select effective_port from omni_httpd.listeners) || '/notfound.json')))
+    select
+      response.status
+      from response
+  results:
+  - status: 404
 
 - name: handle directory with index.html
   query: |
@@ -90,3 +110,18 @@ tests:
     headers:
     - content-type: text/html
     body: <a href="/files/test.json">test.json</a>
+
+- name: no listing if disabled
+  transaction: false
+  steps:
+    - update static_file_router set listing = false
+    - query: |
+        with response as (select * from omni_httpc.http_execute(
+               omni_httpc.http_request('http://127.0.0.1:' ||
+                                       (select effective_port from omni_httpd.listeners) || '/files')))
+        select
+          response.status
+          from response
+      results:
+      - status: 404
+    - update static_file_router set listing = true

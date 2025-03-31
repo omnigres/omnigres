@@ -1,4 +1,4 @@
-select identity_type('authentication_subject_id', type => 'uuid', nextval => 'uuidv7');
+select identity_type('authentication_subject_id', type => 'uuid', nextval => 'uuidv7()');
 
 create table authentication_subjects
 (

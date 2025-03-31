@@ -1,0 +1,23 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_schema cascade
+    - create schema test
+    - create table test.my_table (i int, a int, check (i > a))
+
+tests:
+
+- name: test
+  steps:
+    - query: select id, relation_id, name from omni_schema.constraint_relation_check where relation_id = omni_schema.relation_id('test', 'my_table') order by name
+      results:
+      - id: "(test,my_table,my_table_check)"
+        relation_id: "(test,my_table)"
+        name: my_table_check
+
+- name: expr
+  steps:
+    - query: select id, expr from omni_schema.constraint_relation_check_expr where id = omni_schema.constraint_id('test', 'my_table', 'my_table_check') order by id
+      results:
+      - id: "(test,my_table,my_table_check)"
+        expr: (i > a)

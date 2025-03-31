@@ -12,12 +12,17 @@ on:
 env:
   CPM_SOURCE_CACHE: ${{ github.workspace }}/cpm_modules
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
 
   build:
+    continue-on-error: ${{ matrix.pgver == 'master' }}
     strategy:
       matrix:
-        pgver: [ 17, 16, 15, 14, 13 ]
+        pgver: [ 17, 16, 15, 14, master ]
         os: [ warp-ubuntu-2204-x64-4x, warp-macos-14-arm64-6x ]
         build_type: [Debug, Release]
         exclude:
@@ -40,6 +45,19 @@ jobs:
     timeout-minutes: 20
 
     steps:
+
+    # Ada URL library requires a relatively modern compiler
+    - name: Prepare GCC 13
+      if: matrix.os == 'warp-ubuntu-2204-x64-4x'
+      run: |
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+        sudo apt-get update
+        sudo apt-get install gcc-13 g++-13
+        sudo apt-get remove gcc-11 gcc-11 libstdc++-11-dev
+        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 20
+        sudo update-alternatives --install /usr/bin/g++ gcc /usr/bin/g++-13 20
+        sudo update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-13 20
+        sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-13 20
 
     - uses: actions/checkout@v3
 
@@ -80,7 +98,7 @@ jobs:
       if: matrix.os == 'warp-macos-14-arm64-6x'
       run: TMPDIR=$RUNNER_TEMP USER=$(whoami) ctest --timeout 1000 --force-new-ctest-process  --repeat until-pass:10 --output-on-failure -j $(nproc) -C ${{matrix.build_type}} -E '(minio|containers)'
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       if: failure()
       with:
         name: ${{ matrix.os }}-${{ matrix.pgver }}-regression.diffs
@@ -102,6 +120,18 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+
+    # Ada URL library requires a relatively modern compiler
+    - name: Prepare GCC 13
+      run: |
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+        sudo apt-get update
+        sudo apt-get install gcc-13 g++-13
+        sudo apt-get remove gcc-11 gcc-11 libstdc++-11-dev
+        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 20
+        sudo update-alternatives --install /usr/bin/g++ gcc /usr/bin/g++-13 20
+        sudo update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-13 20
+        sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-13 20
 
     - name: Install necessary dependencies
       run: |
@@ -129,5 +159,18 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
+
+    # Ada URL library requires a relatively modern compiler
+    - name: Prepare GCC 13
+      if: matrix.os == 'warp-ubuntu-2204-x64-4x'
+      run: |
+        sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+        sudo apt-get update
+        sudo apt-get install gcc-13 g++-13
+        sudo apt-get remove gcc-11 gcc-11 libstdc++-11-dev
+        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 20
+        sudo update-alternatives --install /usr/bin/g++ gcc /usr/bin/g++-13 20
+        sudo update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-13 20
+        sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-13 20
 
     - run: ci/build-extensions-separately

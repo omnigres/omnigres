@@ -11,7 +11,7 @@ as
 $$
 declare
     rec                             record;
-    remote_table_fs                 omni_vfs.table_fs;
+    remote_fs                       omni_vfs.remote_fs;
     remote_table_fs_name            text    = 'omni_schema_migration_fs';
     current_filename                text;
     successful_statement_executions int     = 0;
@@ -20,7 +20,7 @@ declare
     try_again                       boolean = false;
 begin
     -- statement execution status
-    create temp table omni_schema_execution_status
+    create temp table if not exists omni_schema_execution_status
     (
         id                       bigserial primary key,
         filepath                 text    not null,
@@ -38,6 +38,7 @@ begin
         -- error for last execution of the statement
         last_execution_error     text
     ) on commit drop;
+    truncate omni_schema_execution_status;
 
     <<top>>
     begin
@@ -60,12 +61,11 @@ begin
                 end if;
             end loop;
 
+        -- Ensure omni_vfs is ready in the target
         perform dblink(remote_table_fs_name, 'create extension if not exists omni_vfs cascade');
-        -- create table_fs in remote database
-        select (f).id
-        from dblink(remote_table_fs_name,
-                    format('select omni_vfs.table_fs(%L)', remote_table_fs_name)) as t(f omni_vfs.table_fs)
-        into remote_table_fs;
+
+        -- Remote table_fs filesystem in the target
+        remote_fs := omni_vfs.remote_fs(conn_info, format('select omni_vfs.table_fs(%L)', remote_table_fs_name));
 
         -- read all files recognised by omni_schema.languages and omni_schema.auxiliary_tools
         for rec in
@@ -87,19 +87,8 @@ begin
               and kind = 'file'
             order by coalesce(auxiliary_tools.priority, languages.priority) desc, name
             loop
-                -- create table_fs entry for the file along with it's data
-                perform dblink(remote_table_fs_name,
-                               format(
-                                       'insert into omni_vfs.table_fs_files(filesystem_id, filename, kind) values (%s, %L, ''file'')',
-                                       remote_table_fs.id, rec.name));
-                perform dblink(remote_table_fs_name,
-                               format(
-                                       'insert into omni_vfs.table_fs_file_data (file_id, data) values
-                                          (
-                                            omni_vfs.table_fs_file_id(omni_vfs.table_fs(%L), %L),
-                                            %L
-                                          )',
-                                       remote_table_fs_name, rec.name, convert_to(rec.code, 'utf-8')));
+                -- write file to the remote filesystem
+                perform omni_vfs.write(remote_fs, rec.name, convert_to(rec.code, 'utf8'), create_file => true);
 
                 if rec.code ~ 'omni_schema\[\[ignore\]\]' then
                     -- Ignore the file
@@ -216,10 +205,9 @@ begin
                                                     -- Can use the file processor
                                                     perform *
                                                     from dblink(rec.filepath, format(
-                                                            'with cte as (select %s(%L::text, filename => %L::text, replace => true, fs => %L::%s)) select true from cte',
+                                                            'with cte as (select %s(%L::text, filename => %L::text, replace => true, fs => omni_vfs.table_fs(%L))) select true from cte',
                                                             rec.file_processor,
-                                                            rec.code, rec.filepath, remote_table_fs::text,
-                                                            pg_typeof(remote_table_fs))) as t(b boolean);
+                                                            rec.code, rec.filepath, remote_table_fs_name)) as t(b boolean);
                                                 end if;
                                             end if;
                                             if rec.code ~ 'SQL\[\[.*\]\]' then
