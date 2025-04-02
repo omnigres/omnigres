@@ -6,6 +6,7 @@ instance:
   init:
   - create extension omni_httpd cascade
   - create extension omni_httpc cascade
+  - insert into omni_httpd.listeners (port) values (8081);
   - call omni_httpd.wait_for_configuration_reloads(2)
   - |
      create table my_router (
@@ -16,6 +17,20 @@ instance:
     as $$
     begin
       outcome := omni_httpd.http_response('ok');
+    end;
+    $$;
+  - |
+    create procedure another_port_handler(request omni_httpd.http_request, out outcome omni_httpd.http_outcome) language plpgsql
+    as $$
+    begin
+      outcome := omni_httpd.http_response('another port');
+    end;
+    $$;
+  - |
+    create procedure another_host_handler(request omni_httpd.http_request, out outcome omni_httpd.http_outcome) language plpgsql
+    as $$
+    begin
+      outcome := omni_httpd.http_response('another host');
     end;
     $$;
   - |
@@ -51,6 +66,8 @@ instance:
   - |
     insert into my_router (match, handler) values
       (omni_httpd.urlpattern('/'), 'root_handler'::regproc),
+      (omni_httpd.urlpattern('/another_port', port => 8081), 'another_port_handler'::regproc),
+      (omni_httpd.urlpattern('/another_host', hostname => 'localhost'), 'another_host_handler'::regproc),
       (omni_httpd.urlpattern('/no_req'), 'no_req_handler'::regproc),
       (omni_httpd.urlpattern('/no_outcome'), 'no_outcome_handler'::regproc),
       (omni_httpd.urlpattern('/function'), 'function_handler'::regproc),
@@ -62,7 +79,7 @@ tests:
   query: |
     with response as (select * from omni_httpc.http_execute(
       omni_httpc.http_request('http://127.0.0.1:' ||
-      (select effective_port from omni_httpd.listeners) || '/')))
+      (select effective_port from omni_httpd.listeners order by id limit 1) || '/')))
     select
     response.status,
     convert_from(response.body, 'utf-8') as body
@@ -71,11 +88,57 @@ tests:
   - status: 200
     body: ok
 
+- name: route on a different port
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+      omni_httpc.http_request('http://127.0.0.1:8081/another_port')))
+    select
+    response.status,
+    convert_from(response.body, 'utf-8') as body
+    from response
+  results:
+  - status: 200
+    body: another port
+
+- name: route on a different host
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+    omni_httpc.http_request('http://localhost:' || (select effective_port from omni_httpd.listeners order by id limit 1) || '/another_host')))
+    select
+    response.status,
+    convert_from(response.body, 'utf-8') as body
+    from response
+  results:
+  - status: 200
+    body: another host
+
+- name: fail to match route on a different port
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+      omni_httpc.http_request('http://127.0.0.1:' || (select effective_port from omni_httpd.listeners order by id limit 1) || '/another_port')))
+    select
+    response.status,
+    convert_from(response.body, 'utf-8') as body
+    from response
+    where convert_from(response.body, 'utf-8') = 'another port'
+  results: []
+
+- name: fail to match route on a different host
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+    omni_httpc.http_request('http://127.0.0.1:' || (select effective_port from omni_httpd.listeners order by id limit 1) || '/another_host')))
+    select
+    response.status,
+    convert_from(response.body, 'utf-8') as body
+    from response
+    where convert_from(response.body, 'utf-8') = 'another host'
+  results: []
+
 - name: no request in the handler
   query: |
     with response as (select * from omni_httpc.http_execute(
       omni_httpc.http_request('http://127.0.0.1:' ||
-      (select effective_port from omni_httpd.listeners) || '/no_req')))
+      (select effective_port from omni_httpd.listeners order by id limit 1) || '/no_req')))
     select
     response.status,
     convert_from(response.body, 'utf-8') as body
@@ -88,7 +151,7 @@ tests:
   query: |
     with response as (select * from omni_httpc.http_execute(
       omni_httpc.http_request('http://127.0.0.1:' ||
-      (select effective_port from omni_httpd.listeners) || '/no_outcome')))
+      (select effective_port from omni_httpd.listeners order by id limit 1) || '/no_outcome')))
     select
     response.status
     from response
@@ -102,7 +165,7 @@ tests:
                      from
                          omni_httpc.http_execute(
                                  omni_httpc.http_request('http://127.0.0.1:' ||
-                                                         (select effective_port from omni_httpd.listeners) ||
+                                                         (select effective_port from omni_httpd.listeners order by id limit 1) ||
                                                          '/function')))
     select
         response.status,
@@ -120,7 +183,7 @@ tests:
                      from
                          omni_httpc.http_execute(
                                  omni_httpc.http_request('http://127.0.0.1:' ||
-                                                         (select effective_port from omni_httpd.listeners) ||
+                                                         (select effective_port from omni_httpd.listeners order by id limit 1) ||
                                                          '/tuple')))
     select
         response.status,
@@ -138,7 +201,7 @@ tests:
                      from
                          omni_httpc.http_execute(
                                  omni_httpc.http_request('http://127.0.0.1:' ||
-                                                         (select effective_port from omni_httpd.listeners) ||
+                                                         (select effective_port from omni_httpd.listeners order by id limit 1) ||
                                                          '/null')))
     select
         response.status,
