@@ -1,0 +1,50 @@
+name: Profile omni_schema.dependency
+
+on:
+  workflow_dispatch:
+
+jobs:
+  profile-dependency:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 🧱 Checkout code
+      uses: actions/checkout@v3
+
+    - name: 🛠 Install deps
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          cmake libreadline-dev libssl-dev zlib1g-dev \
+          bison flex libxml2-dev libxslt1-dev libpam-dev
+
+    - name: 📦 Build Postgres & Omnigres
+      run: |
+        mkdir -p build && cd build
+        cmake ..
+        make -j$(nproc)
+
+    - name: 🧪 Start PostgreSQL with Omnigres
+      run: |
+        build/src/postgres -D /tmp/pgdata --initdb
+        build/src/postgres -D /tmp/pgdata -k /tmp &
+
+        sleep 5
+        pg_isready -h /tmp
+
+    - name: 🧬 Create omni_schema
+      run: |
+        build/src/psql -h /tmp -d postgres -c "CREATE EXTENSION omnigres;"
+        build/src/psql -h /tmp -d postgres -f sql/omni_schema.sql
+
+    - name: 🔍 Run EXPLAIN ANALYZE
+      run: |
+        build/src/psql -h /tmp -d postgres \
+          -c "EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) SELECT * FROM omni_schema.dependency LIMIT 10;" \
+          > query_plan.txt
+
+    - name: 📤 Upload query plan
+      uses: actions/upload-artifact@v3
+      with:
+        name: dependency-explain-analyze
+        path: query_plan.txt
