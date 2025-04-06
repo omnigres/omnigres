@@ -39,10 +39,12 @@ jobs:
 
     - name: 🧪 Start PostgreSQL with Omnigres
       run: |
-        build/bin/initdb -D /tmp/pgdata
-        build/bin/postgres -D /tmp/pgdata -k /tmp &
+        build/src/initdb -D /tmp/pgdata
+        build/src/postgres -D /tmp/pgdata -k /tmp &
+
         sleep 5
-        build/bin/pg_isready -h /tmp
+        build/src/pg_isready -h /tmp
+
 
     - name: 🧬 Create omni_schema
       run: |
