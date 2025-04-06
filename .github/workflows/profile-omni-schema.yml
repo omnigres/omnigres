@@ -31,10 +31,10 @@ jobs:
 
     - name: ⚙️ Configure and build Postgres with Omnigres
       run: |
-        if [ ! -f build/bin/postgres ]; then
-          ./configure --prefix=$PWD/build
+        if [ ! -f build/bin/postgres ] && [ ! -f build/src/postgres ]; then
+          mkdir -p build && cd build
+          cmake ..
           make -j$(nproc)
-          make install
         fi
 
     - name: 🧪 Start PostgreSQL with Omnigres
