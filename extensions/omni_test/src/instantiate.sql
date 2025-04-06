@@ -122,7 +122,8 @@ begin
                                pg_proc.prokind,
                                pg_proc.proname,
                                ns.nspname,
-                               d.description
+                               d.description,
+                               pg_proc.proconfig
                            from
                                pg_proc
                                    inner join pg_namespace ns on ns.oid = pg_proc.pronamespace
@@ -132,7 +133,8 @@ begin
                                    and prokind = 'p') or
                                (cardinality(proargtypes) = 0 and
                                    prorettype = 'omni_test.test'::regtype)
-                           $sql$) t(prokind "char", proname name, nspname name, description text)
+                           $sql$) t(prokind "char", proname name, nspname name, description text, proconfig text[])
+                order by proname
                 loop
                     -- Clone the database
                     perform dblink(self_conn, format('create database %I template %I', test_run, db));
@@ -155,15 +157,24 @@ begin
                                                        'description', test_report.description,
                                                        'start_time', test_report.start_time)
                                                      ));
+                    declare
+                        preamble text := '';
+                        cfg text;
                     begin
+                        foreach cfg in array coalesce(rec.proconfig, '{}'::text[]) loop
+                           case when split_part(cfg,'=', 1) = 'omni_test.transaction_isolation' then
+                               preamble := preamble || format('set transaction isolation level %s;', split_part(cfg,'=',2));
+                           else null;
+                           end case;
+                        end loop;
                         if rec.prokind = 'p' then
                             perform *
                             from
-                                dblink(conn, format('call %I.%I(null)', rec.nspname, rec.proname)) r(result test);
+                                dblink(conn, format('%s call %I.%I(null);', preamble, rec.nspname, rec.proname)) r(result test);
                         else
                             perform *
                             from
-                                dblink(conn, format('select %I.%I()', rec.nspname, rec.proname)) r(result test);
+                                dblink(conn, format('%s select %I.%I()', preamble, rec.nspname, rec.proname)) r(result test);
                         end if;
                         test_report.end_time := clock_timestamp();
                         perform omni_cloudevents.publish(omni_cloudevents.cloudevent(

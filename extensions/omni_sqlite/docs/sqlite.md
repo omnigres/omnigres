@@ -1,7 +1,17 @@
-# Embedded SQLite
+# Native SQLite
 
 `omni_sqlite` is an extension that adds the capability to use SQLite
-databases as a first-class data type within Postgres.
+databases as a first-class data type within Postgres. It uses expandable datum technique to ensure no additional
+serialization overhead for data in-flight.
+
+!!! tip "Upcoming features"
+
+    As this extension grows, we'll be adding more functionality, such as:
+
+    * Querying Postgres tables from within SQLite
+    * Support for the [session](https://www.sqlite.org/sessionintro.html) extension and other techniques
+      for data synchronization
+    * Support for larger SQLite databases (over 1Gb)
 
 The extension can be installed into a Postgres in the normal way:
 
@@ -17,6 +27,12 @@ create extension omni_sqlite;
      ```postgresql 
      select omni_sqlite.instantiate([schema => 'omni_sqlite'])
      ```
+
+### Credits
+
+This work is inspired by [postgres-sqlite](https://github.com/michelp/postgres-sqlite) by Michel Pelletier, licensed
+under BSD 3-Clause License, but is now a
+significant rewrite in a different language (C++ instead of C) with added functionality.
 
 ### Key Advantages
 
