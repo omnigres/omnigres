@@ -18,19 +18,31 @@ jobs:
           cmake libreadline-dev libssl-dev zlib1g-dev \
           bison flex libxml2-dev libxslt1-dev libpam-dev
 
-    - name: 📦 Build Postgres & Omnigres
+
+    - name: ♻️ Restore build cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          build/
+          src/
+        key: ${{ runner.os }}-omni-${{ hashFiles('**/configure', '**/Makefile', '**/*.c', '**/*.h') }}
+        restore-keys: |
+          ${{ runner.os }}-omni
+
+    - name: ⚙️ Configure and build Postgres with Omnigres
       run: |
-        mkdir -p build && cd build
-        cmake ..
-        make -j$(nproc)
+        if [ ! -f build/bin/postgres ]; then
+          ./configure --prefix=$PWD/build
+          make -j$(nproc)
+          make install
+        fi
 
     - name: 🧪 Start PostgreSQL with Omnigres
       run: |
-        build/src/postgres -D /tmp/pgdata --initdb
-        build/src/postgres -D /tmp/pgdata -k /tmp &
-
+        build/bin/initdb -D /tmp/pgdata
+        build/bin/postgres -D /tmp/pgdata -k /tmp &
         sleep 5
-        pg_isready -h /tmp
+        build/bin/pg_isready -h /tmp
 
     - name: 🧬 Create omni_schema
       run: |
