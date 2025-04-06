@@ -1,7 +1,12 @@
 name: Profile omni_schema.dependency
 
 on:
-  workflow_dispatch:
+    push:
+      paths:
+        - 'src/**'
+        - 'omni_schema/**'
+        - '.github/workflows/test-omnigres.yml'
+    pull_request:
 
 jobs:
   profile-dependency:
@@ -11,54 +16,30 @@ jobs:
     - name: 🧱 Checkout code
       uses: actions/checkout@v3
 
-    - name: 🛠 Install deps
+    - name: 🛠️ Install system packages
       run: |
         sudo apt-get update
-        sudo apt-get install -y \
-          cmake libreadline-dev libssl-dev zlib1g-dev \
-          bison flex libxml2-dev libxslt1-dev libpam-dev
+        sudo apt-get install -y cmake gcc make libreadline-dev libssl-dev zlib1g-dev flex bison libxml2-dev libxslt1-dev libpam-dev
 
 
-    - name: ♻️ Restore build cache
-      uses: actions/cache@v4
-      with:
-        path: |
-          build/
-          src/
-        key: ${{ runner.os }}-omni-${{ hashFiles('**/configure', '**/Makefile', '**/*.c', '**/*.h') }}
-        restore-keys: |
-          ${{ runner.os }}-omni
-
-    - name: ⚙️ Configure and build Postgres with Omnigres
+    - name: 🔨 Build Omnigres
       run: |
-        if [ ! -f build/bin/postgres ] && [ ! -f build/src/postgres ]; then
-          mkdir -p build && cd build
-          cmake ..
-          make -j$(nproc)
-        fi
+        cmake -S . -B build
+        cmake --build build
 
-    - name: 🧪 Start PostgreSQL with Omnigres
+    - name: 🧪 Init PGDATA using Omnigres initdb
       run: |
         build/src/initdb -D /tmp/pgdata
-        build/src/postgres -D /tmp/pgdata -k /tmp &
 
+
+    - name: 🚀 Start Omnigres PostgreSQL
+      run: |
+        build/src/postgres -D /tmp/pgdata -k /tmp > /tmp/logfile 2>&1 &
         sleep 5
         build/src/pg_isready -h /tmp
 
-
-    - name: 🧬 Create omni_schema
+    - name: 🧪 Run test queries
       run: |
         build/src/psql -h /tmp -d postgres -c "CREATE EXTENSION omnigres;"
         build/src/psql -h /tmp -d postgres -f sql/omni_schema.sql
-
-    - name: 🔍 Run EXPLAIN ANALYZE
-      run: |
-        build/src/psql -h /tmp -d postgres \
-          -c "EXPLAIN (ANALYZE, BUFFERS, FORMAT TEXT) SELECT * FROM omni_schema.dependency LIMIT 10;" \
-          > query_plan.txt
-
-    - name: 📤 Upload query plan
-      uses: actions/upload-artifact@v4
-      with:
-        name: dependency-explain-analyze
-        path: query_plan.txt
+        build/src/psql -h /tmp -d postgres -c "SELECT count(*) FROM omni_schema.dependency LIMIT 1;" || cat /tmp/logfile
