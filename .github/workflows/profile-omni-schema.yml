@@ -44,7 +44,7 @@ jobs:
           > query_plan.txt
 
     - name: 📤 Upload query plan
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: dependency-explain-analyze
         path: query_plan.txt
