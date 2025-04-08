@@ -66,6 +66,593 @@ using ::fmt::format;
  * \file
  */
 
+
+/**
+* \file
+ */
+#ifdef __cplusplus
+#endif
+
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wignored-attributes"
+#endif
+#ifdef __clang__
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wregister"
+#endif
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+// clang-format off
+#include <postgres.h>
+#include <fmgr.h>
+// clang-format on
+#include <access/amapi.h>
+#include <access/tableam.h>
+#include <access/tsmapi.h>
+#include <access/tupdesc.h>
+#include <catalog/namespace.h>
+#include <catalog/pg_class.h>
+#include <catalog/pg_proc.h>
+#include <catalog/pg_type.h>
+#include <commands/event_trigger.h>
+#include <executor/spi.h>
+#include <foreign/fdwapi.h>
+#include <funcapi.h>
+#include <miscadmin.h>
+#include <nodes/execnodes.h>
+#include <nodes/extensible.h>
+#include <nodes/memnodes.h>
+#if __has_include(<nodes/miscnodes.h>)
+#include <nodes/miscnodes.h>
+#endif
+#include <nodes/nodes.h>
+#include <nodes/parsenodes.h>
+#include <nodes/pathnodes.h>
+#include <nodes/replnodes.h>
+#include <nodes/supportnodes.h>
+#include <nodes/tidbitmap.h>
+#include <storage/ipc.h>
+#include <utils/builtins.h>
+#include <utils/expandeddatum.h>
+#include <utils/memutils.h>
+#include <utils/snapmgr.h>
+#include <utils/syscache.h>
+#include <utils/tuplestore.h>
+#include <utils/typcache.h>
+#ifdef __cplusplus
+}
+#endif
+#ifdef __clang__
+#pragma clang diagnostic pop
+#endif
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
+/**
+* \file
+ */
+
+#include <concepts>
+#include <memory>
+
+/**
+* \file
+ */
+
+extern "C" {
+#include <setjmp.h>
+}
+
+#include <iostream>
+#include <utility>
+
+/**
+ * \file
+ */
+
+#include <string>
+#include <tuple>
+
+#include <iostream>
+
+/**
+ * \file
+ */
+
+namespace cppgres {
+class pg_exception : public std::exception {
+  ::MemoryContext mcxt;
+  ::MemoryContext error_cxt;
+  ::ErrorData *error;
+
+  pg_exception(::MemoryContext mcxt);
+
+  const char *what() const noexcept override { return error->message; }
+
+  template <typename Func> friend struct ffi_guard;
+
+public:
+  const char *message() const noexcept { return error->message; }
+  ~pg_exception();
+};
+} // namespace cppgres
+
+namespace cppgres {
+
+inline void error(pg_exception e);
+inline void error(pg_exception e) {
+  ::errstart(ERROR, TEXTDOMAIN);
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-security"
+#endif
+  ::errmsg("%s", e.message());
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
+  ::errfinish(__FILE__, __LINE__, __func__);
+  __builtin_unreachable();
+}
+
+template <typename T>
+concept error_formattable =
+    std::integral<std::decay_t<T>> ||
+    (std::is_pointer_v<std::decay_t<T>> &&
+     std::same_as<std::remove_cv_t<std::remove_pointer_t<std::decay_t<T>>>, char>) ||
+    std::is_pointer_v<std::decay_t<T>>;
+
+template <std::size_t N, error_formattable... Args>
+inline void report(int elevel, const char (&fmt)[N], Args... args) {
+  ::errstart(elevel, TEXTDOMAIN);
+#ifdef __GNUC__
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-security"
+#endif
+  ::errmsg(fmt, args...);
+#ifdef __GNUC__
+#pragma GCC diagnostic pop
+#endif
+  ::errfinish(__FILE__, __LINE__, __func__);
+  if (elevel >= ERROR) {
+    __builtin_unreachable();
+  }
+}
+} // namespace cppgres
+/**
+* \file
+ */
+
+namespace cppgres::utils::function_traits {
+// Primary template (will be specialized below)
+template <typename T> struct function_traits;
+
+// Specialization for function pointers.
+template <typename R, typename... Args> struct function_traits<R (*)(Args...)> {
+  using argument_types = std::tuple<Args...>;
+  static constexpr std::size_t arity = sizeof...(Args);
+};
+
+// Specialization for function references.
+template <typename R, typename... Args> struct function_traits<R (&)(Args...)> {
+  using argument_types = std::tuple<Args...>;
+  static constexpr std::size_t arity = sizeof...(Args);
+};
+
+// Specialization for function types themselves.
+template <typename R, typename... Args> struct function_traits<R(Args...)> {
+  using argument_types = std::tuple<Args...>;
+  static constexpr std::size_t arity = sizeof...(Args);
+};
+
+// Specialization for member function pointers (e.g. for lambdas' operator())
+template <typename C, typename R, typename... Args>
+struct function_traits<R (C:: *)(Args...) const> {
+  using argument_types = std::tuple<Args...>;
+  static constexpr std::size_t arity = sizeof...(Args);
+};
+
+// Fallback for functors/lambdas that are not plain function pointers.
+// This will delegate to the member function pointer version.
+template <typename T> struct function_traits : function_traits<decltype(&T::operator())> {};
+
+// Primary template (left undefined)
+template <typename Func, typename Tuple> struct invoke_result_from_tuple;
+
+// Partial specialization for when Tuple is a std::tuple<Args...>
+template <typename Func, typename... Args>
+struct invoke_result_from_tuple<Func, std::tuple<Args...>> {
+  using type = std::invoke_result_t<Func, Args...>;
+};
+
+// Convenience alias template.
+template <typename Func, typename Tuple>
+using invoke_result_from_tuple_t = typename invoke_result_from_tuple<Func, Tuple>::type;
+
+} // namespace cppgres::utils::function_traits
+
+namespace cppgres {
+
+template <typename Func> struct ffi_guard {
+  Func func;
+
+  explicit ffi_guard(Func f) : func(std::move(f)) {}
+
+  template <typename... Args>
+  auto operator()(Args &&...args) -> decltype(func(std::forward<Args>(args)...)) {
+    int state;
+    sigjmp_buf *pbuf;
+    ::ErrorContextCallback *cb;
+    sigjmp_buf buf;
+    ::MemoryContext mcxt = ::CurrentMemoryContext;
+
+    pbuf = ::PG_exception_stack;
+    cb = ::error_context_stack;
+    ::PG_exception_stack = &buf;
+
+    // restore state upon exit
+    std::shared_ptr<void> defer(nullptr, [&](...) {
+      ::error_context_stack = cb;
+      ::PG_exception_stack = pbuf;
+    });
+
+    state = sigsetjmp(buf, 1);
+
+    if (state == 0) {
+      return func(std::forward<Args>(args)...);
+    } else if (state == 1) {
+      throw pg_exception(mcxt);
+    }
+    __builtin_unreachable();
+  }
+};
+
+/**
+ * @brief Wraps a C++ function to catch exceptions and report them as Postgres errors
+ *
+ * It ensures that if the C++ exception throws an error, it'll be caught and transformed into
+ * a Postgres error report.
+ *
+ * @note It will also handle Postgres errors caught during the call that were automatically transformed
+ *       into @ref cppgres::pg_exception by @ref cppgres::ffi_guard and report them as errors.
+ *
+ * @tparam Func C++ function to call
+ */
+template <typename Func> struct exception_guard {
+  Func func;
+
+  explicit exception_guard(Func f) : func(std::move(f)) {}
+
+  template <typename... Args>
+  auto operator()(Args &&...args) -> decltype(func(std::forward<Args>(args)...)) {
+    try {
+      return func(std::forward<Args>(args)...);
+    } catch (const pg_exception &e) {
+      error(e);
+    } catch (const std::exception &e) {
+      report(ERROR, "exception: %s", e.what());
+    } catch (...) {
+      report(ERROR, "some exception occurred");
+    }
+    __builtin_unreachable();
+  }
+};
+
+} // namespace cppgres
+
+namespace cppgres {
+
+struct abstract_memory_context {
+
+  template <typename T = std::byte> T *alloc(size_t n = 1) {
+    return static_cast<T *>(ffi_guard{::MemoryContextAlloc}(_memory_context(), sizeof(T) * n));
+  }
+  template <typename T = void> void free(T *ptr) { ffi_guard{::pfree}(ptr); }
+
+  void reset() { ffi_guard{::MemoryContextReset}(_memory_context()); }
+
+  bool operator==(abstract_memory_context &c) { return _memory_context() == c._memory_context(); }
+  bool operator!=(abstract_memory_context &c) { return _memory_context() != c._memory_context(); }
+
+  operator ::MemoryContext() { return _memory_context(); }
+
+  ::MemoryContextCallback *register_reset_callback(::MemoryContextCallbackFunction func,
+                                                   void *arg) {
+    auto cb = alloc<::MemoryContextCallback>(sizeof(::MemoryContextCallback));
+    cb->func = func;
+    cb->arg = arg;
+    ffi_guard{::MemoryContextRegisterResetCallback}(_memory_context(), cb);
+    return cb;
+  }
+
+  void delete_context() { ffi_guard{::MemoryContextDelete}(_memory_context()); }
+
+protected:
+  virtual ::MemoryContext _memory_context() = 0;
+};
+
+struct owned_memory_context : public abstract_memory_context {
+  friend struct memory_context;
+
+protected:
+  owned_memory_context(::MemoryContext context) : context(context), moved(false) {}
+
+  ~owned_memory_context() {
+    if (!moved) {
+      delete_context();
+    }
+  }
+
+  ::MemoryContext context;
+  bool moved;
+
+  ::MemoryContext _memory_context() override { return context; }
+};
+
+struct memory_context : public abstract_memory_context {
+
+  friend struct owned_memory_context;
+
+  explicit memory_context() : context(::CurrentMemoryContext) {}
+  explicit memory_context(::MemoryContext context) : context(context) {}
+  explicit memory_context(abstract_memory_context &&context) : context(context) {}
+
+  explicit memory_context(owned_memory_context &&ctx) : context(ctx) { ctx.moved = true; }
+
+  static memory_context for_pointer(void *ptr) {
+    if (ptr == nullptr || ptr != (void *)MAXALIGN(ptr)) {
+      throw std::runtime_error("invalid pointer");
+    }
+    return memory_context(ffi_guard{::GetMemoryChunkContext}(ptr));
+  }
+
+  template <typename C> requires std::derived_from<C, abstract_memory_context>
+  friend struct tracking_memory_context;
+
+protected:
+  ::MemoryContext context;
+
+  ::MemoryContext _memory_context() override { return context; }
+};
+
+struct always_current_memory_context : public abstract_memory_context {
+  always_current_memory_context() = default;
+
+protected:
+  ::MemoryContext _memory_context() override { return ::CurrentMemoryContext; }
+};
+
+struct alloc_set_memory_context : public owned_memory_context {
+  using owned_memory_context::owned_memory_context;
+  alloc_set_memory_context()
+      : owned_memory_context(ffi_guard{::AllocSetContextCreateInternal}(
+            ::CurrentMemoryContext, nullptr, ALLOCSET_DEFAULT_SIZES)) {}
+  alloc_set_memory_context(memory_context &ctx)
+      : owned_memory_context(
+            ffi_guard{::AllocSetContextCreateInternal}(ctx, nullptr, ALLOCSET_DEFAULT_SIZES)) {}
+
+  alloc_set_memory_context(memory_context &&ctx)
+      : owned_memory_context(
+            ffi_guard{::AllocSetContextCreateInternal}(ctx, nullptr, ALLOCSET_DEFAULT_SIZES)) {}
+};
+
+inline memory_context top_memory_context() { return memory_context(TopMemoryContext); };
+
+template <typename C> requires std::derived_from<C, abstract_memory_context>
+struct tracking_memory_context : public abstract_memory_context {
+  explicit tracking_memory_context(tracking_memory_context<C> const &context)
+      : ctx(context.ctx), counter(context.counter), cb(context.cb) {
+    cb->arg = this;
+  }
+
+  explicit tracking_memory_context(C ctx)
+      : ctx(ctx), counter(0),
+        cb(std::shared_ptr<::MemoryContextCallback>(
+            this->register_reset_callback(
+                [](void *i) { static_cast<struct tracking_memory_context<C> *>(i)->counter++; },
+                this),
+            /* custom deleter */
+            [](auto) {})) {}
+
+  tracking_memory_context(tracking_memory_context &&other) noexcept
+      : ctx(std::move(other.ctx)), counter(std::move(other.counter)), cb(std::move(other.cb)) {
+    other.cb = nullptr;
+    cb->arg = this;
+  }
+
+  tracking_memory_context(tracking_memory_context &other) noexcept
+      : ctx(std::move(other.ctx)), counter(std::move(other.counter)), cb(std::move(other.cb)) {
+    cb->arg = this;
+    other.cb = nullptr;
+  }
+
+  tracking_memory_context &operator=(tracking_memory_context &&other) noexcept {
+    ctx = other.ctx;
+    cb = other.cb;
+    counter = other.counter;
+    cb->arg = this;
+    return *this;
+  }
+
+  ~tracking_memory_context() {
+    if (cb != nullptr) {
+      if (cb.use_count() == 1) {
+        cb->func = [](void *) {};
+      }
+    }
+  }
+
+  uint64_t resets() const { return counter; }
+  C &get_memory_context() { return ctx; }
+
+private:
+  template <typename T> requires std::integral<T>
+  struct shared_counter {
+    T value;
+    constexpr explicit shared_counter(T init = 0) noexcept : value(init) {}
+
+    shared_counter &operator=(T v) noexcept {
+      value = v;
+      return *this;
+    }
+
+    shared_counter &operator++() noexcept {
+      ++value;
+      return *this;
+    }
+
+    T operator++(int) noexcept {
+      T old = value;
+      ++value;
+      return old;
+    }
+
+    constexpr operator T() const noexcept { return value; }
+  };
+  C ctx;
+  shared_counter<uint64_t> counter;
+  std::shared_ptr<::MemoryContextCallback> cb;
+
+protected:
+  ::MemoryContext _memory_context() override { return ctx._memory_context(); }
+};
+
+template <typename T>
+concept a_memory_context =
+    std::derived_from<T, abstract_memory_context> && std::default_initializable<T>;
+
+template <a_memory_context Context> struct memory_context_scope {
+  explicit memory_context_scope(Context &ctx)
+      : previous(::CurrentMemoryContext), ctx(ctx.operator ::MemoryContext()) {
+    ::CurrentMemoryContext = ctx;
+  }
+  explicit memory_context_scope(Context &&ctx)
+      : previous(::CurrentMemoryContext), ctx(ctx.operator ::MemoryContext()) {
+    ::CurrentMemoryContext = ctx;
+  }
+
+  ~memory_context_scope() { ::CurrentMemoryContext = previous; }
+
+private:
+  ::MemoryContext previous;
+  ::MemoryContext ctx;
+};
+
+template <class T, a_memory_context Context = memory_context> struct memory_context_allocator {
+  using value_type = T;
+  memory_context_allocator() noexcept : context(Context()), explicit_deallocation(false) {}
+  memory_context_allocator(Context &&ctx, bool explicit_deallocation) noexcept
+      : context(std::move(ctx)), explicit_deallocation(explicit_deallocation) {}
+
+  constexpr memory_context_allocator(const memory_context_allocator<T> &c) noexcept
+      : context(c.context) {}
+
+  [[nodiscard]] T *allocate(std::size_t n) {
+    try {
+      return context.template alloc<T>(n);
+    } catch (pg_exception &e) {
+      throw std::bad_alloc();
+    }
+  }
+
+  void deallocate(T *p, std::size_t n) noexcept {
+    if (explicit_deallocation || context == top_memory_context()) {
+      context.free(p);
+    }
+  }
+
+  bool operator==(const memory_context_allocator &c) { return context == c.context; }
+  bool operator!=(const memory_context_allocator &c) { return context != c.context; }
+
+  Context &memory_context() { return context; }
+
+private:
+  Context context;
+  bool explicit_deallocation;
+};
+
+struct pointer_gone_exception : public std::exception {
+  const char *what() const noexcept override {
+    return "pointer belongs to a MemoryContext that has been reset or deleted";
+  }
+};
+
+} // namespace cppgres
+
+namespace cppgres {
+
+enum q { backend };
+
+namespace backend_type {
+
+/**
+ * @brief Backend type
+ *
+ * A copy of Postgres' BackendType with minor renaming
+ */
+enum type {
+  invalid = B_INVALID,
+  backend = B_BACKEND,
+  autovac_launcher = B_AUTOVAC_LAUNCHER,
+  autovac_worker = B_AUTOVAC_WORKER,
+  bg_worker = B_BG_WORKER,
+  wal_sender = B_WAL_SENDER,
+#if PG_MAJORVERSION_NUM >= 17
+  slotsync_worker = B_SLOTSYNC_WORKER,
+  standalone_backend = B_STANDALONE_BACKEND,
+#endif
+  archiver = B_ARCHIVER,
+  bg_writer = B_BG_WRITER,
+  checkpointer = B_CHECKPOINTER,
+  startup = B_STARTUP,
+  wal_receiver = B_WAL_RECEIVER,
+#if PG_MAJORVERSION_NUM >= 17
+  wal_summarizer = B_WAL_SUMMARIZER,
+#endif
+  wal_writer = B_WAL_WRITER,
+  logger = B_LOGGER
+};
+}
+
+/**
+ * @brief Backend management
+ */
+struct backend {
+  /**
+   * @brief get current backend type
+   * @return backend type
+   */
+  static backend_type::type type() { return static_cast<backend_type::type>(::MyBackendType); };
+
+  /**
+   * @brief Register a callback for when Postgres will be exiting
+   *
+   * This allows passing a lambda with a closure (not just a plain C function / lambda without a
+   * closure), it'll initialize the closure in the top memory context.
+   */
+  template <typename T> requires requires(T t, int code) {
+    { t(code) };
+  }
+  static void atexit(T &&func) {
+    T *raw_mem = top_memory_context().alloc<T>();
+    T *allocation = new (raw_mem) T(std::forward<T>(func));
+
+    ffi_guard{::on_proc_exit}(
+        [](int code, ::Datum datum) {
+          T *func = reinterpret_cast<T *>(DatumGetPointer(datum));
+          (*func)(code);
+        },
+        PointerGetDatum(allocation));
+  }
+};
+
+} // namespace cppgres
+/**
+ * \file
+ */
+
 /**
 * \file
  */
@@ -7362,517 +7949,6 @@ template <typename T> decltype(auto) tie(T &val) {
 
 } // namespace cppgres::utils
 
-/**
-* \file
- */
-#ifdef __cplusplus
-#endif
-
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wignored-attributes"
-#endif
-#ifdef __clang__
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wregister"
-#endif
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-// clang-format off
-#include <postgres.h>
-#include <fmgr.h>
-// clang-format on
-#include <access/amapi.h>
-#include <access/tableam.h>
-#include <access/tsmapi.h>
-#include <access/tupdesc.h>
-#include <catalog/namespace.h>
-#include <catalog/pg_class.h>
-#include <catalog/pg_proc.h>
-#include <catalog/pg_type.h>
-#include <commands/event_trigger.h>
-#include <executor/spi.h>
-#include <foreign/fdwapi.h>
-#include <funcapi.h>
-#include <miscadmin.h>
-#include <nodes/execnodes.h>
-#include <nodes/extensible.h>
-#include <nodes/memnodes.h>
-#if __has_include(<nodes/miscnodes.h>)
-#include <nodes/miscnodes.h>
-#endif
-#include <nodes/nodes.h>
-#include <nodes/parsenodes.h>
-#include <nodes/pathnodes.h>
-#include <nodes/replnodes.h>
-#include <nodes/supportnodes.h>
-#include <nodes/tidbitmap.h>
-#include <utils/builtins.h>
-#include <utils/expandeddatum.h>
-#include <utils/memutils.h>
-#include <utils/syscache.h>
-#include <utils/tuplestore.h>
-#include <utils/typcache.h>
-#ifdef __cplusplus
-}
-#endif
-#ifdef __clang__
-#pragma clang diagnostic pop
-#endif
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
-/**
-* \file
- */
-
-#include <concepts>
-#include <memory>
-
-/**
-* \file
- */
-
-extern "C" {
-#include <setjmp.h>
-}
-
-#include <iostream>
-#include <utility>
-
-/**
- * \file
- */
-
-#include <string>
-#include <tuple>
-
-#include <iostream>
-
-/**
- * \file
- */
-
-namespace cppgres {
-class pg_exception : public std::exception {
-  ::MemoryContext mcxt;
-  ::MemoryContext error_cxt;
-  ::ErrorData *error;
-
-  pg_exception(::MemoryContext mcxt);
-
-  const char *what() const noexcept override { return error->message; }
-
-  template <typename Func> friend struct ffi_guard;
-
-public:
-  const char *message() const noexcept { return error->message; }
-  ~pg_exception();
-};
-} // namespace cppgres
-
-namespace cppgres {
-
-inline void error(pg_exception e);
-inline void error(pg_exception e) {
-  ::errstart(ERROR, TEXTDOMAIN);
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-security"
-#endif
-  ::errmsg("%s", e.message());
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
-  ::errfinish(__FILE__, __LINE__, __func__);
-  __builtin_unreachable();
-}
-
-template <typename T>
-concept error_formattable =
-    std::integral<std::decay_t<T>> ||
-    (std::is_pointer_v<std::decay_t<T>> &&
-     std::same_as<std::remove_cv_t<std::remove_pointer_t<std::decay_t<T>>>, char>) ||
-    std::is_pointer_v<std::decay_t<T>>;
-
-template <std::size_t N, error_formattable... Args>
-inline void report(int elevel, const char (&fmt)[N], Args... args) {
-  ::errstart(elevel, TEXTDOMAIN);
-#ifdef __GNUC__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wformat-security"
-#endif
-  ::errmsg(fmt, args...);
-#ifdef __GNUC__
-#pragma GCC diagnostic pop
-#endif
-  ::errfinish(__FILE__, __LINE__, __func__);
-  if (elevel >= ERROR) {
-    __builtin_unreachable();
-  }
-}
-} // namespace cppgres
-/**
-* \file
- */
-
-namespace cppgres::utils::function_traits {
-// Primary template (will be specialized below)
-template <typename T> struct function_traits;
-
-// Specialization for function pointers.
-template <typename R, typename... Args> struct function_traits<R (*)(Args...)> {
-  using argument_types = std::tuple<Args...>;
-  static constexpr std::size_t arity = sizeof...(Args);
-};
-
-// Specialization for function references.
-template <typename R, typename... Args> struct function_traits<R (&)(Args...)> {
-  using argument_types = std::tuple<Args...>;
-  static constexpr std::size_t arity = sizeof...(Args);
-};
-
-// Specialization for function types themselves.
-template <typename R, typename... Args> struct function_traits<R(Args...)> {
-  using argument_types = std::tuple<Args...>;
-  static constexpr std::size_t arity = sizeof...(Args);
-};
-
-// Specialization for member function pointers (e.g. for lambdas' operator())
-template <typename C, typename R, typename... Args>
-struct function_traits<R (C:: *)(Args...) const> {
-  using argument_types = std::tuple<Args...>;
-  static constexpr std::size_t arity = sizeof...(Args);
-};
-
-// Fallback for functors/lambdas that are not plain function pointers.
-// This will delegate to the member function pointer version.
-template <typename T> struct function_traits : function_traits<decltype(&T::operator())> {};
-
-// Primary template (left undefined)
-template <typename Func, typename Tuple> struct invoke_result_from_tuple;
-
-// Partial specialization for when Tuple is a std::tuple<Args...>
-template <typename Func, typename... Args>
-struct invoke_result_from_tuple<Func, std::tuple<Args...>> {
-  using type = std::invoke_result_t<Func, Args...>;
-};
-
-// Convenience alias template.
-template <typename Func, typename Tuple>
-using invoke_result_from_tuple_t = typename invoke_result_from_tuple<Func, Tuple>::type;
-
-} // namespace cppgres::utils::function_traits
-
-namespace cppgres {
-
-template <typename Func> struct ffi_guard {
-  Func func;
-
-  explicit ffi_guard(Func f) : func(std::move(f)) {}
-
-  template <typename... Args>
-  auto operator()(Args &&...args) -> decltype(func(std::forward<Args>(args)...)) {
-    int state;
-    sigjmp_buf *pbuf;
-    ::ErrorContextCallback *cb;
-    sigjmp_buf buf;
-    ::MemoryContext mcxt = ::CurrentMemoryContext;
-
-    pbuf = ::PG_exception_stack;
-    cb = ::error_context_stack;
-    ::PG_exception_stack = &buf;
-
-    // restore state upon exit
-    std::shared_ptr<void> defer(nullptr, [&](...) {
-      ::error_context_stack = cb;
-      ::PG_exception_stack = pbuf;
-    });
-
-    state = sigsetjmp(buf, 1);
-
-    if (state == 0) {
-      return func(std::forward<Args>(args)...);
-    } else if (state == 1) {
-      throw pg_exception(mcxt);
-    }
-    __builtin_unreachable();
-  }
-};
-
-/**
- * @brief Wraps a C++ function to catch exceptions and report them as Postgres errors
- *
- * It ensures that if the C++ exception throws an error, it'll be caught and transformed into
- * a Postgres error report.
- *
- * @note It will also handle Postgres errors caught during the call that were automatically transformed
- *       into @ref cppgres::pg_exception by @ref cppgres::ffi_guard and report them as errors.
- *
- * @tparam Func C++ function to call
- */
-template <typename Func> struct exception_guard {
-  Func func;
-
-  explicit exception_guard(Func f) : func(std::move(f)) {}
-
-  template <typename... Args>
-  auto operator()(Args &&...args) -> decltype(func(std::forward<Args>(args)...)) {
-    try {
-      return func(std::forward<Args>(args)...);
-    } catch (const pg_exception &e) {
-      error(e);
-    } catch (const std::exception &e) {
-      report(ERROR, "exception: %s", e.what());
-    } catch (...) {
-      report(ERROR, "some exception occurred");
-    }
-    __builtin_unreachable();
-  }
-};
-
-} // namespace cppgres
-
-namespace cppgres {
-
-struct abstract_memory_context {
-
-  template <typename T = std::byte> T *alloc(size_t n = 1) {
-    return static_cast<T *>(ffi_guard{::MemoryContextAlloc}(_memory_context(), sizeof(T) * n));
-  }
-  template <typename T = void> void free(T *ptr) { ffi_guard{::pfree}(ptr); }
-
-  void reset() { ffi_guard{::MemoryContextReset}(_memory_context()); }
-
-  bool operator==(abstract_memory_context &c) { return _memory_context() == c._memory_context(); }
-  bool operator!=(abstract_memory_context &c) { return _memory_context() != c._memory_context(); }
-
-  operator ::MemoryContext() { return _memory_context(); }
-
-  ::MemoryContextCallback *register_reset_callback(::MemoryContextCallbackFunction func,
-                                                   void *arg) {
-    auto cb = alloc<::MemoryContextCallback>(sizeof(::MemoryContextCallback));
-    cb->func = func;
-    cb->arg = arg;
-    ffi_guard{::MemoryContextRegisterResetCallback}(_memory_context(), cb);
-    return cb;
-  }
-
-  void delete_context() { ffi_guard{::MemoryContextDelete}(_memory_context()); }
-
-protected:
-  virtual ::MemoryContext _memory_context() = 0;
-};
-
-struct owned_memory_context : public abstract_memory_context {
-  friend struct memory_context;
-
-protected:
-  owned_memory_context(::MemoryContext context) : context(context), moved(false) {}
-
-  ~owned_memory_context() {
-    if (!moved) {
-      delete_context();
-    }
-  }
-
-  ::MemoryContext context;
-  bool moved;
-
-  ::MemoryContext _memory_context() override { return context; }
-};
-
-struct memory_context : public abstract_memory_context {
-
-  friend struct owned_memory_context;
-
-  explicit memory_context() : context(::CurrentMemoryContext) {}
-  explicit memory_context(::MemoryContext context) : context(context) {}
-  explicit memory_context(abstract_memory_context &&context) : context(context) {}
-
-  explicit memory_context(owned_memory_context &&ctx) : context(ctx) { ctx.moved = true; }
-
-  static memory_context for_pointer(void *ptr) {
-    if (ptr == nullptr || ptr != (void *)MAXALIGN(ptr)) {
-      throw std::runtime_error("invalid pointer");
-    }
-    return memory_context(ffi_guard{::GetMemoryChunkContext}(ptr));
-  }
-
-  template <typename C> requires std::derived_from<C, abstract_memory_context>
-  friend struct tracking_memory_context;
-
-protected:
-  ::MemoryContext context;
-
-  ::MemoryContext _memory_context() override { return context; }
-};
-
-struct always_current_memory_context : public abstract_memory_context {
-  always_current_memory_context() = default;
-
-protected:
-  ::MemoryContext _memory_context() override { return ::CurrentMemoryContext; }
-};
-
-struct alloc_set_memory_context : public owned_memory_context {
-  using owned_memory_context::owned_memory_context;
-  alloc_set_memory_context()
-      : owned_memory_context(ffi_guard{::AllocSetContextCreateInternal}(
-            ::CurrentMemoryContext, nullptr, ALLOCSET_DEFAULT_SIZES)) {}
-  alloc_set_memory_context(memory_context &ctx)
-      : owned_memory_context(
-            ffi_guard{::AllocSetContextCreateInternal}(ctx, nullptr, ALLOCSET_DEFAULT_SIZES)) {}
-
-  alloc_set_memory_context(memory_context &&ctx)
-      : owned_memory_context(
-            ffi_guard{::AllocSetContextCreateInternal}(ctx, nullptr, ALLOCSET_DEFAULT_SIZES)) {}
-};
-
-inline memory_context top_memory_context() { return memory_context(TopMemoryContext); };
-
-template <typename C> requires std::derived_from<C, abstract_memory_context>
-struct tracking_memory_context : public abstract_memory_context {
-  explicit tracking_memory_context(tracking_memory_context<C> const &context)
-      : ctx(context.ctx), counter(context.counter), cb(context.cb) {
-    cb->arg = this;
-  }
-
-  explicit tracking_memory_context(C ctx)
-      : ctx(ctx), counter(0),
-        cb(std::shared_ptr<::MemoryContextCallback>(
-            this->register_reset_callback(
-                [](void *i) { static_cast<struct tracking_memory_context<C> *>(i)->counter++; },
-                this),
-            /* custom deleter */
-            [](auto) {})) {}
-
-  tracking_memory_context(tracking_memory_context &&other) noexcept
-      : ctx(std::move(other.ctx)), counter(std::move(other.counter)), cb(std::move(other.cb)) {
-    other.cb = nullptr;
-    cb->arg = this;
-  }
-
-  tracking_memory_context(tracking_memory_context &other) noexcept
-      : ctx(std::move(other.ctx)), counter(std::move(other.counter)), cb(std::move(other.cb)) {
-    cb->arg = this;
-    other.cb = nullptr;
-  }
-
-  tracking_memory_context &operator=(tracking_memory_context &&other) noexcept {
-    ctx = other.ctx;
-    cb = other.cb;
-    counter = other.counter;
-    cb->arg = this;
-    return *this;
-  }
-
-  ~tracking_memory_context() {
-    if (cb != nullptr) {
-      if (cb.use_count() == 1) {
-        cb->func = [](void *) {};
-      }
-    }
-  }
-
-  uint64_t resets() const { return counter; }
-  C &get_memory_context() { return ctx; }
-
-private:
-  template <typename T> requires std::integral<T>
-  struct shared_counter {
-    T value;
-    constexpr explicit shared_counter(T init = 0) noexcept : value(init) {}
-
-    shared_counter &operator=(T v) noexcept {
-      value = v;
-      return *this;
-    }
-
-    shared_counter &operator++() noexcept {
-      ++value;
-      return *this;
-    }
-
-    T operator++(int) noexcept {
-      T old = value;
-      ++value;
-      return old;
-    }
-
-    constexpr operator T() const noexcept { return value; }
-  };
-  C ctx;
-  shared_counter<uint64_t> counter;
-  std::shared_ptr<::MemoryContextCallback> cb;
-
-protected:
-  ::MemoryContext _memory_context() override { return ctx._memory_context(); }
-};
-
-template <typename T>
-concept a_memory_context =
-    std::derived_from<T, abstract_memory_context> && std::default_initializable<T>;
-
-template <a_memory_context Context> struct memory_context_scope {
-  explicit memory_context_scope(Context &ctx)
-      : previous(::CurrentMemoryContext), ctx(ctx.operator ::MemoryContext()) {
-    ::CurrentMemoryContext = ctx;
-  }
-  explicit memory_context_scope(Context &&ctx)
-      : previous(::CurrentMemoryContext), ctx(ctx.operator ::MemoryContext()) {
-    ::CurrentMemoryContext = ctx;
-  }
-
-  ~memory_context_scope() { ::CurrentMemoryContext = previous; }
-
-private:
-  ::MemoryContext previous;
-  ::MemoryContext ctx;
-};
-
-template <class T, a_memory_context Context = memory_context> struct memory_context_allocator {
-  using value_type = T;
-  memory_context_allocator() noexcept : context(Context()), explicit_deallocation(false) {}
-  memory_context_allocator(Context &&ctx, bool explicit_deallocation) noexcept
-      : context(std::move(ctx)), explicit_deallocation(explicit_deallocation) {}
-
-  constexpr memory_context_allocator(const memory_context_allocator<T> &c) noexcept
-      : context(c.context) {}
-
-  [[nodiscard]] T *allocate(std::size_t n) {
-    try {
-      return context.template alloc<T>(n);
-    } catch (pg_exception &e) {
-      throw std::bad_alloc();
-    }
-  }
-
-  void deallocate(T *p, std::size_t n) noexcept {
-    if (explicit_deallocation || context == top_memory_context()) {
-      context.free(p);
-    }
-  }
-
-  bool operator==(const memory_context_allocator &c) { return context == c.context; }
-  bool operator!=(const memory_context_allocator &c) { return context != c.context; }
-
-  Context &memory_context() { return context; }
-
-private:
-  Context context;
-  bool explicit_deallocation;
-};
-
-struct pointer_gone_exception : public std::exception {
-  const char *what() const noexcept override {
-    return "pointer belongs to a MemoryContext that has been reset or deleted";
-  }
-};
-
-} // namespace cppgres
 
 #include <cstdint>
 #include <optional>
@@ -8056,6 +8132,304 @@ public:
 };
 
 } // namespace cppgres
+#include <functional>
+#include <variant>
+
+namespace cppgres::utils {
+
+template <typename T> struct maybe_ref {
+  // In-place constructor: constructs T inside the variant using forwarded arguments.
+  template <typename... Args> maybe_ref(Args &&...args) : data(std::forward<Args>(args)...) {}
+  maybe_ref(const T &value) : data(value) {}
+  maybe_ref(T &ref) : data(std::ref(ref)) {}
+
+  operator T &() {
+    if (std::holds_alternative<T>(data))
+      return std::get<T>(data);
+    else
+      return std::get<std::reference_wrapper<T>>(data).get();
+  }
+
+  operator const T &() const {
+    if (std::holds_alternative<T>(data))
+      return std::get<T>(data);
+    else
+      return std::get<std::reference_wrapper<T>>(data).get();
+  }
+
+  T *operator->() { return &operator T &(); }
+  const T *operator->() const { return &operator const T &(); }
+
+  bool is_ref() const { return !std::holds_alternative<T>(data); }
+
+private:
+  std::variant<T, std::reference_wrapper<T>> data;
+};
+} // namespace cppgres::utils
+
+namespace cppgres {
+/**
+ * @brief Background worker construction and operations
+ */
+struct background_worker {
+
+  /**
+   * @brief Initialize background worker specification
+   *
+   * @note Initializes pid notification to be directed to the current process by default,
+   *       can be overriden by notify_pid(pid_t)
+   */
+  background_worker() { worker->bgw_notify_pid = ::MyProcPid; }
+
+  /**
+   * Initializes from a background worker specification reference
+   * @param worker
+   */
+  background_worker(::BackgroundWorker &worker) : worker(worker) {}
+
+  background_worker &name(std::string_view name) {
+    size_t n = std::min(name.size(), static_cast<size_t>(sizeof(worker->bgw_name) - 1));
+    std::copy_n(name.data(), n, worker->bgw_name);
+    worker->bgw_name[n] = '\0';
+    return *this;
+  }
+  std::string_view name() { return worker->bgw_name; }
+
+  background_worker &type(std::string_view name) {
+    size_t n = std::min(name.size(), static_cast<size_t>(sizeof(worker->bgw_type) - 1));
+    std::copy_n(name.data(), n, worker->bgw_type);
+    worker->bgw_type[n] = '\0';
+    return *this;
+  }
+  std::string_view type() { return worker->bgw_type; }
+
+  background_worker &library_name(std::string_view name) {
+    size_t n = std::min(name.size(), static_cast<size_t>(sizeof(worker->bgw_library_name) - 1));
+    std::copy_n(name.data(), n, worker->bgw_library_name);
+    worker->bgw_library_name[n] = '\0';
+    return *this;
+  }
+  std::string_view library_name() { return worker->bgw_library_name; }
+
+  background_worker &function_name(std::string_view name) {
+    size_t n = std::min(name.size(), static_cast<size_t>(sizeof(worker->bgw_function_name) - 1));
+    std::copy_n(name.data(), n, worker->bgw_function_name);
+    worker->bgw_function_name[n] = '\0';
+    return *this;
+  }
+  std::string_view function_name() { return worker->bgw_function_name; }
+
+  background_worker &start_time(BgWorkerStartTime time) {
+    worker->bgw_start_time = time;
+    return *this;
+  }
+
+  ::BgWorkerStartTime start_time() const { return worker->bgw_start_time; }
+
+  background_worker &restart_time(int time) {
+    worker->bgw_restart_time = time;
+    return *this;
+  }
+
+  int restart_time() const { return worker->bgw_restart_time; }
+
+  background_worker &flags(int flags) {
+    worker->bgw_flags = flags;
+    return *this;
+  }
+
+  int flags() const { return worker->bgw_flags; }
+
+  background_worker &main_arg(datum datum) {
+    worker->bgw_main_arg = datum;
+    return *this;
+  }
+
+  datum main_arg() const { return datum(worker->bgw_main_arg); }
+
+  background_worker &extra(std::string_view name) {
+    size_t n = std::min(name.size(), static_cast<size_t>(sizeof(worker->bgw_extra) - 1));
+    std::copy_n(name.data(), n, worker->bgw_extra);
+    worker->bgw_extra[n] = '\0';
+    return *this;
+  }
+  std::string_view extra() { return worker->bgw_extra; }
+
+  background_worker &notify_pid(pid_t pid) {
+    worker->bgw_notify_pid = pid;
+    return *this;
+  }
+
+  pid_t notify_pid() const { return worker->bgw_notify_pid; }
+
+  operator BackgroundWorker &() { return worker; }
+  operator BackgroundWorker *() { return worker.operator->(); }
+
+  struct worker_stopped : public std::exception {
+    const char *what() const noexcept override { return "Background worker stopped"; }
+  };
+
+  struct worker_not_yet_started : public std::exception {
+    const char *what() const noexcept override {
+      return "Background worker hasn't been started yet";
+    }
+  };
+
+  struct postmaster_died : public std::exception {
+    const char *what() const noexcept override { return "postmaster died"; }
+  };
+
+  struct handle {
+    handle() : handle_(nullptr) {}
+    handle(::BackgroundWorkerHandle *handle) : handle_(handle) {}
+
+    ::BackgroundWorkerHandle *operator->() { return handle_; }
+
+    bool has_value() const { return handle_ != nullptr; }
+    ::BackgroundWorkerHandle *value() { return handle_; }
+
+    pid_t wait_for_startup() {
+      if (has_value()) {
+        pid_t pid;
+        ffi_guard{::WaitForBackgroundWorkerStartup}(value(), &pid);
+        return pid;
+      }
+      throw std::logic_error("Attempting to wait for a background worker with no handle");
+    }
+
+    void wait_for_shutdown() {
+      if (has_value()) {
+        ffi_guard{::WaitForBackgroundWorkerShutdown}(value());
+        return;
+      }
+      throw std::logic_error("Attempting to wait for a background worker with no handle");
+    }
+
+    void terminate() {
+      if (has_value()) {
+        ffi_guard{::TerminateBackgroundWorker}(value());
+        return;
+      }
+      throw std::logic_error("Attempting to terminate a background worker with no handle");
+    }
+
+    pid_t get_pid() {
+      if (has_value()) {
+        pid_t pid;
+        auto rc = ffi_guard{::GetBackgroundWorkerPid}(value(), &pid);
+        switch (rc) {
+        case BGWH_STARTED:
+          return pid;
+        case BGWH_STOPPED:
+          throw worker_stopped();
+        case BGWH_NOT_YET_STARTED:
+          throw worker_not_yet_started();
+        case BGWH_POSTMASTER_DIED:
+          throw postmaster_died();
+        }
+      }
+      throw std::logic_error("Attempting to get a PID of a background worker with no handle");
+    }
+
+    const char *worker_type() { return ffi_guard{::GetBackgroundWorkerTypeByPid}(get_pid()); }
+
+  private:
+    ::BackgroundWorkerHandle *handle_;
+  };
+
+  handle start(bool dynamic = true) {
+    if (!dynamic) {
+      if (::IsUnderPostmaster || !::IsPostmasterEnvironment) {
+        throw std::runtime_error(
+            "static background worker can only be start in the postmaster process");
+      }
+      ffi_guard{::RegisterBackgroundWorker}(operator BackgroundWorker *());
+      return {};
+    }
+    ::BackgroundWorkerHandle *handle;
+    ffi_guard{::RegisterDynamicBackgroundWorker}(operator BackgroundWorker *(), &handle);
+    return {handle};
+  }
+
+private:
+  utils::maybe_ref<::BackgroundWorker> worker = {};
+};
+
+struct background_worker_database_conection_flag {
+  virtual int flag() const { return 0; }
+};
+
+struct background_worker_bypass_allow_connection
+    : public background_worker_database_conection_flag {
+  int flag() const override { return BGWORKER_BYPASS_ALLOWCONN; }
+};
+
+#if PG_MAJORVERSION_NUM >= 17
+struct background_worker_bypass_role_login_check
+    : public background_worker_database_conection_flag {
+  int flag() const override { return BGWORKER_BYPASS_ROLELOGINCHECK; }
+};
+#endif
+
+struct current_background_worker : public background_worker {
+  friend std::optional<current_background_worker> get_current_background_worker();
+
+  /**
+   * @brief gets current background worker's entry
+   *
+   * @throws std::logic_error if not in a background worker; to check the backend type
+   *         use cppgres::backend::type()
+   */
+  current_background_worker() : background_worker(*::MyBgworkerEntry) {
+    if (backend::type() != backend_type::bg_worker) {
+      throw std::logic_error("can't access current background worker in a different backend type");
+    }
+  }
+
+  void unblock_signals() { ffi_guard{::BackgroundWorkerUnblockSignals}(); }
+
+  void block_signals() { ffi_guard{::BackgroundWorkerBlockSignals}(); }
+
+  /**
+   * @brief Connect to the database using db name and, optionally, username
+   *
+   * @tparam Flags connection flags of @ref cppgres::background_worker_database_conection_flag
+   *               derived flags
+   * @param dbname database name
+   * @param user user name
+   * @param flags connection flags of @ref cppgres::background_worker_database_conection_flag
+   * derived flags
+   */
+  template <typename... Flags>
+  void connect(std::string dbname, std::optional<std::string> user = std::nullopt, Flags... flags)
+      requires(
+          std::conjunction_v<std::is_base_of<background_worker_database_conection_flag, Flags>...>)
+  {
+    ffi_guard{::BackgroundWorkerInitializeConnection}(
+        dbname.c_str(), user.has_value() ? user.value().c_str() : nullptr,
+        (flags.flag() | ... | 0));
+  }
+
+  /**
+   * @brief Connect to the database using db oid and, optionally, user oid
+   *
+   * @tparam Flags connection flags of @ref cppgres::background_worker_database_conection_flag
+   *               derived flags
+   * @param db database oid
+   * @param user user oid
+   * @param flags connection flags of @ref cppgres::background_worker_database_conection_flag
+   * derived flags
+   */
+  template <typename... Flags>
+  void connect(oid db, std::optional<oid> user = std::nullopt, Flags... flags) requires(
+      std::conjunction_v<std::is_base_of<background_worker_database_conection_flag, Flags>...>)
+  {
+    ffi_guard{::BackgroundWorkerInitializeConnectionByOid}(
+        db, user.has_value() ? user.value() : InvalidOid, (flags.flag() | ... | 0));
+  }
+};
+
+} // namespace cppgres
 /**
 * \file
  */
@@ -8183,22 +8557,18 @@ struct type {
 };
 
 template <typename T, typename = void> struct type_traits {
-  static bool is(const type &t) {
-    if constexpr (utils::is_optional<T>) {
-      return type_traits<utils::remove_optional_t<T>>::is(t);
-    } else {
-      return false;
-    }
-  }
-
+  static bool is(const type &t) { return false; }
   static type type_for() = delete;
 };
 
 template <typename T> requires std::is_reference_v<T>
 struct type_traits<T> {
-  static constexpr type type_for() {
-    return type_traits<std::remove_reference_t<utils::remove_optional_t<T>>>::type_for();
-  }
+  static constexpr type type_for() { return type_traits<std::remove_reference_t<T>>::type_for(); }
+};
+
+template <typename T> struct type_traits<std::optional<T>> {
+  static bool is(const type &t) { return type_traits<T>::is(t); }
+  static constexpr type type_for() { return type_traits<T>::type_for(); }
 };
 
 struct non_by_value_type : public type {
@@ -8720,8 +9090,8 @@ struct tuple_descriptor {
    * Creates a copy instance of the tuple descriptor in the current memory contet
    */
   tuple_descriptor(tuple_descriptor &other)
-      : tupdesc(ffi_guard{::CreateTupleDescCopyConstr}(other.tupdesc)), blessed(other.blessed),
-        owned(other.owned) {}
+      : tupdesc(ffi_guard{::CreateTupleDescCopyConstr}(other.populate_compact_attribute())),
+        blessed(other.blessed), owned(other.owned) {}
 
   /**
    * @brief Move constructor
@@ -8735,7 +9105,7 @@ struct tuple_descriptor {
    * Creates a copy instance of the tuple descriptor in the current memory contet
    */
   tuple_descriptor &operator=(const tuple_descriptor &other) {
-    tupdesc = ffi_guard{::CreateTupleDescCopyConstr}(other.tupdesc);
+    tupdesc = ffi_guard{::CreateTupleDescCopyConstr}(other.populate_compact_attribute());
     blessed = other.blessed;
     return *this;
   }
@@ -8796,12 +9166,8 @@ struct tuple_descriptor {
    * At this point, it'll be prepared and blessed.
    */
   operator TupleDesc() {
+    populate_compact_attribute();
     if (!blessed) {
-#if PG_MAJORVERSION_NUM >= 18
-      for (int i = 0; i < tupdesc->natts; i++) {
-        ffi_guard{::populate_compact_attribute}(tupdesc, i);
-      }
-#endif
       tupdesc = ffi_guard{::BlessTupleDesc}(tupdesc);
       blessed = true;
     }
@@ -8874,6 +9240,15 @@ private:
     if (blessed) {
       throw std::runtime_error("tuple_descriptor already blessed");
     }
+  }
+
+  TupleDesc populate_compact_attribute() const {
+#if PG_MAJORVERSION_NUM >= 18
+    for (int i = 0; i < tupdesc->natts; i++) {
+      ffi_guard{::populate_compact_attribute}(tupdesc, i);
+    }
+#endif
+    return tupdesc;
   }
 
   TupleDesc tupdesc;
@@ -10912,8 +11287,103 @@ node_dispatch(ForeignKeyCacheInfo)
 #undef node_dispatch
 
 } // namespace cppgres
+
+#include <future>
+#include <queue>
+#include <type_traits>
+
+
+#ifdef __linux__
+#include <sys/syscall.h>
+#include <unistd.h>
+#elif __APPLE__
+#include <pthread.h>
+#endif
+
+namespace cppgres {
+
+#if defined(__linux__)
+static inline bool is_main_thread() { return gettid() == getpid(); }
+#elif defined(__APPLE__)
+static inline bool is_main_thread() { return pthread_main_np() != 0; }
+#else
+#warning "is_main_thread() not implemented"
+static inline bool is_main_thread() { return false; }
+#endif
+
 /**
-* \file
+ * @brief Single-threaded Postgres workload worker
+ *
+ * @warning Use extreme caution and care when handling workload – ensure the worker does not
+ *          outlive the intended lifetime – and receives no interference – that is, no other
+ *          threads should be doing any Postgres workloads while this worker is alive.
+ */
+struct worker {
+  worker() : done(false), terminated(false) {}
+
+  ~worker() { terminate(); }
+
+  void terminate() {
+    {
+      std::scoped_lock lock(mutex);
+      if (terminated)
+        return;
+      done = true;
+      cv.notify_one();
+    }
+  }
+
+  template <typename F, typename... Args>
+  auto post(F &&f, Args &&...args) -> std::future<std::invoke_result_t<F, Args...>> {
+    using ReturnType = std::invoke_result_t<F, Args...>;
+
+    auto task = std::make_shared<std::packaged_task<ReturnType()>>(
+        [f = std::move(f), ... args = std::move(args)]() { return f(args...); });
+    std::future<ReturnType> result = task->get_future();
+
+    {
+      std::scoped_lock lock(mutex);
+      tasks.emplace([task]() { (*task)(); });
+    }
+    cv.notify_one();
+    return result;
+  }
+
+  /**
+   * @brief Run the worker
+   *
+   * @throws std::runtime_error if called on a secondary thread
+   */
+  void run() {
+    if (!is_main_thread()) {
+      throw std::runtime_error("Worker can only run on main thread");
+    }
+    while (true) {
+      std::function<void()> task;
+      {
+        std::unique_lock<std::mutex> lock(mutex);
+        cv.wait(lock, [&]() { return done.load() || !tasks.empty(); });
+        if (done.load() && tasks.empty())
+          break;
+        task = std::move(tasks.front());
+        tasks.pop();
+      }
+      task();
+    }
+    terminated = true;
+  }
+
+private:
+  std::mutex mutex;
+  std::condition_variable cv;
+  std::queue<std::function<void()>> tasks;
+  std::atomic<bool> done;
+  std::atomic<bool> terminated;
+};
+
+} // namespace cppgres
+/**
+ * \file
  */
 
 #include <stack>
@@ -10960,6 +11430,51 @@ private:
   bool commit;
   std::string name;
   static inline std::stack<internal_subtransaction *> txns;
+};
+
+struct transaction {
+  transaction(bool commit = true) : should_commit(commit), released(false) {
+    ffi_guard([]() {
+      if (!::IsTransactionState()) {
+        ::SetCurrentStatementStartTimestamp();
+        ::StartTransactionCommand();
+        ::PushActiveSnapshot(::GetTransactionSnapshot());
+      }
+    })();
+  }
+
+  ~transaction() {
+    if (!released) {
+      ffi_guard([this]() {
+        ::PopActiveSnapshot();
+        if (should_commit) {
+          ::CommitTransactionCommand();
+        } else {
+          ::AbortCurrentTransaction();
+        }
+      })();
+    }
+  }
+
+  void commit() {
+    ffi_guard([]() {
+      ::PopActiveSnapshot();
+      ::CommitTransactionCommand();
+    })();
+    released = true;
+  }
+
+  void rollback() {
+    ffi_guard([]() {
+      ::PopActiveSnapshot();
+      ::AbortCurrentTransaction();
+    })();
+    released = true;
+  }
+
+private:
+  bool should_commit;
+  bool released;
 };
 
 } // namespace cppgres
