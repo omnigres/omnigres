@@ -1055,6 +1055,9 @@ Datum sum_type(PG_FUNCTION_ARGS) {
                       PROKIND_FUNCTION, false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
                       buildoidvector((Oid[1]){CSTRINGOID}, 1), PointerGetDatum(NULL),
                       PointerGetDatum(NULL), PointerGetDatum(NULL), NIL, PointerGetDatum(NULL),
+#if PG_MAJORVERSION_NUM >= 18
+                      NIL,
+#endif
                       PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
 
   // Prepare sum type -> cstring function
@@ -1068,6 +1071,9 @@ Datum sum_type(PG_FUNCTION_ARGS) {
                       PROKIND_FUNCTION, false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
                       buildoidvector((Oid[1]){shell.objectId}, 1), PointerGetDatum(NULL),
                       PointerGetDatum(NULL), PointerGetDatum(NULL), NIL, PointerGetDatum(NULL),
+#if PG_MAJORVERSION_NUM >= 18
+                      NIL,
+#endif
                       PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
 
   // Prepare send/recv functions (if possible)
@@ -1084,6 +1090,9 @@ Datum sum_type(PG_FUNCTION_ARGS) {
                         PROKIND_FUNCTION, false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
                         buildoidvector((Oid[1]){BYTEAOID}, 1), PointerGetDatum(NULL),
                         PointerGetDatum(NULL), PointerGetDatum(NULL), NIL, PointerGetDatum(NULL),
+#if PG_MAJORVERSION_NUM >= 18
+                        NIL,
+#endif
                         PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
 
     char *f_send = psprintf("%s_send", NameStr(*name));
@@ -1096,6 +1105,9 @@ Datum sum_type(PG_FUNCTION_ARGS) {
                         PROKIND_FUNCTION, false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
                         buildoidvector((Oid[1]){shell.objectId}, 1), PointerGetDatum(NULL),
                         PointerGetDatum(NULL), PointerGetDatum(NULL), NIL, PointerGetDatum(NULL),
+#if PG_MAJORVERSION_NUM >= 18
+                        NIL,
+#endif
                         PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
     typrecv = recv.objectId;
     typsend = send.objectId;
@@ -1140,24 +1152,30 @@ Datum sum_type(PG_FUNCTION_ARGS) {
                     false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
                     buildoidvector((Oid[1]){type.objectId}, 1), PointerGetDatum(NULL),
                     PointerGetDatum(NULL), PointerGetDatum(NULL), NIL, PointerGetDatum(NULL),
+#if PG_MAJORVERSION_NUM >= 18
+                    NIL,
+#endif
                     PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
   }
 
   // Create comparison operators
   {
     char *eq_sum = psprintf("%s_eq", NameStr(*name));
-    ObjectAddress eq_sum_proc =
-        ProcedureCreate(eq_sum, namespace, false, false, BOOLOID, GetUserId(), ClanguageId,
-                        F_FMGR_C_VALIDATOR, "sum_eq", probin,
+    ObjectAddress eq_sum_proc = ProcedureCreate(
+        eq_sum, namespace, false, false, BOOLOID, GetUserId(), ClanguageId, F_FMGR_C_VALIDATOR,
+        "sum_eq", probin,
 #if PG_MAJORVERSION_NUM > 13
-                        NULL,
+        NULL,
 #endif
-                        PROKIND_FUNCTION,
+        PROKIND_FUNCTION,
 
-                        false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
-                        buildoidvector((Oid[2]){type.objectId, type.objectId}, 2),
-                        PointerGetDatum(NULL), PointerGetDatum(NULL), PointerGetDatum(NULL), NIL,
-                        PointerGetDatum(NULL), PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
+        false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
+        buildoidvector((Oid[2]){type.objectId, type.objectId}, 2), PointerGetDatum(NULL),
+        PointerGetDatum(NULL), PointerGetDatum(NULL), NIL, PointerGetDatum(NULL),
+#if PG_MAJORVERSION_NUM >= 18
+        NIL,
+#endif
+        PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
 
     ObjectAddress eqop =
         OperatorCreate("=", namespace, type.objectId, type.objectId, eq_sum_proc.objectId,
@@ -1165,18 +1183,21 @@ Datum sum_type(PG_FUNCTION_ARGS) {
                        InvalidOid, can_cmp, can_hash);
 
     char *neq_sum = psprintf("%s_neq", NameStr(*name));
-    ObjectAddress neq_sum_proc =
-        ProcedureCreate(neq_sum, namespace, false, false, BOOLOID, GetUserId(), ClanguageId,
-                        F_FMGR_C_VALIDATOR, "sum_neq", probin,
+    ObjectAddress neq_sum_proc = ProcedureCreate(
+        neq_sum, namespace, false, false, BOOLOID, GetUserId(), ClanguageId, F_FMGR_C_VALIDATOR,
+        "sum_neq", probin,
 #if PG_MAJORVERSION_NUM > 13
-                        NULL,
+        NULL,
 #endif
-                        PROKIND_FUNCTION,
+        PROKIND_FUNCTION,
 
-                        false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
-                        buildoidvector((Oid[2]){type.objectId, type.objectId}, 2),
-                        PointerGetDatum(NULL), PointerGetDatum(NULL), PointerGetDatum(NULL), NIL,
-                        PointerGetDatum(NULL), PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
+        false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
+        buildoidvector((Oid[2]){type.objectId, type.objectId}, 2), PointerGetDatum(NULL),
+        PointerGetDatum(NULL), PointerGetDatum(NULL), NIL, PointerGetDatum(NULL),
+#if PG_MAJORVERSION_NUM >= 18
+        NIL,
+#endif
+        PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
     ObjectAddress neqop =
         OperatorCreate("<>", namespace, type.objectId, type.objectId, neq_sum_proc.objectId,
                        list_make1(makeString("<>")), list_make1(makeString("=")), InvalidOid,
@@ -1195,21 +1216,28 @@ Datum sum_type(PG_FUNCTION_ARGS) {
                       false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
                       buildoidvector((Oid[2]){type.objectId, type.objectId}, 2),
                       PointerGetDatum(NULL), PointerGetDatum(NULL), PointerGetDatum(NULL), NIL,
-                      PointerGetDatum(NULL), PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
+                      PointerGetDatum(NULL),
+#if PG_MAJORVERSION_NUM >= 18
+                      NIL,
+#endif
+                      PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
 
       char *lt_sum = psprintf("%s_lt", NameStr(*name));
-      ObjectAddress lt_proc =
-          ProcedureCreate(lt_sum, namespace, false, false, BOOLOID, GetUserId(), ClanguageId,
-                          F_FMGR_C_VALIDATOR, "sum_lt", probin,
+      ObjectAddress lt_proc = ProcedureCreate(
+          lt_sum, namespace, false, false, BOOLOID, GetUserId(), ClanguageId, F_FMGR_C_VALIDATOR,
+          "sum_lt", probin,
 #if PG_MAJORVERSION_NUM > 13
-                          NULL,
+          NULL,
 #endif
-                          PROKIND_FUNCTION,
+          PROKIND_FUNCTION,
 
-                          false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
-                          buildoidvector((Oid[2]){type.objectId, type.objectId}, 2),
-                          PointerGetDatum(NULL), PointerGetDatum(NULL), PointerGetDatum(NULL), NIL,
-                          PointerGetDatum(NULL), PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
+          false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
+          buildoidvector((Oid[2]){type.objectId, type.objectId}, 2), PointerGetDatum(NULL),
+          PointerGetDatum(NULL), PointerGetDatum(NULL), NIL, PointerGetDatum(NULL),
+#if PG_MAJORVERSION_NUM >= 18
+          NIL,
+#endif
+          PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
 
       ObjectAddress ltop =
           OperatorCreate("<", namespace, type.objectId, type.objectId, lt_proc.objectId,
@@ -1217,18 +1245,21 @@ Datum sum_type(PG_FUNCTION_ARGS) {
                          InvalidOid, can_cmp, can_hash);
 
       char *lte_sum = psprintf("%s_lte", NameStr(*name));
-      ObjectAddress lte_proc =
-          ProcedureCreate(lte_sum, namespace, false, false, BOOLOID, GetUserId(), ClanguageId,
-                          F_FMGR_C_VALIDATOR, "sum_lte", probin,
+      ObjectAddress lte_proc = ProcedureCreate(
+          lte_sum, namespace, false, false, BOOLOID, GetUserId(), ClanguageId, F_FMGR_C_VALIDATOR,
+          "sum_lte", probin,
 #if PG_MAJORVERSION_NUM > 13
-                          NULL,
+          NULL,
 #endif
-                          PROKIND_FUNCTION,
+          PROKIND_FUNCTION,
 
-                          false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
-                          buildoidvector((Oid[2]){type.objectId, type.objectId}, 2),
-                          PointerGetDatum(NULL), PointerGetDatum(NULL), PointerGetDatum(NULL), NIL,
-                          PointerGetDatum(NULL), PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
+          false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
+          buildoidvector((Oid[2]){type.objectId, type.objectId}, 2), PointerGetDatum(NULL),
+          PointerGetDatum(NULL), PointerGetDatum(NULL), NIL, PointerGetDatum(NULL),
+#if PG_MAJORVERSION_NUM >= 18
+          NIL,
+#endif
+          PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
 
       ObjectAddress lteop =
           OperatorCreate("<=", namespace, type.objectId, type.objectId, lte_proc.objectId,
@@ -1236,18 +1267,21 @@ Datum sum_type(PG_FUNCTION_ARGS) {
                          InvalidOid, can_cmp, can_hash);
 
       char *gt_sum = psprintf("%s_gt", NameStr(*name));
-      ObjectAddress gt_proc =
-          ProcedureCreate(gt_sum, namespace, false, false, BOOLOID, GetUserId(), ClanguageId,
-                          F_FMGR_C_VALIDATOR, "sum_gt", probin,
+      ObjectAddress gt_proc = ProcedureCreate(
+          gt_sum, namespace, false, false, BOOLOID, GetUserId(), ClanguageId, F_FMGR_C_VALIDATOR,
+          "sum_gt", probin,
 #if PG_MAJORVERSION_NUM > 13
-                          NULL,
+          NULL,
 #endif
-                          PROKIND_FUNCTION,
+          PROKIND_FUNCTION,
 
-                          false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
-                          buildoidvector((Oid[2]){type.objectId, type.objectId}, 2),
-                          PointerGetDatum(NULL), PointerGetDatum(NULL), PointerGetDatum(NULL), NIL,
-                          PointerGetDatum(NULL), PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
+          false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
+          buildoidvector((Oid[2]){type.objectId, type.objectId}, 2), PointerGetDatum(NULL),
+          PointerGetDatum(NULL), PointerGetDatum(NULL), NIL, PointerGetDatum(NULL),
+#if PG_MAJORVERSION_NUM >= 18
+          NIL,
+#endif
+          PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
 
       ObjectAddress gtop =
           OperatorCreate(">", namespace, type.objectId, type.objectId, gt_proc.objectId,
@@ -1255,18 +1289,21 @@ Datum sum_type(PG_FUNCTION_ARGS) {
                          InvalidOid, can_cmp, can_hash);
 
       char *gte_sum = psprintf("%s_gte", NameStr(*name));
-      ObjectAddress gte_proc =
-          ProcedureCreate(gte_sum, namespace, false, false, BOOLOID, GetUserId(), ClanguageId,
-                          F_FMGR_C_VALIDATOR, "sum_gte", probin,
+      ObjectAddress gte_proc = ProcedureCreate(
+          gte_sum, namespace, false, false, BOOLOID, GetUserId(), ClanguageId, F_FMGR_C_VALIDATOR,
+          "sum_gte", probin,
 #if PG_MAJORVERSION_NUM > 13
-                          NULL,
+          NULL,
 #endif
-                          PROKIND_FUNCTION,
+          PROKIND_FUNCTION,
 
-                          false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
-                          buildoidvector((Oid[2]){type.objectId, type.objectId}, 2),
-                          PointerGetDatum(NULL), PointerGetDatum(NULL), PointerGetDatum(NULL), NIL,
-                          PointerGetDatum(NULL), PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
+          false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
+          buildoidvector((Oid[2]){type.objectId, type.objectId}, 2), PointerGetDatum(NULL),
+          PointerGetDatum(NULL), PointerGetDatum(NULL), NIL, PointerGetDatum(NULL),
+#if PG_MAJORVERSION_NUM >= 18
+          NIL,
+#endif
+          PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
 
       ObjectAddress gteop =
           OperatorCreate(">=", namespace, type.objectId, type.objectId, gte_proc.objectId,
@@ -1315,11 +1352,12 @@ Datum sum_type(PG_FUNCTION_ARGS) {
 #if PG_MAJORVERSION_NUM > 13
                           NULL,
 #endif
-                          PROKIND_FUNCTION,
-
-                          false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
+                          PROKIND_FUNCTION, false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
                           buildoidvector((Oid[1]){type.objectId}, 1), PointerGetDatum(NULL),
                           PointerGetDatum(NULL), PointerGetDatum(NULL), NIL, PointerGetDatum(NULL),
+#if PG_MAJORVERSION_NUM >= 18
+                          NIL,
+#endif
                           PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
 
       ObjectAddress cast_from =
@@ -1333,6 +1371,9 @@ Datum sum_type(PG_FUNCTION_ARGS) {
                           false, true, true, PROVOLATILE_STABLE, PROPARALLEL_SAFE,
                           buildoidvector((Oid[1]){target}, 1), PointerGetDatum(NULL),
                           PointerGetDatum(NULL), PointerGetDatum(NULL), NIL, PointerGetDatum(NULL),
+#if PG_MAJORVERSION_NUM >= 18
+                          NIL,
+#endif
                           PointerGetDatum(NULL), InvalidOid, 1.0, 0.0);
 
       if (!is_domain) {
