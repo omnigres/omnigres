@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.2.0] - TBD
 
+### Fixed
+
+* Cppgres dependency has been updated to avoid potential bugs [#849](https://github.com/omnigres/omnigres/pull/849)
+
 ## [0.1.2] - 2025-04-08
 
 ### Fixed

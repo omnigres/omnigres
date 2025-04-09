@@ -113,8 +113,8 @@ static void bind_params(sqlite3_stmt *stmt, std::optional<cppgres::record> param
         }
         case UNKNOWNOID: {
           bool is_varlena;
-          cppgres::oid outfun;
-          cppgres::ffi_guard{::getTypeOutputInfo}(typoid, &outfun, &is_varlena);
+          cppgres::oid outfun(InvalidOid);
+          cppgres::ffi_guard{::getTypeOutputInfo}(typoid, &outfun.operator ::Oid &(), &is_varlena);
           auto fc = cppgres::current_postgres_function::call_info();
           auto d = cppgres::ffi_guard{::OidFunctionCall1Coll}(outfun, (*fc)->fncollation, nd);
           auto cc =
