@@ -7956,7 +7956,23 @@ template <typename T> decltype(auto) tie(T &val) {
 
 namespace cppgres {
 
-using oid = ::Oid;
+struct oid {
+  oid(::Oid oid) : oid_(oid) {}
+  oid(oid &oid) : oid_(oid.oid_) {}
+
+  bool operator==(const oid &rhs) const { return oid_ == rhs.oid_; }
+  bool operator!=(const oid &rhs) const { return !(rhs == *this); }
+
+  bool operator==(const ::Oid &rhs) const { return oid_ == rhs; }
+  bool operator!=(const ::Oid &rhs) const { return oid_ != rhs; }
+
+  operator ::Oid() const { return oid_; }
+  operator ::Oid &() { return oid_; }
+
+private:
+  ::Oid oid_;
+};
+static_assert(sizeof(::Oid) == sizeof(oid));
 
 struct datum {
   template <typename T, typename> friend struct datum_conversion;
@@ -8425,7 +8441,7 @@ struct current_background_worker : public background_worker {
       std::conjunction_v<std::is_base_of<background_worker_database_conection_flag, Flags>...>)
   {
     ffi_guard{::BackgroundWorkerInitializeConnectionByOid}(
-        db, user.has_value() ? user.value() : InvalidOid, (flags.flag() | ... | 0));
+        db, user.has_value() ? user.value() : oid(InvalidOid), (flags.flag() | ... | 0));
   }
 };
 
@@ -8765,6 +8781,11 @@ namespace cppgres {
 template <> struct type_traits<void> {
   static bool is(const type &t) { return t.oid == VOIDOID; }
   static constexpr type type_for() { return type{.oid = VOIDOID}; }
+};
+
+template <> struct type_traits<oid> {
+  static bool is(const type &t) { return t.oid == OIDOID; }
+  static constexpr type type_for() { return type{.oid = OIDOID}; }
 };
 
 template <typename S> struct type_traits<S, std::enable_if_t<utils::is_std_tuple<S>::value>> {
@@ -9423,7 +9444,13 @@ template <> struct datum_conversion<record> {
 };
 
 template <> struct type_traits<record> {
-  static bool is(const type &t) { return t.oid == RECORDOID; }
+  static bool is(const type &t) {
+    if (t.oid == RECORDOID)
+      return true;
+    // Check if it is a composite type and therefore can be coerced to a record
+    syscache<Form_pg_type, oid> cache(t.oid);
+    return (*cache).typtype == 'c';
+  }
   static constexpr type type_for() { return {.oid = RECORDOID}; }
 };
 
@@ -9574,7 +9601,7 @@ template <datumable_function Func> struct postgres_function {
 
       if (!OidIsValid(rettype.oid)) {
         // TODO: not very efficient to look it up every time
-        syscache<Form_pg_proc, Oid> cache(fc->flinfo->fn_oid);
+        syscache<Form_pg_proc, oid> cache(fc->flinfo->fn_oid);
         rettype = type{.oid = (*cache).prorettype};
         retset = (*cache).proretset;
       }
@@ -9607,7 +9634,7 @@ template <datumable_function Func> struct postgres_function {
           auto typ = type{.oid = ffi_guard{::get_fn_expr_argtype}(fc->flinfo, Is)};
           if (!OidIsValid(typ.oid)) {
             // TODO: not very efficient to look it up every time
-            syscache<Form_pg_proc, Oid> cache(fc->flinfo->fn_oid);
+            syscache<Form_pg_proc, oid> cache(fc->flinfo->fn_oid);
             if ((*cache).proargtypes.dim1 > Is) {
               typ = type{.oid = (*cache).proargtypes.values[Is]};
             }
@@ -9934,30 +9961,31 @@ struct spi_executor : public executor {
   private:
   };
 
-  template <datumable_tuple Ret, convertible_into_nullable_datum... Args> struct results {
+  template <datumable_tuple Ret> struct results {
     ::SPITupleTable *table;
 
     results(::SPITupleTable *table) : table(table) {
       auto natts = table->tupdesc->natts;
-      [&]<std::size_t... Is>(std::index_sequence<Is...>) {
-        (([&] {
-           auto oid = ffi_guard{::SPI_gettypeid}(table->tupdesc, Is + 1);
-           auto t = type{.oid = oid};
-           if (!type_traits<utils::tuple_element_t<Is, Ret>>::is(t)) {
-             throw std::invalid_argument(
-                 cppgres::fmt::format("invalid return type in position {} ({}), got OID {}", Is,
-                             utils::type_name<utils::tuple_element_t<Is, Ret>>(), oid));
-           }
-         }()),
-         ...);
-      }(std::make_index_sequence<sizeof...(Args)>{});
       if (natts != utils::tuple_size_v<Ret>) {
         if (natts == 1 && convertible_from_datum<Ret>) {
           // okay, this is just a type we can convert
         } else {
-          throw std::runtime_error(
-              cppgres::fmt::format("expected {} return values, got {}", utils::tuple_size_v<Ret>, natts));
+          throw std::runtime_error(cppgres::fmt::format("expected {} return values, got {}",
+                                                        utils::tuple_size_v<Ret>, natts));
         }
+      } else {
+        [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+          (([&] {
+             auto oid = ffi_guard{::SPI_gettypeid}(table->tupdesc, Is + 1);
+             auto t = type{.oid = oid};
+             if (!type_traits<utils::tuple_element_t<Is, Ret>>::is(t)) {
+               throw std::invalid_argument(
+                   cppgres::fmt::format("invalid return type in position {} ({}), got OID {}", Is,
+                                        utils::type_name<utils::tuple_element_t<Is, Ret>>(), oid));
+             }
+           }()),
+           ...);
+        }(std::make_index_sequence<utils::tuple_size_v<Ret>>{});
       }
     }
 
@@ -9974,7 +10002,7 @@ struct spi_executor : public executor {
    * @throws std::runtime_error if there's an SPI error
    */
   template <datumable_tuple Ret, convertible_into_nullable_datum_and_has_a_type... Args>
-  results<Ret, Args...> query(std::string_view query, Args &&...args) {
+  results<Ret> query(std::string_view query, Args &&...args) {
     if (executors.top() != this) {
       throw std::runtime_error("not a current SPI executor");
     }
@@ -9986,7 +10014,7 @@ struct spi_executor : public executor {
                                                  nulls.data(), false, 0);
     if (rc > 0) {
       //      static_assert(std::random_access_iterator<result_iterator<Ret>>);
-      return results<Ret, Args...>(SPI_tuptable);
+      return results<Ret>(SPI_tuptable);
     } else {
       throw std::runtime_error("spi error");
     }
@@ -10003,7 +10031,7 @@ struct spi_executor : public executor {
   }
 
   template <datumable_tuple Ret, convertible_into_nullable_datum... Args>
-  results<Ret, Args...> query(spi_plan<Args...> &query, Args &&...args) {
+  results<Ret> query(spi_plan<Args...> &query, Args &&...args) {
     if (executors.top() != this) {
       throw std::runtime_error("not a current SPI executor");
     }
@@ -10013,7 +10041,7 @@ struct spi_executor : public executor {
     auto rc = ffi_guard{::SPI_execute_plan}(query, datums.data(), nulls.data(), false, 0);
     if (rc > 0) {
       //      static_assert(std::random_access_iterator<result_iterator<Ret>>);
-      return results<Ret, Args...>(SPI_tuptable);
+      return results<Ret>(SPI_tuptable);
     } else {
       throw std::runtime_error("spi error");
     }

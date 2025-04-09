@@ -57,3 +57,26 @@ tests:
                                         row (1, 'hi!'));
   results:
   - sqlite_exec: "PRAGMA foreign_keys=OFF;\nBEGIN TRANSACTION;\nCREATE TABLE a (i int, t text);\nINSERT INTO a(rowid,i,t) VALUES(1,1,'hi!');\nCOMMIT;\n"
+
+- name: returning mixed types
+  query: |
+    select *
+    from omni_sqlite.sqlite_query($$create table a(i banana); insert into a values('a'),(1)$$::omni_sqlite.sqlite,
+                                  'select * from a'::text) t(b text)
+  error: "exception: column 0 type mismatch, expected text, got integer"
+
+- name: returning mixed types but with trailing nulls
+  query: |
+    select *
+    from omni_sqlite.sqlite_query($$create table a(i banana); insert into a values('a'),(null)$$::omni_sqlite.sqlite,
+                                  'select * from a'::text) t(b text)
+  results:
+  - b: a
+  - b: null
+
+- name: returning mixed types but with leading nulls
+  query: |
+    select *
+    from omni_sqlite.sqlite_query($$create table a(i banana); insert into a values(null),('a')$$::omni_sqlite.sqlite,
+                                  'select * from a'::text) t(b text)
+  error: "exception: expected and returned records do not match"
