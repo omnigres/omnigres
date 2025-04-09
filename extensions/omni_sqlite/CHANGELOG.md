@@ -10,6 +10,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 * Cppgres dependency has been updated to avoid potential bugs [#849](https://github.com/omnigres/omnigres/pull/849)
+* Mixed-type query results should produce an error, not an undefined
+  behavior [#850](https://github.com/omnigres/omnigres/pull/850)
 
 ## [0.1.2] - 2025-04-08
 
