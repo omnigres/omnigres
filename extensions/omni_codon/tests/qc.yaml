@@ -1,0 +1,25 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_codon cascade
+  - create extension omni_python cascade
+  - create extension omni_schema cascade
+  - insert
+    into
+        omni_python.config (name, value)
+    values
+        ('pip_find_links', '../../../python-wheels'),
+        ('pip_find_links', '../../../../deps/python'),
+        ('site_packages', 'omni_ledger_qc')
+  - select *
+    from
+        omni_schema.load_from_fs(omni_vfs.local_fs('../../../../extensions/omni_codon/tests/qc'))
+
+
+tests:
+
+- select qc_valid_int16()
+- select qc_valid_int32()
+- select qc_valid_int64()
+- select qc_codon_identity()
+- select qc_codon_identity_optional()

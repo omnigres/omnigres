@@ -300,6 +300,7 @@ A collection of extensions that improve Postgres and turn it into a comprehensiv
 <summary><strong>Language Integration</strong></summary>
 
 - **[omni_python](extensions/omni_python/README.md)** - First-class Python Development Experience
+- **[omni_codon](extensions/omni_codon/README.md)** - Pythonic compiled language ("Python, Turbocharged")
 
 </details>
 
