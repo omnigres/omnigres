@@ -1008,7 +1008,7 @@ static bool prepare_routers() {
               routes[NumRoutes].tuple_index = argpos;
             } else if (allargtypes[arg] == http_request_oid()) {
               routes[NumRoutes].http_request_index = argpos;
-            } else if (allargtypes[arg] == http_outcome_oid()) {
+            } else if (allargtypes[arg] == http_outcome_oid() && allargmodes) {
               if (allargmodes[arg] == 'b') {
                 routes[NumRoutes].http_outcome_index = argpos;
                 routes[NumRoutes].handler = false;
