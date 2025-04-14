@@ -1,0 +1,108 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+    max_worker_processes: 64
+  init:
+  - set session omni_httpd.no_init = true
+  - create role another
+  - grant yregress to another
+  - create extension omni_httpd cascade
+  - create extension omni_httpc cascade
+  - call omni_httpd.wait_for_configuration_reloads(1)
+  - insert into omni_httpd.listeners (address, port)
+    values ('127.0.0.1', 0)
+  - call omni_httpd.wait_for_configuration_reloads(1)
+  - |
+    create or replace procedure set_handler(outcome out omni_httpd.http_outcome)
+        language plpgsql as
+    $$
+    begin
+        set role another;
+        outcome := omni_httpd.http_response(current_user::text);
+    end;
+    $$
+  - |
+    create or replace procedure set_handler_err(outcome out omni_httpd.http_outcome)
+        language plpgsql as
+    $$
+    begin
+        set role another;
+        raise exception 'fail';
+    end;
+    $$
+  - |
+    create or replace procedure root_handler(outcome out omni_httpd.http_outcome)
+        language plpgsql as
+    $$
+    begin
+        outcome := omni_httpd.http_response(current_user::text);
+    end;
+    $$
+  - |
+    create table my_router
+    (
+        like omni_httpd.urlpattern_router
+    )
+  - |
+    insert into my_router (match, handler)
+    values (omni_httpd.urlpattern('/set-role'), 'set_handler'::regproc),
+           (omni_httpd.urlpattern('/set-role-err'), 'set_handler_err'::regproc),
+           (omni_httpd.urlpattern('/'), 'root_handler'::regproc)
+
+
+tests:
+
+- name: can set role
+  query: |
+    with response as (select *
+                      from omni_httpc.http_execute(
+                              omni_httpc.http_request('http://127.0.0.1:' ||
+                                                      (select effective_port from omni_httpd.listeners where port = 0) ||
+                                                      '/set-role')))
+    select response.status,
+           convert_from(response.body, 'utf-8') as body
+    from response
+  results:
+  - status: 200
+    body: another
+
+- name: but then role resets
+  query: |
+    with response as (select *
+                      from omni_httpc.http_execute(
+                              omni_httpc.http_request('http://127.0.0.1:' ||
+                                                      (select effective_port from omni_httpd.listeners where port = 0) ||
+                                                      '/')))
+    select response.status,
+           convert_from(response.body, 'utf-8') as body
+    from response
+  results:
+  - status: 200
+    body: yregress
+
+- name: set role but then error
+  query: |
+    with response as (select *
+                      from omni_httpc.http_execute(
+                              omni_httpc.http_request('http://127.0.0.1:' ||
+                                                      (select effective_port from omni_httpd.listeners where port = 0) ||
+                                                      '/set-role-err')))
+    select response.status
+    from response
+  results:
+  - status: 500
+
+- name: but then role resets (again)
+  query: |
+    with response as (select *
+                      from omni_httpc.http_execute(
+                              omni_httpc.http_request('http://127.0.0.1:' ||
+                                                      (select effective_port from omni_httpd.listeners where port = 0) ||
+                                                      '/')))
+    select response.status,
+           convert_from(response.body, 'utf-8') as body
+    from response
+  results:
+  - status: 200
+    body: yregress

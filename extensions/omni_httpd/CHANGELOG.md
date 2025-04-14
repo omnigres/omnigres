@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.4.3] - TBD
 
+### Fixed
+
+* Restore role upon handler termination [#852](https://github.com/omnigres/omnigres/pull/852)
+
 ## [0.4.2] - 2025-03-07
 
 ### Fixed
