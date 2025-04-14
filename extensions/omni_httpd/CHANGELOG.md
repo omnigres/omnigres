@@ -10,6 +10,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 * Restore role upon handler termination [#852](https://github.com/omnigres/omnigres/pull/852)
+* Don't crash when expected handler attribtues have no argmode [#853](https://github.com/omnigres/omnigres/pull/853)
 
 ## [0.4.2] - 2025-03-07
 
