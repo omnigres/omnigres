@@ -49,9 +49,18 @@ instance:
     select omni_httpd.http_response(format('%s', test is null))
     $$
   - |
+    create procedure invalid_resp_arg_handler(outcome omni_httpd.http_outcome)
+        language plpgsql
+    as
+    $$
+    begin
+    end;
+    $$;
+  - |
     insert into my_router (match, handler) values
       (omni_httpd.urlpattern('/'), 'root_handler'::regproc),
       (omni_httpd.urlpattern('/no_req'), 'no_req_handler'::regproc),
+      (omni_httpd.urlpattern('/invalid_resp_arg'), 'invalid_resp_arg_handler'::regproc),
       (omni_httpd.urlpattern('/no_outcome'), 'no_outcome_handler'::regproc),
       (omni_httpd.urlpattern('/function'), 'function_handler'::regproc),
       (omni_httpd.urlpattern('/tuple'), 'tuple_handler'::regproc),

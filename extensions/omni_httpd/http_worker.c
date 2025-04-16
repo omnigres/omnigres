@@ -1008,7 +1008,7 @@ static bool prepare_routers() {
               routes[NumRoutes].tuple_index = argpos;
             } else if (allargtypes[arg] == http_request_oid()) {
               routes[NumRoutes].http_request_index = argpos;
-            } else if (allargtypes[arg] == http_outcome_oid()) {
+            } else if (allargtypes[arg] == http_outcome_oid() && allargmodes) {
               if (allargmodes[arg] == 'b') {
                 routes[NumRoutes].http_outcome_index = argpos;
                 routes[NumRoutes].handler = false;
@@ -1117,6 +1117,10 @@ static int handler(handler_message_t *msg) {
 
   // Execute handler
   CurrentMemoryContext = HandlerContext;
+
+  Oid user_id;
+  int security_ctx;
+  GetUserIdAndSecContext(&user_id, &security_ctx);
 
   switch (msg->type) {
   case handler_message_http: {
@@ -1634,6 +1638,9 @@ cleanup:
   }
 
   MemoryContextReset(HandlerContext);
+
+  SetUserIdAndSecContext(user_id, security_ctx);
+
 release:
 
   return 0;
