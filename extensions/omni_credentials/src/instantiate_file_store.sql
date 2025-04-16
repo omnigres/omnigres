@@ -13,10 +13,8 @@ begin
 
     create table if not exists credential_file_stores
     (
-        filename text unique,
+        filename text unique
     );
-
-    perform register_file_store(fs, filename);
 
     create or replace function get_function_name(filename text) returns text
         language plpgsql
