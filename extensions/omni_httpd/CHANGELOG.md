@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.4.3] - TBD
 
+### Added
+
+* Configuring handler roles without the use of `security definer` [#855](https://github.com/omnigres/omnigres/pull/855)
+
 ### Fixed
 
 * Restore role upon handler termination [#852](https://github.com/omnigres/omnigres/pull/852)
