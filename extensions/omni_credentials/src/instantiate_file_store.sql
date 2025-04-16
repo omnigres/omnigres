@@ -2,6 +2,8 @@ create function instantiate_file_store(fs anyelement, filename text, schema regn
     language plpgsql
 as
 $$
+declare
+    function_name text;
 begin
     perform set_config('search_path', schema::text || ',public', true);
 
@@ -12,11 +14,6 @@ begin
     create table if not exists credential_file_stores
     (
         filename text unique,
-        fs_type text,
-        fs_name text,
-        fs_mount text,
-        connstr text,
-        constructor text
     );
 
     create or replace function register_file_store(fs anyelement, filename text) returns boolean
@@ -67,60 +64,51 @@ begin
 
     perform register_file_store(fs, filename);
 
+    create or replace function get_function_name(filename text) returns text
+        language plpgsql
+    as
+    $code$
+    begin
+        return 'credential_vfs' ||
+            replace(
+                regexp_replace(split_part(filename, '.', 1), '[^a-zA-Z0-9_]', '_', 'g'),
+                '__',
+                '_'
+            );
+    end;
+    $code$;
+
+    function_name := get_function_name(filename);
+    execute format(
+        'create or replace function %1$I() returns %2$s as $func$ begin return %3$L::%2$s; end; $func$ language plpgsql;',
+        function_name,
+        pg_typeof(fs),
+        fs::text
+    );
+    execute format('alter function %I set search_path to %I,public', function_name, schema);
+
     create or replace function credential_file_store_reload(filename text) returns boolean
         language plpgsql
     as
     $code$
     declare
         file_contents text;
-        fs_type text;
-        fs_name text;
-        fs_mount text;
-        connstr text;
-        constructor text;
+        file_contents_bytea bytea;
+        function_name text;
     begin
         if filename not like '/%' then
             filename := current_setting('data_directory') || '/' || filename;
         end if;
 
-        select 
-            credential_file_stores.fs_type, 
-            credential_file_stores.fs_name,
-            credential_file_stores.fs_mount, 
-            credential_file_stores.connstr, 
-            credential_file_stores.constructor 
-        into fs_type, fs_name, fs_mount, connstr, constructor
-        from credential_file_stores 
-        where credential_file_stores.filename = credential_file_store_reload.filename;
+        function_name := get_function_name(filename);
 
-
-        if fs_type = 'omni_vfs.local_fs' then
-            select convert_from(
-                omni_vfs.read(
-                    omni_vfs.local_fs(fs_mount),
-                    filename
-                ),
-                'utf8'
-            ) into file_contents;
-        elsif fs_type = 'omni_vfs.table_fs' then
-            select convert_from(
-                omni_vfs.read(
-                    omni_vfs.table_fs(fs_name),
-                    filename
-                ),
-                'utf8'
-            ) into file_contents;
-        elsif fs_type = 'omni_vfs.remote_fs' then
-            select convert_from(
-                omni_vfs.read(
-                    omni_vfs.remote_fs(connstr, constructor),
-                    filename
-                ),
-                'utf8'
-            ) into file_contents;
-        else
-            raise exception 'Unknown filesystem type: %', fs_type;
-        end if;
+        execute format(
+            'select omni_vfs.read(%s(), %L);',
+            function_name,
+            filename
+        ) into file_contents_bytea;
+        
+        select convert_from(file_contents_bytea, 'utf8') into file_contents;
 
         if file_contents is null then
             raise exception 'File does not exist: %', filename;
@@ -158,24 +146,9 @@ begin
     as
     $code$
     declare
-        r record;
         json_content jsonb;
-        fs_type text;
-        fs_name text;
-        fs_mount text;
-        connstr text;
-        constructor text;
+        function_name text;
     begin
-        select 
-            credential_file_stores.fs_type, 
-            credential_file_stores.fs_name, 
-            credential_file_stores.fs_mount, 
-            credential_file_stores.connstr, 
-            credential_file_stores.constructor 
-        into fs_type, fs_name, fs_mount, connstr, constructor
-        from credential_file_stores 
-        where credential_file_stores.filename = update_credentials_file.filename;
-
         select jsonb_agg(
             jsonb_build_object(
                 'name', name,
@@ -188,27 +161,14 @@ begin
         into json_content
         from encrypted_credentials;
 
-        if fs_type = 'omni_vfs.local_fs' then
-            perform omni_vfs.write(
-                omni_vfs.local_fs(fs_mount),
-                filename,
-                convert_to(json_content::text, 'utf8')
-            );
-        elsif fs_type = 'omni_vfs.table_fs' then
-            perform omni_vfs.write(
-                omni_vfs.table_fs(fs_name),
-                filename,
-                convert_to(json_content::text, 'utf8')
-            );
-        elsif fs_type = 'omni_vfs.remote_fs' then
-            perform omni_vfs.write(
-                omni_vfs.remote_fs(connstr, constructor),
-                filename,
-                convert_to(json_content::text, 'utf8')
-            );
-        else
-            raise exception 'Unknown filesystem type: %', fs_type;
-        end if;
+        function_name := get_function_name(filename);
+
+        execute format(
+          'select omni_vfs.write(%s(), %L, %L);',
+          function_name,
+          filename,
+          json_content
+        );
 
         return true;
     end;
