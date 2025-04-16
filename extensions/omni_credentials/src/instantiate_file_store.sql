@@ -16,52 +16,6 @@ begin
         filename text unique,
     );
 
-    create or replace function register_file_store(fs anyelement, filename text) returns boolean
-        language plpgsql
-    as
-    $code$
-    declare
-        fs_name text;
-        connstr text;
-        constructor text;
-        fs_type text;
-        fs_mount text;
-    begin
-        fs_type := format_type(pg_typeof(fs), NULL);
-
-        if fs_type = 'omni_vfs.table_fs' then
-            execute 'select name from omni_vfs.table_fs_filesystems where id = ($1).id' into fs_name using fs;
-        end if;
-
-        if fs_type = 'omni_vfs.local_fs' then
-            execute 'select mount from omni_vfs.local_fs_mounts where id = ($1).id' into fs_mount using fs;
-        end if;
-
-        if fs_type = 'omni_vfs.remote_fs' then
-            execute 'select ($1).connstr' into connstr using fs;
-            execute 'select ($1).constructor' into constructor using fs;
-        end if;
-
-        insert into credential_file_stores (
-            filename, 
-            fs_type, 
-            fs_name,
-            fs_mount,
-            connstr, 
-            constructor
-        ) values (
-            filename,
-            fs_type,
-            fs_name,
-            fs_mount,
-            connstr,
-            constructor
-        );
-
-        return true;
-    end;
-    $code$;
-
     perform register_file_store(fs, filename);
 
     create or replace function get_function_name(filename text) returns text
@@ -139,6 +93,8 @@ begin
     $code$;
     execute format('alter function credential_file_store_reload set search_path to %I,public', schema);
 
+    insert into credential_file_stores (filename) values (instantiate_file_store.filename);
+    
     perform credential_file_store_reload(filename);
 
     create or replace function update_credentials_file(filename text) returns boolean
