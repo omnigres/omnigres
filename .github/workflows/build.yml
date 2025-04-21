@@ -23,7 +23,7 @@ jobs:
     strategy:
       matrix:
         pgver: [ 17, 16, 15, 14, master ]
-        os: [ warp-ubuntu-2204-x64-4x, warp-macos-14-arm64-6x ]
+        os: [ warp-ubuntu-2404-x64-4x, warp-macos-14-arm64-6x ]
         build_type: [Debug, Release]
         exclude:
         - os: warp-macos-14-arm64-6x
@@ -47,17 +47,11 @@ jobs:
     steps:
 
     # Ada URL library requires a relatively modern compiler
-    - name: Prepare GCC 13
-      if: matrix.os == 'warp-ubuntu-2204-x64-4x'
+    - name: Prepare dependencies
+      if: matrix.os == 'warp-ubuntu-2404-x64-4x'
       run: |
-        sudo add-apt-repository ppa:ubuntu-toolchain-r/test
         sudo apt-get update
-        sudo apt-get install gcc-13 g++-13
-        sudo apt-get remove gcc-11 gcc-11 libstdc++-11-dev
-        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 20
-        sudo update-alternatives --install /usr/bin/g++ gcc /usr/bin/g++-13 20
-        sudo update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-13 20
-        sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-13 20
+        sudo apt-get install libreadline-dev
 
     - uses: actions/checkout@v3
 
@@ -116,28 +110,21 @@ jobs:
 
   # Ensure it can be built against externally-supplied Postgres
   build-external-pg:
-    runs-on: warp-ubuntu-2204-x64-4x
+    runs-on: warp-ubuntu-2404-x64-4x
 
     steps:
     - uses: actions/checkout@v3
 
-    # Ada URL library requires a relatively modern compiler
-    - name: Prepare GCC 13
+    - name: Prepare dependencies
       run: |
-        sudo add-apt-repository ppa:ubuntu-toolchain-r/test
         sudo apt-get update
-        sudo apt-get install gcc-13 g++-13
-        sudo apt-get remove gcc-11 gcc-11 libstdc++-11-dev
-        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 20
-        sudo update-alternatives --install /usr/bin/g++ gcc /usr/bin/g++-13 20
-        sudo update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-13 20
-        sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-13 20
+        sudo apt-get install libreadline-dev
 
     - name: Install necessary dependencies
       run: |
         sudo apt-get update
-        sudo apt-get remove -f postgresql-14
-        sudo apt-get install -f postgresql-server-dev-14 postgresql-14 postgresql-plpython3-14
+        sudo apt-get remove -f postgresql-16
+        sudo apt-get install -f postgresql-server-dev-16 postgresql-16 postgresql-plpython3-16
 
     - name: Configure
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=Release -DPG_CONFIG=$(which pg_config)
@@ -151,7 +138,7 @@ jobs:
     strategy:
       matrix:
         pgver: [ 17 ]
-        os: [ warp-ubuntu-2204-x64-4x ]
+        os: [ warp-ubuntu-2404-x64-4x ]
         build_type: [ Debug ]
       fail-fast: false
 
@@ -161,16 +148,10 @@ jobs:
     - uses: actions/checkout@v3
 
     # Ada URL library requires a relatively modern compiler
-    - name: Prepare GCC 13
-      if: matrix.os == 'warp-ubuntu-2204-x64-4x'
+    - name: Prepare dependencies
+      if: matrix.os == 'warp-ubuntu-2404-x64-4x'
       run: |
-        sudo add-apt-repository ppa:ubuntu-toolchain-r/test
         sudo apt-get update
-        sudo apt-get install gcc-13 g++-13
-        sudo apt-get remove gcc-11 gcc-11 libstdc++-11-dev
-        sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 20
-        sudo update-alternatives --install /usr/bin/g++ gcc /usr/bin/g++-13 20
-        sudo update-alternatives --install /usr/bin/cc cc /usr/bin/gcc-13 20
-        sudo update-alternatives --install /usr/bin/c++ c++ /usr/bin/g++-13 20
+        sudo apt-get install libreadline-dev
 
     - run: ci/build-extensions-separately

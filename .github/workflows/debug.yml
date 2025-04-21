@@ -16,15 +16,15 @@ on:
         required: true
         type: choice
         options:
-        - warp-ubuntu-2204-x64-4x
+        - warp-ubuntu-2404-x64-4x
         - warp-ubuntu-latest-x64-4x
         - warp-macos-14-arm64-6x
-        - warp-ubuntu-2204-arm64-2x
+        - warp-ubuntu-2404-arm64-2x
         - warp-ubuntu-latest-arm64-2x
         - warp-ubuntu-latest-arm64-4x
         - ubuntu-latest
         - macos-13
-        default: warp-ubuntu-2204-x64-4x
+        default: warp-ubuntu-2404-x64-4x
       build:
         description: 'Build Omnigres?'
         required: true
