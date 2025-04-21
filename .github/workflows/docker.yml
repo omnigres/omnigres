@@ -34,7 +34,7 @@ jobs:
         pg: [ 17, 16, 15, 14 ]
 
     if: github.repository == 'omnigres/omnigres'
-    runs-on: ${{ fromJSON('["warp-ubuntu-2204-x64-4x", "warp-ubuntu-2204-arm64-16x"]')[matrix.platform == 'arm64'] }}
+    runs-on: ${{ fromJSON('["warp-ubuntu-2404-x64-4x", "warp-ubuntu-2404-arm64-16x"]')[matrix.platform == 'arm64'] }}
 
     permissions:
       contents: read
