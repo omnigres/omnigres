@@ -23,20 +23,20 @@ jobs:
     strategy:
       matrix:
         pgver: [ 17, 16, 15, 14, master ]
-        os: [ warp-ubuntu-2404-x64-4x, warp-macos-14-arm64-6x ]
+        os: [ ubuntu-24.04, macos-15 ]
         build_type: [Debug, Release]
         exclude:
-        - os: warp-macos-14-arm64-6x
+        - os: macos-15
           pgver: 16
-        - os: warp-macos-14-arm64-6x
+        - os: macos-15
           pgver: 15
-        - os: warp-macos-14-arm64-6x
+        - os: macos-15
           pgver: 14
-        - os: warp-macos-14-arm64-6x
+        - os: macos-15
           pgver: 13
-        - os: warp-macos-14-arm64-6x
+        - os: macos-15
           pgver: 12
-        - os: warp-macos-14-arm64-6x
+        - os: macos-15
           pgver: 11
       fail-fast: false
 
@@ -48,7 +48,7 @@ jobs:
 
     # Ada URL library requires a relatively modern compiler
     - name: Prepare dependencies
-      if: matrix.os == 'warp-ubuntu-2404-x64-4x'
+      if: matrix.os == 'ubuntu-24.04'
       run: |
         sudo apt-get update
         sudo apt-get install libreadline-dev
@@ -59,37 +59,45 @@ jobs:
     # GitHub Action runner won't work when restored in another one since dylds have install_name pointing
     # to the original location. We include the hash of their path into the cache name.
     - name: Get path hash
-      if: matrix.os == 'warp-macos-14-arm64-6x'
+      if: matrix.os == 'macos-15'
       run: |
         echo "PATH_SUFFIX=-$(pwd | sha256sum | awk '{print $1}')" >> $GITHUB_ENV
 
     # On other systems, make it explicitly empty
     - name: Get path hash
-      if: matrix.os != 'warp-macos-14-arm64-6x'
+      if: matrix.os != 'macos-15'
       run: |
         echo "PATH_SUFFIX=" >> $GITHUB_ENV
 
-    - uses: WarpBuilds/cache@v1
+    - uses: actions/cache@v4
       with:
         path: .pg
         key: ${{ matrix.os }}-pg-${{ matrix.pgver }}-${{ matrix.build_type }}-${{ hashFiles('cmake/FindPostgreSQL.cmake') }}${{ env.PATH_SUFFIX }}
 
     - name: Configure
-      # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
-      # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DPGVER=${{ matrix.pgver }}
+      if: matrix.os != 'macos-15'
+      run: |
+        # Workaround for https://www.postgresql.org/message-id/E1tziZ6-002AW5-1t%40gemulon.postgresql.org
+        export MACOSX_DEPLOYMENT_TARGET=15.4
+        cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DPGVER=${{ matrix.pgver }}
+
+    - name: Configure
+      if: matrix.os == 'macos-15'
+      run: |
+        export MACOSX_DEPLOYMENT_TARGET=15.4
+        cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DPGVER=${{ matrix.pgver }} -DCMAKE_BUILD_PARALLEL_LEVEL=2
 
     - name: Build
       run: cmake --build ${{github.workspace}}/build --parallel --config ${{matrix.build_type}}
 
     - name: Test
       working-directory: ${{github.workspace}}/build
-      if: matrix.os != 'warp-macos-14-arm64-6x'
+      if: matrix.os != 'macos-15'
       run: TMPDIR=$RUNNER_TEMP USER=$(whoami) ctest --timeout 1000 --force-new-ctest-process  --repeat until-pass:10 --output-on-failure -j $(nproc) -C ${{matrix.build_type}}
 
     - name: Test (without docker)
       working-directory: ${{github.workspace}}/build
-      if: matrix.os == 'warp-macos-14-arm64-6x'
+      if: matrix.os == 'macos-15'
       run: TMPDIR=$RUNNER_TEMP USER=$(whoami) ctest --timeout 1000 --force-new-ctest-process  --repeat until-pass:10 --output-on-failure -j $(nproc) -C ${{matrix.build_type}} -E '(minio|containers)'
 
     - uses: actions/upload-artifact@v4
@@ -110,7 +118,7 @@ jobs:
 
   # Ensure it can be built against externally-supplied Postgres
   build-external-pg:
-    runs-on: warp-ubuntu-2404-x64-4x
+    runs-on: ubuntu-24.04
 
     steps:
     - uses: actions/checkout@v3
@@ -138,7 +146,7 @@ jobs:
     strategy:
       matrix:
         pgver: [ 17 ]
-        os: [ warp-ubuntu-2404-x64-4x ]
+        os: [ ubuntu-24.04 ]
         build_type: [ Debug ]
       fail-fast: false
 
@@ -149,7 +157,7 @@ jobs:
 
     # Ada URL library requires a relatively modern compiler
     - name: Prepare dependencies
-      if: matrix.os == 'warp-ubuntu-2404-x64-4x'
+      if: matrix.os == 'ubuntu-24.04'
       run: |
         sudo apt-get update
         sudo apt-get install libreadline-dev
