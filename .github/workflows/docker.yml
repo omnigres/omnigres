@@ -34,7 +34,7 @@ jobs:
         pg: [ 17, 16, 15, 14 ]
 
     if: github.repository == 'omnigres/omnigres'
-    runs-on: ${{ fromJSON('["warp-ubuntu-2404-x64-4x", "warp-ubuntu-2404-arm64-16x"]')[matrix.platform == 'arm64'] }}
+    runs-on: ${{ fromJSON('["ubuntu-24.04", "ubuntu-24.04-arm"]')[matrix.platform == 'arm64'] }}
 
     permissions:
       contents: read
@@ -103,9 +103,8 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-extra-${{ matrix.pg }}:${{ github.sha }}-${{ matrix.platform }}-${{ matrix.pg }}
           provenance: false
           labels: ${{ steps.meta.outputs.labels }}
-          # Currently using S3 in EU as BuildJet is in the EU and going to the U.S. may be slow
-          cache-from: type=gha,url=http://127.0.0.1:49160/
-          cache-to: type=gha,url=http://127.0.0.1:49160/
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-extra-${{ matrix.pg }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-extra-${{ matrix.pg }}:buildcache,mode=max
           build-args: |
             BUILD_PARALLEL_LEVEL=4
             PG=${{ matrix.pg }}
@@ -122,8 +121,8 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.pg }}:${{ github.sha }}-${{ matrix.platform }}-${{ matrix.pg }}
           provenance: false
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,url=http://127.0.0.1:49160/
-          cache-to: type=gha,url=http://127.0.0.1:49160/
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-extra-${{ matrix.pg }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-extra-${{ matrix.pg }}:buildcache,mode=max
           build-args: |
             BUILD_PARALLEL_LEVEL=4
             PG=${{ matrix.pg }}
@@ -140,8 +139,8 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-dev-${{ matrix.pg }}:${{ github.sha }}-${{ matrix.platform }}-${{ matrix.pg }}
           provenance: false
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,url=http://127.0.0.1:49160/
-          cache-to: type=gha,url=http://127.0.0.1:49160/
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-extra-${{ matrix.pg }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-extra-${{ matrix.pg }}:buildcache,mode=max
           build-args: |
             BUILD_PARALLEL_LEVEL=4
             PG=${{ matrix.pg }}
@@ -158,8 +157,8 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-kube-${{ matrix.pg }}:${{ github.sha }}-${{ matrix.platform }}-${{ matrix.pg }}
           provenance: false
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,url=http://127.0.0.1:49160/
-          cache-to: type=gha,url=http://127.0.0.1:49160/
+          cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-extra-${{ matrix.pg }}:buildcache
+          cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-extra-${{ matrix.pg }}:buildcache,mode=max
           build-args: |
             BUILD_PARALLEL_LEVEL=4
             PG=${{ matrix.pg }}
