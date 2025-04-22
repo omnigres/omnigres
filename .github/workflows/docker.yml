@@ -208,7 +208,7 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}-${{ matrix.pg }}
 
       - name: Create and push manifest images (rev)
-        uses: Noelware/docker-manifest-action@master # or use a pinned version in the Releases tab
+        uses: Noelware/docker-manifest-action@0.4.3 # TODO: `images` -> `tags` in upcoming 1.0.0
         with:
           inputs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}-${{ matrix.pg }}:${{ github.sha }}
@@ -216,7 +216,7 @@ jobs:
           push: true
 
       - name: Create and push manifest images (latest)
-        uses: Noelware/docker-manifest-action@master # or use a pinned version in the Releases tab
+        uses: Noelware/docker-manifest-action@0.4.3  # TODO: `images` -> `tags` in upcoming 1.0.0
         with:
           inputs: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}-${{ matrix.pg }}:latest
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}-${{ matrix.pg }}:${{ github.sha }}-amd64-${{ matrix.pg }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}-${{ matrix.pg }}:${{ github.sha }}-arm64-${{ matrix.pg }}
