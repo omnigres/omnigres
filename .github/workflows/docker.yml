@@ -63,7 +63,6 @@ jobs:
       - name: Setup Docker buildx
         uses: docker/setup-buildx-action@v2
         with:
-          version: 'v0.10.4'
           driver-opts: network=host
 
       # Login against a Docker registry except on PR
