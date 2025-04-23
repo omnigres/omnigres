@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.4.0] - TBD
 
+### Added
+
+* Test filtering feature [#861](https://github.com/omnigres/omnigres/pull/861)
+
 ## [0.3.0] - 2025-03-28
 
 ### Added

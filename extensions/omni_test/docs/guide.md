@@ -102,3 +102,17 @@ The results will conform to this structure:
 |    **start_time** | `timestamp` | The start time of the test.           |
 |      **end_time** | `timestamp` | The end time of the test.             |
 | **error_message** | `text`      | An error message, if the test failed. |
+
+### Filtering tests
+
+It's also possible to include only specific tests by using optional `filter` parameter to
+`run_tests`. It's used against function/procedure names and their comments using regular
+expressions.
+
+```postgresql
+select *
+from
+    omni_test.run_tests('myapp_test', filter => '^(?!.*@slow).*')
+```
+
+(The above will filter out tests with a `@slow` marker in their comment)
