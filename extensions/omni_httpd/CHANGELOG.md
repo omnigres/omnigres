@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.4.4] – TBD
 
+### Added
+
+* An ability to stop request handling in middleware handlers [#863](https://github.com/omnigres/omnigres/pull/863)
+
 ## [0.4.3] - 2025-04-31
 
 ### Added

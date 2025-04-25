@@ -1305,6 +1305,8 @@ static int handler(handler_message_t *msg) {
         isnull = true;
         int selected_handler = 0;
 
+        worker_should_stop_handling = false;
+
         for (int i = 0; i < NumRoutes; i++) {
           FmgrInfo flinfo;
 
@@ -1381,6 +1383,9 @@ static int handler(handler_message_t *msg) {
             }
           } else {
             isnull = true;
+          }
+          if (worker_should_stop_handling) {
+            break;
           }
           if (routes[i].handler) {
             break;
@@ -1681,3 +1686,5 @@ release:
 
   return 0;
 }
+
+bool worker_should_stop_handling;
