@@ -65,6 +65,8 @@
 #include "fd.h"
 #include "omni_httpd.h"
 
+#include "http_worker.h"
+
 PG_MODULE_MAGIC;
 OMNI_MAGIC;
 
@@ -613,4 +615,10 @@ Datum start(PG_FUNCTION_ARGS) {
   start_master_worker(module_handle, master_worker_bgw,
                       immediate ? omni_timing_immediately : omni_timing_after_commit);
   PG_RETURN_VOID();
+}
+
+PG_FUNCTION_INFO_V1(stop_handling);
+Datum stop_handling(PG_FUNCTION_ARGS) {
+  worker_should_stop_handling = true;
+  PG_RETURN_BOOL(true);
 }

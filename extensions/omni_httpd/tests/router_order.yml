@@ -1,0 +1,91 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+    max_worker_processes: 64
+  init:
+  - create extension omni_httpd cascade
+  - create extension omni_httpc cascade
+  - call omni_httpd.wait_for_configuration_reloads(2)
+  - |
+    create table my_router (
+        like omni_httpd.urlpattern_router,
+        like omni_httpd.router_priority
+    )
+  - |
+    create procedure root_handler(request omni_httpd.http_request, out outcome omni_httpd.http_outcome) language plpgsql
+    as $$
+    begin
+      outcome := omni_httpd.http_response('ok');
+    end;
+    $$;
+  - |
+    create procedure always_last(request omni_httpd.http_request, out outcome omni_httpd.http_outcome) language plpgsql
+    as $$
+    begin
+      outcome := omni_httpd.http_response('last');
+      perform omni_httpd.stop_handling();
+    end;
+    $$;
+  - |
+    create procedure last_null(request omni_httpd.http_request, inout outcome omni_httpd.http_outcome) language plpgsql
+    as $$
+    begin
+      outcome := null;
+      perform omni_httpd.stop_handling();
+    end;
+    $$;
+  - |
+    create procedure not_last(request omni_httpd.http_request, inout outcome omni_httpd.http_outcome) language plpgsql
+    as $$
+    begin
+      outcome := omni_httpd.http_response('not last');
+    end;
+    $$;
+  - |
+    insert into my_router (match, handler, priority) values
+      (omni_httpd.urlpattern(null), 'root_handler'::regproc, 1),
+      (omni_httpd.urlpattern('/last'), 'always_last'::regproc, 10),
+      (omni_httpd.urlpattern('/not-last'), 'not_last'::regproc, 10)
+
+tests:
+
+- name: root handler
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+      omni_httpc.http_request('http://127.0.0.1:' ||
+      (select effective_port from omni_httpd.listeners) || '/')))
+    select
+    response.status,
+    convert_from(response.body, 'utf-8') as body
+    from response
+  results:
+  - status: 200
+    body: ok
+
+- name: stop handling
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+      omni_httpc.http_request('http://127.0.0.1:' ||
+      (select effective_port from omni_httpd.listeners) || '/last')))
+    select
+    response.status,
+    convert_from(response.body, 'utf-8') as body
+    from response
+  results:
+  - status: 200
+    body: last
+
+- name: do not stop handling by default
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+      omni_httpc.http_request('http://127.0.0.1:' ||
+      (select effective_port from omni_httpd.listeners) || '/not-last')))
+    select
+    response.status,
+    convert_from(response.body, 'utf-8') as body
+    from response
+  results:
+  - status: 200
+    # we fall through to the root handler
+    body: ok
