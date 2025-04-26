@@ -1306,8 +1306,13 @@ static int handler(handler_message_t *msg) {
         int selected_handler = 0;
 
         worker_should_stop_handling = false;
+        bool handler_invoked = false;
 
         for (int i = 0; i < NumRoutes; i++) {
+          // Skip handlers if a handler has been used already
+          if (routes[i].handler && handler_invoked) {
+            continue;
+          }
           FmgrInfo flinfo;
 
           if (OidIsValid(routes[i].method) && routes[i].method != method) {
@@ -1388,7 +1393,7 @@ static int handler(handler_message_t *msg) {
             break;
           }
           if (routes[i].handler) {
-            break;
+            handler_invoked = true;
           }
         }
 
