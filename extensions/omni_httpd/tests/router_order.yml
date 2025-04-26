@@ -43,10 +43,21 @@ instance:
     end;
     $$;
   - |
+    create procedure after(request omni_httpd.http_request, inout outcome omni_httpd.http_outcome) language plpgsql
+    as $$
+    declare
+    response omni_httpd.http_response := outcome::omni_httpd.http_response;
+    begin
+      response.body = '(' || response.body || ')';
+      outcome := response;
+    end;
+    $$;
+  - |
     insert into my_router (match, handler, priority) values
       (omni_httpd.urlpattern(null), 'root_handler'::regproc, 1),
       (omni_httpd.urlpattern('/last'), 'always_last'::regproc, 10),
-      (omni_httpd.urlpattern('/not-last'), 'not_last'::regproc, 10)
+      (omni_httpd.urlpattern('/not-last'), 'not_last'::regproc, 10),
+      (omni_httpd.urlpattern('/after'), 'after'::regproc, -1)
 
 tests:
 
@@ -89,3 +100,17 @@ tests:
   - status: 200
     # we fall through to the root handler
     body: ok
+
+- name: after-handler middleware gets executed
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+      omni_httpc.http_request('http://127.0.0.1:' ||
+      (select effective_port from omni_httpd.listeners) || '/after')))
+    select
+    response.status,
+    convert_from(response.body, 'utf-8') as body
+    from response
+  results:
+  - status: 200
+    # we fall through to the root handler
+    body: (ok)

@@ -11,6 +11,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * An ability to stop request handling in middleware handlers [#863](https://github.com/omnigres/omnigres/pull/863)
 
+### Fixed
+
+* Middleware handlers lower in priority ("after") than handler should also be
+  executed [#864](https://github.com/omnigres/omnigres/pull/864)
+
 ## [0.4.3] - 2025-04-31
 
 ### Added
