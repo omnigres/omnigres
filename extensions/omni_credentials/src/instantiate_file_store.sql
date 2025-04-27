@@ -11,12 +11,13 @@ begin
         filename := '/' || filename;
     end if;
 
-    function_name := 'credential_vfs' ||
-        replace(
+    function_name := left('vfs_' || replace(
             regexp_replace(split_part(filename, '.', 1), '[^a-zA-Z0-9_]', '_', 'g'),
             '__',
             '_'
-        );
+        ),
+        63
+    );
 
     create table if not exists credential_file_stores
     (
