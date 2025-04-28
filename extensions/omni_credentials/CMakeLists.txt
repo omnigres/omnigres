@@ -14,4 +14,5 @@ add_postgresql_extension(
         COMMENT "Application credential management"
         SCHEMA omni_credentials
         REQUIRES pgcrypto omni_os
+        TESTS_REQUIRE omni_vfs omni_var
         RELOCATABLE false)
