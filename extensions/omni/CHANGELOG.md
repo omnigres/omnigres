@@ -7,6 +7,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.2.9] - TBD
 
+### Fixed
+
+* Ensure extensions are always loaded in live backends when installed in
+  others [#867](https://github.com/omnigres/omnigres/pull/867)
+
 ## [0.2.8] - 2025-03-22
 
 ### Fixed

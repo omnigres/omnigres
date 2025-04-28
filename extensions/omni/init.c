@@ -32,6 +32,10 @@ extern void deinitialize_backend(int code, Datum arg);
 
 MODULE_VARIABLE(int ServerVersionNum);
 
+static void syscache_invalidation(Datum arg, int cacheid, uint32 hashvalue) {
+  backend_force_reload = true;
+}
+
 /**
  * Shared preload initialization.
  */
@@ -166,6 +170,14 @@ void _PG_init() {
                             PG_VERSION_NUM / 10000, PG_VERSION_NUM % 100, ServerVersionNum / 10000,
                             ServerVersionNum % 100));
   }
+
+#if PG_MAJORVERSION_NUM >= 18
+  CacheRegisterSyscacheCallback(EXTENSIONOID, syscache_invalidation, 0);
+#endif
+  // There's a limitation to this. If an extension has no functions,
+  // it will not invalidate PROCOID. However, we also intercept extension utility
+  // statements, where we invalidate PROCOID upon such changes.
+  CacheRegisterSyscacheCallback(PROCOID, syscache_invalidation, 0);
 }
 
 /**
