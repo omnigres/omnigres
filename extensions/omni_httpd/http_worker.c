@@ -1303,7 +1303,6 @@ static int handler(handler_message_t *msg) {
 
         // If no handler will be selected, go for null answer (no data)
         isnull = true;
-        int selected_handler = 0;
 
         worker_should_stop_handling = false;
         bool handler_invoked = false;
@@ -1322,8 +1321,6 @@ static int handler(handler_message_t *msg) {
           if (!match_urlpattern(&routes[i].match, req->path.base, req->path.len)) {
             continue;
           }
-
-          selected_handler++;
 
           fmgr_info(routes[i].proc->oid, &flinfo);
 
@@ -1351,8 +1348,7 @@ static int handler(handler_message_t *msg) {
             fcinfo->args[http_request_index].isnull = false;
           }
           if (http_outcome_index >= 0) {
-            fcinfo->args[http_outcome_index].isnull =
-                selected_handler == 1; // initial outcome is always null
+            fcinfo->args[http_outcome_index].isnull = isnull;
             fcinfo->args[http_outcome_index].value = outcome;
           }
           if (tuple_index >= 0) {
