@@ -15,6 +15,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Middleware handlers lower in priority ("after") than handler should also be
   executed [#864](https://github.com/omnigres/omnigres/pull/864)
+* Crash with middlewares nullifying outcome [#868](https://github.com/omnigres/omnigres/pull/868)
 
 ## [0.4.3] - 2025-04-31
 
