@@ -11,6 +11,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Ensure extensions are always loaded in live backends when installed in
   others [#867](https://github.com/omnigres/omnigres/pull/867)
+* Enable extensions to operate in recovery mode if necessary [#870](https://github.com/omnigres/omnigres/pull/870)
 
 ## [0.2.8] - 2025-03-22
 
