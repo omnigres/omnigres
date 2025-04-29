@@ -1303,9 +1303,15 @@ static int handler(handler_message_t *msg) {
 
         // If no handler will be selected, go for null answer (no data)
         isnull = true;
-        int selected_handler = 0;
+
+        worker_should_stop_handling = false;
+        bool handler_invoked = false;
 
         for (int i = 0; i < NumRoutes; i++) {
+          // Skip handlers if a handler has been used already
+          if (routes[i].handler && handler_invoked) {
+            continue;
+          }
           FmgrInfo flinfo;
 
           if (OidIsValid(routes[i].method) && routes[i].method != method) {
@@ -1315,8 +1321,6 @@ static int handler(handler_message_t *msg) {
           if (!match_urlpattern(&routes[i].match, req->path.base, req->path.len)) {
             continue;
           }
-
-          selected_handler++;
 
           fmgr_info(routes[i].proc->oid, &flinfo);
 
@@ -1344,8 +1348,7 @@ static int handler(handler_message_t *msg) {
             fcinfo->args[http_request_index].isnull = false;
           }
           if (http_outcome_index >= 0) {
-            fcinfo->args[http_outcome_index].isnull =
-                selected_handler == 1; // initial outcome is always null
+            fcinfo->args[http_outcome_index].isnull = isnull;
             fcinfo->args[http_outcome_index].value = outcome;
           }
           if (tuple_index >= 0) {
@@ -1382,8 +1385,11 @@ static int handler(handler_message_t *msg) {
           } else {
             isnull = true;
           }
-          if (routes[i].handler) {
+          if (worker_should_stop_handling) {
             break;
+          }
+          if (routes[i].handler) {
+            handler_invoked = true;
           }
         }
 
@@ -1681,3 +1687,5 @@ release:
 
   return 0;
 }
+
+bool worker_should_stop_handling;

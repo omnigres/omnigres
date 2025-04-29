@@ -1,0 +1,48 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+    max_worker_processes: 64
+  init:
+  - create extension omni_httpd cascade
+  - create extension omni_httpc cascade
+  - call omni_httpd.wait_for_configuration_reloads(2)
+  - |
+    create table my_router (
+        like omni_httpd.urlpattern_router,
+        like omni_httpd.router_priority
+    )
+  - |
+    create procedure root_handler(request omni_httpd.http_request, out outcome omni_httpd.http_outcome) language plpgsql
+    as $$
+    begin
+      outcome := omni_httpd.http_response('ok');
+    end;
+    $$;
+  - |
+    create procedure null_middleware(request omni_httpd.http_request, outcome inout omni_httpd.http_outcome) language plpgsql
+    as $$
+    begin
+    outcome := null;
+    end;
+    $$;
+  - |
+    insert into my_router (match, handler, priority) values
+      (omni_httpd.urlpattern('/*?'), 'root_handler'::regproc, 1),
+      (omni_httpd.urlpattern('/*?'), 'null_middleware'::regproc, 10),
+      (omni_httpd.urlpattern('/*?'), 'null_middleware'::regproc, 9)
+
+tests:
+
+- name: null-returning middleware doesn't crash
+  query: |
+    with response as (select * from omni_httpc.http_execute(
+      omni_httpc.http_request('http://127.0.0.1:' ||
+      (select effective_port from omni_httpd.listeners) || '/')))
+    select
+    response.status,
+    convert_from(response.body, 'utf-8') as body
+    from response
+  results:
+  - status: 200
+    body: ok

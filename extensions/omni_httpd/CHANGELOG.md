@@ -5,7 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.4.3] - 2025-04-31
+## [0.4.4] – 2025-04-28
+
+### Added
+
+* An ability to stop request handling in middleware handlers [#863](https://github.com/omnigres/omnigres/pull/863)
+
+### Fixed
+
+* Middleware handlers lower in priority ("after") than handler should also be
+  executed [#864](https://github.com/omnigres/omnigres/pull/864)
+* Crash with middlewares nullifying outcome [#868](https://github.com/omnigres/omnigres/pull/868)
+
+## [0.4.3] - 2025-04-21
 
 ### Added
 
@@ -201,3 +213,5 @@ Initial release following a few months of iterative development.
 [0.4.2]: [https://github.com/omnigres/omnigres/pull/817]
 
 [0.4.3]: [https://github.com/omnigres/omnigres/pull/851]
+
+[0.4.4]: [https://github.com/omnigres/omnigres/pull/862]
