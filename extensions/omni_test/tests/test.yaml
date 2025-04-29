@@ -104,3 +104,42 @@ tests:
       type: org.omnigres.omni_test.run.end.v1
       data:
         database: db1
+
+- name: run filtered tests
+  steps:
+  - query: select
+               name,
+               description,
+               error_message
+           from
+               omni_test.run_tests('db1', filter => 'Test 1')
+           order by
+               name
+    results:
+    - name: public.test1
+      description: Test 1
+      error_message: null
+
+- name: run filtered out tests
+  steps:
+  - query: select
+               name,
+               description,
+               error_message
+           from
+               omni_test.run_tests('db1', filter => '^(?!.*Error).*')
+           order by
+               name
+    results:
+    - name: public.test1
+      description: Test 1
+      error_message: null
+    - name: public.test2
+      description: Test 2
+      error_message: null
+    - name: public.test_fun
+      description: Test function
+      error_message: null
+    - name: public.tx_iso
+      description: Transaction isolation level setting
+      error_message: null

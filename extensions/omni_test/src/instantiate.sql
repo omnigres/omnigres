@@ -56,7 +56,8 @@ begin
     $_omni_test_dropdb_helper$;
 
     -- Create test runner
-    create function run_tests(db name, out test_report test_report) returns setof test_report
+    create function run_tests(db name, out test_report test_report,
+                              filter text default null::text) returns setof test_report
         language plpgsql as
     $run_tests$
     declare
@@ -134,6 +135,9 @@ begin
                                (cardinality(proargtypes) = 0 and
                                    prorettype = 'omni_test.test'::regtype)
                            $sql$) t(prokind "char", proname name, nspname name, description text, proconfig text[])
+                where
+                    (filter is null) or
+                    ((proname || ' ' || coalesce(description, '')) ~ filter)
                 order by proname
                 loop
                     -- Clone the database
