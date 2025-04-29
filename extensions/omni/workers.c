@@ -50,7 +50,7 @@ void startup_worker(Datum main_arg) {
     BackgroundWorker worker = {.bgw_flags =
                                    BGWORKER_SHMEM_ACCESS | BGWORKER_BACKEND_DATABASE_CONNECTION,
                                .bgw_main_arg = ObjectIdGetDatum(db->oid),
-                               .bgw_start_time = BgWorkerStart_RecoveryFinished,
+                               .bgw_start_time = BgWorkerStart_ConsistentState,
                                .bgw_restart_time = BGW_NEVER_RESTART,
                                .bgw_function_name = "database_worker",
                                .bgw_notify_pid = MyProcPid};
