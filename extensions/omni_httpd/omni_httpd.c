@@ -549,13 +549,13 @@ Datum websocket_send(PG_FUNCTION_ARGS, int8 kind) {
 
   if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
     const int e = errno;
-    ereport(ERROR, errmsg("socket"), errdetail(strerror(e)));
+    ereport(ERROR, errmsg("socket"), errdetail("%s", strerror(e)));
   }
 
   if (connect(sock, (struct sockaddr *)&server_addr, sizeof(struct sockaddr_un)) < 0) {
     const int e = errno;
     close(sock);
-    ereport(ERROR, errmsg("connect"), errdetail(strerror(e)));
+    ereport(ERROR, errmsg("connect"), errdetail("%s", strerror(e)));
   }
 
   // Send a message to the server
@@ -576,7 +576,7 @@ Datum websocket_send(PG_FUNCTION_ARGS, int8 kind) {
 
   if (sendmsg(sock, &sendhdr, 0) < 0) {
     int e = errno;
-    ereport(ERROR, errmsg("sendmsg"), errdetail(strerror(e)));
+    ereport(ERROR, errmsg("sendmsg"), errdetail("%s", strerror(e)));
   }
 
   close(sock);

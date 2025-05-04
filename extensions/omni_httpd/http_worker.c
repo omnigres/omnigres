@@ -748,7 +748,7 @@ static cvec_fd_fd accept_fds(char *socket_name) {
   socket_fd = socket(PF_UNIX, SOCK_STREAM, 0);
   if (socket_fd < 0) {
     int e = errno;
-    ereport(ERROR, errmsg("can't create sharing socket"), errdetail(strerror(e)));
+    ereport(ERROR, errmsg("can't create sharing socket"), errdetail("%s", strerror(e)));
   }
 
   int err = fcntl(socket_fd, F_SETFL, fcntl(socket_fd, F_GETFL, 0) | O_NONBLOCK);
