@@ -240,7 +240,7 @@ To build and run Omnigres, you would need:
 ```shell
 cmake -S . -B build
 cmake --build build --parallel
-make -j psql_<COMPONENT_NAME> # for example, `psql_omni_containers`
+cd build && make -j psql_<COMPONENT_NAME> # for example, `psql_omni_id`
 ```
 
 To install extensions into your target Postgres:
