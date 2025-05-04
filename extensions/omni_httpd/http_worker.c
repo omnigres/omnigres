@@ -1610,7 +1610,7 @@ static int handler(handler_message_t *msg) {
         const char *fn = msg->type == handler_message_websocket_open
                              ? "Error executing omni_httpd.websocket_on_open"
                              : "Error executing omni_httpd.websocket_on_close";
-        ereport(WARNING, errmsg(fn), errdetail("%s: %s", error->message, error->detail));
+        ereport(WARNING, errmsg("%s", fn), errdetail("%s: %s", error->message, error->detail));
       }
 
       FlushErrorState();
