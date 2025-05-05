@@ -5,11 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.6] - 2025-05-04
+
+### Fixed
+
+* Potentially insecure error string formatting [#871](https://github.com/omnigres/omnigres/pull/871)
+
 ## [0.4.5] - 2025-05-04
 
 ### Fixed
 
-* Potentially insecure error string formatting  [#870](https://github.com/omnigres/omnigres/pull/870)
+* Potentially insecure error string formatting [#870](https://github.com/omnigres/omnigres/pull/870)
 
 ## [0.4.4] – 2025-04-28
 
@@ -223,3 +229,5 @@ Initial release following a few months of iterative development.
 [0.4.4]: [https://github.com/omnigres/omnigres/pull/862]
 
 [0.4.5]: [https://github.com/omnigres/omnigres/pull/870]
+
+[0.4.6]: [https://github.com/omnigres/omnigres/pull/871]
