@@ -394,11 +394,11 @@ $command $@
                 COMMAND
                 ${CMAKE_COMMAND} -E copy_if_different
                 "${_pkg_dir}/$<TARGET_FILE_NAME:${_ext_TARGET}>"
-                ${PostgreSQL_PACKAGE_LIBRARY_DIR}
+                ${PostgreSQL_TARGET_PACKAGE_LIBRARY_DIR}
                 COMMAND
                 ${CMAKE_COMMAND} -E copy_if_different
                 "${_pkg_dir}/extension/${NAME}.control" "${_pkg_dir}/extension/${NAME}--${_ext_VERSION}.control" "${_pkg_dir}/extension/${NAME}--${_ext_VERSION}.sql"
-                ${PostgreSQL_EXTENSION_DIR}
+                ${PostgreSQL_TARGET_EXTENSION_DIR}
         )
         # Check that the extension has no conflicting symbols with the Postgres binary
         # otherwise the linker might use the symbols from Postgres
@@ -416,7 +416,7 @@ $command $@
                     COMMAND
                     ${CMAKE_COMMAND} -E copy_if_different
                     "${_pkg_dir}/extension/${NAME}.control" "${_pkg_dir}/extension/${NAME}--${_ext_VERSION}.control" "${_pkg_dir}/extension/${NAME}--${_ext_VERSION}.sql"
-                    ${PostgreSQL_EXTENSION_DIR}
+                    ${PostgreSQL_TARGET_EXTENSION_DIR}
             )
         endif ()
         add_custom_target(package_${_ext_TARGET}_migrations

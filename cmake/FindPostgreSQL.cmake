@@ -291,6 +291,8 @@ if(PostgreSQL_FOUND)
     set(PostgreSQL_EXTENSION_DIR
         "${_pg_sharedir}/extension"
         CACHE PATH "Directory containing extension SQL and control files")
+    set(PostgreSQL_TARGET_EXTENSION_DIR "${PostgreSQL_EXTENSION_DIR}"
+            CACHE PATH "Target directory to contain extension SQL and control files")
     set(PostgreSQL_SERVER_INCLUDE_DIRS
         "${_server_inc_dirs}"
         CACHE PATH "PostgreSQL include directories for server include files.")
@@ -315,6 +317,9 @@ if(PostgreSQL_FOUND)
     set(PostgreSQL_PACKAGE_LIBRARY_DIR
         "${_pg_pkglibdir}"
         CACHE STRING "PostgreSQL package library directory")
+    set(PostgreSQL_TARGET_PACKAGE_LIBRARY_DIR
+            "${PostgreSQL_PACKAGE_LIBRARY_DIR}"
+            CACHE STRING "PostgreSQL package library directory")
 
     set(PG_BINARY ${_pg_bindir}/postgres)
 
