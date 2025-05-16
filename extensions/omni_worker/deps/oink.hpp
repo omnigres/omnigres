@@ -1,7 +1,10 @@
 
+#ifndef oink_hpp
+#define oink_hpp
+
 #include <atomic>
-#include <map>
 #include <chrono>
+#include <map>
 #include <typeindex>
 
 #include <boost/interprocess/allocators/allocator.hpp>
@@ -22,14 +25,17 @@ using allocator = bip::allocator<T, bip::managed_shared_memory::segment_manager>
 template <typename Container, typename Mutex> struct shared_container {
   using container_type = Container;
   using mutex_type = Mutex;
-  Container container;
-  Mutex mutex;
 
   template <typename... Args>
   explicit shared_container(Args &&...args) : container(std::forward<Args>(args)...) {}
 
-  operator container_type &() { return container; }
-  operator mutex_type &() { return mutex; }
+  std::pair<bip::scoped_lock<mutex_type>, container_type &> scoped_lock() {
+    return {bip::scoped_lock<mutex_type>(mutex), container};
+  }
+
+private:
+  Container container;
+  Mutex mutex;
 };
 
 template <typename T>
@@ -46,6 +52,11 @@ template <message T> std::size_t message_tag() {
   }
   static_assert("message type tag unknown");
 }
+
+template <typename T, typename C, typename... Args>
+concept arena_constructor = requires(T t, Args &...args) {
+  { t(std::forward<Args>(args)...) } -> std::same_as<C *>;
+};
 
 struct arena {
 
@@ -72,6 +83,19 @@ struct arena {
   void *get_address() { return segment.get_address(); }
 
   std::size_t get_free_memory() { return segment.get_free_memory(); }
+
+  template <class T, typename... Args>
+  arena_constructor<T, Args...> auto find_or_construct(const char *name) {
+    return segment.find_or_construct<T>(name);
+  }
+
+  template <class T> std::optional<T *> find(const char *name) {
+    auto [ptr, _] = segment.find<T>(name);
+    if (ptr == nullptr) {
+      return std::nullopt;
+    }
+    return ptr;
+  }
 
 protected:
   bip::managed_shared_memory segment;
@@ -132,7 +156,7 @@ template <message M> struct message_envelope_receipt {
       std::size_t counter = envelope->counter.fetch_sub(1) - 1;
       if (counter == 0) {
         std::destroy_at(envelope);
-        arena_.get_allocator<message_envelope<M>>().deallocate(envelope, 1);
+        arena_.get().template get_allocator<message_envelope<M>>().deallocate(envelope, 1);
       }
     }
   }
@@ -175,13 +199,14 @@ private:
   }
 
   std::ptrdiff_t offset() {
-    return reinterpret_cast<char *>(envelope) - reinterpret_cast<char *>(arena_.get_address());
+    return reinterpret_cast<char *>(envelope) -
+           reinterpret_cast<char *>(arena_.get().get_address());
   }
 
   void retain() { envelope = nullptr; }
 
   message_envelope<M> *envelope;
-  arena &arena_;
+  std::reference_wrapper<arena> arena_;
 };
 
 struct sender : endpoint {
@@ -248,7 +273,8 @@ struct receiver : endpoint {
       }
 
       if (mq_.get_num_msg() == 0) {
-        msgs_->container.clear();
+        auto [lock, container] = msgs_->scoped_lock();
+        container.clear();
       }
 
       return true;
@@ -283,3 +309,5 @@ private:
 };
 
 } // namespace oink
+
+#endif
