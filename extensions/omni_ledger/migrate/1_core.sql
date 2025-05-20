@@ -98,7 +98,7 @@ create function update_account_balances() returns trigger
     language c as
 'MODULE_PATHNAME' stable;
 
-create trigger update_account_balances
+create trigger "000000_update_account_balances"
     after insert
     on transfers
     for each statement
