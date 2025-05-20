@@ -1,0 +1,103 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+    max_worker_processes: 64
+    default_transaction_isolation: serializable
+  init:
+  - create extension omni_ledger cascade
+  - alter role yregress set search_path to omni_polyfill, pg_catalog, '$user', public
+  - set search_path to omni_polyfill, pg_catalog, '$user', public
+  - create extension omni_var
+  - insert
+    into
+        omni_ledger.ledgers default
+    values
+    returning omni_var.set_session('ledger_id', id)
+  - |
+    create function account_flags(daec bool, caed bool) returns text[]
+        immutable parallel safe
+        language sql as
+    $$
+    select
+        array_remove(array [case
+                                when daec
+                                    then
+                                    'debits_allowed_to_exceed_credits'
+                                else null end,
+                         case
+                             when caed then
+                                 'credits_allowed_to_exceed_debits'
+                             else null end
+                         ], null)
+    $$
+
+  - insert
+    into
+        omni_ledger.accounts (ledger_id, debits_allowed_to_exceed_credits, credits_allowed_to_exceed_debits)
+    values
+        (omni_var.get_session('ledger_id', null::omni_ledger.ledger_id),
+         true, false),
+        (omni_var.get_session('ledger_id', null::omni_ledger.ledger_id),
+         false, true),
+        (omni_var.get_session('ledger_id', null::omni_ledger.ledger_id),
+         true, true)
+    returning omni_var.set_session('account_id_' || concat_ws(',', variadic
+                                                              account_flags(debits_allowed_to_exceed_credits,
+                                                                            credits_allowed_to_exceed_debits)), id)
+  - |
+    insert
+    into
+        omni_ledger.accounts (ledger_id, debits_allowed_to_exceed_credits, credits_allowed_to_exceed_debits)
+    values
+        (omni_var.get_session('ledger_id', null::omni_ledger.ledger_id),
+         true, true)
+    returning omni_var.set_session('account_id_liability', id)
+  - |
+    insert
+    into
+        omni_ledger.account_categories (name, type, debit_normal)
+    values
+        ('Assets', 'asset', true),
+        ('Owner''s equity', 'equity', false),
+        ('Liabilities', 'liability', false);
+  - |
+    insert
+    into
+        omni_ledger.account_categorizations (account_id, category_id)
+    values
+        (omni_var.get_session('account_id_debits_allowed_to_exceed_credits', null::omni_ledger.account_id),
+         (select id from omni_ledger.account_categories where name = 'Assets')),
+        (omni_var.get_session('account_id_credits_allowed_to_exceed_debits', null::omni_ledger.account_id),
+         (select id from omni_ledger.account_categories where name = 'Owner''s equity')),
+        (omni_var.get_session('account_id_debits_allowed_to_exceed_credits,credits_allowed_to_exceed_debits',
+                              null::omni_ledger.account_id),
+         (select id from omni_ledger.account_categories where name = 'Liabilities')),
+        (omni_var.get_session('account_id_liability', null::omni_ledger.account_id),
+         (select id from omni_ledger.account_categories where name = 'Liabilities'))
+
+
+
+tests:
+
+- name: first transfer
+  commit: true
+  query: |
+    insert
+    into
+        omni_ledger.transfers (debit_account_id, credit_account_id, amount)
+    values
+        (omni_var.get_session('account_id_debits_allowed_to_exceed_credits', null::omni_ledger.account_id),
+         omni_var.get_session('account_id_debits_allowed_to_exceed_credits,credits_allowed_to_exceed_debits',
+                              null::omni_ledger.account_id), 50)
+
+- name: second transfer
+  commit: true
+  query: |
+    insert
+    into
+        omni_ledger.transfers (debit_account_id, credit_account_id, amount)
+    values
+        (omni_var.get_session('account_id_debits_allowed_to_exceed_credits', null::omni_ledger.account_id),
+         omni_var.get_session('account_id_liability',
+                              null::omni_ledger.account_id), 50)
