@@ -15,6 +15,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 Initial release
 
+## [Unreleased]
+
+### Added
+
+* Credential filestore now supports all omni_vfs backends using a robust VFS info-based approach. [#VFS-robust]
+
 [Unreleased]: https://github.com/omnigres/omnigres/commits/next/omni_credentials
 
 [0.1.0]: [https://github.com/omnigres/omnigres/pull/728]
