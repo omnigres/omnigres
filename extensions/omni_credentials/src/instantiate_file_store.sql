@@ -2,8 +2,6 @@ create function instantiate_file_store(fs anyelement, filename text, schema regn
     language plpgsql
 as
 $$
-declare
-    function_name text;
 begin
     perform set_config('search_path', schema::text || ',public', true);
 
@@ -11,29 +9,14 @@ begin
         filename := '/' || filename;
     end if;
 
-    function_name := left('vfs' || replace(
-            regexp_replace(split_part(filename, '.', 1), '[^a-zA-Z0-9_]', '_', 'g'),
-            '__',
-            '_'
-        ),
-        63
-    );
-
     create table if not exists credential_file_stores
     (
         filename text unique,
-        function_name text
+        vfs text,
+        vfs_type regtype
     );
   
-    execute format(
-        'create or replace function %1$I() returns %2$s as $func$ begin return %3$L::%2$s; end; $func$ language plpgsql;',
-        function_name,
-        pg_typeof(fs),
-        fs::text
-    );
-    execute format('alter function %I set search_path to %I,public', function_name, schema);
-
-    insert into credential_file_stores (filename, function_name) values (instantiate_file_store.filename, function_name);
+    insert into credential_file_stores (filename, vfs_type, vfs) values (instantiate_file_store.filename, pg_typeof(fs), fs::text);
 
     create or replace function credential_file_store_reload(filename text) returns boolean
         language plpgsql
@@ -42,17 +25,19 @@ begin
     declare
         file_contents text;
         file_contents_bytea bytea;
-        v_function_name text;
+        v_vfs text;
+        v_vfs_type text;
     begin
         if filename not like '/%' then
             filename := current_setting('data_directory') || '/' || filename;
         end if;
 
-        select function_name into v_function_name from credential_file_stores where credential_file_stores.filename = credential_file_store_reload.filename;
+        select vfs, vfs_type into v_vfs, v_vfs_type from credential_file_stores where credential_file_stores.filename = credential_file_store_reload.filename;
 
         execute format(
-            'select omni_vfs.read(%s(), %L);',
-            v_function_name,
+            'select omni_vfs.read(%1$L::%2$s, %3$L);',
+            v_vfs,
+            v_vfs_type,
             filename
         ) into file_contents_bytea;
         
@@ -95,7 +80,8 @@ begin
     $code$
     declare
         json_content jsonb;
-        v_function_name text;
+        v_vfs text;
+        v_vfs_type text;
     begin
         select jsonb_agg(
             jsonb_build_object(
@@ -109,11 +95,12 @@ begin
         into json_content
         from encrypted_credentials;
 
-        select function_name into v_function_name from credential_file_stores where credential_file_stores.filename = update_credentials_file.filename;
+        select vfs, vfs_type into v_vfs, v_vfs_type from credential_file_stores where credential_file_stores.filename = update_credentials_file.filename;
 
         execute format(
-          'select omni_vfs.write(%s(), %L, %L);',
-          v_function_name,
+          'select omni_vfs.write(%1$L::%2$s, %3$L, %4$L);',
+          v_vfs,
+          v_vfs_type,
           filename,
           json_content
         );
