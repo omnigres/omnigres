@@ -1,0 +1,79 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instances:
+  default:
+    init:
+    - create extension omni_prolog
+
+tests:
+
+- name: simple query with column by number
+  steps:
+  - |
+    create function val() returns integer as $$
+    result(N) :- query("select 1 as col", [], [columns(1=N)]).
+    $$ language plprolog
+  - query: select val()
+    results:
+    - val: 1
+
+- name: simple query with column by number that is too low
+  steps:
+  - |
+    create function val() returns integer as $$
+    result(N) :- query("select 1 as col", [], [columns(0=N)]).
+    $$ language plprolog
+  - query: select val()
+    results:
+    - val: null # nothing matched
+
+- name: simple query with column by number that is too high
+  steps:
+  - |
+    create function val() returns integer as $$
+    result(N) :- query("select 1 as col", [], [columns(2=N)]).
+    $$ language plprolog
+  - query: select val()
+    results:
+    - val: null # nothing matched
+
+- name: simple query with column by name
+  steps:
+  - |
+    create function val() returns integer as $$
+    result(N) :- query("select 1 as col", [], [columns(col=N)]).
+    $$ language plprolog
+  - query: select val()
+    results:
+    - val: 1
+
+- name: simple query with column by a wrong name
+  steps:
+  - |
+    create function val() returns integer as $$
+    result(N) :- query("select 1 as col", [], [columns(coll=N)]).
+    $$ language plprolog
+  - query: select val()
+    results:
+    - val: null # nothing matched
+
+- name: parameterized query with column by number
+  steps:
+  - |
+    create or replace function val() returns text as $$
+    result(S) :-
+      query("select $1, $2 as col", [1, "test"], [columns(1=N, col=Col)]),
+      format(string(S), "~s/~w", [Col, N]).
+    $$ language plprolog
+  - query: select val()
+    results:
+    - val: test/1
+
+- name: query returning an unsupported data type
+  steps:
+  - |
+    create or replace function val() returns text as $$
+    result(S) :-
+      query("select 'text'::regtype::oid", [], [columns(1=S)]).
+    $$ language plprolog
+  - query: select val()
+    error: Unsupported Postgres type 'oid'
