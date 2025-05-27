@@ -11,7 +11,7 @@ begin
         filename := '/' || filename;
     end if;
 
-    function_name := left('vfs_' || replace(
+    function_name := left('vfs' || replace(
             regexp_replace(split_part(filename, '.', 1), '[^a-zA-Z0-9_]', '_', 'g'),
             '__',
             '_'
