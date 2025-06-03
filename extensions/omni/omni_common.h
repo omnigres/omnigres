@@ -178,11 +178,7 @@ MODULE_FUNCTION void omni_check_password_hook(const char *username, const char *
                                               PasswordType password_type, Datum validuntil_time,
                                               bool validuntil_null);
 
-#if PG_MAJORVERSION_NUM >= 18
-MODULE_FUNCTION bool omni_executor_start_hook(QueryDesc *queryDesc, int eflags);
-#else
 MODULE_FUNCTION void omni_executor_start_hook(QueryDesc *queryDesc, int eflags);
-#endif
 
 MODULE_FUNCTION PlannedStmt *omni_planner_hook(Query *parse, const char *query_string,
                                                int cursorOptions, ParamListInfo boundParams);

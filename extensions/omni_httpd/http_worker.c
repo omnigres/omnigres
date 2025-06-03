@@ -358,12 +358,7 @@ void http_worker(Datum db_oid) {
     execution_portal = CreatePortal("omni_httpd", true, true);
     execution_portal->resowner = NULL;
     execution_portal->visible = false;
-    PortalDefineQuery(execution_portal, NULL, "(no query)", CMDTAG_UNKNOWN, false, NULL
-#if PG_MAJORVERSION_NUM >= 18
-                      ,
-                      NULL
-#endif
-    );
+    PortalDefineQuery(execution_portal, NULL, "(no query)", CMDTAG_UNKNOWN, false, NULL);
     PortalStart(execution_portal, NULL, 0, InvalidSnapshot);
   }
 
