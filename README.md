@@ -251,6 +251,22 @@ cmake --build build --parallel --target install_extensions
 cmake --build build --parallel --target install_<COMPONENT_NAME>_extension
 ```
 
+#### Building a subset of extensions
+
+One can pass an exclusion list or an explicit inclusion list to the first `cmake` step:
+
+```shell
+cmake -S . -B build -DOMNIGRES_EXCLUDE="omni_txn;omni_xml"
+cmake -S . -B build -DOMNIGRES_INCLUDE="omni_httpd"
+```
+
+By default, all modules are included. Please note that if an extension is effectively excluded and is required
+by an included one, `cmake` will fail with an error like this:
+
+```
+omni_http required by omni_httpc but is effectively excluded
+```
+
 ### Troubleshooting
 
 <details>
