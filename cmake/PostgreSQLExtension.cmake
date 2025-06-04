@@ -184,8 +184,14 @@ function(add_postgresql_extension NAME)
     foreach(requirement ${_ext_REQUIRES})
         if(NOT TARGET ${requirement})
             if(EXISTS "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../${requirement}")
+                if(OMNIGRES_INCLUDE AND NOT "${requirement}" IN_LIST OMNIGRES_INCLUDE)
+                    message(FATAL_ERROR "${requirement} is required by ${NAME} but is effectively excluded")
+                endif()
                 add_subdirectory_once("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../${requirement}" "${CMAKE_BINARY_DIR}/${requirement}")
             elseif(EXISTS "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../extensions/${requirement}")
+                if(OMNIGRES_INCLUDE AND NOT "${requirement}" IN_LIST OMNIGRES_INCLUDE)
+                    message(FATAL_ERROR "${requirement} is required by ${NAME} but is effectively excluded")
+                endif()
                 add_subdirectory_once("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/../extensions/${requirement}" "${CMAKE_BINARY_DIR}/extensions/${requirement}")
             elseif(EXISTS "${PostgreSQL_EXTENSION_DIR}/${requirement}.control")
                 message(STATUS "Found matching installed extension")
@@ -231,7 +237,7 @@ function(add_postgresql_extension NAME)
 
     set(_share_dir "${CMAKE_BINARY_DIR}/pg-share")
     if(_pg_sharedir)
-        file(COPY "${_pg_sharedir}/" DESTINATION "${_share_dir}" FOLLOW_SYMLINK_CHAIN)
+        file(COPY "${_pg_sharedir}/" DESTINATION "${_share_dir}" FOLLOW_SYMLINK_CHAIN NO_SOURCE_PERMISSIONS)
     endif()
     set(_ext_dir "${_share_dir}/extension")
     file(MAKE_DIRECTORY ${_ext_dir})
@@ -394,11 +400,11 @@ $command $@
                 COMMAND
                 ${CMAKE_COMMAND} -E copy_if_different
                 "${_pkg_dir}/$<TARGET_FILE_NAME:${_ext_TARGET}>"
-                ${PostgreSQL_PACKAGE_LIBRARY_DIR}
+                ${PostgreSQL_TARGET_PACKAGE_LIBRARY_DIR}
                 COMMAND
                 ${CMAKE_COMMAND} -E copy_if_different
                 "${_pkg_dir}/extension/${NAME}.control" "${_pkg_dir}/extension/${NAME}--${_ext_VERSION}.control" "${_pkg_dir}/extension/${NAME}--${_ext_VERSION}.sql"
-                ${PostgreSQL_EXTENSION_DIR}
+                ${PostgreSQL_TARGET_EXTENSION_DIR}
         )
         # Check that the extension has no conflicting symbols with the Postgres binary
         # otherwise the linker might use the symbols from Postgres
@@ -416,7 +422,7 @@ $command $@
                     COMMAND
                     ${CMAKE_COMMAND} -E copy_if_different
                     "${_pkg_dir}/extension/${NAME}.control" "${_pkg_dir}/extension/${NAME}--${_ext_VERSION}.control" "${_pkg_dir}/extension/${NAME}--${_ext_VERSION}.sql"
-                    ${PostgreSQL_EXTENSION_DIR}
+                    ${PostgreSQL_TARGET_EXTENSION_DIR}
             )
         endif ()
         add_custom_target(package_${_ext_TARGET}_migrations

@@ -138,6 +138,7 @@ MODULE_FUNCTION void extension_upgrade_hook(omni_hook_handle *handle, PlannedStm
                                             ProcessUtilityContext context, ParamListInfo params,
                                             QueryEnvironment *queryEnv, DestReceiver *dest,
                                             QueryCompletion *qc) {
+  bool should_backend_force_reload = false;
   struct ExtensionUpgradeHookState {
     NodeTag nodeTag;
     char *extname;
@@ -157,25 +158,28 @@ MODULE_FUNCTION void extension_upgrade_hook(omni_hook_handle *handle, PlannedStm
   switch (state->nodeTag) {
   case T_CreateExtensionStmt:
   case T_AlterExtensionStmt:
-    backend_force_reload = true;
+    should_backend_force_reload = true;
     break;
   case T_DropStmt:
     if (IsFirstInvocation &&
         castNode(DropStmt, pstmt->utilityStmt)->removeType == OBJECT_EXTENSION) {
-      backend_force_reload = true;
+      should_backend_force_reload = true;
     }
   default:
     break;
   }
   // Once done, set up a callback that ensures we force cleanup
   // upon rollback.
-  if (backend_force_reload && !IsFirstInvocation) {
+  if (should_backend_force_reload && !IsFirstInvocation) {
     MemoryContext oldcontext = MemoryContextSwitchTo(TopTransactionContext);
     struct xact_oneshot_callback *cb = palloc(sizeof(*cb));
     cb->fn = force_backend_reload_on_rollback;
     cb->arg = cb;
     xact_oneshot_callbacks = list_append_unique_ptr(xact_oneshot_callbacks, cb);
     MemoryContextSwitchTo(oldcontext);
+#if PG_MAJORVERSION_NUM < 18
+    CacheInvalidateCatalog(PROCOID);
+#endif
   }
 
   if (state->nodeTag == T_AlterExtensionStmt) {
@@ -272,5 +276,8 @@ MODULE_FUNCTION void extension_upgrade_hook(omni_hook_handle *handle, PlannedStm
   }
   if (!IsFirstInvocation) {
     handle->ctx = NULL;
+  }
+  if (should_backend_force_reload) {
+    backend_force_reload = true;
   }
 }

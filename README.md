@@ -204,6 +204,7 @@ Below is the current list of components being worked on, experimented with and d
 | [omni_python](extensions/omni_python/README.md)                                          | :ballot_box_with_check: Initial prototype    | First-class Python Development Experience             |
 | [omni_regex](extensions/omni_python/README.md)                                           | :white_check_mark: First release candidate   | Feature-rich regular expresssions                     |
 | [omni_os](extensions/omni_os/README.md)                                                  | :ballot_box_with_check: Initial prototype    | Access to the operating system                        |
+| [omni_worker](extensions/omni_worker/README.md)                                          | :white_check_mark: First release             | Generalized worker pool                               |
 | [omni_polyfill](extensions/omni_polyfill/README.md)                                      | :white_check_mark: First release             | Provides polyfills for older versions of Postgres     |
 | omni_git                                                                                 | :lab_coat: Early experiments (unpublished)   | Postgres Git client                                   |
 | omni_reactive                                                                            | :spiral_calendar: Haven't started yet        | Reactive queries                                      |
@@ -239,7 +240,7 @@ To build and run Omnigres, you would need:
 ```shell
 cmake -S . -B build
 cmake --build build --parallel
-make -j psql_<COMPONENT_NAME> # for example, `psql_omni_containers`
+cd build && make -j psql_<COMPONENT_NAME> # for example, `psql_omni_id`
 ```
 
 To install extensions into your target Postgres:
@@ -248,6 +249,22 @@ To install extensions into your target Postgres:
 cmake --build build --parallel --target install_extensions
 # Or, individually,
 cmake --build build --parallel --target install_<COMPONENT_NAME>_extension
+```
+
+#### Building a subset of extensions
+
+One can pass an exclusion list or an explicit inclusion list to the first `cmake` step:
+
+```shell
+cmake -S . -B build -DOMNIGRES_EXCLUDE="omni_txn;omni_xml"
+cmake -S . -B build -DOMNIGRES_INCLUDE="omni_httpd"
+```
+
+By default, all modules are included. Please note that if an extension is effectively excluded and is required
+by an included one, `cmake` will fail with an error like this:
+
+```
+omni_http required by omni_httpc but is effectively excluded
 ```
 
 ### Troubleshooting

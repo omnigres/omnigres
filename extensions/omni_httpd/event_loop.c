@@ -70,7 +70,7 @@ static void h2o_queue_send(request_message_t *msg, h2o_iovec_t *bufs, size_t buf
     return;
   }
 
-  send_message_t *message = malloc(sizeof(*message) - (sizeof(h2o_sendvec_t) * (bufcnt - 1)));
+  send_message_t *message = malloc(sizeof(*message) + (sizeof(h2o_sendvec_t) * (bufcnt - 1)));
   size_t i;
   message->reqmsg = msg;
   message->kind = MSG_KIND_SEND;

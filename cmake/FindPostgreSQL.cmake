@@ -63,10 +63,10 @@ if(NOT DEFINED PG_CONFIG)
     endif()
 
     # If the version is not known, try resolving the alias
-    set(PGVER_ALIAS_17 17.4)
-    set(PGVER_ALIAS_16 16.8)
-    set(PGVER_ALIAS_15 15.12)
-    set(PGVER_ALIAS_14 14.17)
+    set(PGVER_ALIAS_17 17.5)
+    set(PGVER_ALIAS_16 16.9)
+    set(PGVER_ALIAS_15 15.13)
+    set(PGVER_ALIAS_14 14.18)
 
     # commit
     if ("${PGVER}" MATCHES "^${sha1re}$")
@@ -291,6 +291,8 @@ if(PostgreSQL_FOUND)
     set(PostgreSQL_EXTENSION_DIR
         "${_pg_sharedir}/extension"
         CACHE PATH "Directory containing extension SQL and control files")
+    set(PostgreSQL_TARGET_EXTENSION_DIR "${PostgreSQL_EXTENSION_DIR}"
+            CACHE PATH "Target directory to contain extension SQL and control files")
     set(PostgreSQL_SERVER_INCLUDE_DIRS
         "${_server_inc_dirs}"
         CACHE PATH "PostgreSQL include directories for server include files.")
@@ -315,6 +317,9 @@ if(PostgreSQL_FOUND)
     set(PostgreSQL_PACKAGE_LIBRARY_DIR
         "${_pg_pkglibdir}"
         CACHE STRING "PostgreSQL package library directory")
+    set(PostgreSQL_TARGET_PACKAGE_LIBRARY_DIR
+            "${PostgreSQL_PACKAGE_LIBRARY_DIR}"
+            CACHE STRING "PostgreSQL package library directory")
 
     set(PG_BINARY ${_pg_bindir}/postgres)
 

@@ -34,7 +34,7 @@ jobs:
         pg: [ 17, 16, 15, 14 ]
 
     if: github.repository == 'omnigres/omnigres'
-    runs-on: ${{ fromJSON('["warp-ubuntu-2204-x64-4x", "warp-ubuntu-2204-arm64-16x"]')[matrix.platform == 'arm64'] }}
+    runs-on: ${{ fromJSON('["warp-ubuntu-2404-x64-4x", "warp-ubuntu-2404-arm64-16x"]')[matrix.platform == 'arm64'] }}
 
     permissions:
       contents: read
@@ -63,7 +63,6 @@ jobs:
       - name: Setup Docker buildx
         uses: docker/setup-buildx-action@v2
         with:
-          version: 'v0.10.4'
           driver-opts: network=host
 
       # Login against a Docker registry except on PR
@@ -209,7 +208,7 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}-${{ matrix.pg }}
 
       - name: Create and push manifest images (rev)
-        uses: Noelware/docker-manifest-action@master # or use a pinned version in the Releases tab
+        uses: Noelware/docker-manifest-action@0.4.3 # TODO: `images` -> `tags` in upcoming 1.0.0
         with:
           inputs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}-${{ matrix.pg }}:${{ github.sha }}
@@ -217,7 +216,7 @@ jobs:
           push: true
 
       - name: Create and push manifest images (latest)
-        uses: Noelware/docker-manifest-action@master # or use a pinned version in the Releases tab
+        uses: Noelware/docker-manifest-action@0.4.3  # TODO: `images` -> `tags` in upcoming 1.0.0
         with:
           inputs: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}-${{ matrix.pg }}:latest
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}-${{ matrix.pg }}:${{ github.sha }}-amd64-${{ matrix.pg }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}${{ matrix.flavor }}-${{ matrix.pg }}:${{ github.sha }}-arm64-${{ matrix.pg }}

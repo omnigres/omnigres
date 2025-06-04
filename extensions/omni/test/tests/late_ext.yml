@@ -1,0 +1,50 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+  init:
+  - create extension omni
+  - create extension dblink
+
+tests:
+
+- name: ensure module is not automatically registered
+  query: select
+             count(*)
+         from
+             omni.modules
+         where
+             path like '%/omni__test--1.so'
+  results:
+  - count: 0
+
+- name: create a separate backend
+  query: select
+             dblink_connect('another_session',
+                            'hostaddr=127.0.0.1 dbname=yregress user=yregress port=' || current_setting('port'))
+
+- name: create test extension
+  commit: true
+  query: create extension omni__test
+
+- name: _Omni_init() gets called locally
+  query: select omni__test.is_backend_initialized()
+  results:
+  - is_backend_initialized: true
+
+- name: the other backend sees the extension
+  query: select
+             true as result
+         from
+             pg_extension
+         where
+             extname = 'omni__test'
+  results:
+  - result: true
+
+- name: _Omni_init() gets called in the other backend, too
+  query: select *
+         from
+             dblink('another_session', 'select omni__test.is_backend_initialized()') as t(is_backend_initialized bool)
+  results:
+  - is_backend_initialized: true

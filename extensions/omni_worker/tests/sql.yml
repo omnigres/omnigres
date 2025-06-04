@@ -1,0 +1,35 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+    max_worker_processes: 64
+    omni_worker.workers: 10
+  init:
+  - create extension omni_worker cascade
+
+tests:
+
+- name: SQL smoke test
+  transaction: false
+  tests:
+  - create table pids
+    (
+        pid int
+    )
+  - query: select distinct omni_worker.sql('insert into pids select pg_backend_pid()', 10000)
+           from
+               generate_series(1, 10)
+    results:
+    - sql: true
+  - query: select distinct
+               pid = pg_backend_pid() as same_pid
+           from
+               pids
+    results:
+    - same_pid: false
+  - drop table pids
+
+- name: SQL failure
+  query: select omni_worker.sql('wrong')
+  results:
+  - sql: false

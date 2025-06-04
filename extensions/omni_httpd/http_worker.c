@@ -358,12 +358,7 @@ void http_worker(Datum db_oid) {
     execution_portal = CreatePortal("omni_httpd", true, true);
     execution_portal->resowner = NULL;
     execution_portal->visible = false;
-    PortalDefineQuery(execution_portal, NULL, "(no query)", CMDTAG_UNKNOWN, false, NULL
-#if PG_MAJORVERSION_NUM >= 18
-                      ,
-                      NULL
-#endif
-    );
+    PortalDefineQuery(execution_portal, NULL, "(no query)", CMDTAG_UNKNOWN, false, NULL);
     PortalStart(execution_portal, NULL, 0, InvalidSnapshot);
   }
 
@@ -376,9 +371,10 @@ void http_worker(Datum db_oid) {
     SPI_connect();
 
     // Find tables of a certain type
-    router_query = SPI_prepare("select router_relation, match_col_idx, handler_col_idx, "
-                               "priority_col_idx from omni_httpd.available_routers",
-                               0, (Oid[0]){});
+    router_query =
+        SPI_prepare("select router_relation, match_col_idx, handler_col_idx, "
+                    "priority_col_idx, handler_col_name from omni_httpd.available_routers",
+                    0, (Oid[0]){});
     if (router_query == NULL) {
       ereport(ERROR, errmsg("can't prepare query"));
     }
@@ -747,7 +743,7 @@ static cvec_fd_fd accept_fds(char *socket_name) {
   socket_fd = socket(PF_UNIX, SOCK_STREAM, 0);
   if (socket_fd < 0) {
     int e = errno;
-    ereport(ERROR, errmsg("can't create sharing socket"), errdetail(strerror(e)));
+    ereport(ERROR, errmsg("can't create sharing socket"), errdetail("%s", strerror(e)));
   }
 
   int err = fcntl(socket_fd, F_SETFL, fcntl(socket_fd, F_GETFL, 0) | O_NONBLOCK);
@@ -794,6 +790,7 @@ struct Router {
   Oid oid;
   int match_index;
   int handler_index;
+  Name handler_column_name;
   int priority_index;
 };
 
@@ -823,6 +820,7 @@ struct Route {
   bool returns_outcome;
   Datum tuple;
   Form_pg_proc proc;
+  Oid role;
 };
 
 static struct Route *routes = NULL;
@@ -882,10 +880,20 @@ static bool prepare_routers() {
     bool priority_index_is_null = false;
     Datum priority_index = SPI_getbinval(data, SPI_tuptable->tupdesc, 4, &priority_index_is_null);
 
+    bool handler_col_name_is_null = false;
+    Datum handler_col_name =
+        SPI_getbinval(data, SPI_tuptable->tupdesc, 5, &handler_col_name_is_null);
+    if (!handler_col_name_is_null) {
+      MemoryContext old = MemoryContextSwitchTo(RouterMemoryContext);
+      handler_col_name = datumTransfer(handler_col_name, false, NAMEDATALEN);
+      MemoryContextSwitchTo(old);
+    }
+
     routers[NumRouters].oid = DatumGetObjectId(taboid);
     routers[NumRouters].match_index = DatumGetInt32(match_index);
     routers[NumRouters].handler_index = DatumGetInt32(handler_index);
     routers[NumRouters].priority_index = priority_index_is_null ? 0 : DatumGetInt32(priority_index);
+    routers[NumRouters].handler_column_name = DatumGetName(handler_col_name);
 
     // Figure out the underlying table's type OID
     Oid tabtypoid = InvalidOid;
@@ -900,10 +908,12 @@ static bool prepare_routers() {
     bool found;
     RouterQueryHashEntry *entry = routerqueryhash_insert(routerqueryhash, taboid, &found);
     if (!found) {
-      char *query =
-          psprintf("select t, t.* from %s.%s t",
-                   quote_identifier(get_namespace_name(get_rel_namespace(routers[NumRouters].oid))),
-                   quote_identifier(get_rel_name(routers[NumRouters].oid)));
+      char *query = psprintf(
+          "select t, handler_role.role, t.* from %s.%s t left join omni_httpd.handler_role on "
+          "handler_role.handler = t.%s",
+          quote_identifier(get_namespace_name(get_rel_namespace(routers[NumRouters].oid))),
+          quote_identifier(get_rel_name(routers[NumRouters].oid)),
+          quote_identifier(NameStr(*routers[NumRouters].handler_column_name)));
 
       entry->plan = SPI_prepare(query, 0, NULL);
       SPI_keepplan(entry->plan);
@@ -911,20 +921,20 @@ static bool prepare_routers() {
 
     if (SPI_OK_SELECT == SPI_execute_plan(entry->plan, NULL, NULL, true, 0)) {
 
-      if (SPI_gettypeid(SPI_tuptable->tupdesc, routers[NumRouters].match_index + 1) !=
+      if (SPI_gettypeid(SPI_tuptable->tupdesc, routers[NumRouters].match_index + 2) !=
           urlpattern_oid()) {
         SPI_finish();
         continue;
       }
 
-      if (SPI_gettypeid(SPI_tuptable->tupdesc, routers[NumRouters].handler_index + 1) !=
+      if (SPI_gettypeid(SPI_tuptable->tupdesc, routers[NumRouters].handler_index + 2) !=
           REGPROCEDUREOID) {
         SPI_finish();
         continue;
       }
 
       if (routers[NumRouters].priority_index > 0 &&
-          SPI_gettypeid(SPI_tuptable->tupdesc, routers[NumRouters].priority_index + 1) !=
+          SPI_gettypeid(SPI_tuptable->tupdesc, routers[NumRouters].priority_index + 2) !=
               route_priority_oid()) {
         SPI_finish();
         continue;
@@ -940,13 +950,16 @@ static bool prepare_routers() {
       for (int j = 0; j < SPI_tuptable->numvals; j++) {
         bool match_is_null;
         Datum match_data = SPI_getbinval(SPI_tuptable->vals[j], SPI_tuptable->tupdesc,
-                                         routers[NumRouters].match_index + 1, &match_is_null);
+                                         routers[NumRouters].match_index + 2, &match_is_null);
         bool handler_is_null;
         Datum handler_data = SPI_getbinval(SPI_tuptable->vals[j], SPI_tuptable->tupdesc,
-                                           routers[NumRouters].handler_index + 1, &handler_is_null);
+                                           routers[NumRouters].handler_index + 2, &handler_is_null);
         if (match_is_null || handler_is_null) {
           continue;
         }
+
+        bool role_is_null;
+        Datum role = SPI_getbinval(SPI_tuptable->vals[j], SPI_tuptable->tupdesc, 2, &role_is_null);
 
         Oid handler = DatumGetObjectId(handler_data);
 
@@ -964,12 +977,17 @@ static bool prepare_routers() {
                                                      HeapTupleHeaderGetTypMod(match_tup));
 
         routes[NumRoutes].router = &routers[NumRouters];
+        if (!role_is_null) {
+          routes[NumRoutes].role = DatumGetObjectId(role);
+        } else {
+          routes[NumRoutes].role = InvalidOid;
+        }
 
         if (!priority_index_is_null) {
           bool priority_is_null;
           Datum priority_data =
               SPI_getbinval(SPI_tuptable->vals[j], SPI_tuptable->tupdesc,
-                            routers[NumRouters].priority_index + 1, &priority_is_null);
+                            routers[NumRouters].priority_index + 2, &priority_is_null);
 
           routes[NumRoutes].priority = priority_is_null ? 0 : DatumGetInt32(priority_data);
         } else {
@@ -1008,7 +1026,7 @@ static bool prepare_routers() {
               routes[NumRoutes].tuple_index = argpos;
             } else if (allargtypes[arg] == http_request_oid()) {
               routes[NumRoutes].http_request_index = argpos;
-            } else if (allargtypes[arg] == http_outcome_oid()) {
+            } else if (allargtypes[arg] == http_outcome_oid() && allargmodes) {
               if (allargmodes[arg] == 'b') {
                 routes[NumRoutes].http_outcome_index = argpos;
                 routes[NumRoutes].handler = false;
@@ -1117,6 +1135,10 @@ static int handler(handler_message_t *msg) {
 
   // Execute handler
   CurrentMemoryContext = HandlerContext;
+
+  Oid user_id;
+  int security_ctx;
+  GetUserIdAndSecContext(&user_id, &security_ctx);
 
   switch (msg->type) {
   case handler_message_http: {
@@ -1276,9 +1298,15 @@ static int handler(handler_message_t *msg) {
 
         // If no handler will be selected, go for null answer (no data)
         isnull = true;
-        int selected_handler = 0;
+
+        worker_should_stop_handling = false;
+        bool handler_invoked = false;
 
         for (int i = 0; i < NumRoutes; i++) {
+          // Skip handlers if a handler has been used already
+          if (routes[i].handler && handler_invoked) {
+            continue;
+          }
           FmgrInfo flinfo;
 
           if (OidIsValid(routes[i].method) && routes[i].method != method) {
@@ -1288,8 +1316,6 @@ static int handler(handler_message_t *msg) {
           if (!match_urlpattern(&routes[i].match, req->path.base, req->path.len)) {
             continue;
           }
-
-          selected_handler++;
 
           fmgr_info(routes[i].proc->oid, &flinfo);
 
@@ -1317,8 +1343,7 @@ static int handler(handler_message_t *msg) {
             fcinfo->args[http_request_index].isnull = false;
           }
           if (http_outcome_index >= 0) {
-            fcinfo->args[http_outcome_index].isnull =
-                selected_handler == 1; // initial outcome is always null
+            fcinfo->args[http_outcome_index].isnull = isnull;
             fcinfo->args[http_outcome_index].value = outcome;
           }
           if (tuple_index >= 0) {
@@ -1327,6 +1352,19 @@ static int handler(handler_message_t *msg) {
           }
           if (routes[i].proc->prokind == PROKIND_PROCEDURE) {
             fcinfo->context = (fmNodePtr)non_atomic_call_context;
+          }
+          if (OidIsValid(routes[i].role)) {
+            // FIXME: we want to do `security_ctx | SECURITY_LOCAL_USERID_CHANGE` here
+            // but because `StartTransaction` requires security context to not be set
+            // we wouldn't be able to do this for multi-transactional procedures.
+            // Even though we can attempt to clear it upon transaction commit, there's
+            // no hook we can use to re-establish it after `StartTransaction`.
+            // So, for the time being, this means that accidentally or deliberately
+            // introduced role change will work just fine in procedures (but not in functions)
+            SetUserIdAndSecContext(routes[i].role,
+                                   routes[i].proc->prokind == PROKIND_PROCEDURE
+                                       ? 0
+                                       : security_ctx | SECURITY_LOCAL_USERID_CHANGE);
           }
           Datum result = FunctionCallInvoke(fcinfo);
           isnull = fcinfo->isnull;
@@ -1342,8 +1380,11 @@ static int handler(handler_message_t *msg) {
           } else {
             isnull = true;
           }
-          if (routes[i].handler) {
+          if (worker_should_stop_handling) {
             break;
+          }
+          if (routes[i].handler) {
+            handler_invoked = true;
           }
         }
 
@@ -1564,7 +1605,7 @@ static int handler(handler_message_t *msg) {
         const char *fn = msg->type == handler_message_websocket_open
                              ? "Error executing omni_httpd.websocket_on_open"
                              : "Error executing omni_httpd.websocket_on_close";
-        ereport(WARNING, errmsg(fn), errdetail("%s: %s", error->message, error->detail));
+        ereport(WARNING, errmsg("%s", fn), errdetail("%s: %s", error->message, error->detail));
       }
 
       FlushErrorState();
@@ -1634,7 +1675,12 @@ cleanup:
   }
 
   MemoryContextReset(HandlerContext);
+
+  SetUserIdAndSecContext(user_id, security_ctx);
+
 release:
 
   return 0;
 }
+
+bool worker_should_stop_handling;

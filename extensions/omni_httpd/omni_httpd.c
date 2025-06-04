@@ -65,6 +65,8 @@
 #include "fd.h"
 #include "omni_httpd.h"
 
+#include "http_worker.h"
+
 PG_MODULE_MAGIC;
 OMNI_MAGIC;
 
@@ -547,13 +549,13 @@ Datum websocket_send(PG_FUNCTION_ARGS, int8 kind) {
 
   if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) {
     const int e = errno;
-    ereport(ERROR, errmsg("socket"), errdetail(strerror(e)));
+    ereport(ERROR, errmsg("socket"), errdetail("%s", strerror(e)));
   }
 
   if (connect(sock, (struct sockaddr *)&server_addr, sizeof(struct sockaddr_un)) < 0) {
     const int e = errno;
     close(sock);
-    ereport(ERROR, errmsg("connect"), errdetail(strerror(e)));
+    ereport(ERROR, errmsg("connect"), errdetail("%s", strerror(e)));
   }
 
   // Send a message to the server
@@ -574,7 +576,7 @@ Datum websocket_send(PG_FUNCTION_ARGS, int8 kind) {
 
   if (sendmsg(sock, &sendhdr, 0) < 0) {
     int e = errno;
-    ereport(ERROR, errmsg("sendmsg"), errdetail(strerror(e)));
+    ereport(ERROR, errmsg("sendmsg"), errdetail("%s", strerror(e)));
   }
 
   close(sock);
@@ -613,4 +615,10 @@ Datum start(PG_FUNCTION_ARGS) {
   start_master_worker(module_handle, master_worker_bgw,
                       immediate ? omni_timing_immediately : omni_timing_after_commit);
   PG_RETURN_VOID();
+}
+
+PG_FUNCTION_INFO_V1(stop_handling);
+Datum stop_handling(PG_FUNCTION_ARGS) {
+  worker_should_stop_handling = true;
+  PG_RETURN_BOOL(true);
 }
