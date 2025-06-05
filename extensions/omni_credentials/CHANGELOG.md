@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.3.0] - TBD
 
+### Added
+
+* Credential filestore omni_vfs support  [#833](https://github.com/omnigres/omnigres/pull/833)
+
 ## [0.2.0] - 2025-03-30
 
 ### Added

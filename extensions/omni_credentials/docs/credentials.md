@@ -44,13 +44,15 @@ The store keeps the data in `encrypted_credentials` table.
 
 ## File Store
 
+File stores can be instantiated using any of the virtual file systems available through omni_vfs.
+
 In development mode, it is practical to store encrypted files in the repository
 (conceptually similar to what Ruby on Rails [does](https://guides.rubyonrails.org/security.html#custom-credentials)).
 
 In order to use one, a file store must be instantiated:
 
 ```postgresql
-select omni_credentials.instantiate_file_store(filename, [schema])
+select omni_credentials.instantiate_file_store(omni_vfs.local_fs(local_fs_mount), filename, [schema])
 ```
 
 It will import any available records in this file into the encrypted store,
@@ -63,4 +65,4 @@ invoke `credential_file_store_reload(filename)`. All registered file stores are 
 
 [^env]:
 
-     This is fine for development environment but may be limited beyond it. In staging and production, direct use of encrypted credentials or future integrated stores is recommended.
+     This is fine for development environment but may be limited beyond it. In staging and production, direct use of encrypted credentials or integrated stores is recommended.
