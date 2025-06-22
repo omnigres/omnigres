@@ -9,12 +9,12 @@ docker run --name omnigres \
            -e POSTGRES_USER=omnigres \
            -e POSTGRES_DB=omnigres \
            --mount source=omnigres,target=/var/lib/postgresql/data \
-           -p 127.0.0.1:5432:5432 -p 127.0.0.1:8080:8080 --rm ghcr.io/omnigres/omnigres-17:latest
+           -p 127.0.0.1:5432:5432 -p 127.0.0.1:8080:8080 -p 127.0.0.1:8081:8081 --rm ghcr.io/omnigres/omnigres-17:latest
 # Now you can connect to it:
 psql -h localhost -p 5432 -U omnigres omnigres # password is `omnigres`
 ```
 
-You can access the HTTP server at [localhost:8080](http://localhost:8080)
+You can access the HTTP server at [localhost:8081](http://localhost:8081)
 
 ??? tip "What if I need other extensions?"
 
