@@ -296,10 +296,9 @@ static bool populate_ytest_from_fy_node(struct fy_document *fyd, struct fy_node 
 
 struct fy_node *instances;
 
-static int execute_document(struct fy_document *fyd, bool managed, char *host, int port,
+static int prepare_document(struct fy_document *fyd, bool managed, char *host, int port,
                             char *username, char *dbname, char *password) {
   struct fy_node *root = fy_document_root(fyd);
-  struct fy_node *original_root = fy_node_copy(fyd, root);
   if (!fy_node_is_mapping(root)) {
     fprintf(stderr, "document root must be a mapping");
     return 1;
@@ -316,9 +315,6 @@ static int execute_document(struct fy_document *fyd, bool managed, char *host, i
         "Can't have `instance` or `instances` keys when testing against an unmanaged instance\n");
     return 1;
   }
-
-  // Register instance cleanup
-  atexit(instances_cleanup);
 
   // If none specified, create a default one
   if (instances == NULL) {
@@ -471,7 +467,6 @@ static int execute_document(struct fy_document *fyd, bool managed, char *host, i
     }
   }
 
-  // Get tests
   struct fy_node *tests = fy_node_mapping_lookup_by_string(root, STRLIT("tests"));
 
   if (tests == NULL) {
@@ -495,6 +490,94 @@ static int execute_document(struct fy_document *fyd, bool managed, char *host, i
       }
     }
   }
+
+  return 0;
+}
+
+static void print_test(struct fy_node *test, bool transaction, char *dbname) {
+  ytest *y_test = fy_node_get_meta(test);
+  printf("/* Test `%.*s` */\n", (int)IOVEC_STRLIT(ytest_name(y_test)));
+  char *dbname0 = dbname;
+  if (y_test->database.base != NULL) {
+    dbname = strndup(IOVEC_RSTRLIT(y_test->database));
+    printf("\\c %.*s;", (int)IOVEC_STRLIT(y_test->database));
+  }
+  switch (y_test->kind) {
+  case ytest_kind_query:
+    if (!transaction)
+      printf("begin;\n");
+    printf("%.*s;\n", (int)IOVEC_STRLIT(y_test->info.query.query));
+    if (!transaction)
+      printf("%s;\n", y_test->commit ? "commit" : "rollback");
+    break;
+  case ytest_kind_restart:
+    printf("-- RESTART\n");
+    break;
+  case ytest_kind_steps:
+    if (!transaction)
+      printf("begin;\n");
+    void *iter = NULL;
+    struct fy_node *step;
+    while ((step = fy_node_sequence_iterate(test, &iter))) {
+      print_test(step, !transaction, dbname);
+    }
+    if (!transaction)
+      printf("%s;\n", y_test->commit ? "commit" : "rollback");
+    break;
+
+  case ytest_kind_tests: {
+    void *iter = NULL;
+    struct fy_node *step;
+    while ((step = fy_node_sequence_iterate(test, &iter))) {
+      print_test(step, transaction, dbname);
+    }
+    break;
+  }
+  default:
+    break;
+  }
+  if (y_test->database.base != NULL) {
+    printf("\\c %s;", dbname0);
+  }
+}
+static void print_document(struct fy_document *fyd, char *dbname) {
+  {
+    struct fy_node_pair *instance_pair;
+    void *iter = NULL;
+    while ((instance_pair = fy_node_mapping_iterate(instances, &iter)) != NULL) {
+      struct fy_node *name = fy_node_pair_key(instance_pair);
+      struct fy_node *instance = fy_node_pair_value(instance_pair);
+
+      yinstance *y_instance = (yinstance *)fy_node_get_meta(fy_node_pair_value(instance_pair));
+      printf("/* Instance `%.*s` %s:\n```yaml\n%s\n```\n */\n",
+             (int)IOVEC_STRLIT(yinstance_name(y_instance)),
+             y_instance->managed ? "(managed)" : "(unmanaged",
+             fy_emit_node_to_string(instance, FYECF_MODE_ORIGINAL));
+    }
+  }
+
+  struct fy_node *root = fy_document_root(fyd);
+  struct fy_node *tests = fy_node_mapping_lookup_by_string(root, STRLIT("tests"));
+
+  {
+    void *iter = NULL;
+    struct fy_node *test;
+
+    while ((test = fy_node_sequence_iterate(tests, &iter)) != NULL) {
+      print_test(test, false, dbname);
+    }
+  }
+}
+
+static int execute_document(struct fy_document *fyd, bool managed) {
+
+  // Register instance cleanup
+  atexit(instances_cleanup);
+
+  // Get tests
+  struct fy_node *root = fy_document_root(fyd);
+  struct fy_node *original_root = fy_node_copy(fyd, root);
+  struct fy_node *tests = fy_node_mapping_lookup_by_string(root, STRLIT("tests"));
 
   // Count used instances
   int used_instances = 0;
@@ -616,15 +699,14 @@ extern char **environ;
 
 int main(int argc, char **argv) {
 
-  static struct option options[] = {{"host", required_argument, 0, 'h'},
-                                    {"username", required_argument, 0, 'U'},
-                                    {"dbname", required_argument, 0, 'd'},
-                                    {"port", required_argument, 0, 'p'},
-                                    {"password", no_argument, 0, 'W'},
-                                    {"no-password", no_argument, 0, 'w'},
-                                    {0, 0, 0, 0}};
+  static struct option options[] = {
+      {"host", required_argument, 0, 'h'},   {"username", required_argument, 0, 'U'},
+      {"dbname", required_argument, 0, 'd'}, {"port", required_argument, 0, 'p'},
+      {"password", no_argument, 0, 'W'},     {"no-password", no_argument, 0, 'w'},
+      {"sql", no_argument, 0, 'S'},          {0, 0, 0, 0}};
 
   bool managed = true;
+  bool sql = false;
   char *host = "127.0.0.1";
   char *username = getpwuid(getuid())->pw_name;
   char *dbname = username;
@@ -634,7 +716,7 @@ int main(int argc, char **argv) {
   {
     int option_index = 0;
     int opt;
-    while ((opt = getopt_long(argc, argv, "h:U:d:p:Ww", options, &option_index)) != -1) {
+    while ((opt = getopt_long(argc, argv, "h:U:d:p:WwS", options, &option_index)) != -1) {
       switch (opt) {
       case 'h':
         host = optarg;
@@ -664,6 +746,9 @@ int main(int argc, char **argv) {
         break;
       case 'w':
         managed = false;
+        break;
+      case 'S':
+        sql = true;
         break;
       default:
         fprintf(stderr,
@@ -736,8 +821,16 @@ int main(int argc, char **argv) {
     fy_document_resolve(fyd);
 
     if (fyd != NULL) {
-      int result = execute_document(fyd, managed, host, port, username, dbname, password);
-      return result;
+      int result = prepare_document(fyd, managed, host, port, username, dbname, password);
+      if (result != 0) {
+        return result;
+      }
+      if (!sql) {
+        int result = execute_document(fyd, managed);
+        return result;
+      } else {
+        print_document(fyd, dbname);
+      }
     }
   } else {
     fprintf(stderr, "Usage: py_yregress <test.yml>");
