@@ -33,6 +33,19 @@ instance:
 
 tests:
 
+- name: retry should time out
+  query: |
+    CREATE TABLE timeout_test (i int);
+    -- This will fail because another transaction is started by the test harness
+    -- to verify the outcome, creating a serialization failure.
+    -- The key is that it will keep retrying and should be stopped by the timeout.
+    SELECT omni_txn.retry(
+      $$UPDATE timeout_test SET i = i + 1; SELECT pg_sleep(0.02)$$,
+      max_attempts => 10,
+      timeout_ms => 50
+    );
+  error: 'transaction timed out after 50 ms'
+
 - name: other errors pass through
   transaction: false
   tests:

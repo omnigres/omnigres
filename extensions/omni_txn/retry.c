@@ -8,6 +8,7 @@
 #include <tcop/pquery.h>
 #include <utils/builtins.h>
 #include <utils/snapmgr.h>
+#include <utils/timestamp.h>
 #if PG_MAJORVERSION_NUM < 17
 #include <utils/typcache.h>
 #endif
@@ -117,6 +118,12 @@ Datum retry(PG_FUNCTION_ARGS) {
     collect_backoff_values = PG_GETARG_BOOL(3);
   }
 
+  int timeout_ms = 0;
+  if (!PG_ARGISNULL(6)) {
+      timeout_ms = PG_GETARG_INT32(6);
+  }
+  TimestampTz start_time = 0;
+
   text *stmts = PG_GETARG_TEXT_PP(0);
   char *cstmts = MemoryContextStrdup(RetryPreparedStatementMemoryContext, text_to_cstring(stmts));
 
@@ -201,6 +208,10 @@ Datum retry(PG_FUNCTION_ARGS) {
   bool retry = true;
   retry_attempts = 0;
 
+  if (timeout_ms > 0) {
+      start_time = GetCurrentTimestamp();
+  }
+
   bool found;
   PreparedStatementEntry *entry = preparedstmthash_insert(stmthash, cstmts, &found);
   if (!found) {
@@ -231,6 +242,21 @@ Datum retry(PG_FUNCTION_ARGS) {
         error_context_stack = previous_error_context;
         FlushErrorState();
         if (++retry_attempts <= max_attempts) {
+
+          if (timeout_ms > 0) {
+            long elapsed_ms =
+                (GetCurrentTimestamp() - start_time) / 1000;
+            if (elapsed_ms >= timeout_ms) {
+              if (GetCurrentTransactionNestLevel() >= 2) {
+                RollbackAndReleaseCurrentSubTransaction();
+              }
+              MemoryContextSwitchTo(current_mcxt);
+              CurrentResourceOwner = oldowner;
+              SPI_rollback();
+              ereport(ERROR, errcode(sqlerrcode),
+                      errmsg("transaction timed out after %d ms", timeout_ms));
+            }
+          }
 
           int64 backoff_with_jitter_in_microsecs =
               backoff_jitter(cap_sleep_microsecs, base_sleep_microsecs, retry_attempts);
