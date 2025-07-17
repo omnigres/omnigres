@@ -14,7 +14,7 @@ if(NOT DEFINED ENV{OMNI_SQL_ALREADY_INCLUDED})
     find_package(PostgreSQL REQUIRED)
 
     add_library(libomnisql STATIC
-            deparse.c deparse_18.c deparse_17.c deparse_16.c deparse_15.c deparse_14.c deparse_13.c
+            deparse.c deparse_19.c deparse_18.c deparse_17.c deparse_16.c deparse_15.c deparse_14.c deparse_13.c
             lib.c)
     set_property(TARGET libomnisql PROPERTY POSITION_INDEPENDENT_CODE ON)
     target_include_directories(libomnisql
