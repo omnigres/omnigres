@@ -215,7 +215,7 @@ static void register_lwlock(const omni_handle *handle, LWLock *lock, const char 
 #define LW_FLAG_HAS_WAITERS ((uint32)1 << 30)
 #define LW_FLAG_RELEASE_OK ((uint32)1 << 29)
 #define LW_FLAG_LOCKED ((uint32)1 << 28)
-#elif PG_MAJORVERSION_NUM == 18
+#elif PG_MAJORVERSION_NUM == 18 || PG_MAJORVERSION_NUM == 19
 #define LW_FLAG_HAS_WAITERS ((uint32)1 << 31)
 #define LW_FLAG_RELEASE_OK ((uint32)1 << 30)
 #define LW_FLAG_LOCKED ((uint32)1 << 29)

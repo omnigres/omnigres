@@ -533,7 +533,7 @@ static FuncDetailCode oper_select_candidate(int nargs, Oid *input_typeids,
                                             FuncCandidateList candidates,
                                             Oid *operOid) /* output argument */
 {
-#if PG_MAJORVERSION_NUM > 18
+#if PG_MAJORVERSION_NUM > 19
 #error "check if this version of the function is still good"
 #endif
   int ncandidates;
