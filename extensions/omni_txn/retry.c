@@ -122,7 +122,13 @@ Datum retry(PG_FUNCTION_ARGS) {
   if (!PG_ARGISNULL(6)) {
       timeout_ms = PG_GETARG_INT32(6);
   }
-  TimestampTz start_time = 0;
+
+  struct timeval start_time;
+  bool timeout_enabled = (timeout_ms > 0);
+  
+  if (timeout_enabled) {
+    gettimeofday(&start_time, NULL);
+  }
 
   text *stmts = PG_GETARG_TEXT_PP(0);
   char *cstmts = MemoryContextStrdup(RetryPreparedStatementMemoryContext, text_to_cstring(stmts));
@@ -132,9 +138,9 @@ Datum retry(PG_FUNCTION_ARGS) {
 
   // Default values are prepared for the case when no `params` are set
   int paramsCount = 0;
-  Datum *paramsValues;
-  Oid *paramsTypes;
-  char *paramsNullChars;
+  Datum *paramsValues = NULL;
+  Oid *paramsTypes = NULL;
+  char *paramsNullChars = NULL;
 
   // If `params` is set
   if (!PG_ARGISNULL(4)) {
@@ -205,21 +211,44 @@ Datum retry(PG_FUNCTION_ARGS) {
     list_free(backoff_values);
     backoff_values = NIL;
   }
-  bool retry = true;
+
+  bool do_retry = true;
   retry_attempts = 0;
 
-  if (timeout_ms > 0) {
-      start_time = GetCurrentTimestamp();
+  char *trimmed_cstmts = cstmts;
+  while (isspace((unsigned char)*trimmed_cstmts)) {
+      trimmed_cstmts++;
+  }
+  
+  bool use_prepared_plan = true;
+  if (paramsCount == 0) {
+      if (strchr(cstmts, ';') != NULL || pg_strncasecmp(trimmed_cstmts, "do", 2) == 0) {
+          use_prepared_plan = false;
+      }
   }
 
-  bool found;
-  PreparedStatementEntry *entry = preparedstmthash_insert(stmthash, cstmts, &found);
-  if (!found) {
-    entry->plan = SPI_prepare(cstmts, paramsCount, paramsTypes);
-    SPI_keepplan(entry->plan);
-  }
+  while (do_retry) {
+    // Check timeout before starting a new attempt
+    if (timeout_enabled) {
+      struct timeval current_time;
+      gettimeofday(&current_time, NULL);
+      
+      long sec_diff = current_time.tv_sec - start_time.tv_sec;
+      long usec_diff = current_time.tv_usec - start_time.tv_usec;
+      if (usec_diff < 0) {
+          sec_diff--;
+          usec_diff += 1000000;
+      }
+      long elapsed_ms = sec_diff * 1000 + usec_diff / 1000;
+      
+      if (elapsed_ms >= timeout_ms) {
+          SPI_finish();
+          ereport(ERROR,
+                  errcode(ERRCODE_QUERY_CANCELED),
+                  errmsg("transaction timed out after %d ms", timeout_ms));
+      }
+    }
 
-  while (retry) {
     MemoryContext current_mcxt = CurrentMemoryContext;
     ResourceOwner oldowner = CurrentResourceOwner;
     ErrorContextCallback *previous_error_context = error_context_stack;
@@ -227,10 +256,24 @@ Datum retry(PG_FUNCTION_ARGS) {
     XactIsoLevel = intended_iso_level;
     PG_TRY();
     {
-      SPI_execute_plan(entry->plan, paramsValues, paramsNullChars, false, 0);
+      if (use_prepared_plan) {
+        bool found;
+        PreparedStatementEntry *entry = preparedstmthash_insert(stmthash, cstmts, &found);
+        if (!found) {
+            entry->plan = SPI_prepare(cstmts, paramsCount, paramsTypes);
+            SPI_keepplan(entry->plan);
+        }
+        SPI_execute_plan(entry->plan, paramsValues, paramsNullChars, false, 0);
+      } else {
+        if (strchr(cstmts, ';') != NULL) {
+            SPI_execute(cstmts, false, 0);
+        } else {
+            SPI_execute_with_args(cstmts, 0, NULL, NULL, NULL, false, 0);
+        }
+      }
       ReleaseCurrentSubTransaction();
       SPI_commit();
-      retry = false;
+      do_retry = false;
     }
     PG_CATCH();
     {
@@ -242,22 +285,6 @@ Datum retry(PG_FUNCTION_ARGS) {
         error_context_stack = previous_error_context;
         FlushErrorState();
         if (++retry_attempts <= max_attempts) {
-
-          if (timeout_ms > 0) {
-            long elapsed_ms =
-                (GetCurrentTimestamp() - start_time) / 1000;
-            if (elapsed_ms >= timeout_ms) {
-              if (GetCurrentTransactionNestLevel() >= 2) {
-                RollbackAndReleaseCurrentSubTransaction();
-              }
-              MemoryContextSwitchTo(current_mcxt);
-              CurrentResourceOwner = oldowner;
-              SPI_rollback();
-              ereport(ERROR, errcode(sqlerrcode),
-                      errmsg("transaction timed out after %d ms", timeout_ms));
-            }
-          }
-
           int64 backoff_with_jitter_in_microsecs =
               backoff_jitter(cap_sleep_microsecs, base_sleep_microsecs, retry_attempts);
 
