@@ -1,0 +1,47 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    timezone: UTC
+  init:
+  - create extension omni_audit cascade
+  - create extension omni_datasets
+  - select omni_datasets.instantiate_northwind('public')
+#  - set search_path to omni_audit, public
+
+tests:
+
+- name: insertion tracking
+  steps:
+  - |
+    insert
+    into
+        omni_audit.tracked_relation
+        (relation)
+    values
+        ('customers'::regclass)
+  - |
+    insert
+    into
+        customers (customer_id, company_name, contact_name)
+    values
+        ('FOOBAR', 'Foobar Inc.', 'John Doe')
+  - query: |
+      select
+          a.customer_id,
+          a.company_name,
+          a.contact_name,
+          lower("(valid)") < clock_timestamp()          as lower_valid,
+          upper("(valid)")
+      from
+          "audited(customers)" a
+          inner join customers c on a.customer_id = c.customer_id
+      where
+          a.customer_id = 'FOOBAR'
+    results:
+    - customer_id: FOOBAR
+      company_name: Foobar Inc.
+      contact_name: John Doe
+      lower_valid: true
+      upper: infinity
+     
+    
