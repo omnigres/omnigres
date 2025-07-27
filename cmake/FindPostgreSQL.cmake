@@ -63,6 +63,7 @@ if(NOT DEFINED PG_CONFIG)
     endif()
 
     # If the version is not known, try resolving the alias
+    set(PGVER_ALIAS_18 18beta2)
     set(PGVER_ALIAS_17 17.5)
     set(PGVER_ALIAS_16 16.9)
     set(PGVER_ALIAS_15 15.13)
@@ -83,13 +84,13 @@ if(NOT DEFINED PG_CONFIG)
         if (NOT _POSTGRESQL_ANNOUNCED_${PGVER_ALIAS})
             message(STATUS "Resolved PostgreSQL version alias ${PGVER} to ${PGVER_ALIAS}")
         endif ()
-    elseif ("${PGVER}" MATCHES "[0-9]+.[0-9]+")
+    elseif ("${PGVER}" MATCHES "[0-9]+(.[0-9]+|beta[0-9]+)")
         set(PGVER_ALIAS "${PGVER}")
     else()
         set(PGVER_ALIAS "${PGVER_ALIAS_${PGVER}}")
 
         # If it still can't be resolved, fail
-        if("${PGVER_ALIAS}" MATCHES "[0-9]+.[0-9]+")
+        if ("${PGVER_ALIAS}" MATCHES "[0-9]+(.[0-9]+|beta[0-9]+)")
             if(NOT _POSTGRESQL_ANNOUNCED_${PGVER_ALIAS})
                 message(STATUS "Resolved PostgreSQL version alias ${PGVER} to ${PGVER_ALIAS}")
             endif()
