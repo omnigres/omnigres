@@ -113,8 +113,8 @@ static void bind_params(sqlite3_stmt *stmt, std::optional<cppgres::record> param
         }
         case UNKNOWNOID: {
           bool is_varlena;
-          cppgres::oid outfun;
-          cppgres::ffi_guard{::getTypeOutputInfo}(typoid, &outfun, &is_varlena);
+          cppgres::oid outfun(InvalidOid);
+          cppgres::ffi_guard{::getTypeOutputInfo}(typoid, &outfun.operator ::Oid &(), &is_varlena);
           auto fc = cppgres::current_postgres_function::call_info();
           auto d = cppgres::ffi_guard{::OidFunctionCall1Coll}(outfun, (*fc)->fncollation, nd);
           auto cc =
@@ -160,15 +160,36 @@ postgres_function(
 #include "__generator.hpp"
 #endif
 
-std::generator<cppgres::record> query_results(int sqlite_rc, int column_count, sqlite3_stmt *stmt,
-                                              cppgres::tuple_descriptor td) {
+std::generator<cppgres::record> query_results(int sqlite_rc, std::vector<int> types,
+                                              sqlite3_stmt *stmt, cppgres::tuple_descriptor td) {
   if (sqlite_rc == SQLITE_ROW) {
     do {
       CHECK_FOR_INTERRUPTS();
       std::vector<cppgres::nullable_datum> datums;
-      for (int i = 0; i < column_count; i++) {
+      for (int i = 0; i < types.size(); i++) {
         auto value = sqlite3_column_value(stmt, i);
         auto value_type = sqlite3_value_type(value);
+        if (value_type != SQLITE_NULL && value_type != types[i]) {
+          auto type_printer = [](int type) {
+            switch (type) {
+            case SQLITE_INTEGER:
+              return "integer";
+            case SQLITE_FLOAT:
+              return "float";
+            case SQLITE_BLOB:
+              return "blob";
+            case SQLITE_TEXT:
+              return "text";
+            case SQLITE_NULL:
+              return "null";
+            default:
+              return "unknown";
+            }
+          };
+          throw std::runtime_error(
+              cppgres::fmt::format("column {} type mismatch, expected {}, got {}", i,
+                                   type_printer(types[i]), type_printer(value_type)));
+        }
         switch (value_type) {
         case SQLITE_INTEGER:
           datums.emplace_back(
@@ -219,10 +240,13 @@ postgres_function(sqlite_query, ([](cppgres::expanded_varlena<sqlite> db, std::s
                     cppgres::tuple_descriptor td(column_count);
 
                     int rc = sqlite3_step(stmt);
+                    std::vector<int> column_types;
+
                     if (rc == SQLITE_ROW || rc == SQLITE_DONE) {
 
                       for (int i = 0; i < column_count; i++) {
                         auto column_type = sqlite3_column_type(stmt, i);
+                        column_types.push_back(column_type);
                         auto column_name = sqlite3_column_name(stmt, i);
                         td.set_name(i, cppgres::name(column_name));
                         switch (column_type) {
@@ -245,7 +269,7 @@ postgres_function(sqlite_query, ([](cppgres::expanded_varlena<sqlite> db, std::s
                       }
                     }
 
-                    return query_results(rc, column_count, stmt, std::move(td));
+                    return query_results(rc, std::move(column_types), stmt, std::move(td));
                   }));
 
 postgres_function(sqlite_serialize, ([](cppgres::expanded_varlena<sqlite> db) {
