@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.4.9] - TBD
 
+### Added
+
+* Support for `ETag` in static file handler [#888](https://github.com/omnigres/omnigres/pull/888)
+
 ## [0.4.8] - 2025-06-03
 
 ### Fixed
