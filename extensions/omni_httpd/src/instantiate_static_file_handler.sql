@@ -6,6 +6,11 @@ declare
     old_search_path text := current_setting('search_path');
 begin
     -- check for required extensions
+    perform from pg_extension where extname = 'pgcrypto';
+    if not found then
+        raise exception 'pgcrypto extension is required to be installed';
+    end if;
+
     perform from pg_extension where extname = 'omni_vfs';
     if not found then
         raise exception 'omni_vfs extension is required to be installed';
