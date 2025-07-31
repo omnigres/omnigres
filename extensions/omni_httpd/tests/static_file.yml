@@ -10,6 +10,7 @@ instance:
   - create extension omni_httpc cascade
   - create extension omni_vfs cascade
   - create extension omni_mimetypes
+  - create extension pgcrypto
   - select omni_httpd.instantiate_static_file_handler(schema => current_schema)
   - |
     create table static_file_router
@@ -37,16 +38,51 @@ tests:
            omni_httpc.http_request('http://127.0.0.1:' ||
                                    (select effective_port from omni_httpd.listeners) || '/test.json')))
     select
-      (select json_agg(json_build_object(h.name, h.value)) from unnest(response.headers) h where h.name = 'content-type') as headers,
+        (select
+             json_agg(json_build_object(h.name, h.value))
+         from
+             unnest(response.headers) h
+         where
+             h.name in ('content-type', 'etag'))   as headers,
       response.status,
-      convert_from(response.body, 'utf-8')::json as body
+        convert_from(response.body, 'utf-8')::json as body
       from response
   results:
   - status: 200
     headers:
       - content-type: application/json
+      - etag: "\"e051f32f7b2fdbabf1ac3ddf461d3554a283fe46febefd00c1f97b2ab2a85120\""
     body:
       test: passed
+
+- name: handle unmodified file
+  query: |
+    with
+        response as (select *
+                     from
+                         omni_httpc.http_execute(
+                                 omni_httpc.http_request('http://127.0.0.1:' ||
+                                                         (select effective_port from omni_httpd.listeners) ||
+                                                         '/test.json',
+                                                         headers => array [omni_http.http_header('if-none-match',
+                                                                                                 '"e051f32f7b2fdbabf1ac3ddf461d3554a283fe46febefd00c1f97b2ab2a85120"')])))
+    select
+        (select
+             json_agg(json_build_object(h.name, h.value))
+         from
+             unnest(response.headers) h
+         where
+             h.name in ('content-type', 'etag')) as headers,
+        response.status,
+        convert_from(response.body, 'utf-8')     as body
+    from
+        response
+  results:
+  - status: 304
+    headers:
+    - content-type: application/json
+    - etag: "\"e051f32f7b2fdbabf1ac3ddf461d3554a283fe46febefd00c1f97b2ab2a85120\""
+    body: ""
 
 - name: handle file path overriding
   query: |
@@ -85,7 +121,12 @@ tests:
            omni_httpc.http_request('http://127.0.0.1:' ||
                                    (select effective_port from omni_httpd.listeners) || '/')))
     select
-      (select json_agg(json_build_object(h.name, h.value)) from unnest(response.headers) h where h.name = 'content-type') as headers,
+        (select
+             json_agg(json_build_object(h.name, h.value))
+         from
+             unnest(response.headers) h
+         where
+             h.name in ('content-type', 'etag')) as headers,
       response.status,
       convert_from(response.body, 'utf-8') as body
       from response
@@ -93,6 +134,7 @@ tests:
   - status: 200
     headers:
     - content-type: text/html
+    - etag: "\"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08\""
     body: test
 
 - name: handle directory
