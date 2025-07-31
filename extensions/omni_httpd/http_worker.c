@@ -1313,8 +1313,17 @@ static int handler(handler_message_t *msg) {
             continue;
           }
 
-          if (!match_urlpattern(&routes[i].match, req->path.base, req->path.len)) {
-            continue;
+          {
+            // Do the match against the URL
+            char *url =
+                psprintf("%.*s://%.*s%.*s", req->scheme->name.len, req->scheme->name.base,
+                         req->authority.len, req->authority.base, req->path.len, req->path.base);
+
+            if (!match_urlpattern(&routes[i].match, url, strlen(url))) {
+              pfree(url);
+              continue;
+            }
+            pfree(url);
           }
 
           fmgr_info(routes[i].proc->oid, &flinfo);
