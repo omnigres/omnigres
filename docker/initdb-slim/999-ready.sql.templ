@@ -1,3 +1,13 @@
-update omni_httpd.listeners set port = 8081;
+insert into omni_httpd.listeners (address, port) values ('0.0.0.0', '8081');
 
-create function is_omnigres_ready() returns boolean language sql as $$ select effective_port is not null from omni_httpd.listeners  $$;
+create function default_route(request omni_httpd.http_request) returns omni_httpd.http_outcome
+language sql
+volatile
+as $$
+SELECT * from omni_httpd.default_page(request.*::omni_httpd.http_request) limit 1
+$$;
+
+insert into omni_httpd.urlpattern_router (match, handler)
+values (omni_httpd.urlpattern('/'), 'default_route'::regproc);
+
+create function is_omnigres_ready() returns boolean language sql as $$ select exists(select from omni_httpd.listeners where effective_port is not null)  $$;
