@@ -10,6 +10,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 * Support for `ETag` in static file handler [#888](https://github.com/omnigres/omnigres/pull/888)
+* Capability to route based on additional components such as hostname and
+  port [#890](https://github.com/omnigres/omnigres/pull/890)
 
 ## [0.4.8] - 2025-06-03
 
