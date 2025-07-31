@@ -12,6 +12,7 @@ find_package(PostgreSQL REQUIRED)
 add_postgresql_extension(
         omni_email
         SCHEMA omni_email
+        VERSION 0.1.0
         COMMENT "E-mail framework"
         REQUIRES omni_id omni_cloudevents omni_polyfill
         RELOCATABLE false)

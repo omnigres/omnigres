@@ -40,3 +40,11 @@ macro(get_version NAME VERSION_VAR)
     unset(_name)
 
 endmacro()
+
+function(set_version NAME VERSION)
+    get_property(dir GLOBAL PROPERTY version_dir)
+    file(READ "${dir}/../versions.txt" _file_contents)
+    # Replace ${NAME}=... with ${NAME}=${VERSION}
+    string(REGEX REPLACE "${NAME}=[^\n]*" "${NAME}=${VERSION}" _file_contents "${_file_contents}")
+    file(WRITE "${dir}/../versions.txt" "${_file_contents}")
+endfunction()

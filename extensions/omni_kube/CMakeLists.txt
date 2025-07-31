@@ -12,6 +12,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_kube
+        VERSION 0.1.1
         COMMENT "Kubernetes (k8s) integration"
         SCHEMA omni_kube
         RELOCATABLE false

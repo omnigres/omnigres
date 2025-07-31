@@ -12,6 +12,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_polyfill
+        VERSION 0.2.2
         COMMENT "Postgres API polyfills"
         SCHEMA omni_polyfill
         RELOCATABLE NO

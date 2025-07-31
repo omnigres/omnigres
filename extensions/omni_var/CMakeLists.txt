@@ -12,6 +12,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_var
+        VERSION 0.3.0
         COMMENT "Scoped variables"
         SCHEMA omni_var
         RELOCATABLE false

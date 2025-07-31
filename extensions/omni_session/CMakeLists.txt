@@ -11,6 +11,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_session
+        VERSION 0.2.0
         COMMENT "Session management"
         SCHEMA omni_session
         REQUIRES omni_var omni_id omni_web omni_httpd omni_polyfill

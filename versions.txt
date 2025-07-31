@@ -5,6 +5,7 @@ omni_containers=0.2.0
 omni_cloudevents=0.1.0
 omni_credentials=0.2.0
 omni_csv=0.1.0
+omni_email=0.1.0
 omni_http=0.1.0
 omni_httpc=0.1.5
 omni_httpd=0.4.9

@@ -11,6 +11,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_auth
+        VERSION 0.1.3
         COMMENT "Basic session management"
         SCHEMA omni_auth
         REQUIRES omni_types omni_id pgcrypto btree_gist omni_polyfill

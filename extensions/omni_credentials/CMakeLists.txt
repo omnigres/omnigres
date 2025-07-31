@@ -11,6 +11,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_credentials
+        VERSION 0.2.0
         COMMENT "Application credential management"
         SCHEMA omni_credentials
         REQUIRES pgcrypto omni_os
