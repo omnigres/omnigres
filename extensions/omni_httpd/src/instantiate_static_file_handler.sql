@@ -29,10 +29,6 @@ begin
         execute format('alter procedure static_file_handler rename to %I', name);
     end if;
 
-    create table static_file_handler_router (
-
-    );
-
     perform set_config('search_path', old_search_path, true);
 end;
 $$;
