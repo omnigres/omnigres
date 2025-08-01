@@ -1,0 +1,15 @@
+#include <cppgres.hpp>
+
+
+extern "C" {
+  PG_MODULE_MAGIC;
+{% if cookiecutter.omni_extension %}
+#include <omni/omni_v0.h>
+  OMNI_MAGIC;
+
+  OMNI_MODULE_INFO(.name = "{{ cookiecutter.name }}", .version = EXT_VERSION,
+                   .identity = "{{ cookiecutter.omni_extension_identity }}");
+
+{% endif %}
+}
+

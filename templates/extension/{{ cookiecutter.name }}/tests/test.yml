@@ -1,0 +1,14 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+    max_worker_processes: 64
+    omni_worker.workers: 10
+  init:
+  - create extension {{ cookiecutter.name }} cascade
+
+tests:
+
+- name: placeholder
+  query: select
+  todo: true

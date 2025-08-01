@@ -1,0 +1,7 @@
+{
+  "name": "omni_extension_demo",
+  "version": "0.1.0",
+  "description": "Demo extension",
+  "schema": "{{ cookiecutter.name }}",
+  "main_source": "{{ cookiecutter.name }}.cpp"
+}
