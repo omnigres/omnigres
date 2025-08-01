@@ -1,0 +1,79 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+    max_worker_processes: 64
+    omni_worker.workers: 10
+  init:
+  - create extension omni_csv cascade
+
+tests:
+
+- name: csv info (commas)
+  query: select * from omni_csv.csv_info(E'col1,col2\n1,2')
+  results:
+  - column_name: col1
+  - column_name: col2
+
+- name: csv info (bars)
+  query: select * from omni_csv.csv_info(E'col1|col2\n1|2')
+  results:
+  - column_name: col1
+  - column_name: col2
+
+- name: csv info (tabs)
+  query: select * from omni_csv.csv_info(E'col1\tcol2\n1\t2')
+  results:
+  - column_name: col1
+  - column_name: col2
+
+- name: csv data (commas)
+  query: select * from omni_csv.parse(E'col1,col2\n1,2\n"a,b",c') as (col1 text, col2 text)
+  results:
+  - col1: 1
+    col2: 2
+  - col1: a,b
+    col2: c
+
+- name: csv data (tabs)
+  query: select *
+         from
+             omni_csv.parse(E'col1\tcol2\n1\t2\n"a\tb"\tc') as (col1 text, col2 text)
+  results:
+  - col1: 1
+    col2: 2
+  - col1: "a\tb"
+    col2: c
+
+- name: aggregation
+  query: select
+             omni_csv.csv_agg(t)
+         from
+                 (values ('hello,', 'world'), ('John', 'Doe')) t
+  results:
+  - csv_agg: "column1,column2\n\"hello,\",world\nJohn,Doe\n"
+
+- name: aggregation (other types)
+  query: select
+             omni_csv.csv_agg(t)
+         from
+                 (values (1, 'test')) t
+  results:
+  - csv_agg: "column1,column2\n1,test\n"
+
+- name: aggregation (column names)
+  query: select
+             omni_csv.csv_agg(t)
+         from
+                 (values (1, 'test')) t(val, note)
+  results:
+  - csv_agg: "val,note\n1,test\n"
+
+- name: empty set aggregation
+  query: select
+             omni_csv.csv_agg(t)
+         from
+                 (select 1, 'test' limit 0) t(val, note)
+  results:
+  # TODO: Ideally, this should be headers. But it isn't right now.
+  - csv_agg: ""
