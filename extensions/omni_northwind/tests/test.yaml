@@ -1,0 +1,145 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_test cascade
+    - create extension omni_schema cascade
+    - create database db1
+
+tests:
+
+- name: prepare db1
+  commit: true
+  steps:
+  - query: |
+      select migration_filename,
+      execution_error
+      from omni_schema.assemble_schema('dbname=db1 user=yregress host=localhost port=' ||
+      (select setting from pg_settings where name = 'port'),
+      omni_vfs.local_fs('../../../../extensions/omni_test/tests/fixture/db1')
+      )
+      order by execution_position
+  - update pg_database set datistemplate = true where datname = 'db1'
+
+- name: run db1 tests
+  steps:
+  - query: select name, description, error_message from omni_test.run_tests('db1') order by name
+    results:
+    - name: public.err
+      description: Error test
+      error_message: failed test
+    - name: public.test1
+      description: Test 1
+      error_message: null
+    - name: public.test2
+      description: Test 2
+      error_message: null
+    - name: public.test_fun
+      description: Test function
+      error_message: null
+    - name: public.tx_iso
+      description: Transaction isolation level setting
+      error_message: null
+  - query: |
+     select case when subject = '' || pg_backend_pid() then 'backend' else 'run_id' end as subject, 
+       type,
+     convert_from(data, 'utf8')::jsonb - '{id,start_time,end_time}'::text[] as data
+     from omni_cloudevents.cloudevents_egress
+    results:
+    - subject: backend
+      type: org.omnigres.omni_test.run.v1
+      data:
+       database: db1
+    - subject: run_id
+      type: org.omnigres.omni_test.test.v1
+      data:
+        name: public.err
+        description: Error test
+    - subject: run_id
+      type: org.omnigres.omni_test.test.failed.v1
+      data:
+        name: public.err
+        error: failed test
+        description: Error test
+    - subject: run_id
+      type: org.omnigres.omni_test.test.v1
+      data:
+        name: public.test1
+        description: Test 1
+    - subject: run_id
+      type: org.omnigres.omni_test.test.passed.v1
+      data:
+        name: public.test1
+        description: Test 1
+    - subject: run_id
+      type: org.omnigres.omni_test.test.v1
+      data:
+        name: public.test2
+        description: Test 2
+    - subject: run_id
+      type: org.omnigres.omni_test.test.passed.v1
+      data:
+        name: public.test2
+        description: Test 2
+    - subject: run_id
+      type: org.omnigres.omni_test.test.v1
+      data:
+        name: public.test_fun
+        description: Test function
+    - subject: run_id
+      type: org.omnigres.omni_test.test.passed.v1
+      data:
+        name: public.test_fun
+        description: Test function
+    - subject: run_id
+      type: org.omnigres.omni_test.test.v1
+      data:
+        name: public.tx_iso
+        description: Transaction isolation level setting
+    - subject: run_id
+      type: org.omnigres.omni_test.test.passed.v1
+      data:
+        name: public.tx_iso
+        description: Transaction isolation level setting
+    - subject: backend
+      type: org.omnigres.omni_test.run.end.v1
+      data:
+        database: db1
+
+- name: run filtered tests
+  steps:
+  - query: select
+               name,
+               description,
+               error_message
+           from
+               omni_test.run_tests('db1', filter => 'Test 1')
+           order by
+               name
+    results:
+    - name: public.test1
+      description: Test 1
+      error_message: null
+
+- name: run filtered out tests
+  steps:
+  - query: select
+               name,
+               description,
+               error_message
+           from
+               omni_test.run_tests('db1', filter => '^(?!.*Error).*')
+           order by
+               name
+    results:
+    - name: public.test1
+      description: Test 1
+      error_message: null
+    - name: public.test2
+      description: Test 2
+      error_message: null
+    - name: public.test_fun
+      description: Test function
+      error_message: null
+    - name: public.tx_iso
+      description: Transaction isolation level setting
+      error_message: null
