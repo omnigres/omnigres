@@ -1,0 +1,13 @@
+[package]
+name = "libwebauthn"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde_json = "1.0.142"
+webauthn-rs = "0.5.2"
+uuid = { version = "1.17.0", features = ["v4"] }
+
+[lib]
+name = "libwebauthn"
+crate-type = ["staticlib"]
