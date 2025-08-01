@@ -1,0 +1,1 @@
+pub const OTHER_MOD_MAGIC_NUMBER: u32 = 192312312;

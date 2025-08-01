@@ -1,0 +1,11 @@
+[package]
+name = "the-rust-lib-package-name"
+version = "0.1.0"
+license = "MIT"
+edition = "2018"
+
+[dependencies]
+
+[lib]
+crate-type=["staticlib"]
+name = "the_actual_library_crate_name"
