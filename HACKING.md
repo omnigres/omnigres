@@ -15,6 +15,16 @@ be overriden with `POSTGRESQLCONF`, `PGBHACONF` and `PSQLRC`.
 If you want to persist a database between runs, use `PSQLDB` environment variable to point to a directory that should
 contain the database.
 
+### Starting a new extension
+
+Using [Cookiecutter](https://www.cookiecutter.io/), one can easily start a new extension like this:
+
+```shell
+cd extensions
+cookiecutter ../templates/cppgres-extension # for a C++ extension
+cookiecutter ../templates/extension # for a SQL extension
+```
+
 ### Source code formatting
 
 All source code to be contributed should be formatted using clang-format 17 through:
