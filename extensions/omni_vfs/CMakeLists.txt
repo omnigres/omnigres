@@ -13,6 +13,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_vfs_types_v1
+        VERSION 0.1.0
         COMMENT "Virtual File System types (v1)"
         SCHEMA omni_vfs_types_v1
         RELOCATABLE false
@@ -20,6 +21,7 @@ add_postgresql_extension(
 
 add_postgresql_extension(
         omni_vfs
+        VERSION 0.2.1
         COMMENT "Virtual File System"
         SCHEMA omni_vfs
         RELOCATABLE false

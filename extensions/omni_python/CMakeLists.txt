@@ -12,6 +12,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_python
+        VERSION 0.1.1
         COMMENT "First-class Python support"
         SCHEMA omni_python
         RELOCATABLE false

@@ -13,6 +13,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_schema
+        VERSION 0.3.0
         COMMENT "Advanced schema management tooling"
         SCHEMA omni_schema
         RELOCATABLE false

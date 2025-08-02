@@ -12,6 +12,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_id
+        VERSION 0.4.2
         COMMENT "Identity types"
         SOURCES uuidv7_stub.c
         RELOCATABLE true

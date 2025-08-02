@@ -17,6 +17,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_sqlite
+        VERSION 0.2.0
         COMMENT "Embedded SQLite"
         SOURCES ${CMAKE_CURRENT_LIST_DIR}/../../deps/sqlite-3.48.0/sqlite3.c
         omni_sqlite.cpp sqlite.cpp sqlite3_db_dump.c

@@ -12,6 +12,7 @@ find_package(PostgreSQL REQUIRED)
 add_postgresql_extension(
         omni_json
         COMMENT "JSON toolkit"
+        VERSION 0.1.1
         SCHEMA omni_json
         SUPERUSER false
         RELOCATABLE false)

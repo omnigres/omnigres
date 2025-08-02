@@ -21,6 +21,7 @@ prepare_compressed_dependency(boost_1_88_0)
 
 add_postgresql_extension(
         omni_worker
+        VERSION 0.1.2
         COMMENT "Generalized worker pool"
         SOURCES omni_worker.cpp handlers.cpp
         SCHEMA omni_worker

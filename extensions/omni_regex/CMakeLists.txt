@@ -19,6 +19,7 @@ endif ()
 
 add_postgresql_extension(
         omni_regex
+        VERSION 0.1.0
         COMMENT "PCRE-compatible regular expressions"
         SOURCES omni_regex.c pcre2.c
         RELOCATABLE true

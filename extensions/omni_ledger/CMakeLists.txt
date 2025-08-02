@@ -12,6 +12,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_ledger
+        VERSION 0.1.3
         COMMENT "Financial ledger"
         SCHEMA omni_ledger
         SOURCES omni_ledger.c
