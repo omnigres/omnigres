@@ -1,5 +1,9 @@
 <p align="center">
-<img src="board.webp" alt="Omnigres: We want back to the drawing board">
+<h1 align="center">Omnigres</h1>
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="arch_dark.svg">
+<img src="arch.svg" alt="Omnigres Architecture">
+</picture>
 </p>
 
 <p align="center">
