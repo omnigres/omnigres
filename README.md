@@ -168,47 +168,148 @@ of how Omnigres web services can be built.
 For a more complex example, that uses the underlying database and employs more real-world layout, check out
 this [MOTD service example](https://docs.omnigres.org/examples/motd/).
 
-## :building_construction: Component Roadmap
+## Omnigres Components
 
-Below is the current list of components being worked on, experimented with and discussed. This list will change
-(and grow) over time.
+A collection of extensions that improve Postgres and turn it into a comprehensive business runtime.
 
-| Name                                                                                     | Status                                       | Description                                           |
-|------------------------------------------------------------------------------------------|----------------------------------------------|-------------------------------------------------------|
-| [omni](extensions/omni/README.md) and [Omni interface](omni/README.md)                   | :white_check_mark: First release candidate   | Advanced adapter for Postgres extensions              |
-| [omni_service](extensions/omni_service/README.md)                                        | :white_check_mark: First release candidate   | Uniform service management bus                        |
-| [omni_test](extensions/omni_test/README.md)                                              | :white_check_mark: First release candidate   | Testing framework                                     |
-| [omni_schema](extensions/omni_schema/README.md)                                          | :white_check_mark: First release candidate   | Application schema management                         |
-| [omni_credentials](extensions/omni_schema/README.md)                                     | :white_check_mark: First release candidate   | Application credential management                     |
-| [omni_id](extensions/omni_id/README.md)                                                  | :white_check_mark: First release candidate   | Identity types                                        |
-| [omni_aws](extensions/omni_aws/README.md)                                                | :white_check_mark: First release candidate   | AWS APIs                                              |
-| [omni_cloudevents](extensions/omni_cloudevents/README.md)                                | :white_check_mark: First release candidate   | [CloudEvents](https://cloudevents.io/) support        |
-| [omni_json](extensions/omni_json/README.md)                                              | :white_check_mark: First release candidate   | JSON toolkit                                          |
-| [omni_yaml](extensions/omni_yaml/README.md)                                              | :white_check_mark: First release candidate   | YAML toolkit                                          |
-| [omni_csv](extensions/omni_csv/README.md)                                                | :white_check_mark: First release candidate   | CSV toolkit                                           |
-| [omni_xml](extensions/omni_xml/README.md)                                                | :white_check_mark: First release candidate   | XML toolkit                                           |
-| [omni_http](extensions/omni_http/README.md)                                              | :white_check_mark: First release candidate   | Common HTTP types library                             |
-| [omni_httpd](extensions/omni_httpd/README.md), [omni_web](extensions/omni_web/README.md) | :white_check_mark: First release candidate   | Serving HTTP in Postgres and building services in SQL |
-| [omni_rest](extensions/omni_rest/README.md)                                              | :white_check_mark: First release candidate   | Out-of-the-box REST API provider                      |
-| [omni_session](extensions/omni_session/README.md)                                        | :white_check_mark: First release candidate   | Session management                                    |
-| [omni_mimetypes](extensions/omni_mimetypes/README.md)                                    | :white_check_mark: First release candidate   | MIME types and file extensions                        |
-| [omni_httpc](extensions/omni_httpc/README.md)                                            | :white_check_mark: First release candidate   | HTTP client                                           |
-| [omni_sql](extensions/omni_sql/README.md)                                                | :construction: Extremely limited API surface | Programmatic SQL manipulation                         |
-| [omni_sqlite](extensions/omni_sqlite/README.md)                                          | :white_check_mark: First release candidate   | Embedded SQLite                                       |
-| [omni_vfs](extensions/omni_vfs/README.md)                                                | :ballot_box_with_check: Initial prototype    | Virtual File System interface                         |
-| [omni_containers](extensions/omni_containers/README.md)                                  | :ballot_box_with_check: Initial prototype    | Managing containers                                   |
-| [omni_manifest](extensions/omni_manifest/README.md)                                      | :ballot_box_with_check: Initial prototype    | Improved extension installation                       |
-| [omni_types](extensions/omni_types/README.md)                                            | :white_check_mark: First release candidate   | Advanced Postgres typing techniques (sum types, etc.) |
-| [omni_seq](extensions/omni_seq/README.md)                                                | :white_check_mark: First release candidate   | Extended Postgres sequence tooling                    |
-| [omni_var](extensions/omni_var/README.md)                                                | :white_check_mark: First release candidate   | Variable management                                   |
-| [omni_txn](extensions/omni_txn/README.md)                                                | :white_check_mark: First release candidate   | Transaction management                                |
-| [omni_python](extensions/omni_python/README.md)                                          | :ballot_box_with_check: Initial prototype    | First-class Python Development Experience             |
-| [omni_regex](extensions/omni_python/README.md)                                           | :white_check_mark: First release candidate   | Feature-rich regular expresssions                     |
-| [omni_os](extensions/omni_os/README.md)                                                  | :ballot_box_with_check: Initial prototype    | Access to the operating system                        |
-| [omni_worker](extensions/omni_worker/README.md)                                          | :white_check_mark: First release             | Generalized worker pool                               |
-| [omni_polyfill](extensions/omni_polyfill/README.md)                                      | :white_check_mark: First release             | Provides polyfills for older versions of Postgres     |
-| omni_git                                                                                 | :lab_coat: Early experiments (unpublished)   | Postgres Git client                                   |
-| omni_reactive                                                                            | :spiral_calendar: Haven't started yet        | Reactive queries                                      |
+<details>
+<summary><strong>Application Management</strong></summary>
+
+- **[omni_credentials](extensions/omni_schema/README.md)** - Application credential management
+- **[omni_service](extensions/omni_service/README.md)** - Uniform service management bus
+- **[omni_schema](extensions/omni_schema/README.md)** - Application schema management
+
+</details>
+
+
+<details>
+<summary><strong>Extension system</strong></summary>
+
+- **[omni](extensions/omni/README.md) and [Omni interface](omni/README.md)** - Advanced adapter for Postgres extensions
+- **[omni_manifest](extensions/omni_manifest/README.md)** - Improved extension installation
+- **[omni_service](extensions/omni_service/README.md)** - Uniform service management bus
+
+</details>
+
+<details>
+<summary><strong>Application Stack</strong></summary>
+
+- **[omni_auth](extensions/omni_auth/README.md)** - Authentication management
+- **[omni_email](extensions/omni_email/README.md)** - Email management
+
+</details>
+
+
+<details>
+<summary><strong>Fintech Stack</strong></summary>
+
+- **omni_audit** (:hourglass_flowing_sand: pending release) - Robust in-database audit & record change trail
+- **[omni_ledger](extensions/omni_ledger/README.md)** - Financial transaction management
+
+</details>
+
+
+<details>
+<summary><strong>Postgres enhancements</strong></summary>
+
+- **[omni](extensions/omni/README.md) and [Omni interface](omni/README.md)** - Advanced adapter for Postgres extensions
+- **[omni_polyfill](extensions/omni_polyfill/README.md)** - Provides polyfills for older versions of Postgres
+- **[omni_worker](extensions/omni_worker/README.md)** - Generalized worker architecture
+
+</details>
+
+
+<details>
+<summary><strong>Data Types</strong></summary>
+
+- **[omni_id](extensions/omni_id/README.md)** - Identity types
+- **[omni_types](extensions/omni_types/README.md)** - Advanced Postgres typing techniques (sum types, etc.)
+- **[omni_seq](extensions/omni_seq/README.md)** - Extended Postgres sequence tooling
+- **[omni_regex](extensions/omni_python/README.md)** - Feature-rich regular expressions
+
+</details>
+
+<details>
+<summary><strong>Data Formats</strong></summary>
+
+- **[omni_csv](extensions/omni_csv/README.md)** - CSV toolkit
+- **[omni_json](extensions/omni_json/README.md)** - JSON toolkit
+- **[omni_sqlite](extensions/omni_sqlite/README.md)** - Embedded SQLite
+- **[omni_xml](extensions/omni_xml/README.md)** - XML toolkit
+- **[omni_yaml](extensions/omni_yaml/README.md)** - YAML toolkit
+
+</details>
+
+<details>
+<summary><strong>HTTP & APIs</strong></summary>
+
+- **[omni_http](extensions/omni_http/README.md)** - Common HTTP types library
+- **[omni_httpc](extensions/omni_httpc/README.md)** - HTTP client
+- **[omni_httpd](extensions/omni_httpd/README.md)** & **[omni_web](extensions/omni_web/README.md)** - Serving HTTP in
+  Postgres
+- **[omni_mimetypes](extensions/omni_mimetypes/README.md)** - MIME types and file extensions
+- **[omni_session](extensions/omni_session/README.md)** - Session management
+- **[omni_rest](extensions/omni_rest/README.md)** - Out-of-the-box REST API provider
+
+</details>
+
+<details>
+<summary><strong>Infrastructure</strong></summary>
+
+- **[omni_aws](extensions/omni_aws/README.md)** - AWS APIs
+- **[omni_containers](extensions/omni_containers/README.md)** - Managing containers
+- **omni_cluster** (:hourglass_flowing_sand: pending release) - Postgres High Availability as an extension
+- **[omni_cloudevents](extensions/omni_cloudevents/README.md)** - [CloudEvents](https://cloudevents.io/) support
+- **[omni_kube](extensions/omni_kube/README.md)** - Kubernetes integration
+
+</details>
+
+<details>
+<summary><strong>Observability</strong></summary>
+
+- **[omni_cloudevents](extensions/omni_cloudevents/README.md)** - [CloudEvents](https://cloudevents.io/) support
+
+</details>
+
+<details>
+<summary><strong>Libraries</strong></summary>
+
+- **[omni_regex](extensions/omni_python/README.md)** - Feature-rich regular expressions
+- **[omni_sql](extensions/omni_sql/README.md)** - Programmatic SQL manipulation
+- **[omni_txn](extensions/omni_txn/README.md)** - Transaction management
+- **[omni_var](extensions/omni_var/README.md)** - Variable management
+
+</details>
+
+
+<details>
+<summary><strong>Development Tools</strong></summary>
+
+- **[omni_sql](extensions/omni_sql/README.md)** - Programmatic SQL manipulation
+- **[omni_test](extensions/omni_test/README.md)** - Testing framework
+
+</details>
+
+<details>
+<summary><strong>Language Integration</strong></summary>
+
+- **[omni_python](extensions/omni_python/README.md)** - First-class Python Development Experience
+
+</details>
+
+<details>
+<summary><strong>Storage</strong></summary>
+
+- **[omni_vfs](extensions/omni_vfs/README.md)** - Virtual File System interface
+
+</details>
+
+<details>
+<summary><strong>System Integration</strong></summary>
+
+- **[omni_os](extensions/omni_os/README.md)** - Access to the operating system
+
+</details>
 
 ## :keyboard: Hacking
 
