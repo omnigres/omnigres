@@ -207,7 +207,7 @@ A collection of extensions that improve Postgres and turn it into a comprehensiv
 <details>
 <summary><strong>Fintech Stack</strong></summary>
 
-- **omni_audit** (:hourglass_flowing_sand: pending release) - Robust in-database audit & record change trail
+- **omni_audit** (⏳ pending release) - Robust in-database audit & record change trail
 - **[omni_ledger](extensions/omni_ledger/README.md)** - Financial transaction management
 
 </details>
@@ -262,7 +262,7 @@ A collection of extensions that improve Postgres and turn it into a comprehensiv
 
 - **[omni_aws](extensions/omni_aws/README.md)** - AWS APIs
 - **[omni_containers](extensions/omni_containers/README.md)** - Managing containers
-- **omni_cluster** (:hourglass_flowing_sand: pending release) - Postgres High Availability as an extension
+- **omni_cluster** (⏳ pending release) - Postgres High Availability as an extension
 - **[omni_cloudevents](extensions/omni_cloudevents/README.md)** - [CloudEvents](https://cloudevents.io/) support
 - **[omni_kube](extensions/omni_kube/README.md)** - Kubernetes integration
 
