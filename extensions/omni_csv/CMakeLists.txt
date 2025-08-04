@@ -17,6 +17,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_csv
+        VERSION 0.1.0
         COMMENT "CSV toolkit"
         SOURCES omni_csv.cpp
         SCHEMA omni_csv

@@ -12,6 +12,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_rest
+        VERSION 0.1.1
         COMMENT "REST API toolkit (with PostgREST support)"
         SCHEMA omni_rest
         REQUIRES omni_httpd omni_sql omni_web omni_var pgcrypto

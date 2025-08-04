@@ -12,6 +12,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_seq
+        VERSION 0.1.1
         COMMENT "Distributed integer sequences"
         SCHEMA omni_seq
         RELOCATABLE false

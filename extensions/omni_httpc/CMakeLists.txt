@@ -17,6 +17,7 @@ pkg_check_modules(BROTLI_ENC libbrotlienc)
 
 add_postgresql_extension(
         omni_httpc
+        VERSION 0.1.5
         COMMENT "HTTP client"
         SCHEMA omni_httpc
         RELOCATABLE false

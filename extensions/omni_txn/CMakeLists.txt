@@ -12,6 +12,7 @@ find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
         omni_txn
+        VERSION 0.5.0
         COMMENT "Transaction management"
         SCHEMA omni_txn
         RELOCATABLE false
