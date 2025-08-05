@@ -259,8 +259,7 @@ void _Omni_init(const omni_handle *handle) {
                                      init_semaphore, NULL, &semaphore_found);
 
   bool worker_bgw_found;
-  const char *master_worker_mem_name =
-      psprintf(OMNI_HTTPD_MASTER_WORKER, get_database_name(MyDatabaseId));
+  const char *master_worker_mem_name = psprintf(OMNI_HTTPD_MASTER_WORKER, MyDatabaseId);
   master_worker_bgw =
       handle->allocate_shmem(handle, master_worker_mem_name, sizeof(*master_worker_bgw),
                              register_start_master_worker, NULL, &worker_bgw_found);
