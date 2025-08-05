@@ -1,0 +1,63 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+    max_worker_processes: 64
+    omni_worker.workers: 10
+  init:
+    - create schema if not exists omni_northwind
+    - create extension omni_northwind schema omni_northwind cascade
+
+tests:
+
+- name: select some customers
+  query: SELECT customer_id, company_name, contact_name FROM omni_northwind.customers WHERE country = 'Finland'
+  results:
+    - customer_id: WARTH
+      company_name: Wartian Herkku
+      contact_name: Pirkko Koskitalo
+    - customer_id: WILMK
+      company_name: Wilman Kala
+      contact_name: Matti Karttunen
+
+- name: join the same table
+  query: SELECT employees.first_name AS firstname, employees.last_name AS lastname, superior.first_name AS superior_first, superior.last_name AS superior_last
+            FROM omni_northwind.employees
+            LEFT OUTER JOIN omni_northwind.employees superior ON employees.reports_to = superior.employee_id
+            WHERE employees.reports_to IS NOT NULL
+
+  results:
+    - firstname: Janet
+      lastname: Leverling
+      superior_first: Andrew
+      superior_last: Fuller
+    - firstname: Margaret
+      lastname: Peacock
+      superior_first: Andrew
+      superior_last: Fuller
+    - firstname: Steven
+      lastname: Buchanan
+      superior_first: Andrew
+      superior_last: Fuller
+    - firstname: Michael
+      lastname: Suyama
+      superior_first: Steven
+      superior_last: Buchanan
+    - firstname: Robert
+      lastname: King
+      superior_first: Steven
+      superior_last: Buchanan
+    - firstname: Laura
+      lastname: Callahan
+      superior_first: Andrew
+      superior_last: Fuller
+    - firstname: Anne
+      lastname: Dodsworth
+      superior_first: Steven
+      superior_last: Buchanan
+    - firstname: Nancy
+      lastname: Davolio
+      superior_first: Andrew
+      superior_last: Fuller
+
+

@@ -1,0 +1,6 @@
+{
+  "name": "omni_extension_demo",
+  "version": "0.1.0",
+  "description": "Demo extension",
+  "schema": "omni_northwind"
+}
