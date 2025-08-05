@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.2.12] - TBD
 
+### Fixed
+
+* Better error reporting [#902](https://github.com/omnigres/omnigres/pull/902)
+
 ## [0.2.11] - 2025-07-17
 
 ### Fixed
