@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.4.10] - TBD
 
+### Fixed
+
+* May fail to start with `name must be under 64 bytes long` [#900](https://github.com/omnigres/omnigres/pull/900)
+
 ## [0.4.9] - 2025-07-31
 
 ### Added
