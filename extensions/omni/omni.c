@@ -672,10 +672,10 @@ static struct dsa_ref {
                              omni_allocate_shmem_callback_function init, void *data,
                              HASHACTION action, bool *found) {
   if (strlen(name) > NAMEDATALEN - 1) {
-    ereport(ERROR, errmsg("name must be under 64 bytes long"));
+    ereport(ERROR, errmsg("name must be under 64 bytes long"), errdetail("name: %s", name));
   }
   if (size == 0) {
-    ereport(ERROR, errmsg("size must be larger than 0"));
+    ereport(ERROR, errmsg("size must be larger than 0", errdetail("size: %zu", size)));
   }
   omni_handle_private *phandle = struct_from_member(omni_handle_private, handle, handle);
   LWLockAcquire(&(locks + OMNI_LOCK_ALLOCATION)->lock,
