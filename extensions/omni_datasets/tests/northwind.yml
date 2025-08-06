@@ -1,0 +1,70 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+    max_worker_processes: 64
+    omni_worker.workers: 10
+  init:
+  - create schema if not exists omni_datasets
+  - create extension omni_datasets cascade
+  - create schema northwind
+  - select omni_datasets.instantiate_northwind('northwind')
+
+tests:
+
+- name: select some customers
+  query: select customer_id, company_name, contact_name
+         from northwind.customers
+         where country = 'Finland'
+  results:
+    - customer_id: WARTH
+      company_name: Wartian Herkku
+      contact_name: Pirkko Koskitalo
+    - customer_id: WILMK
+      company_name: Wilman Kala
+      contact_name: Matti Karttunen
+
+- name: join the same table
+  query: select employees.first_name as firstname,
+                employees.last_name  as lastname,
+                superior.first_name  as superior_first,
+                superior.last_name   as superior_last
+         from northwind.employees
+                  left outer join northwind.employees superior on employees.reports_to = superior.employee_id
+         where employees.reports_to is not null
+
+  results:
+    - firstname: Janet
+      lastname: Leverling
+      superior_first: Andrew
+      superior_last: Fuller
+    - firstname: Margaret
+      lastname: Peacock
+      superior_first: Andrew
+      superior_last: Fuller
+    - firstname: Steven
+      lastname: Buchanan
+      superior_first: Andrew
+      superior_last: Fuller
+    - firstname: Michael
+      lastname: Suyama
+      superior_first: Steven
+      superior_last: Buchanan
+    - firstname: Robert
+      lastname: King
+      superior_first: Steven
+      superior_last: Buchanan
+    - firstname: Laura
+      lastname: Callahan
+      superior_first: Andrew
+      superior_last: Fuller
+    - firstname: Anne
+      lastname: Dodsworth
+      superior_first: Steven
+      superior_last: Buchanan
+    - firstname: Nancy
+      lastname: Davolio
+      superior_first: Andrew
+      superior_last: Fuller
+
+
