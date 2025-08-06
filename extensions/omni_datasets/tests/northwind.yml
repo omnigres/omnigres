@@ -5,13 +5,17 @@ instance:
     max_worker_processes: 64
     omni_worker.workers: 10
   init:
-    - create schema if not exists omni_northwind
-    - create extension omni_northwind schema omni_northwind cascade
+  - create schema if not exists omni_datasets
+  - create extension omni_datasets cascade
+  - create schema northwind
+  - select omni_datasets.instantiate_northwind('northwind')
 
 tests:
 
 - name: select some customers
-  query: SELECT customer_id, company_name, contact_name FROM omni_northwind.customers WHERE country = 'Finland'
+  query: select customer_id, company_name, contact_name
+         from northwind.customers
+         where country = 'Finland'
   results:
     - customer_id: WARTH
       company_name: Wartian Herkku
@@ -21,10 +25,13 @@ tests:
       contact_name: Matti Karttunen
 
 - name: join the same table
-  query: SELECT employees.first_name AS firstname, employees.last_name AS lastname, superior.first_name AS superior_first, superior.last_name AS superior_last
-            FROM omni_northwind.employees
-            LEFT OUTER JOIN omni_northwind.employees superior ON employees.reports_to = superior.employee_id
-            WHERE employees.reports_to IS NOT NULL
+  query: select employees.first_name as firstname,
+                employees.last_name  as lastname,
+                superior.first_name  as superior_first,
+                superior.last_name   as superior_last
+         from northwind.employees
+                  left outer join northwind.employees superior on employees.reports_to = superior.employee_id
+         where employees.reports_to is not null
 
   results:
     - firstname: Janet

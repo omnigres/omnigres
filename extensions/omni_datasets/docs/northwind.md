@@ -1,4 +1,10 @@
-# omni_northwind
+# Northwind
+
+```postgresql
+create extension omni_datasets;
+create schema northwind;
+select omni_datasets.instantiate_northwind(schema => 'northwind');
+```
 
 Installs the Northwind sample database. Yes, the 90s classic from MS Access and SQL Server!
 
@@ -19,6 +25,7 @@ in the 90s. It was recently replaced with a more modern sample data set.
 
 Omnigres uses a PostgreSQL compatible version maintained by Yugabyte: https://github.com/yugabyte/yugabyte-db/tree/master/sample
 
-The data size is below 300 KB.
+You can read more and view a diagram of the Northwind database at https://github.com/yugabyte/yugabyte-db/wiki/Northwind-Sample-Database
+
 
 The Northwind sample database is MIT licensed.

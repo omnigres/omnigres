@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25.1)
-project(omni_northwind)
+project(omni_datasets)
 
 include(CTest)
 
@@ -10,7 +10,7 @@ enable_testing()
 find_package(PostgreSQL REQUIRED)
 
 add_postgresql_extension(
-        omni_northwind
-        COMMENT "Provision the Northwind sample database (the og 90s version)"
-        SCHEMA omni_northwind
+        omni_datasets
+        COMMENT "Dataset provisioning"
+        SCHEMA omni_datasets
         RELOCATABLE false)

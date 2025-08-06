@@ -1,7 +1,7 @@
-create function instantiate(schema regnamespace default 'omni_northwind') returns void
+create function instantiate_northwind(schema regnamespace) returns void
     language plpgsql
 as
-$instantiate$
+$instantiate_northwind$
 declare
     old_search_path text := current_setting('search_path');
 begin
@@ -9,10 +9,10 @@ begin
     perform
         set_config('search_path', schema::text || ',public', true);
 
-    /*{% include "./northwind_ddl.sql" %}*/
-    /*{% include "./northwind_data.sql" %}*/
+    /*{% include "northwind_ddl.sql" %}*/
+    /*{% include "northwind_data.sql" %}*/
 
     -- Restore the path
     perform set_config('search_path', old_search_path, true);
 end
-$instantiate$;
+$instantiate_northwind$;
