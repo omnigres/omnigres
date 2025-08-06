@@ -11,4 +11,4 @@ Initial release
 
 [Unreleased]: https://github.com/omnigres/omnigres/commits/next/omni_northwind
 
-[0.1.0]: [https://github.com/omnigres/omnigres/pull/XXX]
+[0.1.0]: [https://github.com/omnigres/omnigres/pull/904]
