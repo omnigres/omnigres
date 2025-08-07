@@ -336,6 +336,14 @@ To build and run Omnigres, you would need:
 </details>
 
 <details>
+<summary>Dependencies for Debian/Ubuntu</summary>
+
+* Packages: `build-essential bison flex libreadline-dev`
+
+</details>
+
+
+<details>
 <summary>Dependencies for macOS</summary>
 
 * XCode Command Line Tools: `xcode-select --install`
