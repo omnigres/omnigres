@@ -88,6 +88,12 @@ tests:
   - non_zero: true
     kind: file
 
+- name: can get root directory info
+  query: select size > 0 as non_zero, kind from omni_vfs.file_info(omni_vfs.local_fs('../../../../extensions/omni_vfs/tests'), '/')
+  results:
+  - non_zero: true
+    kind: dir
+
 - name: file info on a non-existent file
   query: select omni_vfs.file_info(omni_vfs.local_fs('../../../../extensions/omni_vfs/tests'), 'does not exist')
   results:

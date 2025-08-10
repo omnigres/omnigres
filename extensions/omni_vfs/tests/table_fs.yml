@@ -225,7 +225,7 @@ tests:
     query: select omni_vfs.file_info(omni_vfs.table_fs('fs'), 'does not exist')
     results:
     - file_info: null
-  
+
   - name: all file timestamps are equal
     query: |
       select created_at = all(array[created_at, accessed_at, modified_at]) as equal
@@ -316,6 +316,28 @@ tests:
     results:
     - count: 1
 
+- name: can get directory and root directory info
+  steps:
+  - name: create dir
+    query: |
+      insert into omni_vfs.table_fs_files (filesystem_id, filename, kind)
+      values 
+      ((omni_vfs.table_fs('fs')).id, '/dir', 'dir')
+      
+  - name: get directory info
+    query: select kind from omni_vfs.file_info(omni_vfs.table_fs('fs'), '/dir')
+    results:
+    - kind: dir
+
+  - name: can get root directory info
+    query: select kind from omni_vfs.file_info(omni_vfs.table_fs('fs'), '/')
+    results:
+    - kind: dir
+
+  - name: returns null on non-existent directory
+    query: select kind from omni_vfs.file_info(omni_vfs.table_fs('fs'), '/test')
+    results:
+    - kind: null
 
 - name: insert data entry for a dir failure
   steps:
@@ -428,3 +450,4 @@ tests:
     results:
     - data1: 0x75706461746564
       data2: 0x7365636f6e64
+
