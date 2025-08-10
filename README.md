@@ -200,6 +200,7 @@ A collection of extensions that improve Postgres and turn it into a comprehensiv
 
 - **[omni_auth](extensions/omni_auth/README.md)** - Authentication management
 - **[omni_email](extensions/omni_email/README.md)** - Email management
+- **[omni_datasets](extensions/omni_dataset/README.md)** - Dataset provider
 
 </details>
 
@@ -291,6 +292,7 @@ A collection of extensions that improve Postgres and turn it into a comprehensiv
 
 - **[omni_sql](extensions/omni_sql/README.md)** - Programmatic SQL manipulation
 - **[omni_test](extensions/omni_test/README.md)** - Testing framework
+- **[omni_datasets](extensions/omni_dataset/README.md)** - Dataset provider
 
 </details>
 
