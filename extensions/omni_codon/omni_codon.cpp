@@ -136,7 +136,7 @@ check:
   } else {
     auto *M = jit.getCompiler()->getModule();
 
-     scoped_arena handler(M);
+    scoped_arena handler(M);
 
     auto state_reset = jit_state();
     auto func = jit.compile(cppgres::fmt::format("{} {}", preamble, *src));
@@ -190,7 +190,7 @@ check:
 
           auto argit = bodied_func->arg_begin();
 
-          std::vector<Value *> args;
+          std::vector<codon::ir::Value *> args;
           int i = 0;
           for (auto val : call_info->arg_values()) {
             auto type = val.get_type().oid;
@@ -223,11 +223,11 @@ check:
               if (farg->is(farg_type)) {
                 args.push_back(util::call(arg_extractor, {M->getInt(i)}));
               } else if (farg->is(M->getOptionalType(farg_type))) {
-                args.push_back(
-                    M->Nr<TernaryInstr>(util::call(f__codon__arg_is_null, {M->getInt(i)}),
-                                        (*M->getOptionalType(farg_type))(),
-                                        (*M->getOptionalType(farg_type))(
-                                            *(Value *)util::call(arg_extractor, {M->getInt(i)}))));
+                args.push_back(M->Nr<TernaryInstr>(
+                    util::call(f__codon__arg_is_null, {M->getInt(i)}),
+                    (*M->getOptionalType(farg_type))(),
+                    (*M->getOptionalType(farg_type))(
+                        *(codon::ir::Value *)util::call(arg_extractor, {M->getInt(i)}))));
               } else {
                 throw std::runtime_error(cppgres::fmt::format(
                     "Mismatched argument {} type (passed {}, function expects {})", i,
@@ -298,7 +298,7 @@ check:
           } else {
             throw std::runtime_error(llvm::toString(std::move(compiled)));
           }
-           break;
+          break;
         }
       }
     }
