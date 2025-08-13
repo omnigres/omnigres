@@ -82,7 +82,7 @@ jobs:
       run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{matrix.build_type}} -DPGVER=${{ matrix.pgver }}
 
     - name: Build
-      run: cmake --build ${{github.workspace}}/build --parallel --config ${{matrix.build_type}}
+      run: cmake --build ${{github.workspace}}/build --parallel --config ${{matrix.build_type}} --target all
 
     - name: Test
       working-directory: ${{github.workspace}}/build
