@@ -1,4 +1,4 @@
-# omni_schema
+# Schema Management
 
 This extension allows application schemas to be managed easily, both during development and deployment.
 
