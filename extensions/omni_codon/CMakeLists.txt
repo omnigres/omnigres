@@ -29,7 +29,7 @@ elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|arm64" AND LINUX)
 elseif (CMAKE_SYSTEM_PROCESSOR MATCHES "x86_64|AMD64|amd64")
     string(APPEND _triple "x86_64")
 endif ()
-prepare_compressed_dependency(codon FILE "${CMAKE_CURRENT_LIST_DIR}/codon-releases/codon-0.19.3-${_triple}.tar.gz")
+prepare_compressed_dependency(codon FILE "${CMAKE_CURRENT_LIST_DIR}/codon-releases/codon-0.19.3-p1-${_triple}.tar.gz")
 set(CODON_PATH "${codon_PATH}/codon-deploy-${_triple}")
 
 find_library(LIBCODONC NAMES codonc PATHS "${CODON_PATH}/lib/codon" REQUIRED)
