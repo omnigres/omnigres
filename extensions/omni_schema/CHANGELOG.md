@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.4.0] - TBD
 
+### Added
+
+* Schema dump and restore functionality [#908](https://github.com/omnigres/omnigres/pull/908)
+
 ## [0.3.0] - 2025-03-01
 
 ### Added
