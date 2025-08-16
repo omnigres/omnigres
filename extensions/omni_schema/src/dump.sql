@@ -19,14 +19,20 @@ begin
     select setting from pg_config() where name = 'BINDIR' into bindir;
     create temporary table _pg_dump
     (
+        id serial,
         value text
     ) on commit drop;
+    ----- characters used in `copy` options:
+    -----   delimiter -- ASCII Unit Separator
+    -----   null -- ASCII Record Separator
+    ----- The reason they are used is that they virtually never appear in standard text,
+    ----- they are valid utf-8 and are single-byte characters as required by `copy`
     execute format(
-            $copy$copy _pg_dump from program $p$%L/pg_dump %s %L$p$ delimiter E'\x1E' $copy$,
+            $copy$copy _pg_dump(value) from program $p$%L/pg_dump %s %L$p$ with (format text, delimiter E'\x1F', null E'\x1E') $copy$,
             bindir,
             opts,
             connstr);
-    select string_agg(value, '\n') from _pg_dump into dump;
+    select string_agg(value, '\n' order by id) from _pg_dump into dump;
     return dump;
 end;
 $$;
