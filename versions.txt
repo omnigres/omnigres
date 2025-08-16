@@ -3,6 +3,7 @@ omni_aws=0.1.2
 omni_auth=0.1.3
 omni_containers=0.2.0
 omni_cloudevents=0.1.0
+omni_codon=0.1.0
 omni_credentials=0.2.0
 omni_csv=0.1.0
 omni_datasets=0.1.0
