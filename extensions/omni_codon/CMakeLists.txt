@@ -43,6 +43,7 @@ add_postgresql_extension(
         COMMENT "Exaloop Codon programming language"
         SOURCES omni_codon.cpp
         SCHEMA omni_codon
+        TESTS_REQUIRE omni_schema omni_python
         RELOCATABLE false)
 
 target_compile_features(omni_codon PUBLIC cxx_std_20)
