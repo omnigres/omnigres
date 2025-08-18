@@ -72,8 +72,8 @@ struct reload {
 static bool reload_upon_commit = false;
 
 postgres_function(reload_handlers, ([]() -> cppgres::value {
-                    if (CALLED_AS_TRIGGER(
-                            cppgres::current_postgres_function::call_info().value())) {
+                    if (CALLED_AS_TRIGGER(cppgres::current_postgres_function::call_info().value().
+                                          operator ::FunctionCallInfo())) {
                       reload_upon_commit = true;
 
                       return cppgres::value(cppgres::nullable_datum(0),
