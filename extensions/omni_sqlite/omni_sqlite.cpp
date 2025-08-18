@@ -83,21 +83,24 @@ static void bind_params(sqlite3_stmt *stmt, std::optional<cppgres::record> param
         case INT2OID:
         case INT4OID:
         case INT8OID:
-          sqlite3_bind_int64(stmt, i + 1,
-                             cppgres::datum_conversion<int64_t>::from_datum(nd, std::nullopt));
+          sqlite3_bind_int64(
+              stmt, i + 1,
+              cppgres::datum_conversion<int64_t>::from_datum(nd, typoid, std::nullopt));
           break;
         case FLOAT4OID:
         case FLOAT8OID:
-          sqlite3_bind_double(stmt, i + 1,
-                              cppgres::datum_conversion<double>::from_datum(nd, std::nullopt));
+          sqlite3_bind_double(
+              stmt, i + 1, cppgres::datum_conversion<double>::from_datum(nd, typoid, std::nullopt));
           break;
         case BYTEAOID: {
-          auto ba = cppgres::datum_conversion<cppgres::byte_array>::from_datum(nd, std::nullopt);
+          auto ba =
+              cppgres::datum_conversion<cppgres::byte_array>::from_datum(nd, typoid, std::nullopt);
           sqlite3_bind_blob64(stmt, i + 1, ba.data(), ba.size_bytes(), nullptr);
           break;
         }
         case TEXTOID: {
-          auto str = cppgres::datum_conversion<std::string_view>::from_datum(nd, std::nullopt);
+          auto str =
+              cppgres::datum_conversion<std::string_view>::from_datum(nd, typoid, std::nullopt);
           auto encoding = ::GetDatabaseEncoding();
 
           if (encoding != PG_UTF8) {
@@ -116,9 +119,9 @@ static void bind_params(sqlite3_stmt *stmt, std::optional<cppgres::record> param
           cppgres::oid outfun(InvalidOid);
           cppgres::ffi_guard{::getTypeOutputInfo}(typoid, &outfun.operator ::Oid &(), &is_varlena);
           auto fc = cppgres::current_postgres_function::call_info();
-          auto d = cppgres::ffi_guard{::OidFunctionCall1Coll}(outfun, (*fc)->fncollation, nd);
-          auto cc =
-              cppgres::datum_conversion<const char *>::from_datum(cppgres::datum(d), std::nullopt);
+          auto d = cppgres::ffi_guard{::OidFunctionCall1Coll}(outfun, (*fc).collation(), nd);
+          auto cc = cppgres::datum_conversion<const char *>::from_datum(cppgres::datum(d), TEXTOID,
+                                                                        std::nullopt);
           sqlite3_bind_text64(stmt, i + 1, cc, ::strlen(cc), nullptr, SQLITE_UTF8);
           break;
         }
