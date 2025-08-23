@@ -12,7 +12,6 @@ as
 $$
 declare
     response omni_httpc.http_response;
-    body jsonb;
     request_digest  text;
     cached_response jsonb;
 begin
@@ -25,6 +24,7 @@ begin
     if substring(path, 1, 1) != '/' then
         raise exception 'path must start with a leading slash';
     end if;
+
 
     request_digest := encode(digest(method || ' ' || server || path || coalesce(cacert, 'NULL_CACERT') ||
                                     coalesce(token, 'NULL_TOKEN') || coalesce(body, 'null'), 'sha256'), 'hex');
