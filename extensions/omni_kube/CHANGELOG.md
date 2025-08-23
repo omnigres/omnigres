@@ -7,6 +7,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.2.0] - TBD
 
+### Added
+
+* Universal resource management framework [#914](https://github.com/omnigres/omnigres/pull/914)
+
+### Removed
+
+* Custom views for basic resources such as pods and nodes [#914](https://github.com/omnigres/omnigres/pull/914)
+
 ## [0.1.1] - 2024-12-30
 
 ### Fixed
