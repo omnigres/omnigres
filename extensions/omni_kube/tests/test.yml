@@ -2,8 +2,133 @@ $schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress
 instance:
   init:
   - create extension omni_kube cascade
+  - create extension omni_os cascade
 
 tests:
 
-# TODO: no real tests yet but we have to make sure we can at least install the extension
-- select
+- select omni_kube.load_kubeconfig((select value from omni_os.env where variable = 'HOME') || '/.kube/config')
+
+- name: smoke test
+  query: select *
+         from omni_kube.api_group
+         where name in ('core', 'apps')
+  results:
+  - name: core
+    preferred_version: v1
+  - name: apps
+    preferred_version: v1
+
+- name: group resources
+  query: select name
+         from omni_kube.group_resources('v1')
+         order by name
+  results:
+  - name: bindings
+  - name: componentstatuses
+  - name: configmaps
+  - name: endpoints
+  - name: events
+  - name: limitranges
+  - name: namespaces
+  - name: namespaces/finalize
+  - name: namespaces/status
+  - name: nodes
+  - name: nodes/proxy
+  - name: nodes/status
+  - name: persistentvolumeclaims
+  - name: persistentvolumeclaims/status
+  - name: persistentvolumes
+  - name: persistentvolumes/status
+  - name: pods
+  - name: pods/attach
+  - name: pods/binding
+  - name: pods/ephemeralcontainers
+  - name: pods/eviction
+  - name: pods/exec
+  - name: pods/log
+  - name: pods/portforward
+  - name: pods/proxy
+  - name: pods/status
+  - name: podtemplates
+  - name: replicationcontrollers
+  - name: replicationcontrollers/scale
+  - name: replicationcontrollers/status
+  - name: resourcequotas
+  - name: resourcequotas/status
+  - name: secrets
+  - name: serviceaccounts
+  - name: serviceaccounts/token
+  - name: services
+  - name: services/proxy
+  - name: services/status
+
+- name: resources
+  query: select count(*) > 0 as non_empty
+         from omni_kube.resources('v1', 'pods')
+  results:
+  - non_empty: true
+
+- name: resource view
+  steps:
+  - name: establish the view
+    query: select omni_kube.resource_view('pods', 'v1', 'pods')
+  - name: look at it
+    query: select count(*) > 0 as non_empty
+           from pods
+    results:
+    - non_empty: true
+  - name: cleanup from previous failures
+    query: |
+      do
+      $$
+          declare
+              exit_flag boolean := false;
+          begin
+              while not exit_flag
+                  loop
+                      delete
+                      from pods
+                      where name = 'nginx-pod-omni-kube';
+                      -- check
+                      select count(*) = 0
+                      into exit_flag
+                      from pods
+                      where name = 'nginx-pod-omni-kube';
+                  end loop;
+          exception
+              when others then
+                  if sqlerrm = 'NotFound' then
+                      null;
+                  else
+                      raise;
+                  end if;
+          end;
+      $$
+  - name: insert into it
+    query: |
+      insert into pods (resource)
+      values ('{ "metadata": { "name": "nginx-pod-omni-kube", "labels": {"omnigres.com/test": "true"} }, "spec": { "containers": [{ "name": "test", "image": "nginx" }] } }')
+  - name: find it
+    query: select name
+           from pods
+           where name = 'nginx-pod-omni-kube'
+    results:
+    - name: nginx-pod-omni-kube
+  - name: wait for things to settle (to prevent Conflict)
+    query: select pg_sleep(1)
+  - name: update it
+    query: |
+      update pods
+      set resource = jsonb_set(resource, '{metadata,labels,omnigres.com/test}', '"passed"')
+      where name = 'nginx-pod-omni-kube'
+  - name: check labels
+    query: select resource -> 'metadata' -> 'labels' labels
+           from pods
+           where name = 'nginx-pod-omni-kube'
+    results:
+    - labels:
+        "omnigres.com/test": passed
+  - name: cleanup
+    query: delete
+           from pods
+           where name = 'nginx-pod-omni-kube'

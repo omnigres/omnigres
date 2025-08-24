@@ -7,7 +7,6 @@ create function api(path text,
                     method omni_http.http_method default 'GET',
                     body jsonb default null) returns jsonb
     language plpgsql
-    stable
 as
 $$
 declare

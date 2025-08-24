@@ -63,6 +63,10 @@ jobs:
       run: |
         echo "PATH_SUFFIX=-$(pwd | sha256sum | awk '{print $1}')" >> $GITHUB_ENV
 
+    - name: Create k8s Kind Cluster
+      if: matrix.os != 'warp-macos-14-arm64-6x'
+      uses: helm/kind-action@v1
+
     # On other systems, make it explicitly empty
     - name: Get path hash
       if: matrix.os != 'warp-macos-14-arm64-6x'
@@ -87,10 +91,10 @@ jobs:
       if: matrix.os != 'warp-macos-14-arm64-6x'
       run: TMPDIR=$RUNNER_TEMP USER=$(whoami) ctest --timeout 1000 --force-new-ctest-process  --repeat until-pass:10 --output-on-failure -j $(nproc) -C ${{matrix.build_type}}
 
-    - name: Test (without docker)
+    - name: Test (without docker or kube)
       working-directory: ${{github.workspace}}/build
       if: matrix.os == 'warp-macos-14-arm64-6x'
-      run: TMPDIR=$RUNNER_TEMP USER=$(whoami) ctest --timeout 1000 --force-new-ctest-process  --repeat until-pass:10 --output-on-failure -j $(nproc) -C ${{matrix.build_type}} -E '(minio|containers)'
+      run: TMPDIR=$RUNNER_TEMP USER=$(whoami) ctest --timeout 1000 --force-new-ctest-process  --repeat until-pass:10 --output-on-failure -j $(nproc) -C ${{matrix.build_type}} -E '(minio|containers|kube)'
 
     - uses: actions/upload-artifact@v4
       if: failure()
