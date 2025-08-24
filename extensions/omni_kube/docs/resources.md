@@ -126,7 +126,7 @@ The generated view includes:
 
 ## Generated View Operations
 
-### insert Operations
+### Insert Operations
 
 Create new resources by inserting into the view:
 
