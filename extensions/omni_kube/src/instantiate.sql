@@ -1,0 +1,64 @@
+create function instantiate(schema regnamespace) returns void
+    language plpgsql
+as
+$instantiate$
+declare
+    old_search_path text := current_setting('search_path');
+begin
+    -- Set the search path to target schema and public
+    perform set_config('search_path', schema::text || ',public', true);
+
+    /*{% include "api.sql" %}*/
+    /*{% include "pod_credentials.sql" %}*/
+    /*{% include "load_kubeconfig.sql" %}*/
+
+    -- Core views
+
+    create view api_group as
+    select 'core' as name,
+           'v1'   as preferred_version
+    union all
+    select data ->> 'name'                          as name,
+           data -> 'preferredVersion' ->> 'version' as preferred_version
+    from (select jsonb_array_elements((api('/apis')) -> 'groups') as data) groups;
+
+    create view api_group_version as
+    select 'core' as name,
+           'v1'   as version,
+           'v1'   as group_version
+    union all
+    select data ->> 'name'            as name,
+           version ->> 'version'      as version,
+           version ->> 'groupVersion' as group_version
+    from (select jsonb_array_elements((api('/apis')) -> 'groups') as data) groups
+             inner join lateral ( select version from jsonb_array_elements(groups.data -> 'versions') version) v
+                        on true;
+
+    create view api_group_openapi_v3_url as
+    select case when key in ('api', 'api/v1') then 'core' else coalesce(split_part(key, '/', 2), key) end as name,
+           case
+               when key = 'api' then null
+               when key = 'api/v1' then 'v1'
+               when key ~ '.+/.+/.+' then split_part(key, '/', -2) || '/' || split_part(key, '/', -1)
+               else null end
+                                                                                                          as group_version,
+           url
+    from (select key, value ->> 'serverRelativeURL' as url
+          from jsonb_each((api('/openapi/v3')) -> 'paths') paths
+          where key not in ('apis', 'logs', 'version', '.well-known/openid-configuration')) apis;
+
+    -- Resources
+    /*{% include "group_resources.sql" %}*/
+    execute format('alter function group_resources set search_path = %s', schema::text || ',public');
+    /*{% include "resources.sql" %}*/
+    execute format('alter function resources set search_path = %s', schema::text || ',public');
+    /*{% include "resource_view.sql" %}*/
+    execute format('alter function resource_view set omni_kube.search_path = %L', schema::text);
+
+    -- Restore the path
+    perform
+        set_config('search_path', old_search_path, true);
+end
+
+
+$instantiate$;
