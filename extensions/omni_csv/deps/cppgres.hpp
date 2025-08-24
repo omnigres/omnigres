@@ -63,6 +63,8 @@ using ::fmt::format;
 #endif
 
 
+#include <memory>
+
 /**
  * \file
  */
@@ -7408,15 +7410,19 @@ extern "C" {
 #if __has_include(<nodes/miscnodes.h>)
 #include <nodes/miscnodes.h>
 #endif
+#include <nodes/nodeFuncs.h>
 #include <nodes/nodes.h>
 #include <nodes/parsenodes.h>
 #include <nodes/pathnodes.h>
 #include <nodes/replnodes.h>
 #include <nodes/supportnodes.h>
 #include <nodes/tidbitmap.h>
+#include <parser/analyze.h>
+#include <parser/parser.h>
 #include <storage/ipc.h>
 #include <utils/builtins.h>
 #include <utils/expandeddatum.h>
+#include <utils/lsyscache.h>
 #include <utils/memutils.h>
 #include <utils/snapmgr.h>
 #include <utils/syscache.h>
@@ -7432,7 +7438,7 @@ extern "C" {
 #pragma GCC diagnostic pop
 #endif
 /**
-* \file
+ * \file
  */
 
 #include <concepts>
@@ -7653,8 +7659,12 @@ struct abstract_memory_context {
 
   void reset() { ffi_guard{::MemoryContextReset}(_memory_context()); }
 
-  bool operator==(abstract_memory_context &c) { return _memory_context() == c._memory_context(); }
-  bool operator!=(abstract_memory_context &c) { return _memory_context() != c._memory_context(); }
+  bool operator==(abstract_memory_context &c) noexcept {
+    return _memory_context() == c._memory_context();
+  }
+  bool operator!=(abstract_memory_context &c) noexcept {
+    return _memory_context() != c._memory_context();
+  }
 
   operator ::MemoryContext() { return _memory_context(); }
 
@@ -7714,7 +7724,7 @@ struct memory_context : public abstract_memory_context {
 protected:
   ::MemoryContext context;
 
-  ::MemoryContext _memory_context() override { return context; }
+  ::MemoryContext _memory_context() noexcept override { return context; }
 };
 
 struct always_current_memory_context : public abstract_memory_context {
@@ -8587,6 +8597,7 @@ concept has_a_type = requires(type_traits<T> t) {
  */
 
 #include <optional>
+#include <span>
 #include <string>
 #include <utility>
 
@@ -9009,7 +9020,7 @@ struct tuple_descriptor {
   /**
    * @brief Move constructor
    */
-  tuple_descriptor(tuple_descriptor &&other)
+  tuple_descriptor(tuple_descriptor &&other) noexcept
       : tupdesc(other.tupdesc), blessed(other.blessed), owned(other.owned) {}
 
   /**
@@ -9024,9 +9035,21 @@ struct tuple_descriptor {
   }
 
   /**
+   * @brief Move assignment
+   */
+  tuple_descriptor &operator=(tuple_descriptor &&other) noexcept {
+    if (this != &other) {
+      tupdesc = other.tupdesc;
+      blessed = other.blessed;
+      owned = other.owned;
+    }
+    return *this;
+  }
+
+  /**
    * @brief Number of attributes
    */
-  int attributes() const { return tupdesc->natts; }
+  int attributes() const noexcept { return tupdesc->natts; }
 
   /**
    * @brief Get a reference to `Form_pg_attribute`
@@ -9147,7 +9170,7 @@ struct tuple_descriptor {
   /**
    * @brief Returns true if the tuple descriptor is blessed
    */
-  bool is_blessed() const { return blessed; }
+  bool is_blessed() const noexcept { return blessed; }
 
   operator TupleDesc() const { return tupdesc; }
 
@@ -9305,18 +9328,26 @@ struct record {
    */
   nullable_datum operator[](int n) { return get_attribute(n); }
 
-  operator HeapTuple() const { return tuple; }
+  operator HeapTuple() const noexcept { return tuple; }
 
   /**
    * @brief Returns tuple descriptor
    */
-  tuple_descriptor get_tuple_descriptor() const { return tupdesc; }
+  tuple_descriptor get_tuple_descriptor() const noexcept { return tupdesc; }
 
   record(const record &other) : tupdesc(other.tupdesc), tuple(other.tuple) {}
-  record(const record &&other) : tupdesc(std::move(other.tupdesc)), tuple(other.tuple) {}
+  record(record &&other) noexcept : tupdesc(std::move(other.tupdesc)), tuple(other.tuple) {}
   record &operator=(const record &other) {
     tupdesc = other.tupdesc;
     tuple = other.tuple;
+    return *this;
+  }
+
+  record &operator=(record &&other) noexcept {
+    if (this != &other) {
+      tupdesc = std::move(other.tupdesc);
+      tuple = other.tuple;
+    }
     return *this;
   }
 
@@ -9518,6 +9549,8 @@ struct function_call_info {
    * @brief return type
    */
   type return_type() const { return {.oid = ffi_guard{::get_fn_expr_rettype}(info_->flinfo)}; }
+
+  oid collation() const { return info_->fncollation; }
 
 private:
   ::FunctionCallInfo info_;
@@ -10298,6 +10331,24 @@ struct current_background_worker : public background_worker {
 };
 
 } // namespace cppgres
+
+
+namespace cppgres {
+
+struct collation {
+
+  collation(oid oid) : oid_(oid) {}
+
+  [[nodiscard]]
+  std::string name() const {
+    return ffi_guard{::get_collation_name}(oid_);
+  }
+
+private:
+  oid oid_;
+};
+
+} // namespace cppgres
 /**
 * \file
  */
@@ -10781,6 +10832,10 @@ struct spi_nonatomic_executor : public spi_executor {
 #include <type_traits>
 
 
+#if PG_MAJORVERSION_NUM < 16
+typedef bool (*tree_walker_callback)(Node *node, void *context);
+#endif
+
 namespace cppgres {
 
 using node_tag = ::NodeTag;
@@ -10815,21 +10870,28 @@ template <typename T> struct node_traits {
   static inline bool is(auto &node) { return false; }
 };
 template <node_tag T> struct node_tag_traits;
+template <typename T> struct node_coverage;
 
 #define node_mapping(name)                                                                         \
   namespace nodes {                                                                                \
   struct name {                                                                                    \
     using underlying_type = ::name;                                                                \
     static constexpr inline node_tag tag = T_##name;                                               \
-    name(::name v) : val(v) {}                                                                     \
+    name(underlying_type v) : val(v) {}                                                            \
     name() { reinterpret_cast<node_tag &>(val) = T_##name; }                                       \
-    ::name &operator*() { return val; }                                                            \
+    underlying_type &as_ref() { return val; }                                                      \
+    underlying_type *as_ptr() { return &val; }                                                     \
                                                                                                    \
   private:                                                                                         \
-    [[maybe_unused]] ::name val{};                                                                                  \
+    [[maybe_unused]] underlying_type val{};                                                        \
   };                                                                                               \
   }                                                                                                \
   static_assert((sizeof(name) == sizeof(::name)) && (alignof(name) == alignof(::name)));           \
+  static_assert(std::is_standard_layout_v<name>);                                                  \
+  static_assert(std::is_aggregate_v<name>);                                                        \
+  template <> struct node_coverage<::name> {                                                       \
+    using type = nodes::name;                                                                      \
+  };                                                                                               \
   template <> struct node_tag_traits<node_tag::T_##name> {                                         \
     using type = nodes::name;                                                                      \
   };                                                                                               \
@@ -10841,6 +10903,10 @@ template <node_tag T> struct node_tag_traits;
     static inline bool is(::name *node) {                                                          \
       return *reinterpret_cast<node_tag *>(node) == node_tag::T_##name;                            \
     }                                                                                              \
+    static inline bool is(void *node) {                                                            \
+      return *reinterpret_cast<node_tag *>(node) == node_tag::T_##name;                            \
+    }                                                                                              \
+    static inline bool is(nodes::name *node) { return true; }                                      \
     static inline bool is(nodes::name &node) { return true; }                                      \
     static inline bool is(auto &node) { return false; }                                            \
     static inline nodes::name *allocate(abstract_memory_context &&ctx = memory_context()) {        \
@@ -10852,7 +10918,7 @@ template <node_tag T> struct node_tag_traits;
 
 #define node_mapping_no_node_traits(name)                                                          \
   namespace nodes {                                                                                \
-  using name = ::name;                                                                             \
+  using name = node_coverage<::name>::type;                                                        \
   }                                                                                                \
   template <> struct node_tag_traits<node_tag::T_##name> {                                         \
     using type = nodes::name;                                                                      \
@@ -11213,7 +11279,9 @@ node_mapping(ProjectSetPath);
 node_mapping(SortPath);
 node_mapping(IncrementalSortPath);
 node_mapping(GroupPath);
+#if PG_MAJORVERSION_NUM < 19
 node_mapping(UpperUniquePath);
+#endif
 node_mapping(AggPath);
 node_mapping(GroupingSetData);
 node_mapping(RollupData);
@@ -11414,575 +11482,730 @@ node_mapping(String);
 node_mapping(BitString);
 #endif
 node_mapping(ForeignKeyCacheInfo);
-
 #undef node_mapping
 
-#define node_dispatch(name)                                                                        \
-  if (node_traits<nodes::name>::is(node)) {                                                        \
-    visitor(reinterpret_cast<nodes::name &>(node));                                                \
-    return;                                                                                        \
-  } else
+namespace nodes {
+template <typename T> struct unknown_node {
+  T node;
+};
+}; // namespace nodes
 
-template <typename Visitor> void visit_node(auto node, Visitor &&visitor) {
-  // clang-format off
-node_dispatch(List)
-node_dispatch(Alias)
-node_dispatch(RangeVar)
-node_dispatch(TableFunc)
-node_dispatch(IntoClause)
-node_dispatch(Var)
-node_dispatch(Const)
-node_dispatch(Param)
-node_dispatch(Aggref)
-node_dispatch(GroupingFunc)
-node_dispatch(WindowFunc)
-#if PG_MAJORVERSION_NUM >= 17
-node_dispatch(WindowFuncRunCondition)
-node_dispatch(MergeSupportFunc)
-#endif
-node_dispatch(SubscriptingRef)
-node_dispatch(FuncExpr)
-node_dispatch(NamedArgExpr)
-node_dispatch(OpExpr)
-node_dispatch(DistinctExpr)
-node_dispatch(NullIfExpr)
-node_dispatch(ScalarArrayOpExpr)
-node_dispatch(BoolExpr)
-node_dispatch(SubLink)
-node_dispatch(SubPlan)
-node_dispatch(AlternativeSubPlan)
-node_dispatch(FieldSelect)
-node_dispatch(FieldStore)
-node_dispatch(RelabelType)
-node_dispatch(CoerceViaIO)
-node_dispatch(ArrayCoerceExpr)
-node_dispatch(ConvertRowtypeExpr)
-node_dispatch(CollateExpr)
-node_dispatch(CaseExpr)
-node_dispatch(CaseWhen)
-node_dispatch(CaseTestExpr)
-node_dispatch(ArrayExpr)
-node_dispatch(RowExpr)
-node_dispatch(RowCompareExpr)
-node_dispatch(CoalesceExpr)
-node_dispatch(MinMaxExpr)
-node_dispatch(SQLValueFunction)
-node_dispatch(XmlExpr)
-#if PG_MAJORVERSION_NUM >= 16
-node_dispatch(JsonFormat)
-node_dispatch(JsonReturning)
-node_dispatch(JsonValueExpr)
-node_dispatch(JsonConstructorExpr)
-node_dispatch(JsonIsPredicate)
-#endif
-#if PG_MAJORVERSION_NUM >= 17
-node_dispatch(JsonBehavior)
-node_dispatch(JsonExpr)
-node_dispatch(JsonTablePath)
-node_dispatch(JsonTablePathScan)
-node_dispatch(JsonTableSiblingJoin)
-#endif
-node_dispatch(NullTest)
-node_dispatch(BooleanTest)
-#if PG_MAJORVERSION_NUM >= 15
-node_dispatch(MergeAction)
-#endif
-node_dispatch(CoerceToDomain)
-node_dispatch(CoerceToDomainValue)
-node_dispatch(SetToDefault)
-node_dispatch(CurrentOfExpr)
-node_dispatch(NextValueExpr)
-node_dispatch(InferenceElem)
-#if PG_MAJORVERSION_NUM >= 18
-node_dispatch(ReturningExpr)
-#endif
-node_dispatch(TargetEntry)
-node_dispatch(RangeTblRef)
-node_dispatch(JoinExpr)
-node_dispatch(FromExpr)
-node_dispatch(OnConflictExpr)
-node_dispatch(Query)
-node_dispatch(TypeName)
-node_dispatch(ColumnRef)
-node_dispatch(ParamRef)
-node_dispatch(A_Expr)
-node_dispatch(A_Const)
-node_dispatch(TypeCast)
-node_dispatch(CollateClause)
-node_dispatch(RoleSpec)
-node_dispatch(FuncCall)
-node_dispatch(A_Star)
-node_dispatch(A_Indices)
-node_dispatch(A_Indirection)
-node_dispatch(A_ArrayExpr)
-node_dispatch(ResTarget)
-node_dispatch(MultiAssignRef)
-node_dispatch(SortBy)
-node_dispatch(WindowDef)
-node_dispatch(RangeSubselect)
-node_dispatch(RangeFunction)
-node_dispatch(RangeTableFunc)
-node_dispatch(RangeTableFuncCol)
-node_dispatch(RangeTableSample)
-node_dispatch(ColumnDef)
-node_dispatch(TableLikeClause)
-node_dispatch(IndexElem)
-node_dispatch(DefElem)
-node_dispatch(LockingClause)
-node_dispatch(XmlSerialize)
-node_dispatch(PartitionElem)
-#if PG_MAJORVERSION_NUM == 17
-node_dispatch(SinglePartitionSpec)
-#endif
-node_dispatch(PartitionSpec)
-node_dispatch(PartitionBoundSpec)
-node_dispatch(PartitionRangeDatum)
-node_dispatch(PartitionCmd)
-node_dispatch(RangeTblEntry)
-#if PG_MAJORVERSION_NUM >= 16
-node_dispatch(RTEPermissionInfo)
-#endif
-node_dispatch(RangeTblFunction)
-node_dispatch(TableSampleClause)
-node_dispatch(WithCheckOption)
-node_dispatch(SortGroupClause)
-node_dispatch(GroupingSet)
-node_dispatch(WindowClause)
-node_dispatch(RowMarkClause)
-node_dispatch(WithClause)
-node_dispatch(InferClause)
-node_dispatch(OnConflictClause)
-#if PG_MAJORVERSION_NUM >= 14
-node_dispatch(CTESearchClause)
-node_dispatch(CTECycleClause)
-#endif
-node_dispatch(CommonTableExpr)
-#if PG_MAJORVERSION_NUM >= 15
-node_dispatch(MergeWhenClause)
-#endif
-#if PG_MAJORVERSION_NUM >= 18
-node_dispatch(ReturningOption)
-node_dispatch(ReturningClause)
-#endif
-node_dispatch(TriggerTransition)
-#if PG_MAJORVERSION_NUM >= 16
-node_dispatch(JsonOutput)
-#endif
-#if PG_MAJORVERSION_NUM >= 17
-node_dispatch(JsonArgument)
-node_dispatch(JsonFuncExpr)
-node_dispatch(JsonTablePathSpec)
-node_dispatch(JsonTable)
-node_dispatch(JsonTableColumn)
-node_dispatch(JsonKeyValue)
-node_dispatch(JsonParseExpr)
-node_dispatch(JsonScalarExpr)
-node_dispatch(JsonSerializeExpr)
-#endif
-#if PG_MAJORVERSION_NUM >= 16
-node_dispatch(JsonObjectConstructor)
-node_dispatch(JsonArrayConstructor)
-node_dispatch(JsonArrayQueryConstructor)
-node_dispatch(JsonAggConstructor)
-node_dispatch(JsonObjectAgg)
-node_dispatch(JsonArrayAgg)
-#endif
-node_dispatch(RawStmt)
-node_dispatch(InsertStmt)
-node_dispatch(DeleteStmt)
-node_dispatch(UpdateStmt)
-#if PG_MAJORVERSION_NUM >= 15
-node_dispatch(MergeStmt)
-#endif
-node_dispatch(SelectStmt)
-node_dispatch(SetOperationStmt)
-#if PG_MAJORVERSION_NUM >= 14
-node_dispatch(ReturnStmt)
-#endif
-#if PG_MAJORVERSION_NUM >= 14
-node_dispatch(PLAssignStmt)
-#endif
-node_dispatch(CreateSchemaStmt)
-node_dispatch(AlterTableStmt)
-node_dispatch(AlterTableCmd)
-#if PG_MAJORVERSION_NUM >= 18
-node_dispatch(ATAlterConstraint)
-#endif
-node_dispatch(ReplicaIdentityStmt)
-node_dispatch(AlterCollationStmt)
-node_dispatch(AlterDomainStmt)
-node_dispatch(GrantStmt)
-node_dispatch(ObjectWithArgs)
-node_dispatch(AccessPriv)
-node_dispatch(GrantRoleStmt)
-node_dispatch(AlterDefaultPrivilegesStmt)
-node_dispatch(CopyStmt)
-node_dispatch(VariableSetStmt)
-node_dispatch(VariableShowStmt)
-node_dispatch(CreateStmt)
-node_dispatch(Constraint)
-node_dispatch(CreateTableSpaceStmt)
-node_dispatch(DropTableSpaceStmt)
-node_dispatch(AlterTableSpaceOptionsStmt)
-node_dispatch(AlterTableMoveAllStmt)
-node_dispatch(CreateExtensionStmt)
-node_dispatch(AlterExtensionStmt)
-node_dispatch(AlterExtensionContentsStmt)
-node_dispatch(CreateFdwStmt)
-node_dispatch(AlterFdwStmt)
-node_dispatch(CreateForeignServerStmt)
-node_dispatch(AlterForeignServerStmt)
-node_dispatch(CreateForeignTableStmt)
-node_dispatch(CreateUserMappingStmt)
-node_dispatch(AlterUserMappingStmt)
-node_dispatch(DropUserMappingStmt)
-node_dispatch(ImportForeignSchemaStmt)
-node_dispatch(CreatePolicyStmt)
-node_dispatch(AlterPolicyStmt)
-node_dispatch(CreateAmStmt)
-node_dispatch(CreateTrigStmt)
-node_dispatch(CreateEventTrigStmt)
-node_dispatch(AlterEventTrigStmt)
-node_dispatch(CreatePLangStmt)
-node_dispatch(CreateRoleStmt)
-node_dispatch(AlterRoleStmt)
-node_dispatch(AlterRoleSetStmt)
-node_dispatch(DropRoleStmt)
-node_dispatch(CreateSeqStmt)
-node_dispatch(AlterSeqStmt)
-node_dispatch(DefineStmt)
-node_dispatch(CreateDomainStmt)
-node_dispatch(CreateOpClassStmt)
-node_dispatch(CreateOpClassItem)
-node_dispatch(CreateOpFamilyStmt)
-node_dispatch(AlterOpFamilyStmt)
-node_dispatch(DropStmt)
-node_dispatch(TruncateStmt)
-node_dispatch(CommentStmt)
-node_dispatch(SecLabelStmt)
-node_dispatch(DeclareCursorStmt)
-node_dispatch(ClosePortalStmt)
-node_dispatch(FetchStmt)
-node_dispatch(IndexStmt)
-node_dispatch(CreateStatsStmt)
-#if PG_MAJORVERSION_NUM >= 14
-node_dispatch(StatsElem)
-#endif
-node_dispatch(AlterStatsStmt)
-node_dispatch(CreateFunctionStmt)
-node_dispatch(FunctionParameter)
-node_dispatch(AlterFunctionStmt)
-node_dispatch(DoStmt)
-node_dispatch(InlineCodeBlock)
-node_dispatch(CallStmt)
-node_dispatch(CallContext)
-node_dispatch(RenameStmt)
-node_dispatch(AlterObjectDependsStmt)
-node_dispatch(AlterObjectSchemaStmt)
-node_dispatch(AlterOwnerStmt)
-node_dispatch(AlterOperatorStmt)
-node_dispatch(AlterTypeStmt)
-node_dispatch(RuleStmt)
-node_dispatch(NotifyStmt)
-node_dispatch(ListenStmt)
-node_dispatch(UnlistenStmt)
-node_dispatch(TransactionStmt)
-node_dispatch(CompositeTypeStmt)
-node_dispatch(CreateEnumStmt)
-node_dispatch(CreateRangeStmt)
-node_dispatch(AlterEnumStmt)
-node_dispatch(ViewStmt)
-node_dispatch(LoadStmt)
-node_dispatch(CreatedbStmt)
-node_dispatch(AlterDatabaseStmt)
-#if PG_MAJORVERSION_NUM >= 15
-node_dispatch(AlterDatabaseRefreshCollStmt)
-#endif
-node_dispatch(AlterDatabaseSetStmt)
-node_dispatch(DropdbStmt)
-node_dispatch(AlterSystemStmt)
-node_dispatch(ClusterStmt)
-node_dispatch(VacuumStmt)
-node_dispatch(VacuumRelation)
-node_dispatch(ExplainStmt)
-node_dispatch(CreateTableAsStmt)
-node_dispatch(RefreshMatViewStmt)
-node_dispatch(CheckPointStmt)
-node_dispatch(DiscardStmt)
-node_dispatch(LockStmt)
-node_dispatch(ConstraintsSetStmt)
-node_dispatch(ReindexStmt)
-node_dispatch(CreateConversionStmt)
-node_dispatch(CreateCastStmt)
-node_dispatch(CreateTransformStmt)
-node_dispatch(PrepareStmt)
-node_dispatch(ExecuteStmt)
-node_dispatch(DeallocateStmt)
-node_dispatch(DropOwnedStmt)
-node_dispatch(ReassignOwnedStmt)
-node_dispatch(AlterTSDictionaryStmt)
-node_dispatch(AlterTSConfigurationStmt)
-#if PG_MAJORVERSION_NUM >= 15
-node_dispatch(PublicationTable)
-node_dispatch(PublicationObjSpec)
-#endif
-node_dispatch(CreatePublicationStmt)
-node_dispatch(AlterPublicationStmt)
-node_dispatch(CreateSubscriptionStmt)
-node_dispatch(AlterSubscriptionStmt)
-node_dispatch(DropSubscriptionStmt)
-node_dispatch(PlannerGlobal)
-node_dispatch(PlannerInfo)
-node_dispatch(RelOptInfo)
-node_dispatch(IndexOptInfo)
-node_dispatch(ForeignKeyOptInfo)
-node_dispatch(StatisticExtInfo)
-#if PG_MAJORVERSION_NUM >= 16
-node_dispatch(JoinDomain)
-#endif
-node_dispatch(EquivalenceClass)
-node_dispatch(EquivalenceMember)
-node_dispatch(PathKey)
-#if PG_MAJORVERSION_NUM >= 17
-node_dispatch(GroupByOrdering)
-#endif
-node_dispatch(PathTarget)
-node_dispatch(ParamPathInfo)
-node_dispatch(Path)
-node_dispatch(IndexPath)
-node_dispatch(IndexClause)
-node_dispatch(BitmapHeapPath)
-node_dispatch(BitmapAndPath)
-node_dispatch(BitmapOrPath)
-node_dispatch(TidPath)
-#if PG_MAJORVERSION_NUM >= 14
-node_dispatch(TidRangePath)
-#endif
-node_dispatch(SubqueryScanPath)
-node_dispatch(ForeignPath)
-node_dispatch(CustomPath)
-node_dispatch(AppendPath)
-node_dispatch(MergeAppendPath)
-node_dispatch(GroupResultPath)
-node_dispatch(MaterialPath)
-#if PG_MAJORVERSION_NUM >= 14
-node_dispatch(MemoizePath)
-#endif
-node_dispatch(UniquePath)
-node_dispatch(GatherPath)
-node_dispatch(GatherMergePath)
-node_dispatch(NestPath)
-node_dispatch(MergePath)
-node_dispatch(HashPath)
-node_dispatch(ProjectionPath)
-node_dispatch(ProjectSetPath)
-node_dispatch(SortPath)
-node_dispatch(IncrementalSortPath)
-node_dispatch(GroupPath)
-node_dispatch(UpperUniquePath)
-node_dispatch(AggPath)
-node_dispatch(GroupingSetData)
-node_dispatch(RollupData)
-node_dispatch(GroupingSetsPath)
-node_dispatch(MinMaxAggPath)
-node_dispatch(WindowAggPath)
-node_dispatch(SetOpPath)
-node_dispatch(RecursiveUnionPath)
-node_dispatch(LockRowsPath)
-node_dispatch(ModifyTablePath)
-node_dispatch(LimitPath)
-node_dispatch(RestrictInfo)
-node_dispatch(PlaceHolderVar)
-node_dispatch(SpecialJoinInfo)
-#if PG_MAJORVERSION_NUM >= 16
-node_dispatch(OuterJoinClauseInfo)
-#endif
-node_dispatch(AppendRelInfo)
-#if PG_MAJORVERSION_NUM >= 14
-node_dispatch(RowIdentityVarInfo)
-#endif
-node_dispatch(PlaceHolderInfo)
-node_dispatch(MinMaxAggInfo)
-node_dispatch(PlannerParamItem)
-#if PG_MAJORVERSION_NUM >= 16
-node_dispatch(AggInfo)
-node_dispatch(AggTransInfo)
-#endif
-#if PG_MAJORVERSION_NUM >= 18
-node_dispatch(UniqueRelInfo)
-#endif
-node_dispatch(PlannedStmt)
-node_dispatch(Result)
-node_dispatch(ProjectSet)
-node_dispatch(ModifyTable)
-node_dispatch(Append)
-node_dispatch(MergeAppend)
-node_dispatch(RecursiveUnion)
-node_dispatch(BitmapAnd)
-node_dispatch(BitmapOr)
-node_dispatch(SeqScan)
-node_dispatch(SampleScan)
-node_dispatch(IndexScan)
-node_dispatch(IndexOnlyScan)
-node_dispatch(BitmapIndexScan)
-node_dispatch(BitmapHeapScan)
-node_dispatch(TidScan)
-#if PG_MAJORVERSION_NUM >= 14
-node_dispatch(TidRangeScan)
-#endif
-node_dispatch(SubqueryScan)
-node_dispatch(FunctionScan)
-node_dispatch(ValuesScan)
-node_dispatch(TableFuncScan)
-node_dispatch(CteScan)
-node_dispatch(NamedTuplestoreScan)
-node_dispatch(WorkTableScan)
-node_dispatch(ForeignScan)
-node_dispatch(CustomScan)
-node_dispatch(NestLoop)
-node_dispatch(NestLoopParam)
-node_dispatch(MergeJoin)
-node_dispatch(HashJoin)
-node_dispatch(Material)
-#if PG_MAJORVERSION_NUM >= 14
-node_dispatch(Memoize)
-#endif
-node_dispatch(Sort)
-node_dispatch(IncrementalSort)
-node_dispatch(Group)
-node_dispatch(Agg)
-node_dispatch(WindowAgg)
-node_dispatch(Unique)
-node_dispatch(Gather)
-node_dispatch(GatherMerge)
-node_dispatch(Hash)
-node_dispatch(SetOp)
-node_dispatch(LockRows)
-node_dispatch(Limit)
-node_dispatch(PlanRowMark)
-node_dispatch(PartitionPruneInfo)
-node_dispatch(PartitionedRelPruneInfo)
-node_dispatch(PartitionPruneStepOp)
-node_dispatch(PartitionPruneStepCombine)
-node_dispatch(PlanInvalItem)
-node_dispatch(ExprState)
-node_dispatch(IndexInfo)
-node_dispatch(ExprContext)
-node_dispatch(ReturnSetInfo)
-node_dispatch(ProjectionInfo)
-node_dispatch(JunkFilter)
-node_dispatch(OnConflictSetState)
-#if PG_MAJORVERSION_NUM >= 15
-node_dispatch(MergeActionState)
-#endif
-node_dispatch(ResultRelInfo)
-node_dispatch(EState)
-node_dispatch(WindowFuncExprState)
-node_dispatch(SetExprState)
-node_dispatch(SubPlanState)
-node_dispatch(DomainConstraintState)
-node_dispatch(ResultState)
-node_dispatch(ProjectSetState)
-node_dispatch(ModifyTableState)
-node_dispatch(AppendState)
-node_dispatch(MergeAppendState)
-node_dispatch(RecursiveUnionState)
-node_dispatch(BitmapAndState)
-node_dispatch(BitmapOrState)
-node_dispatch(ScanState)
-node_dispatch(SeqScanState)
-node_dispatch(SampleScanState)
-node_dispatch(IndexScanState)
-node_dispatch(IndexOnlyScanState)
-node_dispatch(BitmapIndexScanState)
-node_dispatch(BitmapHeapScanState)
-node_dispatch(TidScanState)
-#if PG_MAJORVERSION_NUM >= 14
-node_dispatch(TidRangeScanState)
-#endif
-node_dispatch(SubqueryScanState)
-node_dispatch(FunctionScanState)
-node_dispatch(ValuesScanState)
-node_dispatch(TableFuncScanState)
-node_dispatch(CteScanState)
-node_dispatch(NamedTuplestoreScanState)
-node_dispatch(WorkTableScanState)
-node_dispatch(ForeignScanState)
-node_dispatch(CustomScanState)
-node_dispatch(JoinState)
-node_dispatch(NestLoopState)
-node_dispatch(MergeJoinState)
-node_dispatch(HashJoinState)
-node_dispatch(MaterialState)
-#if PG_MAJORVERSION_NUM >= 14
-node_dispatch(MemoizeState)
-#endif
-node_dispatch(SortState)
-node_dispatch(IncrementalSortState)
-node_dispatch(GroupState)
-node_dispatch(AggState)
-node_dispatch(WindowAggState)
-node_dispatch(UniqueState)
-node_dispatch(GatherState)
-node_dispatch(GatherMergeState)
-node_dispatch(HashState)
-node_dispatch(SetOpState)
-node_dispatch(LockRowsState)
-node_dispatch(LimitState)
-node_dispatch(IndexAmRoutine)
-node_dispatch(TableAmRoutine)
-node_dispatch(TsmRoutine)
-node_dispatch(EventTriggerData)
-node_dispatch(TriggerData)
-node_dispatch(TupleTableSlot)
-node_dispatch(FdwRoutine)
-#if PG_MAJORVERSION_NUM >= 16
-node_dispatch(Bitmapset)
-#endif
-node_dispatch(ExtensibleNode)
-#if PG_MAJORVERSION_NUM >= 16
-node_dispatch(ErrorSaveContext)
-#endif
-node_dispatch(IdentifySystemCmd)
-node_dispatch(BaseBackupCmd)
-node_dispatch(CreateReplicationSlotCmd)
-node_dispatch(DropReplicationSlotCmd)
-#if PG_MAJORVERSION_NUM >= 17
-node_dispatch(AlterReplicationSlotCmd)
-#endif
-node_dispatch(StartReplicationCmd)
-#if PG_MAJORVERSION_NUM >= 15
-node_dispatch(ReadReplicationSlotCmd)
-#endif
-node_dispatch(TimeLineHistoryCmd)
-#if PG_MAJORVERSION_NUM >= 17
-node_dispatch(UploadManifestCmd)
-#endif
-node_dispatch(SupportRequestSimplify)
-node_dispatch(SupportRequestSelectivity)
-node_dispatch(SupportRequestCost)
-node_dispatch(SupportRequestRows)
-node_dispatch(SupportRequestIndexCondition)
-#if PG_MAJORVERSION_NUM >= 15
-node_dispatch(SupportRequestWFuncMonotonic)
-#endif
-#if PG_MAJORVERSION_NUM >= 17
-node_dispatch(SupportRequestOptimizeWindowClause)
-#endif
-#if PG_MAJORVERSION_NUM >= 18
-node_dispatch(SupportRequestModifyInPlace)
-#endif
-#if PG_MAJORVERSION_NUM >= 15
-node_dispatch(Integer)
-node_dispatch(Float)
-node_dispatch(Boolean)
-node_dispatch(String)
-node_dispatch(BitString)
-#endif
-node_dispatch(ForeignKeyCacheInfo)
-      // clang-format on
-      throw std::runtime_error("unknown node tag");
+#define node_dispatch(name)                                                                        \
+  case T_##name:                                                                                   \
+    static_assert(                                                                                 \
+        covering_node<std::remove_pointer_t<decltype(reinterpret_cast<nodes::name *>(node))>>);    \
+    visitor(*reinterpret_cast<nodes::name *>(node));                                               \
+    break
+
+template <typename T>
+concept covering_node =
+    std::is_class_v<node_traits<T>> && requires { typename T::underlying_type; };
+
+template <typename Visitor> void visit_node(covering_node auto node, Visitor &&visitor) {
+  visitor(node);
 }
+
+template <typename T>
+concept covered_node = std::is_class_v<node_coverage<T>> &&
+                       requires { typename node_coverage<T>::type::underlying_type; };
+
+template <typename Visitor> void visit_node(covered_node auto *node, Visitor &&visitor) {
+  visitor(*reinterpret_cast<node_coverage<std::remove_pointer_t<decltype(node)>>::type *>(node));
+}
+
+template <typename Visitor> void visit_node(void *node, Visitor &&visitor) {
+  switch (nodeTag(node)) {
+node_dispatch(List);
+node_dispatch(Alias);
+node_dispatch(RangeVar);
+node_dispatch(TableFunc);
+node_dispatch(IntoClause);
+node_dispatch(Var);
+node_dispatch(Const);
+node_dispatch(Param);
+node_dispatch(Aggref);
+node_dispatch(GroupingFunc);
+node_dispatch(WindowFunc);
+#if PG_MAJORVERSION_NUM >= 17
+node_dispatch(WindowFuncRunCondition);
+node_dispatch(MergeSupportFunc);
+#endif
+node_dispatch(SubscriptingRef);
+node_dispatch(FuncExpr);
+node_dispatch(NamedArgExpr);
+node_dispatch(OpExpr);
+node_dispatch(DistinctExpr);
+node_dispatch(NullIfExpr);
+node_dispatch(ScalarArrayOpExpr);
+node_dispatch(BoolExpr);
+node_dispatch(SubLink);
+node_dispatch(SubPlan);
+node_dispatch(AlternativeSubPlan);
+node_dispatch(FieldSelect);
+node_dispatch(FieldStore);
+node_dispatch(RelabelType);
+node_dispatch(CoerceViaIO);
+node_dispatch(ArrayCoerceExpr);
+node_dispatch(ConvertRowtypeExpr);
+node_dispatch(CollateExpr);
+node_dispatch(CaseExpr);
+node_dispatch(CaseWhen);
+node_dispatch(CaseTestExpr);
+node_dispatch(ArrayExpr);
+node_dispatch(RowExpr);
+node_dispatch(RowCompareExpr);
+node_dispatch(CoalesceExpr);
+node_dispatch(MinMaxExpr);
+node_dispatch(SQLValueFunction);
+node_dispatch(XmlExpr);
+#if PG_MAJORVERSION_NUM >= 16
+node_dispatch(JsonFormat);
+node_dispatch(JsonReturning);
+node_dispatch(JsonValueExpr);
+node_dispatch(JsonConstructorExpr);
+node_dispatch(JsonIsPredicate);
+#endif
+#if PG_MAJORVERSION_NUM >= 17
+node_dispatch(JsonBehavior);
+node_dispatch(JsonExpr);
+node_dispatch(JsonTablePath);
+node_dispatch(JsonTablePathScan);
+node_dispatch(JsonTableSiblingJoin);
+#endif
+node_dispatch(NullTest);
+node_dispatch(BooleanTest);
+#if PG_MAJORVERSION_NUM >= 15
+node_dispatch(MergeAction);
+#endif
+node_dispatch(CoerceToDomain);
+node_dispatch(CoerceToDomainValue);
+node_dispatch(SetToDefault);
+node_dispatch(CurrentOfExpr);
+node_dispatch(NextValueExpr);
+node_dispatch(InferenceElem);
+#if PG_MAJORVERSION_NUM >= 18
+node_dispatch(ReturningExpr);
+#endif
+node_dispatch(TargetEntry);
+node_dispatch(RangeTblRef);
+node_dispatch(JoinExpr);
+node_dispatch(FromExpr);
+node_dispatch(OnConflictExpr);
+node_dispatch(Query);
+node_dispatch(TypeName);
+node_dispatch(ColumnRef);
+node_dispatch(ParamRef);
+node_dispatch(A_Expr);
+node_dispatch(A_Const);
+node_dispatch(TypeCast);
+node_dispatch(CollateClause);
+node_dispatch(RoleSpec);
+node_dispatch(FuncCall);
+node_dispatch(A_Star);
+node_dispatch(A_Indices);
+node_dispatch(A_Indirection);
+node_dispatch(A_ArrayExpr);
+node_dispatch(ResTarget);
+node_dispatch(MultiAssignRef);
+node_dispatch(SortBy);
+node_dispatch(WindowDef);
+node_dispatch(RangeSubselect);
+node_dispatch(RangeFunction);
+node_dispatch(RangeTableFunc);
+node_dispatch(RangeTableFuncCol);
+node_dispatch(RangeTableSample);
+node_dispatch(ColumnDef);
+node_dispatch(TableLikeClause);
+node_dispatch(IndexElem);
+node_dispatch(DefElem);
+node_dispatch(LockingClause);
+node_dispatch(XmlSerialize);
+node_dispatch(PartitionElem);
+#if PG_MAJORVERSION_NUM == 17
+node_dispatch(SinglePartitionSpec);
+#endif
+node_dispatch(PartitionSpec);
+node_dispatch(PartitionBoundSpec);
+node_dispatch(PartitionRangeDatum);
+node_dispatch(PartitionCmd);
+node_dispatch(RangeTblEntry);
+#if PG_MAJORVERSION_NUM >= 16
+node_dispatch(RTEPermissionInfo);
+#endif
+node_dispatch(RangeTblFunction);
+node_dispatch(TableSampleClause);
+node_dispatch(WithCheckOption);
+node_dispatch(SortGroupClause);
+node_dispatch(GroupingSet);
+node_dispatch(WindowClause);
+node_dispatch(RowMarkClause);
+node_dispatch(WithClause);
+node_dispatch(InferClause);
+node_dispatch(OnConflictClause);
+#if PG_MAJORVERSION_NUM >= 14
+node_dispatch(CTESearchClause);
+node_dispatch(CTECycleClause);
+#endif
+node_dispatch(CommonTableExpr);
+#if PG_MAJORVERSION_NUM >= 15
+node_dispatch(MergeWhenClause);
+#endif
+#if PG_MAJORVERSION_NUM >= 18
+node_dispatch(ReturningOption);
+node_dispatch(ReturningClause);
+#endif
+node_dispatch(TriggerTransition);
+#if PG_MAJORVERSION_NUM >= 16
+node_dispatch(JsonOutput);
+#endif
+#if PG_MAJORVERSION_NUM >= 17
+node_dispatch(JsonArgument);
+node_dispatch(JsonFuncExpr);
+node_dispatch(JsonTablePathSpec);
+node_dispatch(JsonTable);
+node_dispatch(JsonTableColumn);
+node_dispatch(JsonKeyValue);
+node_dispatch(JsonParseExpr);
+node_dispatch(JsonScalarExpr);
+node_dispatch(JsonSerializeExpr);
+#endif
+#if PG_MAJORVERSION_NUM >= 16
+node_dispatch(JsonObjectConstructor);
+node_dispatch(JsonArrayConstructor);
+node_dispatch(JsonArrayQueryConstructor);
+node_dispatch(JsonAggConstructor);
+node_dispatch(JsonObjectAgg);
+node_dispatch(JsonArrayAgg);
+#endif
+node_dispatch(RawStmt);
+node_dispatch(InsertStmt);
+node_dispatch(DeleteStmt);
+node_dispatch(UpdateStmt);
+#if PG_MAJORVERSION_NUM >= 15
+node_dispatch(MergeStmt);
+#endif
+node_dispatch(SelectStmt);
+node_dispatch(SetOperationStmt);
+#if PG_MAJORVERSION_NUM >= 14
+node_dispatch(ReturnStmt);
+#endif
+#if PG_MAJORVERSION_NUM >= 14
+node_dispatch(PLAssignStmt);
+#endif
+node_dispatch(CreateSchemaStmt);
+node_dispatch(AlterTableStmt);
+node_dispatch(AlterTableCmd);
+#if PG_MAJORVERSION_NUM >= 18
+node_dispatch(ATAlterConstraint);
+#endif
+node_dispatch(ReplicaIdentityStmt);
+node_dispatch(AlterCollationStmt);
+node_dispatch(AlterDomainStmt);
+node_dispatch(GrantStmt);
+node_dispatch(ObjectWithArgs);
+node_dispatch(AccessPriv);
+node_dispatch(GrantRoleStmt);
+node_dispatch(AlterDefaultPrivilegesStmt);
+node_dispatch(CopyStmt);
+node_dispatch(VariableSetStmt);
+node_dispatch(VariableShowStmt);
+node_dispatch(CreateStmt);
+node_dispatch(Constraint);
+node_dispatch(CreateTableSpaceStmt);
+node_dispatch(DropTableSpaceStmt);
+node_dispatch(AlterTableSpaceOptionsStmt);
+node_dispatch(AlterTableMoveAllStmt);
+node_dispatch(CreateExtensionStmt);
+node_dispatch(AlterExtensionStmt);
+node_dispatch(AlterExtensionContentsStmt);
+node_dispatch(CreateFdwStmt);
+node_dispatch(AlterFdwStmt);
+node_dispatch(CreateForeignServerStmt);
+node_dispatch(AlterForeignServerStmt);
+node_dispatch(CreateForeignTableStmt);
+node_dispatch(CreateUserMappingStmt);
+node_dispatch(AlterUserMappingStmt);
+node_dispatch(DropUserMappingStmt);
+node_dispatch(ImportForeignSchemaStmt);
+node_dispatch(CreatePolicyStmt);
+node_dispatch(AlterPolicyStmt);
+node_dispatch(CreateAmStmt);
+node_dispatch(CreateTrigStmt);
+node_dispatch(CreateEventTrigStmt);
+node_dispatch(AlterEventTrigStmt);
+node_dispatch(CreatePLangStmt);
+node_dispatch(CreateRoleStmt);
+node_dispatch(AlterRoleStmt);
+node_dispatch(AlterRoleSetStmt);
+node_dispatch(DropRoleStmt);
+node_dispatch(CreateSeqStmt);
+node_dispatch(AlterSeqStmt);
+node_dispatch(DefineStmt);
+node_dispatch(CreateDomainStmt);
+node_dispatch(CreateOpClassStmt);
+node_dispatch(CreateOpClassItem);
+node_dispatch(CreateOpFamilyStmt);
+node_dispatch(AlterOpFamilyStmt);
+node_dispatch(DropStmt);
+node_dispatch(TruncateStmt);
+node_dispatch(CommentStmt);
+node_dispatch(SecLabelStmt);
+node_dispatch(DeclareCursorStmt);
+node_dispatch(ClosePortalStmt);
+node_dispatch(FetchStmt);
+node_dispatch(IndexStmt);
+node_dispatch(CreateStatsStmt);
+#if PG_MAJORVERSION_NUM >= 14
+node_dispatch(StatsElem);
+#endif
+node_dispatch(AlterStatsStmt);
+node_dispatch(CreateFunctionStmt);
+node_dispatch(FunctionParameter);
+node_dispatch(AlterFunctionStmt);
+node_dispatch(DoStmt);
+node_dispatch(InlineCodeBlock);
+node_dispatch(CallStmt);
+node_dispatch(CallContext);
+node_dispatch(RenameStmt);
+node_dispatch(AlterObjectDependsStmt);
+node_dispatch(AlterObjectSchemaStmt);
+node_dispatch(AlterOwnerStmt);
+node_dispatch(AlterOperatorStmt);
+node_dispatch(AlterTypeStmt);
+node_dispatch(RuleStmt);
+node_dispatch(NotifyStmt);
+node_dispatch(ListenStmt);
+node_dispatch(UnlistenStmt);
+node_dispatch(TransactionStmt);
+node_dispatch(CompositeTypeStmt);
+node_dispatch(CreateEnumStmt);
+node_dispatch(CreateRangeStmt);
+node_dispatch(AlterEnumStmt);
+node_dispatch(ViewStmt);
+node_dispatch(LoadStmt);
+node_dispatch(CreatedbStmt);
+node_dispatch(AlterDatabaseStmt);
+#if PG_MAJORVERSION_NUM >= 15
+node_dispatch(AlterDatabaseRefreshCollStmt);
+#endif
+node_dispatch(AlterDatabaseSetStmt);
+node_dispatch(DropdbStmt);
+node_dispatch(AlterSystemStmt);
+node_dispatch(ClusterStmt);
+node_dispatch(VacuumStmt);
+node_dispatch(VacuumRelation);
+node_dispatch(ExplainStmt);
+node_dispatch(CreateTableAsStmt);
+node_dispatch(RefreshMatViewStmt);
+node_dispatch(CheckPointStmt);
+node_dispatch(DiscardStmt);
+node_dispatch(LockStmt);
+node_dispatch(ConstraintsSetStmt);
+node_dispatch(ReindexStmt);
+node_dispatch(CreateConversionStmt);
+node_dispatch(CreateCastStmt);
+node_dispatch(CreateTransformStmt);
+node_dispatch(PrepareStmt);
+node_dispatch(ExecuteStmt);
+node_dispatch(DeallocateStmt);
+node_dispatch(DropOwnedStmt);
+node_dispatch(ReassignOwnedStmt);
+node_dispatch(AlterTSDictionaryStmt);
+node_dispatch(AlterTSConfigurationStmt);
+#if PG_MAJORVERSION_NUM >= 15
+node_dispatch(PublicationTable);
+node_dispatch(PublicationObjSpec);
+#endif
+node_dispatch(CreatePublicationStmt);
+node_dispatch(AlterPublicationStmt);
+node_dispatch(CreateSubscriptionStmt);
+node_dispatch(AlterSubscriptionStmt);
+node_dispatch(DropSubscriptionStmt);
+node_dispatch(PlannerGlobal);
+node_dispatch(PlannerInfo);
+node_dispatch(RelOptInfo);
+node_dispatch(IndexOptInfo);
+node_dispatch(ForeignKeyOptInfo);
+node_dispatch(StatisticExtInfo);
+#if PG_MAJORVERSION_NUM >= 16
+node_dispatch(JoinDomain);
+#endif
+node_dispatch(EquivalenceClass);
+node_dispatch(EquivalenceMember);
+node_dispatch(PathKey);
+#if PG_MAJORVERSION_NUM >= 17
+node_dispatch(GroupByOrdering);
+#endif
+node_dispatch(PathTarget);
+node_dispatch(ParamPathInfo);
+node_dispatch(Path);
+node_dispatch(IndexPath);
+node_dispatch(IndexClause);
+node_dispatch(BitmapHeapPath);
+node_dispatch(BitmapAndPath);
+node_dispatch(BitmapOrPath);
+node_dispatch(TidPath);
+#if PG_MAJORVERSION_NUM >= 14
+node_dispatch(TidRangePath);
+#endif
+node_dispatch(SubqueryScanPath);
+node_dispatch(ForeignPath);
+node_dispatch(CustomPath);
+node_dispatch(AppendPath);
+node_dispatch(MergeAppendPath);
+node_dispatch(GroupResultPath);
+node_dispatch(MaterialPath);
+#if PG_MAJORVERSION_NUM >= 14
+node_dispatch(MemoizePath);
+#endif
+node_dispatch(UniquePath);
+node_dispatch(GatherPath);
+node_dispatch(GatherMergePath);
+node_dispatch(NestPath);
+node_dispatch(MergePath);
+node_dispatch(HashPath);
+node_dispatch(ProjectionPath);
+node_dispatch(ProjectSetPath);
+node_dispatch(SortPath);
+node_dispatch(IncrementalSortPath);
+node_dispatch(GroupPath);
+#if PG_MAJORVERSION_NUM < 19
+node_dispatch(UpperUniquePath);
+#endif
+node_dispatch(AggPath);
+node_dispatch(GroupingSetData);
+node_dispatch(RollupData);
+node_dispatch(GroupingSetsPath);
+node_dispatch(MinMaxAggPath);
+node_dispatch(WindowAggPath);
+node_dispatch(SetOpPath);
+node_dispatch(RecursiveUnionPath);
+node_dispatch(LockRowsPath);
+node_dispatch(ModifyTablePath);
+node_dispatch(LimitPath);
+node_dispatch(RestrictInfo);
+node_dispatch(PlaceHolderVar);
+node_dispatch(SpecialJoinInfo);
+#if PG_MAJORVERSION_NUM >= 16
+node_dispatch(OuterJoinClauseInfo);
+#endif
+node_dispatch(AppendRelInfo);
+#if PG_MAJORVERSION_NUM >= 14
+node_dispatch(RowIdentityVarInfo);
+#endif
+node_dispatch(PlaceHolderInfo);
+node_dispatch(MinMaxAggInfo);
+node_dispatch(PlannerParamItem);
+#if PG_MAJORVERSION_NUM >= 16
+node_dispatch(AggInfo);
+node_dispatch(AggTransInfo);
+#endif
+#if PG_MAJORVERSION_NUM >= 18
+node_dispatch(UniqueRelInfo);
+#endif
+node_dispatch(PlannedStmt);
+node_dispatch(Result);
+node_dispatch(ProjectSet);
+node_dispatch(ModifyTable);
+node_dispatch(Append);
+node_dispatch(MergeAppend);
+node_dispatch(RecursiveUnion);
+node_dispatch(BitmapAnd);
+node_dispatch(BitmapOr);
+node_dispatch(SeqScan);
+node_dispatch(SampleScan);
+node_dispatch(IndexScan);
+node_dispatch(IndexOnlyScan);
+node_dispatch(BitmapIndexScan);
+node_dispatch(BitmapHeapScan);
+node_dispatch(TidScan);
+#if PG_MAJORVERSION_NUM >= 14
+node_dispatch(TidRangeScan);
+#endif
+node_dispatch(SubqueryScan);
+node_dispatch(FunctionScan);
+node_dispatch(ValuesScan);
+node_dispatch(TableFuncScan);
+node_dispatch(CteScan);
+node_dispatch(NamedTuplestoreScan);
+node_dispatch(WorkTableScan);
+node_dispatch(ForeignScan);
+node_dispatch(CustomScan);
+node_dispatch(NestLoop);
+node_dispatch(NestLoopParam);
+node_dispatch(MergeJoin);
+node_dispatch(HashJoin);
+node_dispatch(Material);
+#if PG_MAJORVERSION_NUM >= 14
+node_dispatch(Memoize);
+#endif
+node_dispatch(Sort);
+node_dispatch(IncrementalSort);
+node_dispatch(Group);
+node_dispatch(Agg);
+node_dispatch(WindowAgg);
+node_dispatch(Unique);
+node_dispatch(Gather);
+node_dispatch(GatherMerge);
+node_dispatch(Hash);
+node_dispatch(SetOp);
+node_dispatch(LockRows);
+node_dispatch(Limit);
+node_dispatch(PlanRowMark);
+node_dispatch(PartitionPruneInfo);
+node_dispatch(PartitionedRelPruneInfo);
+node_dispatch(PartitionPruneStepOp);
+node_dispatch(PartitionPruneStepCombine);
+node_dispatch(PlanInvalItem);
+node_dispatch(ExprState);
+node_dispatch(IndexInfo);
+node_dispatch(ExprContext);
+node_dispatch(ReturnSetInfo);
+node_dispatch(ProjectionInfo);
+node_dispatch(JunkFilter);
+node_dispatch(OnConflictSetState);
+#if PG_MAJORVERSION_NUM >= 15
+node_dispatch(MergeActionState);
+#endif
+node_dispatch(ResultRelInfo);
+node_dispatch(EState);
+node_dispatch(WindowFuncExprState);
+node_dispatch(SetExprState);
+node_dispatch(SubPlanState);
+node_dispatch(DomainConstraintState);
+node_dispatch(ResultState);
+node_dispatch(ProjectSetState);
+node_dispatch(ModifyTableState);
+node_dispatch(AppendState);
+node_dispatch(MergeAppendState);
+node_dispatch(RecursiveUnionState);
+node_dispatch(BitmapAndState);
+node_dispatch(BitmapOrState);
+node_dispatch(ScanState);
+node_dispatch(SeqScanState);
+node_dispatch(SampleScanState);
+node_dispatch(IndexScanState);
+node_dispatch(IndexOnlyScanState);
+node_dispatch(BitmapIndexScanState);
+node_dispatch(BitmapHeapScanState);
+node_dispatch(TidScanState);
+#if PG_MAJORVERSION_NUM >= 14
+node_dispatch(TidRangeScanState);
+#endif
+node_dispatch(SubqueryScanState);
+node_dispatch(FunctionScanState);
+node_dispatch(ValuesScanState);
+node_dispatch(TableFuncScanState);
+node_dispatch(CteScanState);
+node_dispatch(NamedTuplestoreScanState);
+node_dispatch(WorkTableScanState);
+node_dispatch(ForeignScanState);
+node_dispatch(CustomScanState);
+node_dispatch(JoinState);
+node_dispatch(NestLoopState);
+node_dispatch(MergeJoinState);
+node_dispatch(HashJoinState);
+node_dispatch(MaterialState);
+#if PG_MAJORVERSION_NUM >= 14
+node_dispatch(MemoizeState);
+#endif
+node_dispatch(SortState);
+node_dispatch(IncrementalSortState);
+node_dispatch(GroupState);
+node_dispatch(AggState);
+node_dispatch(WindowAggState);
+node_dispatch(UniqueState);
+node_dispatch(GatherState);
+node_dispatch(GatherMergeState);
+node_dispatch(HashState);
+node_dispatch(SetOpState);
+node_dispatch(LockRowsState);
+node_dispatch(LimitState);
+node_dispatch(IndexAmRoutine);
+node_dispatch(TableAmRoutine);
+node_dispatch(TsmRoutine);
+node_dispatch(EventTriggerData);
+node_dispatch(TriggerData);
+node_dispatch(TupleTableSlot);
+node_dispatch(FdwRoutine);
+#if PG_MAJORVERSION_NUM >= 16
+node_dispatch(Bitmapset);
+#endif
+node_dispatch(ExtensibleNode);
+#if PG_MAJORVERSION_NUM >= 16
+node_dispatch(ErrorSaveContext);
+#endif
+node_dispatch(IdentifySystemCmd);
+node_dispatch(BaseBackupCmd);
+node_dispatch(CreateReplicationSlotCmd);
+node_dispatch(DropReplicationSlotCmd);
+#if PG_MAJORVERSION_NUM >= 17
+node_dispatch(AlterReplicationSlotCmd);
+#endif
+node_dispatch(StartReplicationCmd);
+#if PG_MAJORVERSION_NUM >= 15
+node_dispatch(ReadReplicationSlotCmd);
+#endif
+node_dispatch(TimeLineHistoryCmd);
+#if PG_MAJORVERSION_NUM >= 17
+node_dispatch(UploadManifestCmd);
+#endif
+node_dispatch(SupportRequestSimplify);
+node_dispatch(SupportRequestSelectivity);
+node_dispatch(SupportRequestCost);
+node_dispatch(SupportRequestRows);
+node_dispatch(SupportRequestIndexCondition);
+#if PG_MAJORVERSION_NUM >= 15
+node_dispatch(SupportRequestWFuncMonotonic);
+#endif
+#if PG_MAJORVERSION_NUM >= 17
+node_dispatch(SupportRequestOptimizeWindowClause);
+#endif
+#if PG_MAJORVERSION_NUM >= 18
+node_dispatch(SupportRequestModifyInPlace);
+#endif
+#if PG_MAJORVERSION_NUM >= 15
+node_dispatch(Integer);
+node_dispatch(Float);
+node_dispatch(Boolean);
+node_dispatch(String);
+node_dispatch(BitString);
+#endif
+node_dispatch(ForeignKeyCacheInfo);
+  default:
+    break;
+  }
+  if constexpr (requires {
+                  std::declval<Visitor>()(std::declval<nodes::unknown_node<decltype(node)>>());
+                }) {
+    visitor(nodes::unknown_node<decltype(node)>{node});
+  } else {
+    throw std::runtime_error("unknown node tag");
+  }
+}
+
+template <typename T>
+concept walker_implementation = requires(T t, ::Node *node, ::tree_walker_callback cb, void *ctx) {
+  { t(node, cb, ctx) } -> std::same_as<bool>;
+};
+
+template <typename T> struct node_walker {
+  void operator()(T &node, auto &&visitor, const walker_implementation auto &walker)
+      requires covering_node<T>
+  {
+    auto *recasted_node = reinterpret_cast<::Node *>(node.as_ptr());
+    (*this)(recasted_node, visitor, walker);
+  }
+
+  void operator()(::Node *recasted_node, auto &&visitor, const walker_implementation auto &walker) {
+    /// In theory, this Boost PFR could have worked, but in practice some structures are
+    /// way too large to introspect. Also, makes the binary really large.
+    /// TODO: wait for C++26/P3435 and see if that would be any better than hand-crafted walkers
+    /// from PG
+
+    struct _ctx {
+      decltype(visitor) _visitor;
+    };
+    _ctx c{std::forward<decltype(visitor)>(visitor)};
+    ffi_guard{walker}(
+        recasted_node,
+        [](::Node *node, void *ctx) {
+          if (node == nullptr) {
+            return false;
+          }
+          _ctx *c = reinterpret_cast<_ctx *>(ctx);
+          if constexpr (std::is_pointer_v<std::remove_cvref_t<decltype(visitor)>>) {
+            cppgres::visit_node(node, *c->_visitor);
+          } else {
+            cppgres::visit_node(node, c->_visitor);
+          }
+          return false;
+        },
+        &c);
+  }
+};
+
+template <> struct node_walker<nodes::RawStmt> {
+  void operator()(nodes::RawStmt &node, auto &&visitor, const walker_implementation auto &walker) {
+    if constexpr (std::is_pointer_v<std::remove_cvref_t<decltype(visitor)>>) {
+      cppgres::visit_node(node.as_ref().stmt, *visitor);
+    } else {
+      cppgres::visit_node(node.as_ref().stmt, visitor);
+    }
+  }
+};
+
+template <> struct node_walker<nodes::List> {
+  void operator()(nodes::List &node, auto &&visitor, const walker_implementation auto &walker) {
+    ::ListCell *lc;
+    ::List *node_p = node.as_ptr();
+    if (nodeTag(node_p) == T_List) {
+      foreach (lc, node_p) {
+        void *node = lfirst(lc);
+        if constexpr (std::is_pointer_v<std::remove_cvref_t<decltype(visitor)>>) {
+          cppgres::visit_node(node, *visitor);
+        } else {
+          cppgres::visit_node(node, visitor);
+        }
+      }
+    }
+  }
+};
+
+template <covering_node T> struct raw_expr_node_walker {
+  void operator()(T &node, auto &&visitor) {
+    _walker(node, std::forward<decltype(visitor)>(visitor),
+#if PG_MAJORVERSION_NUM < 16
+            reinterpret_cast<bool (*)(::Node *, ::tree_walker_callback, void *)>(
+                raw_expression_tree_walker)
+#else
+            ::raw_expression_tree_walker_impl
+#endif
+    );
+  }
+
+private:
+  node_walker<T> _walker;
+};
+
+template <typename T> struct expr_node_walker {
+
+  void operator()(T &node, auto &&visitor) {
+    _walker(node, std::forward<decltype(visitor)>(visitor),
+#if PG_MAJORVERSION_NUM < 16
+            reinterpret_cast<bool (*)(::Node *, ::tree_walker_callback, void *)>(
+                ::expression_tree_walker)
+#else
+            ::expression_tree_walker_impl
+#endif
+    );
+  }
+
+private:
+  node_walker<T> _walker;
+};
+
+template <> struct expr_node_walker<nodes::Query> {
+  expr_node_walker() {}
+  explicit expr_node_walker(int flags) : _flags(flags) {}
+  void operator()(nodes::Query &node, auto &&visitor) {
+    _walker(node, std::forward<decltype(visitor)>(visitor),
+            [this](auto query, auto cb, auto ctx) -> bool {
+              return
+#if PG_MAJORVERSION_NUM < 16
+                  reinterpret_cast<bool (*)(::Query *, ::tree_walker_callback, void *, int)>(
+                      ::query_tree_walker)(reinterpret_cast<::Query *>(query), cb, ctx, _flags);
+#else
+                  ::query_tree_walker_impl
+                  (reinterpret_cast<::Query *>(query), cb, ctx, _flags);
+#endif
+            });
+  }
+
+private:
+  node_walker<nodes::Query> _walker;
+  int _flags = QTW_EXAMINE_SORTGROUP | QTW_EXAMINE_RTES_BEFORE;
+};
 
 #undef node_dispatch
 
