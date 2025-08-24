@@ -328,6 +328,7 @@ To build and run Omnigres, you would need:
 * cmake >= 3.25.1
 * (optionally, to use omni_containers or run a full set of tests) a recent
   version of Docker
+* (optionally, to use omni_kube or run a full set of tests), kube config file in default location (~/.kube/config)
 
 <details>
 <summary>Dependencies for Fedora</summary>
