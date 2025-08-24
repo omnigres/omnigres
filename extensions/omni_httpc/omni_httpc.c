@@ -723,6 +723,12 @@ Datum http_execute(PG_FUNCTION_ARGS) {
     SSL_CTX *ssl_ctx = SSL_CTX_new(TLS_client_method());
     int bundle_loaded = load_ca_bundle(ssl_ctx, ca_bundle);
     assert(bundle_loaded == 1);
+    SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT,
+                       allow_self_signed_cert ? allow_self_signed_cert_cb : NULL);
+    h2o_socketpool_set_ssl_ctx(sockpool, ssl_ctx);
+    SSL_CTX_free(ssl_ctx);
+  } else {
+    SSL_CTX *ssl_ctx = sockpool->_ssl_ctx;
 
     if (cacerts != NULL) {
       ArrayIterator it = array_create_iterator(cacerts, 0, NULL);
@@ -772,13 +778,7 @@ Datum http_execute(PG_FUNCTION_ARGS) {
       BIO_free(pkey_bio);
       EVP_PKEY_free(client_pkey);
     }
-
-    SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT,
-                       allow_self_signed_cert ? allow_self_signed_cert_cb : NULL);
-    h2o_socketpool_set_ssl_ctx(sockpool, ssl_ctx);
-    SSL_CTX_free(ssl_ctx);
   }
-
   // Send off all requests
 
   // Prevent the event loop from going stale and resulting in connection timeouts
