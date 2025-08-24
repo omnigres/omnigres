@@ -1,4 +1,4 @@
-# omni_kube Resource Management
+# Resource Management
 
 omni_kube provides a comprehensive Postgres-based interface for managing Kubernetes resources through SQL views and
 functions. This system allows you to interact with Kubernetes API resources using standard SQL operations.
