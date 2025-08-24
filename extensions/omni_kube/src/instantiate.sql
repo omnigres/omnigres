@@ -10,6 +10,7 @@ begin
 
     /*{% include "api.sql" %}*/
     /*{% include "pod_credentials.sql" %}*/
+    /*{% include "load_kubeconfig.sql" %}*/
 
     -- Core views
 

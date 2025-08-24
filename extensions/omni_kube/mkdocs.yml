@@ -1,2 +1,6 @@
 INHERIT: ../../mkdocs.base.yml
 site_name: omni_kube
+nav:
+- 'credentials.md'
+- 'resources.md'
+- 'internals_api.md'

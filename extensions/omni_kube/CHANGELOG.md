@@ -10,6 +10,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 * Universal resource management framework [#914](https://github.com/omnigres/omnigres/pull/914)
+* Credential loading [#916](https://github.com/omnigres/omnigres/pull/916)
 
 ### Removed
 

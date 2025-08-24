@@ -1,4 +1,4 @@
-# Kubernetes API
+# Internals: Kubernetes API
 
 ## `omni_kube.api()`
 
