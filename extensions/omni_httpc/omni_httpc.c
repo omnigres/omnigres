@@ -579,6 +579,71 @@ Datum http_execute(PG_FUNCTION_ARGS) {
     }
   }
 
+  {
+    SSL_CTX *ssl_ctx = SSL_CTX_new(TLS_client_method());
+
+    int bundle_loaded = load_ca_bundle(ssl_ctx, ca_bundle);
+    assert(bundle_loaded == 1);
+
+    h2o_socketpool_set_ssl_ctx(sockpool, ssl_ctx);
+
+    // Set certificates
+
+    if (cacerts != NULL) {
+      ArrayIterator it = array_create_iterator(cacerts, 0, NULL);
+      Datum value;
+      bool isnull;
+      while (array_iterate(it, &value, &isnull)) {
+        text *cert = DatumGetTextPP(value);
+        BIO *cert_bio = BIO_new_mem_buf(VARDATA_ANY(cert), VARSIZE_ANY_EXHDR(cert));
+        X509 *ca_cert = PEM_read_bio_X509(cert_bio, NULL, NULL, NULL);
+        X509_STORE *store = SSL_CTX_get_cert_store(ssl_ctx);
+
+        if (X509_STORE_add_cert(store, ca_cert) != 1) {
+          ereport(ERROR, errmsg("error loading CA certificate"));
+        };
+
+        BIO_free(cert_bio);
+        X509_free(ca_cert);
+      }
+      array_free_iterator(it);
+    }
+
+    if (clientcert != NULL) {
+      bool isnull;
+      Datum cert_datum = GetAttributeByName(clientcert, "certificate", &isnull);
+      if (isnull) {
+        ereport(ERROR, errmsg("client certificate must be supplied"));
+      }
+      Datum pkey_datum = GetAttributeByName(clientcert, "private_key", &isnull);
+      if (isnull) {
+        ereport(ERROR, errmsg("client private key must be supplied"));
+      }
+
+      text *cert = DatumGetTextPP(cert_datum);
+      BIO *cert_bio = BIO_new_mem_buf(VARDATA_ANY(cert), VARSIZE_ANY_EXHDR(cert));
+      X509 *client_cert = PEM_read_bio_X509(cert_bio, NULL, NULL, NULL);
+
+      text *pkey = DatumGetTextPP(pkey_datum);
+      BIO *pkey_bio = BIO_new_mem_buf(VARDATA_ANY(pkey), VARSIZE_ANY_EXHDR(pkey));
+      EVP_PKEY *client_pkey = PEM_read_bio_PrivateKey(pkey_bio, NULL, NULL, NULL);
+
+      SSL_CTX_use_certificate(ssl_ctx, client_cert);
+      SSL_CTX_use_PrivateKey(ssl_ctx, client_pkey);
+
+      BIO_free(cert_bio);
+      X509_free(client_cert);
+
+      BIO_free(pkey_bio);
+      EVP_PKEY_free(client_pkey);
+    }
+
+    SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT,
+                       allow_self_signed_cert ? allow_self_signed_cert_cb : NULL);
+
+    SSL_CTX_free(ssl_ctx);
+  }
+
   if (PG_ARGISNULL(1)) {
     ereport(ERROR, errmsg("can't have null requests"));
   }
@@ -718,72 +783,6 @@ Datum http_execute(PG_FUNCTION_ARGS) {
   // Adjust the socket pool capacity if necessary
   sockpool->capacity = Max(num_requests, sockpool->capacity);
 
-  {
-    SSL_CTX *ssl_ctx = SSL_CTX_new(TLS_client_method());
-    static const unsigned char alpn[] = {8, 'h', 't', 't', 'p', '/', '1', '.', '1'};
-    SSL_CTX_set_alpn_protos(ssl_ctx, alpn, sizeof(alpn));
-
-    int bundle_loaded = load_ca_bundle(ssl_ctx, ca_bundle);
-    assert(bundle_loaded == 1);
-
-    h2o_socketpool_set_ssl_ctx(sockpool, ssl_ctx);
-
-    // Set certificates
-
-    if (cacerts != NULL) {
-      ArrayIterator it = array_create_iterator(cacerts, 0, NULL);
-      Datum value;
-      bool isnull;
-      while (array_iterate(it, &value, &isnull)) {
-        text *cert = DatumGetTextPP(value);
-        BIO *cert_bio = BIO_new_mem_buf(VARDATA_ANY(cert), VARSIZE_ANY_EXHDR(cert));
-        X509 *ca_cert = PEM_read_bio_X509(cert_bio, NULL, NULL, NULL);
-        X509_STORE *store = SSL_CTX_get_cert_store(ssl_ctx);
-
-        if (X509_STORE_add_cert(store, ca_cert) != 1) {
-          ereport(ERROR, errmsg("error loading CA certificate"));
-        };
-
-        BIO_free(cert_bio);
-        X509_free(ca_cert);
-      }
-      array_free_iterator(it);
-    }
-
-    if (clientcert != NULL) {
-      bool isnull;
-      Datum cert_datum = GetAttributeByName(clientcert, "certificate", &isnull);
-      if (isnull) {
-        ereport(ERROR, errmsg("client certificate must be supplied"));
-      }
-      Datum pkey_datum = GetAttributeByName(clientcert, "private_key", &isnull);
-      if (isnull) {
-        ereport(ERROR, errmsg("client private key must be supplied"));
-      }
-
-      text *cert = DatumGetTextPP(cert_datum);
-      BIO *cert_bio = BIO_new_mem_buf(VARDATA_ANY(cert), VARSIZE_ANY_EXHDR(cert));
-      X509 *client_cert = PEM_read_bio_X509(cert_bio, NULL, NULL, NULL);
-
-      text *pkey = DatumGetTextPP(pkey_datum);
-      BIO *pkey_bio = BIO_new_mem_buf(VARDATA_ANY(pkey), VARSIZE_ANY_EXHDR(pkey));
-      EVP_PKEY *client_pkey = PEM_read_bio_PrivateKey(pkey_bio, NULL, NULL, NULL);
-
-      SSL_CTX_use_certificate(ssl_ctx, client_cert);
-      SSL_CTX_use_PrivateKey(ssl_ctx, client_pkey);
-
-      BIO_free(cert_bio);
-      X509_free(client_cert);
-
-      BIO_free(pkey_bio);
-      EVP_PKEY_free(client_pkey);
-    }
-
-    SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT,
-                       allow_self_signed_cert ? allow_self_signed_cert_cb : NULL);
-
-    SSL_CTX_free(ssl_ctx);
-  }
   // Send off all requests
 
   // Prevent the event loop from going stale and resulting in connection timeouts
