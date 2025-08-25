@@ -42,17 +42,19 @@ begin
       spec_ns text;
       name text;
       url text;
+      metadata jsonb;
     begin
       if new.uid is not null then
          raise exception 'new resources can''t have uid';
       end if;
-      spec_ns := coalesce(coalesce(new.resource->'metadata','{"namespace": "default"}'::jsonb)->>'namespace', 'default');
+      metadata := coalesce(new.resource->'metadata','{"namespace": "default"}'::jsonb);
+      spec_ns := coalesce(metadata->>'namespace', 'default');
       if new.namespace is not null and spec_ns != new.namespace then
         raise exception 'namespace (%%) must match metadata (%%)', new.namespace, spec_ns;
       end if;
-      name := coalesce(coalesce(new.resource->'metadata','{}')->>'name', new.name);
+      name := coalesce(coalesce(metadata->>'name', metadata->>'generateName'), new.name);
       if name is null then
-        raise exception 'resource is required to have a name';
+        raise exception 'resource is required to have `name` or `generateName`';
       end if;
       if new.name is not null and name != new.name then
         raise exception 'name (%%) must match metadata (%%)', new.name, name;
