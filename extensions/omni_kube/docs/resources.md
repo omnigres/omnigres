@@ -199,6 +199,29 @@ The system includes comprehensive validation:
 - **UID Restrictions**: Prevents manual UID assignment for new resources
 - **Resource Existence**: Validates resources exist before update/delete operations
 
+Add this section to your **Resource Discovery Functions** section, after the `omni_kube.resources()` function:
+
+### `omni_kube.resources_metadata(group_version text, resource text)`
+
+Retrieves only the metadata section from a Kubernetes resource collection, which is useful for getting information like
+resource versions without fetching the entire resource list.
+
+**Parameters:**
+
+- `group_version`: The group/version identifier (e.g., 'v1', 'apps/v1')
+- `resource`: The resource type name
+
+**Returns:**
+
+- `jsonb`: The metadata object from the Kubernetes API response, typically containing fields like `resourceVersion`.
+
+**Example:**
+
+```postgresql
+-- Get the current resource version for pods
+select omni_kube.resources_metadata('v1', 'pods') ->> 'resourceVersion' as current_version;
+```
+
 ## Usage Examples
 
 ### Working with Deployments

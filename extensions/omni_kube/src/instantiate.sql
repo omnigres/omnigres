@@ -9,6 +9,12 @@ begin
     perform set_config('search_path', schema::text || ',public', true);
 
     /*{% include "api.sql" %}*/
+    execute format(
+            'alter function api(text[], text, text, omni_httpc.client_certificate, text, omni_http.http_method[], jsonb[], boolean) set search_path = %L, public',
+            schema::text);
+    execute format(
+            'alter function api(text, text, text, omni_httpc.client_certificate, text, omni_http.http_method, jsonb, boolean) set search_path = %L, public',
+            schema::text);
     /*{% include "pod_credentials.sql" %}*/
     /*{% include "load_kubeconfig.sql" %}*/
 
@@ -52,8 +58,11 @@ begin
     execute format('alter function group_resources set search_path = %s', schema::text || ',public');
     /*{% include "resources.sql" %}*/
     execute format('alter function resources set search_path = %s', schema::text || ',public');
+    /*{% include "resources_metadata.sql" %}*/
+    execute format('alter function resources_metadata set search_path = %s', schema::text || ',public');
     /*{% include "resource_view.sql" %}*/
     execute format('alter function resource_view set omni_kube.search_path = %L', schema::text);
+    /*{% include "watch.sql" %}*/
 
     -- Restore the path
     perform
