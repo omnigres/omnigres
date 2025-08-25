@@ -77,58 +77,41 @@ tests:
            from pods
     results:
     - non_empty: true
-  - name: cleanup from previous failures
+  - name: clean up from previous failures
     query: |
-      do
-      $$
-          declare
-              exit_flag boolean := false;
-          begin
-              while not exit_flag
-                  loop
-                      delete
-                      from pods
-                      where name = 'nginx-pod-omni-kube';
-                      -- check
-                      select count(*) = 0
-                      into exit_flag
-                      from pods
-                      where name = 'nginx-pod-omni-kube';
-                  end loop;
-          exception
-              when others then
-                  if sqlerrm = 'NotFound' then
-                      null;
-                  else
-                      raise;
-                  end if;
-          end;
-      $$
+      delete
+      from pods
+      where resource -> 'metadata' -> 'labels' -> 'omnigres.com/test' is not null
+  - name: should be clean
+    query: select
+           from pods
+           where resource -> 'metadata' -> 'labels' -> 'omnigres.com/test' is not null
+    results: [ ]
   - name: insert into it
     query: |
       insert into pods (resource)
-      values ('{ "metadata": { "name": "nginx-pod-omni-kube", "labels": {"omnigres.com/test": "true"} }, "spec": { "containers": [{ "name": "test", "image": "nginx" }] } }')
+      values ('{ "metadata": { "generateName": "nginx-pod-omni-kube-", "labels": {"omnigres.com/test": "true"} }, "spec": { "containers": [{ "name": "test", "image": "nginx" }] } }')
   - name: find it
-    query: select name
+    query: select true as found
            from pods
-           where name = 'nginx-pod-omni-kube'
+           where resource -> 'metadata' -> 'labels' -> 'omnigres.com/test' is not null
     results:
-    - name: nginx-pod-omni-kube
+    - found: true
   - name: wait for things to settle (to prevent Conflict)
     query: select pg_sleep(1)
   - name: update it
     query: |
       update pods
       set resource = jsonb_set(resource, '{metadata,labels,omnigres.com/test}', '"passed"')
-      where name = 'nginx-pod-omni-kube'
+      where resource -> 'metadata' -> 'labels' -> 'omnigres.com/test' is not null
   - name: check labels
     query: select resource -> 'metadata' -> 'labels' labels
            from pods
-           where name = 'nginx-pod-omni-kube'
+           where resource -> 'metadata' -> 'labels' -> 'omnigres.com/test' is not null
     results:
     - labels:
         "omnigres.com/test": passed
   - name: cleanup
     query: delete
            from pods
-           where name = 'nginx-pod-omni-kube'
+           where resource -> 'metadata' -> 'labels' -> 'omnigres.com/test' is not null
