@@ -727,7 +727,9 @@ Datum http_execute(PG_FUNCTION_ARGS) {
                        allow_self_signed_cert ? allow_self_signed_cert_cb : NULL);
     h2o_socketpool_set_ssl_ctx(sockpool, ssl_ctx);
     SSL_CTX_free(ssl_ctx);
-  } else {
+  }
+  // Set certificates
+  {
     SSL_CTX *ssl_ctx = sockpool->_ssl_ctx;
 
     if (cacerts != NULL) {
