@@ -718,19 +718,17 @@ Datum http_execute(PG_FUNCTION_ARGS) {
   // Adjust the socket pool capacity if necessary
   sockpool->capacity = Max(num_requests, sockpool->capacity);
 
-  // Load CA bundle if necessary
-  if (sockpool->_ssl_ctx == NULL) {
+  {
     SSL_CTX *ssl_ctx = SSL_CTX_new(TLS_client_method());
+    static const unsigned char alpn[] = {8, 'h', 't', 't', 'p', '/', '1', '.', '1'};
+    SSL_CTX_set_alpn_protos(ssl_ctx, alpn, sizeof(alpn));
+
     int bundle_loaded = load_ca_bundle(ssl_ctx, ca_bundle);
     assert(bundle_loaded == 1);
-    SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT,
-                       allow_self_signed_cert ? allow_self_signed_cert_cb : NULL);
+
     h2o_socketpool_set_ssl_ctx(sockpool, ssl_ctx);
-    SSL_CTX_free(ssl_ctx);
-  }
-  // Set certificates
-  {
-    SSL_CTX *ssl_ctx = sockpool->_ssl_ctx;
+
+    // Set certificates
 
     if (cacerts != NULL) {
       ArrayIterator it = array_create_iterator(cacerts, 0, NULL);
@@ -780,6 +778,11 @@ Datum http_execute(PG_FUNCTION_ARGS) {
       BIO_free(pkey_bio);
       EVP_PKEY_free(client_pkey);
     }
+
+    SSL_CTX_set_verify(ssl_ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT,
+                       allow_self_signed_cert ? allow_self_signed_cert_cb : NULL);
+
+    SSL_CTX_free(ssl_ctx);
   }
   // Send off all requests
 
