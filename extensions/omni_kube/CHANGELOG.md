@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.3.0] - TBD
 
+### Added
+
+* Support for `generateName` [#923](https://github.com/omnigres/omnigres/pull/923)
+
 ## [0.2.0] - 2025-07-24
 
 ### Added
