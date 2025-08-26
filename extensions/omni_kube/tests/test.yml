@@ -87,10 +87,35 @@ tests:
            from pods
            where resource -> 'metadata' -> 'labels' -> 'omnigres.com/test' is not null
     results: [ ]
+  - create table pod_uid
+    (
+        uid text not null
+    )
   - name: insert into it
     query: |
-      insert into pods (resource)
+      with
+          insertion as (insert into pods (resource)
       values ('{ "metadata": { "generateName": "nginx-pod-omni-kube-", "labels": {"omnigres.com/test": "true"} }, "spec": { "containers": [{ "name": "test", "image": "nginx" }] } }')
+              returning *)
+      insert
+      into
+          pod_uid (uid)
+      select
+          uid
+      from
+          insertion
+      where
+          name is not null and
+          namespace is not null and
+          resource -> 'metadata' ->> 'uid' = uid and
+          resource -> 'metadata' ->> 'name' = name
+  - name: ensure we got the uid (conditions satisfied)
+    query: select
+               count(*) > 0 as non_empty
+           from
+               pod_uid
+    results:
+    - non_empty: true
   - name: find it
     query: select true as found
            from pods
@@ -129,9 +154,17 @@ tests:
     query: select pg_sleep(1)
   - name: update it
     query: |
+      with
+          updating as (
       update pods
       set resource = jsonb_set(resource, '{metadata,labels,omnigres.com/test}', '"passed"')
-      where resource -> 'metadata' -> 'labels' -> 'omnigres.com/test' is not null
+          where resource -> 'metadata' -> 'labels' -> 'omnigres.com/test' is not null returning *)
+      select
+          resource -> 'metadata' -> 'labels' -> 'omnigres.com/test' as label
+      from
+          updating
+    results:
+    - label: passed
   - name: check labels
     query: select resource -> 'metadata' -> 'labels' labels
            from pods
