@@ -10,10 +10,10 @@ begin
 
     /*{% include "api.sql" %}*/
     execute format(
-            'alter function api(text[], text, text, omni_httpc.client_certificate, text, omni_http.http_method[], jsonb[], boolean) set search_path = %L, public',
+            'alter function api(text[], text, text, omni_httpc.client_certificate, text, omni_http.http_method[], jsonb[], boolean, text[], text[]) set search_path = %L, public',
             schema::text);
     execute format(
-            'alter function api(text, text, text, omni_httpc.client_certificate, text, omni_http.http_method, jsonb, boolean) set search_path = %L, public',
+            'alter function api(text, text, text, omni_httpc.client_certificate, text, omni_http.http_method, jsonb, boolean, text, text) set search_path = %L, public',
             schema::text);
     /*{% include "pod_credentials.sql" %}*/
     /*{% include "load_kubeconfig.sql" %}*/
