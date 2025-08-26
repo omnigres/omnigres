@@ -228,6 +228,27 @@ resource versions without fetching the entire resource list.
 select omni_kube.resources_metadata('v1', 'pods') ->> 'resourceVersion' as current_version;
 ```
 
+## Resource Tables
+
+The `omni_kube.resource_table()` function provides an alternative to dynamic views by creating materialized tables that
+cache Kubernetes resource data locally. Like `resource_view()`, it accepts the same parameters for specifying the target
+API group, version, and resource type. The key advantage of resource tables is performance and a stable view – they
+store resource data locally in the database rather than making API calls on each query.
+
+Each generated table has a corresponding `refresh_<table_name>()` function that synchronizes the local data with the
+current state of the Kubernetes cluster.
+
+This refresh mechanism allows you to control when expensive API calls occur, making resource tables ideal for scenarios
+where you need to perform complex queries, joins, or analytics on Kubernetes data without the latency of repeated API
+requests. The refresh function can be called manually or scheduled for automated data synchronization.
+
+Resource tables are particularly valuable for building Kubernetes operators and controllers, where you need to maintain
+local state, perform complex reconciliation logic across multiple resource types, or implement sophisticated filtering
+and aggregation operations that would be inefficient when executed against live API endpoints.
+
+The function returns a table of `(type text, object jsonb)` where type is `ADDED`, `MODIFIED` or `DELETED` and object
+is the object in question.
+
 ## Usage Examples
 
 ### Working with Deployments

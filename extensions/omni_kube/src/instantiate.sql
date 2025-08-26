@@ -62,6 +62,8 @@ begin
     execute format('alter function resources_metadata set search_path = %s', schema::text || ',public');
     /*{% include "resource_view.sql" %}*/
     execute format('alter function resource_view set omni_kube.search_path = %L', schema::text);
+    /*{% include "resource_table.sql" %}*/
+    execute format('alter function resource_table set omni_kube.search_path = %L', schema::text);
     /*{% include "watch.sql" %}*/
 
     -- Restore the path
