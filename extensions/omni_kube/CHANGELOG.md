@@ -13,6 +13,11 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Basic support for watches [#924](https://github.com/omnigres/omnigres/pull/924)
 * Basic support for selectors [#925](https://github.com/omnigres/omnigres/pull/925)
 
+### Fixed
+
+* Inserting into and updating resource views should return new resource
+  tuples [#926](https://github.com/omnigres/omnigres/pull/926)
+
 ## [0.2.0] - 2025-07-24
 
 ### Added

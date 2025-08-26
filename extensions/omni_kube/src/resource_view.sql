@@ -44,6 +44,7 @@ begin
       name text;
       url text;
       metadata jsonb;
+      result jsonb;
     begin
       if new.uid is not null then
          raise exception 'new resources can''t have uid';
@@ -63,7 +64,11 @@ begin
       new.resource := jsonb_set(new.resource, '{kind}', to_jsonb(%L::text));
       new.resource := jsonb_set(new.resource, '{apiVersion}', to_jsonb(%L::text));
       url := format(%L, spec_ns);
-      perform api(url, body => new.resource, method => 'POST');
+      select api(url, body => new.resource, method => 'POST') into result;
+      new.uid := result->'metadata'->>'uid';
+      new.name := result->'metadata'->>'name';
+      new.namespace := result->'metadata'->>'namespace';
+      new.resource := result;
       return new;
     end;
     $$
@@ -83,6 +88,7 @@ begin
       spec_ns text;
       name text;
       url text;
+      result jsonb;
     begin
       spec_ns := coalesce(coalesce(new.resource->'metadata','{"namespace": "default"}'::jsonb)->>'namespace', 'default');
       if new.namespace is not null and spec_ns != new.namespace then
@@ -96,7 +102,8 @@ begin
         raise exception 'name (%%) must match metadata (%%)', new.name, name;
       end if;
       url := format(%L, spec_ns);
-      perform api(url || '/' || name, body => new.resource, method => 'PUT');
+      select api(url || '/' || name, body => new.resource, method => 'PUT') into result;
+      new.resource := result;
       return new;
     end;
     $$
