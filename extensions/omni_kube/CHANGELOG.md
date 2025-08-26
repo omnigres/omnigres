@@ -11,6 +11,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Support for `generateName` [#923](https://github.com/omnigres/omnigres/pull/923)
 * Basic support for watches [#924](https://github.com/omnigres/omnigres/pull/924)
+* Basic support for selectors [#925](https://github.com/omnigres/omnigres/pull/925)
 
 ## [0.2.0] - 2025-07-24
 

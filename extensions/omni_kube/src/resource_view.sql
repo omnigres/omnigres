@@ -1,4 +1,5 @@
-create function resource_view(view_name name, group_version text, resource text)
+create function resource_view(view_name name, group_version text, resource text, label_selector text default null,
+                              field_selector text default null)
     returns regclass
     language plpgsql
 as
@@ -30,8 +31,8 @@ begin
      resource->'metadata'->>'uid' as uid,
      resource->'metadata'->>'name' as name,
      resource->'metadata'->>'namespace' as namespace,
-     * from %I.resources(%L, %L) resource
-    $resource_view_$, view_name, ns, group_version, resource);
+     * from %I.resources(%L, %L, label_selector => %L, field_selector => %L) resource
+    $resource_view_$, view_name, ns, group_version, resource, label_selector, field_selector);
 
     execute format($resource_view_insert$
     create or replace function %I() returns trigger
