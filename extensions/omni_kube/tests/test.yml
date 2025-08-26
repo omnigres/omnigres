@@ -97,6 +97,34 @@ tests:
            where resource -> 'metadata' -> 'labels' -> 'omnigres.com/test' is not null
     results:
     - found: true
+  - name: field selector
+    query: select
+               omni_kube.resource_view('pods_fs', 'v1', 'pods',
+                                       field_selector => 'metadata.name=' ||
+                                                         (select
+                                                              resource -> 'metadata' ->> 'name'
+                                                          from
+                                                              pods
+                                                          where
+                                                              resource -> 'metadata' -> 'labels' -> 'omnigres.com/test' = 'true' and
+                                                              resource -> 'metadata' ->> 'name' like 'nginx-pod-omni-kube-%'
+                                                          limit 1))
+  - name: try field selector
+    query: select
+               count(*) > 0 as non_empty
+           from
+               pods_fs
+    results:
+    - non_empty: true
+  - name: label selector
+    query: select omni_kube.resource_view('pods_ls', 'v1', 'pods', label_selector => 'omnigres.com/test=true')
+  - name: try with a label selector
+    query: select
+               count(*) > 0 as non_empty
+           from
+               pods_ls
+    results:
+    - non_empty: true
   - name: wait for things to settle (to prevent Conflict)
     query: select pg_sleep(1)
   - name: update it
@@ -111,6 +139,13 @@ tests:
     results:
     - labels:
         "omnigres.com/test": passed
+  - name: try with a label selector
+    query: select
+               count(*) > 0 as non_empty
+           from
+               pods_ls
+    results:
+    - non_empty: false
   - name: cleanup
     query: delete
            from pods

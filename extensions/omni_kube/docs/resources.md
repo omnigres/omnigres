@@ -80,7 +80,7 @@ from omni_kube.group_resources('apps/v1')
 where name = 'deployments';
 ```
 
-### `omni_kube.resources(group_version text, resource text)`
+### `omni_kube.resources(group_version text, resource text[, label_selector text][, field_selector text])`
 
 Retrieves the actual resource instances from the Kubernetes API.
 
@@ -88,6 +88,8 @@ Retrieves the actual resource instances from the Kubernetes API.
 
 - `group_version`: The group/version identifier
 - `resource`: The resource type name
+- `label_selector`: Optional label selector (e.g., 'app=web-app')
+- `field_selector`: Optional field selector (e.g., 'metadata.name=web-app')
 
 **Returns:**
 
@@ -103,7 +105,9 @@ from omni_kube.resources('apps/v1', 'deployments') resource;
 
 ## Dynamic Resource Views
 
-### `omni_kube.resource_view(view_name name, group_version text, resource text)`
+###
+
+`omni_kube.resource_view(view_name name, group_version text, resource text[, label_selector text][, field_selector text])`
 
 Creates a dynamic view that provides a SQL interface for managing specific Kubernetes resources.
 
@@ -112,6 +116,8 @@ Creates a dynamic view that provides a SQL interface for managing specific Kuber
 - `view_name`: Name for the generated view
 - `group_version`: API group/version (e.g., 'v1', 'apps/v1')
 - `resource`: Resource type (e.g., 'pods', 'deployments')
+- `label_selector`: Optional label selector (e.g., 'app=web-app')
+- `field_selector`: Optional field selector (e.g., 'metadata.name=web-app')
 
 **Returns:**
 
