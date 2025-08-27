@@ -67,19 +67,11 @@ $$
 declare
     result          jsonb;
     response_status int2;
-    request_digest  text;
-    cached_response jsonb;
 begin
     if substring(path, 1, 1) != '/' then
         raise exception 'path must start with a leading slash';
     end if;
 
-    request_digest := encode(digest(method || ' ' || server || path || coalesce(cacert, 'NULL_CACERT') ||
-                                    coalesce(token, 'NULL_TOKEN') || coalesce(body, 'null'), 'sha256'), 'hex');
-    cached_response := omni_var.get_statement('omni_kube.request_' || request_digest, null::jsonb);
-    if cached_response is not null then
-        return cached_response;
-    end if;
     select response, status
     into result, response_status
     from api(array [path], server, cacert, clientcert, token, array [method],
@@ -87,6 +79,6 @@ begin
     if response_status >= 400 then
         raise exception '%', result ->> 'reason' using detail = result ->> 'message';
     end if;
-    return omni_var.set_statement('omni_kube.request_' || request_digest, result);
+    return result;
 end;
 $$;

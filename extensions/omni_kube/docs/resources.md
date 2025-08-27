@@ -249,6 +249,23 @@ and aggregation operations that would be inefficient when executed against live 
 The function returns a table of `(type text, object jsonb)` where type is `ADDED`, `MODIFIED` or `DELETED` and object
 is the object in question.
 
+### Transactional Resource Tables
+
+Resource tables can be made transactional by passing `transactional => true` to `omni_kube.resource_table()`. This
+**simulates** `read committed`-style isolation of changes to the cluster. That is, if you refresh a table within a
+transaction, it'll reflect current state of the cluster. All pending changes in the table are dry-run-verified but
+pooled until commit time. Subsequent changes to the same resource override the entry in the pool (so, for example, an
+update followed by another update is superseded; a deletion performed after update, wins, etc.)
+
+This enables an approximation of atomic operations – a best-effort approach.
+
+!!! warning "Important caveats"
+
+    Commits may still fail due to conflicts with the actual cluster (newer resource versions in the cluster, resource deleted, etc.)
+
+    Commit operation can also fail due to HTTP errors and leave transaction's pending changes in an inconsistent state.
+    A compensation mechanism can be devised (reconciling incomplete transaction). Future versions of this extension may provide tooling for this.
+
 ## Usage Examples
 
 ### Working with Deployments
