@@ -8,12 +8,15 @@ begin
     -- Set the search path to target schema and public
     perform set_config('search_path', schema::text || ',public', true);
 
+    /*{% include "group_path.sql" %}*/
+    /*{% include "resources_path.sql" %}*/
+    /*{% include "path_with.sql" %}*/
     /*{% include "api.sql" %}*/
     execute format(
-            'alter function api(text[], text, text, omni_httpc.client_certificate, text, omni_http.http_method[], jsonb[], boolean, text[], text[]) set search_path = %L, public',
+            'alter function api(text[], text, text, omni_httpc.client_certificate, text, omni_http.http_method[], jsonb[], boolean) set search_path = %L, public',
             schema::text);
     execute format(
-            'alter function api(text, text, text, omni_httpc.client_certificate, text, omni_http.http_method, jsonb, boolean, text, text) set search_path = %L, public',
+            'alter function api(text, text, text, omni_httpc.client_certificate, text, omni_http.http_method, jsonb, boolean) set search_path = %L, public',
             schema::text);
     /*{% include "pod_credentials.sql" %}*/
     /*{% include "load_kubeconfig.sql" %}*/
@@ -64,6 +67,7 @@ begin
     execute format('alter function resource_view set omni_kube.search_path = %L', schema::text);
     /*{% include "resource_table.sql" %}*/
     execute format('alter function resource_table set omni_kube.search_path = %L', schema::text);
+    /*{% include "watch_path.sql" %}*/
     /*{% include "watch.sql" %}*/
 
     -- Restore the path

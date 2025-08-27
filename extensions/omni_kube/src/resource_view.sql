@@ -13,18 +13,11 @@ declare
 begin
     execute format('set search_path to %I, public', ns);
     select namespaced, kind into is_namespaced, resource_kind from group_resources(group_version) where name = resource;
+    url := resources_path(group_version, resource, namespace => case when is_namespaced then '%s' end);
     perform
         set_config('search_path', old_search_path, true);
 
-    if is_namespaced then
-        url := '/' ||
-               case when group_version in ('v1') then 'api/v1' else 'apis/' || group_version end || '/namespaces/%s/' ||
-               resource;
-    else
-        url := '/' ||
-               case when group_version in ('v1') then 'api/v1' else 'apis/' || group_version end || '/' ||
-               resource;
-    end if;
+
     execute format($resource_view_$
     create or replace view %I as
     select

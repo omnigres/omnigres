@@ -3,7 +3,7 @@ create function watch(group_versions text[], resources text[], resource_versions
     returns table
             (
                 events jsonb[],
-                status   int2
+                status int2
             )
 begin
     atomic;
@@ -12,19 +12,16 @@ begin
          items as (select unnest(group_versions)                                        as group_version,
                           unnest(resources)                                             as resource,
                           unnest(array(select resource_version from resource_versions)) as resource_version,
-                          unnest(watch.resource_versions)                               as requested_version),
-         resp as (select api(array_agg('/' ||
-                                              case
-                                                  when group_version in ('v1')
-                                                      then 'api/v1'
-                                                  else 'apis/' || group_version end ||
-                                              '/' ||
-                                              resource || '?watch=1&resourceVersion=' ||
-                                              coalesce(requested_version, resource_version) || '&timeoutSeconds=' ||
-                                       timeout),
-                             label_selectors => label_selectors, field_selectors => field_selectors,
+                          unnest(watch.resource_versions) as requested_version,
+                          unnest(label_selectors)         as label_selector,
+                          unnest(field_selectors)         as field_selector),
+         resp as (select api(array_agg(path_with(watch_path(resources_path(group_version, resource),
+                                                          coalesce(requested_version, resource_version)),
+                                                timeout_seconds => timeout,
+                                                label_selector => label_selector,
+                                                field_selector => field_selector)),
                              stream => true) as e
-                             from items)
+                  from items)
     select array(select jsonb_array_elements((e).response)), (e).status
     from resp;
 end;

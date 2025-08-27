@@ -19,6 +19,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Inserting into and updating resource views should return new resource
   tuples [#926](https://github.com/omnigres/omnigres/pull/926)
 
+### Changed
+
+* Refactored API to make queries more composable [#928](https://github.com/omnigres/omnigres/pull/928)
+
 ## [0.2.0] - 2025-07-24
 
 ### Added

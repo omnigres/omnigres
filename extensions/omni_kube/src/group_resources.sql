@@ -12,8 +12,7 @@ create function group_resources(group_version text)
 as
 $group_resources$
 declare
-    response jsonb = api('/' ||
-                         case when group_version in ('v1') then 'api/v1' else 'apis/' || group_version end);
+    response jsonb = api(group_path(group_version));
 begin
     return query select data ->> 'name',
                         data ->> 'singularName',
