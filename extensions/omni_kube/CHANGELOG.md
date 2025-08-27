@@ -12,7 +12,8 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 * Support for `generateName` [#923](https://github.com/omnigres/omnigres/pull/923)
 * Basic support for watches [#924](https://github.com/omnigres/omnigres/pull/924)
 * Basic support for selectors [#925](https://github.com/omnigres/omnigres/pull/925)
-* Resource tables [#927](https://github.com/omnigres/omnigres/pull/927)
+* Resource
+  tables [#927](https://github.com/omnigres/omnigres/pull/927), [#929](https://github.com/omnigres/omnigres/pull/929)
 
 ### Fixed
 
@@ -22,6 +23,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 * Refactored API to make queries more composable [#928](https://github.com/omnigres/omnigres/pull/928)
+
+### Removed
+
+* Per-statement API call caching [#929](https://github.com/omnigres/omnigres/pull/929)
 
 ## [0.2.0] - 2025-07-24
 
