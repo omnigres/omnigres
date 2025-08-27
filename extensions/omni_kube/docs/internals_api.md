@@ -20,8 +20,6 @@ omni_kube.api(path, [server], [cacert], [clientcert], [token], [method], [body],
 |         **method** | omni_http.http_method         | HTTP method, defaults to `GET`                                  |
 |           **body** | jsonb                         | Request body                                                    |
 |         **stream** | boolean                       | Stream mode for multiple JSON objects, defaults to `false`      |
-| **label_selector** | text                          | Optional label selector (e.g., 'app=web-app')                   |
-| **field_selector** | text                          | Optional field selector (e.g., 'metadata.name=web-app')         |
 
 **Returns:** `jsonb` - The response body
 
@@ -41,8 +39,6 @@ omni_kube.api(paths, [server], [cacert], [clientcert], [token], [methods], [bodi
 |         **methods** | omni_http.http_method[]       | Array of HTTP methods (defaults to `GET` for all requests)      |
 |          **bodies** | jsonb[]                       | Array of request bodies                                         |
 |          **stream** | boolean                       | Stream mode for multiple JSON objects, defaults to `false`      |
-| **label_selectors** | text[]                        | Optional label selectors (e.g., 'app=web-app')                  |
-| **field_selectors** | text[]                        | Optional field selectors (e.g., 'metadata.name=web-app')        |
 
 **Returns:** `TABLE(response jsonb, status int2)` - Response body and HTTP status for each request
 

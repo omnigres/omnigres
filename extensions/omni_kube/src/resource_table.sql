@@ -13,18 +13,12 @@ declare
 begin
     execute format('set search_path to %I, public', ns);
     select namespaced, kind into is_namespaced, resource_kind from group_resources(group_version) where name = resource;
+    url := resources_path(group_version, resource, namespace => case when is_namespaced then '%s' end);
+
     perform
         set_config('search_path', old_search_path, true);
 
-    if is_namespaced then
-        url := '/' ||
-               case when group_version in ('v1') then 'api/v1' else 'apis/' || group_version end || '/namespaces/%s/' ||
-               resource;
-    else
-        url := '/' ||
-               case when group_version in ('v1') then 'api/v1' else 'apis/' || group_version end || '/' ||
-               resource;
-    end if;
+
     execute format($resource_table_$
     create table %I as
     select
@@ -39,6 +33,11 @@ begin
             $$create unique index %2$I on %1$I (name, namespace) $$,
             table_name,
             table_name || '_index_name_space');
+
+    execute format($table_resource_$
+    create function %1$I() returns text return %2$I.path_with(%2$I.resources_path(%3$L, %4$L), label_selector => %5$L, field_selector => %6$L)
+    $table_resource_$, table_name || '_resource_path', ns, group_version, resource, label_selector,
+                   field_selector);
 
     execute format($resource_table_refresh$
     create function %1$I() returns table (type text, object jsonb)

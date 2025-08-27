@@ -5,9 +5,8 @@ create function api(paths text[],
                     clientcert omni_httpc.client_certificate default row (current_setting('omni_kube.clientcert', true), current_setting('omni_kube.client_private_key', true))::omni_httpc.client_certificate,
                     token text default current_setting('omni_kube.token', true),
                     methods omni_http.http_method[] default null,
-                    bodies jsonb[] default null, stream boolean default false,
-                    label_selectors text[] default null,
-                    field_selectors text[] default null)
+                    bodies jsonb[] default null, stream boolean default false
+)
     returns table
             (
                 response jsonb,
@@ -27,18 +26,7 @@ begin
 
     return query
         with request as (select (omni_httpc.http_request(
-                format('%1$s%2$s', server,
-                       path || case
-                                   when position('?' in path) > 0 then '&'
-                                   when label_selector is null and field_selector is null then ''
-                                   else '?' end ||
-                       coalesce(
-                               'labelSelector=' ||
-                               omni_web.url_encode(label_selector),
-                               '')
-                           || coalesce('&fieldSelector=' ||
-                                       omni_web.url_encode(field_selector),
-                                       '')),
+                server || path,
                 coalesce(method, 'GET'),
                                         array [
                                             omni_http.http_header('Content-Type', 'application/json'),
@@ -48,8 +36,6 @@ begin
                 convert_to(body::text, 'UTF8')
                                  )) as req
                          from lateral (select unnest(paths)           as path,
-                                              unnest(label_selectors) as label_selector,
-                                              unnest(field_selectors) as field_selector,
                                               unnest(methods)         as method,
                                               unnest(bodies)          as body) d),
              agg_request as (select array_agg(req) agg_req from request)
@@ -75,8 +61,7 @@ create function api(path text,
                     clientcert omni_httpc.client_certificate default row (current_setting('omni_kube.clientcert', true), current_setting('omni_kube.client_private_key', true))::omni_httpc.client_certificate,
                     token text default current_setting('omni_kube.token', true),
                     method omni_http.http_method default 'GET',
-                    body jsonb default null, stream boolean default false, label_selector text default null,
-                    field_selector text default null) returns jsonb
+                    body jsonb default null, stream boolean default false) returns jsonb
     language plpgsql as
 $$
 declare
@@ -98,7 +83,7 @@ begin
     select response, status
     into result, response_status
     from api(array [path], server, cacert, clientcert, token, array [method],
-             array [body], stream, array [label_selector], array [field_selector]);
+             array [body], stream);
     if response_status >= 400 then
         raise exception '%', result ->> 'reason' using detail = result ->> 'message';
     end if;
