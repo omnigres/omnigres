@@ -38,6 +38,7 @@
 #include <utils/inet.h>
 #include <utils/json.h>
 #include <utils/jsonb.h>
+#include <utils/lsyscache.h>
 #include <utils/memutils.h>
 #include <utils/snapmgr.h>
 #include <utils/uuid.h>
