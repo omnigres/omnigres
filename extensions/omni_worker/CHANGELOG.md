@@ -7,6 +7,10 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.2.0] - TBD
 
+### Added
+
+* SQL autostart functionality [#932](https://github.com/omnigres/omnigres/pull/932)
+
 ## [0.1.4] - 2025-09-04
 
 ### Fixed
