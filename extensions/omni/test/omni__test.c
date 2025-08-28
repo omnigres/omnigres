@@ -11,6 +11,7 @@
 #include <storage/latch.h>
 #include <storage/lwlock.h>
 #include <utils/builtins.h>
+#include <utils/lsyscache.h>
 #if PG_MAJORVERSION_NUM >= 14
 #include <utils/wait_event.h>
 #else
