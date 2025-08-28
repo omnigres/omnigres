@@ -1,6 +1,10 @@
 #include <boost/container/string.hpp>
 #include <oink.hpp>
 
+extern "C" {
+#include <omni/omni_v0.h>
+}
+
 #include <cppgres.hpp>
 
 #include "omni_worker.hpp"
@@ -38,10 +42,51 @@ void sql_handler(sql_message *msg) {
   })();
 }
 
-extern "C" void *omni_worker_handler(const char *name, std::size_t *hash) {
+extern const omni_handle *backend_handle;
+
+static void init_sql(bool leader) {
+  if (!leader) {
+    return;
+  }
+  bool found;
+  backend_handle->allocate_shmem(
+      backend_handle, cppgres::fmt::format("omni_pool<{}>:sql(leader)", MyDatabaseId).c_str(),
+      sizeof(bool),
+      [](const omni_handle *handle, void *ptr, void *arg, bool allocated) {
+        auto done = reinterpret_cast<bool *>(ptr);
+        if (allocated) {
+          *done = false;
+        }
+        if (!*done) {
+          cppgres::spi_executor spi;
+          cppgres::internal_subtransaction tx;
+          try {
+            auto stmts = spi.query<std::string>(
+                "select stmt from omni_worker.sql_autostart_stmt order by position asc");
+            for (auto &stmt : stmts) {
+              cppgres::report(LOG, "Autostart statement: %s", stmt.c_str());
+              try {
+                auto res = spi.execute(stmt);
+              } catch (std::exception &e) {
+                cppgres::report(WARNING, "Statement error %s: %s", stmt.c_str(), e.what());
+              }
+            }
+            *done = true;
+          } catch (std::exception &e) {
+            cppgres::report(WARNING, "Autostart error: %s", e.what());
+          }
+        }
+      },
+      nullptr, &found);
+}
+
+extern "C" void *omni_worker_handler(const char *name, std::size_t *hash, bool init, bool leader) {
   if (std::string_view(name) == "sql") {
     if (hash != nullptr) {
       *hash = std::hash<std::string_view>{}(sql_message::name());
+    }
+    if (init) {
+      init_sql(leader);
     }
     return reinterpret_cast<void *>(sql_handler);
   }
