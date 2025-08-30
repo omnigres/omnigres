@@ -204,14 +204,25 @@ connect:
   return yinstance_connect_failure;
 }
 
+void yinstance_prepare(yinstance *instance) {
+  if (instance->managed) {
+    char datadir_template[] = "pg_yregress_XXXXXX";
+    char *datadir = mkdtemp(datadir_template);
+    if (datadir == NULL) {
+      fprintf(stderr, "Failed to create temporary directory: %s\n", strerror(errno));
+      return;
+    }
+    char *heap_datadir = strdup(datadir);
+    instance->info.managed.datadir = (iovec_t){.base = heap_datadir, .len = strlen(heap_datadir)};
+  }
+}
+
 void yinstance_start(yinstance *instance) {
   if (instance->managed) {
 
-    char datadir[] = "pg_yregress_XXXXXX";
-    mkdtemp(datadir);
-
     // Initialize the cluster
     char *initdb_command;
+    const char *datadir = instance->info.managed.datadir.base;
     asprintf(&initdb_command,
              "%s/pg_ctl initdb -o '-A trust -U yregress --no-clean --no-sync --encoding=%.*s "
              "--locale=%.*s' -s -D %s",
@@ -278,11 +289,6 @@ void yinstance_start(yinstance *instance) {
     asprintf(&createdb_command, "%s/createdb -U yregress -O yregress -p %d yregress", bindir,
              instance->info.managed.port);
     system(createdb_command);
-
-    // Important to capture datadir before we try to start as init steps may restart the instance
-    // and it'll need the path
-    char *heap_datadir = strdup(datadir);
-    instance->info.managed.datadir = (iovec_t){.base = heap_datadir, .len = strlen(heap_datadir)};
   }
 
   // Wait until it is ready
@@ -316,6 +322,7 @@ static int remove_entry(const char *path, const struct stat *sb, int typeflag, s
 }
 
 void instances_cleanup() {
+  // TODO: clean up semaphores
   if (instances != NULL) {
     void *iter = NULL;
     struct fy_node_pair *instance_pair;
@@ -340,8 +347,6 @@ void instances_cleanup() {
     }
   }
 }
-
-void register_instances_cleanup() { atexit(instances_cleanup); }
 
 void restart_instance(yinstance *instance) {
   if (instance->managed) {
