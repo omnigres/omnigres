@@ -667,10 +667,17 @@ MODULE_FUNCTION char *get_library_name(const omni_handle *handle) {
 static struct dsa_ref {
   dsa_handle handle;
   dsa_pointer pointer;
-  ModuleAllocation *alloc;
+  bool alloc;
 } find_or_allocate_shmem_dsa(const omni_handle *handle, const char *name, size_t size,
                              omni_allocate_shmem_callback_function init, void *data,
                              HASHACTION action, bool *found) {
+  dsa_area *dsa_ = (action == HASH_ENTER || action == HASH_ENTER_NULL)
+                       ? dsa_handle_to_area(shared_info->dsa)
+                       : NULL;
+  // Allocate tenatively, before locking
+  dsa_pointer ptr =
+      (action == HASH_ENTER || action == HASH_ENTER_NULL) ? dsa_allocate0(dsa_, size) : 0;
+
   if (strlen(name) > NAMEDATALEN - 1) {
     ereport(ERROR, errmsg("name must be under 64 bytes long"));
   }
@@ -685,76 +692,74 @@ static struct dsa_ref {
   };
   strncpy(key.name, name, sizeof(key.name));
   ModuleAllocation *alloc;
+  struct dsa_ref result;
   switch (action) {
   case HASH_ENTER:
   case HASH_ENTER_NULL:
     alloc = (ModuleAllocation *)dshash_find_or_insert(omni_allocations, &key, found);
+    if (!*found) {
+      alloc->dsa_pointer = ptr;
+      alloc->dsa_handle = shared_info->dsa;
+      alloc->size = size;
+      pg_atomic_init_u32(&alloc->refcounter, 0);
+    }
+    result.handle = alloc->dsa_handle;
+    result.pointer = alloc->dsa_pointer;
+    result.alloc = true;
+
+    pg_atomic_add_fetch_u32(&alloc->refcounter, 1);
+    dshash_release_lock(omni_allocations, alloc);
     break;
   case HASH_FIND:
     alloc = (ModuleAllocation *)dshash_find(omni_allocations, &key, false);
     *found = alloc != NULL;
+    if (*found) {
+      result.handle = alloc->dsa_handle;
+      result.pointer = alloc->dsa_pointer;
+      result.alloc = true;
+
+      pg_atomic_add_fetch_u32(&alloc->refcounter, 1);
+      dshash_release_lock(omni_allocations, alloc);
+    }
     break;
   case HASH_REMOVE:
     alloc = (ModuleAllocation *)dshash_find(omni_allocations, &key, true);
     *found = alloc != NULL;
+
+    if (*found) {
+      result.handle = alloc->dsa_handle;
+      result.pointer = alloc->dsa_pointer;
+      result.alloc = true;
+
+      if (pg_atomic_sub_fetch_u32(&alloc->refcounter, 1) == 0) {
+        dshash_delete_entry(omni_allocations, alloc);
+        result.alloc = false;
+      } else {
+        dshash_release_lock(omni_allocations, alloc);
+      }
+    }
     break;
   }
+  LWLockRelease(&(locks + OMNI_LOCK_ALLOCATION)->lock);
   if (!*found) {
     if (action == HASH_ENTER || action == HASH_ENTER_NULL) {
-      alloc->dsa_handle = shared_info->dsa;
-      dsa_area *dsa = dsa_handle_to_area(shared_info->dsa);
-      uint32 interrupt_holdoff = InterruptHoldoffCount;
-      PG_TRY();
-      { alloc->dsa_pointer = dsa_allocate0(dsa, size); }
-      PG_CATCH();
-      {
-        // errfinish sets `InterruptHoldoffCount` to zero as part of its cleanup
-        // and suggests that handlers can save and restore it itself.
-        InterruptHoldoffCount = interrupt_holdoff;
-        // If shared memory allocation fails, remove the record
-        dshash_delete_entry(omni_allocations, alloc);
-        LWLockRelease(&(locks + OMNI_LOCK_ALLOCATION)->lock);
-        // and continue with the error
-        PG_RE_THROW();
-      }
-      PG_END_TRY();
-      alloc->size = size;
-      pg_atomic_init_u32(&alloc->refcounter, 0);
-
       if (init != NULL) {
         if (phandle->magic.revision < 3) {
           void (*init_rev2)(void *ptr, void *data) = (void (*)(void *ptr, void *data))init;
-          init_rev2(dsa_get_address(dsa, alloc->dsa_pointer), data);
+          init_rev2(dsa_get_address(dsa_, result.pointer), data);
         } else {
-          init(handle, dsa_get_address(dsa, alloc->dsa_pointer), data, true);
+          init(handle, dsa_get_address(dsa_, result.pointer), data, true);
         }
       }
     }
-  } else {
+  } else if (action != HASH_REMOVE) {
     if (init != NULL) {
       if (phandle->magic.revision >= 3) {
-        init(handle, dsa_get_address(dsa_handle_to_area(alloc->dsa_handle), alloc->dsa_pointer),
-             data, false);
+        init(handle, dsa_get_address(dsa_handle_to_area(result.handle), result.pointer), data,
+             false);
       }
     }
   }
-  struct dsa_ref result =
-      (*found || (action == HASH_ENTER || action == HASH_ENTER_NULL) // if it was found or allocated
-           ? ((struct dsa_ref){
-                 .pointer = alloc->dsa_pointer, .handle = alloc->dsa_handle, .alloc = alloc})
-           : (struct dsa_ref){});
-  if (action == HASH_REMOVE && *found) {
-    if (pg_atomic_sub_fetch_u32(&alloc->refcounter, 1) == 0) {
-      dshash_delete_entry(omni_allocations, alloc);
-      result.alloc = NULL;
-    } else {
-      dshash_release_lock(omni_allocations, alloc);
-    }
-  } else if (action == HASH_ENTER || *found) {
-    pg_atomic_add_fetch_u32(&alloc->refcounter, 1);
-    dshash_release_lock(omni_allocations, alloc);
-  }
-  LWLockRelease(&(locks + OMNI_LOCK_ALLOCATION)->lock);
   return result;
 }
 
@@ -814,7 +819,7 @@ static void deallocate_shmem(const omni_handle *handle, const char *name, bool *
     }
     MemoryContextSwitchTo(oldcontext);
   }
-  if (*found && ref.alloc == NULL) {
+  if (*found && !ref.alloc) {
     dsa_free(dsa_handle_to_area(ref.handle), ref.pointer);
   }
 }
