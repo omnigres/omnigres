@@ -9,4 +9,5 @@ add_python_package(py_omni_python
         SOURCES
         src/omni_python/__init__.py
         src/omni_python/log.py
+	src/omni_python/dbapi.py
         )
