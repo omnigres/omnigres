@@ -1,0 +1,218 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_kube cascade
+  - create extension omni_os cascade
+
+tests:
+
+- select omni_kube.load_kubeconfig((select value from omni_os.env where variable = 'HOME') || '/.kube/config')
+
+- name: establish the table
+  commit: true
+  query: select omni_kube.resource_table('cm', 'v1', 'configmaps', transactional => true)
+
+- name: establish the immediate view
+  commit: true
+  query: select omni_kube.resource_view('cmv', 'v1', 'configmaps')
+
+- name: clean up from potential previous failures
+  commit: true
+  query: delete
+         from cmv
+         where resource -> 'metadata' -> 'labels' ->> 'omnigres.com/test' = 'transaction'
+
+- name: resource table insertion + rollback
+  tests:
+  - steps:
+    - name: insert
+      query: |
+        insert into cm (resource)
+        values ('{ "metadata": { "generateName": "omni-kube-cm-test-transactional-", "labels": {"omnigres.com/test": "transaction"} }, "data": {} }')
+    - name: should not be visible in the cluster
+      query: select
+             from cmv
+             where resource -> 'metadata' -> 'labels' ->> 'omnigres.com/test' = 'transaction'
+      results: [ ]
+  - name: after rollback, still not visible
+    query: select
+           from cmv
+           where resource -> 'metadata' -> 'labels' ->> 'omnigres.com/test' = 'transaction'
+    results: [ ]
+
+- name: resource table insertion + commit
+  tests:
+  - commit: true
+    steps:
+    - name: insert
+      query: |
+        insert into cm (resource)
+        values ('{ "metadata": { "generateName": "omni-kube-cm-test-transactional-", "labels": {"omnigres.com/test": "transaction"} }, "data": {} }')
+    - name: should not be visible in the cluster
+      query: select
+             from cmv
+             where resource -> 'metadata' -> 'labels' ->> 'omnigres.com/test' = 'transaction'
+      results: [ ]
+  - name: after commit, visible
+    query: select count(*)
+           from cmv
+           where resource -> 'metadata' -> 'labels' ->> 'omnigres.com/test' = 'transaction'
+    results:
+    - count: 1
+
+- name: clean up
+  commit: true
+  query: delete
+         from cmv
+         where resource -> 'metadata' -> 'labels' ->> 'omnigres.com/test' = 'transaction'
+
+- name: resource table insertion + update + commit
+  tests:
+  - commit: true
+    steps:
+    - name: insert
+      query: |
+        insert into cm (resource)
+        values ('{ "metadata": { "generateName": "omni-kube-cm-test-transactional-", "labels": {"omnigres.com/test": "transaction"} }, "data": {"test": "failed"} }')
+    - name: update
+      query: |
+        update cm
+        set resource = jsonb_set(resource, '{data,test}', '"passed"')
+        where resource -> 'metadata' -> 'labels' ->> 'omnigres.com/test' = 'transaction'
+          and new
+    - name: should not be visible in the cluster
+      query: select
+             from cmv
+             where resource -> 'metadata' -> 'labels' ->> 'omnigres.com/test' = 'transaction'
+      results: [ ]
+  - name: after commit, visible
+    query: select resource -> 'data' as value
+           from cmv
+           where resource -> 'metadata' -> 'labels' ->> 'omnigres.com/test' = 'transaction'
+    results:
+    - value:
+        test: passed
+
+- name: clean up
+  commit: true
+  query: delete
+         from cmv
+         where resource -> 'metadata' -> 'labels' ->> 'omnigres.com/test' = 'transaction'
+
+- name: resource table insertion + deletion + commit
+  tests:
+  - commit: true
+    steps:
+    - name: insert
+      query: |
+        insert into cm (resource)
+        values ('{ "metadata": { "generateName": "omni-kube-cm-test-transactional-", "labels": {"omnigres.com/test": "transaction"} }, "data": {"test": "failed"} }')
+    - name: delete
+      query: |
+        delete
+        from cm
+        where resource -> 'metadata' -> 'labels' ->> 'omnigres.com/test' = 'transaction'
+          and new
+    - name: should not be visible in the cluster
+      query: select
+             from cmv
+             where resource -> 'metadata' -> 'labels' ->> 'omnigres.com/test' = 'transaction'
+      results: [ ]
+  - name: after commit, not visible
+    query: select count(*)
+           from cmv
+           where resource -> 'metadata' -> 'labels' ->> 'omnigres.com/test' = 'transaction'
+    results:
+    - count: 0
+
+- name: clean up
+  commit: true
+  query: delete
+         from cmv
+         where resource -> 'metadata' -> 'labels' ->> 'omnigres.com/test' = 'transaction'
+
+- name: insert committed
+  commit: true
+  query: |
+    insert into cm (resource)
+    values ('{ "metadata": { "generateName": "omni-kube-cm-test-transactional-", "labels": {"omnigres.com/test": "transaction"} }, "data": {"test": "passed"} }')
+
+- name: resource table update + rollback
+  tests:
+  - steps:
+    - query: |
+        update cm
+        set resource = jsonb_set(resource, '{data,test}', '"failed"')
+        where resource -> 'metadata' -> 'labels' ->> 'omnigres.com/test' = 'transaction'
+  - name: after rollback, still not changed
+    query: select resource -> 'data' as data
+           from cmv
+           where resource -> 'metadata' -> 'labels' ->> 'omnigres.com/test' = 'transaction'
+    results:
+    - data:
+        test: passed
+
+- name: clean up
+  commit: true
+  query: delete
+         from cmv
+         where resource -> 'metadata' -> 'labels' ->> 'omnigres.com/test' = 'transaction'
+
+- name: insert committed
+  commit: true
+  query: |
+    insert into cm (resource)
+    values ('{ "metadata": { "generateName": "omni-kube-cm-test-transactional-", "labels": {"omnigres.com/test": "transaction"} }, "data": {"test": "passed"} }')
+
+- name: resource table update + commit
+  tests:
+  - commit: true
+    steps:
+    - query: |
+        update cm
+        set resource = jsonb_set(resource, '{data,test}', '"surpassed"')
+        where resource -> 'metadata' -> 'labels' ->> 'omnigres.com/test' = 'transaction'
+  - name: after commit, changed
+    query: select resource -> 'data' as data
+           from cmv
+           where resource -> 'metadata' -> 'labels' ->> 'omnigres.com/test' = 'transaction'
+    results:
+    - data:
+        test: surpassed
+
+- name: clean up
+  commit: true
+  query: delete
+         from cmv
+         where resource -> 'metadata' -> 'labels' ->> 'omnigres.com/test' = 'transaction'
+
+- name: insert committed
+  commit: true
+  query: |
+    insert into cm (resource)
+    values ('{ "metadata": { "generateName": "omni-kube-cm-test-transactional-", "labels": {"omnigres.com/test": "transaction"} }, "data": {"test": "passed"} }')
+
+- name: resource table update + delete + commit
+  tests:
+  - commit: true
+    steps:
+    - query: |
+        update cm
+        set resource = jsonb_set(resource, '{data,test}', '"surpassed"')
+        where resource -> 'metadata' -> 'labels' ->> 'omnigres.com/test' = 'transaction'
+    - query: |
+        delete
+        from cm
+        where resource -> 'metadata' -> 'labels' ->> 'omnigres.com/test' = 'transaction'
+  - name: after commit, gone
+    query: select count(*)
+           from cmv
+           where resource -> 'metadata' -> 'labels' ->> 'omnigres.com/test' = 'transaction'
+    results:
+    - count: 0
+
+- name: clean up
+  commit: true
+  query: delete
+         from cmv
+         where resource -> 'metadata' -> 'labels' ->> 'omnigres.com/test' = 'transaction'

@@ -77,58 +77,247 @@ tests:
            from pods
     results:
     - non_empty: true
-  - name: cleanup from previous failures
+  - name: clean up from previous failures
     query: |
-      do
-      $$
-          declare
-              exit_flag boolean := false;
-          begin
-              while not exit_flag
-                  loop
-                      delete
-                      from pods
-                      where name = 'nginx-pod-omni-kube';
-                      -- check
-                      select count(*) = 0
-                      into exit_flag
-                      from pods
-                      where name = 'nginx-pod-omni-kube';
-                  end loop;
-          exception
-              when others then
-                  if sqlerrm = 'NotFound' then
-                      null;
-                  else
-                      raise;
-                  end if;
-          end;
-      $$
+      delete
+      from pods
+      where resource -> 'metadata' -> 'labels' -> 'omnigres.com/test' is not null
+  - create table pod_uid
+    (
+        uid text not null
+    )
   - name: insert into it
     query: |
-      insert into pods (resource)
-      values ('{ "metadata": { "name": "nginx-pod-omni-kube", "labels": {"omnigres.com/test": "true"} }, "spec": { "containers": [{ "name": "test", "image": "nginx" }] } }')
-  - name: find it
-    query: select name
-           from pods
-           where name = 'nginx-pod-omni-kube'
+      with
+          insertion as (insert into pods (resource)
+      values ('{ "metadata": { "generateName": "nginx-pod-omni-kube-", "labels": {"omnigres.com/test": "true"} }, "spec": { "containers": [{ "name": "test", "image": "nginx" }] } }')
+              returning *)
+      insert
+      into
+          pod_uid (uid)
+      select
+          uid
+      from
+          insertion
+      where
+          name is not null and
+          namespace is not null and
+          resource -> 'metadata' ->> 'uid' = uid and
+          resource -> 'metadata' ->> 'name' = name
+  - name: ensure we got the uid (conditions satisfied)
+    query: select
+               count(*) > 0 as non_empty
+           from
+               pod_uid
     results:
-    - name: nginx-pod-omni-kube
+    - non_empty: true
+  - name: find it
+    query: select true as found
+           from pods
+                    inner join pod_uid pu on pu.uid = pods.uid
+    results:
+    - found: true
+  - name: field selector
+    query: select
+               omni_kube.resource_view('pods_fs', 'v1', 'pods',
+                                       field_selector => 'metadata.name=' ||
+                                                         (select
+                                                              resource -> 'metadata' ->> 'name'
+                                                          from
+                                                              pods
+                                                          where
+                                                              resource -> 'metadata' -> 'labels' -> 'omnigres.com/test' = 'true' and
+                                                              resource -> 'metadata' ->> 'name' like 'nginx-pod-omni-kube-%'
+                                                          limit 1))
+  - name: try field selector
+    query: select
+               count(*) > 0 as non_empty
+           from
+               pods_fs
+    results:
+    - non_empty: true
+  - name: label selector
+    query: select omni_kube.resource_view('pods_ls', 'v1', 'pods', label_selector => 'omnigres.com/test=true')
+  - name: try with a label selector
+    query: select
+               count(*) > 0 as non_empty
+           from
+               pods_ls
+    results:
+    - non_empty: true
   - name: wait for things to settle (to prevent Conflict)
     query: select pg_sleep(1)
   - name: update it
     query: |
+      with
+          updating as (
       update pods
       set resource = jsonb_set(resource, '{metadata,labels,omnigres.com/test}', '"passed"')
-      where name = 'nginx-pod-omni-kube'
+          from pod_uid
+          where pods.uid = pod_uid.uid returning *)
+      select
+          resource -> 'metadata' -> 'labels' -> 'omnigres.com/test' as label
+      from
+          updating
+    results:
+    - label: passed
   - name: check labels
     query: select resource -> 'metadata' -> 'labels' labels
            from pods
-           where name = 'nginx-pod-omni-kube'
+                    inner join pod_uid pu on pu.uid = pods.uid
+    results:
+    - labels:
+        "omnigres.com/test": passed
+  - name: try with a label selector
+    query: select
+               count(*) > 0 as non_empty
+           from
+               pods_ls
+    results:
+    - non_empty: false
+  - name: cleanup
+    query: delete
+           from pods
+               using pod_uid pu
+           where pu.uid = pods.uid
+
+- name: resource table
+  steps:
+  - name: establish the table
+    query: select omni_kube.resource_table('pods', 'v1', 'pods')
+  - name: look at it
+    query: select count(*) > 0 as non_empty
+           from pods
+    results:
+    - non_empty: true
+  - name: clean up from previous failures
+    query: |
+      delete
+      from pods
+      where resource -> 'metadata' -> 'labels' -> 'omnigres.com/test' is not null
+  - name: should be clean
+    query: select
+           from pods
+           where resource -> 'metadata' -> 'labels' -> 'omnigres.com/test' is not null
+    results: [ ]
+  - create table pod_uid
+    (
+        uid text not null
+    )
+  - name: insert into it
+    query: |
+      with insertion as (insert into pods (resource)
+          values ('{ "metadata": { "generateName": "nginx-pod-omni-kube-", "labels": {"omnigres.com/test": "true"} }, "spec": { "containers": [{ "name": "test", "image": "nginx" }] } }')
+          returning *)
+      insert
+      into pod_uid (uid)
+      select uid
+      from insertion
+  - name: ensure we got the uid (conditions satisfied)
+    query: select count(*) > 0 as non_empty
+           from pod_uid
+    results:
+    - non_empty: true
+  - name: find it
+    query: select true as found
+           from pods
+           where resource -> 'metadata' -> 'labels' -> 'omnigres.com/test' is not null
+    results:
+    - found: true
+  - name: wait for things to settle (to prevent Conflict)
+    query: select pg_sleep(1)
+  - name: refresh before updating
+    query: select refresh_pods()
+  - name: update it
+    query: |
+      with updating as (
+          update pods
+              set resource = jsonb_set(resource, '{metadata,labels,omnigres.com/test}', '"passed"')
+              from pod_uid
+              where pods.uid = pod_uid.uid returning *)
+      select resource -> 'metadata' -> 'labels' -> 'omnigres.com/test' as label
+      from updating
+    results:
+    - label: passed
+  - name: check labels
+    query: select resource -> 'metadata' -> 'labels' labels
+           from pods
+                    inner join pod_uid pu on pu.uid = pods.uid
     results:
     - labels:
         "omnigres.com/test": passed
   - name: cleanup
     query: delete
            from pods
-           where name = 'nginx-pod-omni-kube'
+               using pod_uid pu
+           where pu.uid = pods.uid
+
+- name: resource table refresh
+  steps:
+  - name: establish the table
+    query: select omni_kube.resource_table('configmap', 'v1', 'configmaps')
+  - name: establish a view
+    query: select omni_kube.resource_view('configmapv', 'v1', 'configmaps')
+  - name: clean up from previous failures
+    query: |
+      delete
+      from configmap
+      where resource -> 'metadata' -> 'labels' -> 'omnigres.com/test' is not null
+  - name: should be clean
+    query: select
+           from configmap
+           where resource -> 'metadata' -> 'labels' -> 'omnigres.com/test' is not null
+    results: [ ]
+  - create table cm_uid
+    (
+        uid text not null
+    )
+  - name: insert into view
+    query: |
+      with insertion as (insert into configmapv (resource)
+          values ('{ "metadata": { "generateName": "omni-kube-cm-test-", "labels": {"omnigres.com/test": "true"} }, "data": {} }')
+          returning *)
+      insert
+      into cm_uid (uid)
+      select uid
+      from insertion
+  - name: ensure we got the uid (conditions satisfied)
+    query: select count(*) > 0 as non_empty
+           from cm_uid
+    results:
+    - non_empty: true
+  - name: should not be in the table
+    query: select
+           from configmap
+                    inner join cm_uid c on c.uid = configmap.uid
+    results: [ ]
+  - name: refresh
+    query: select type
+           from refresh_configmap()
+                    inner join cm_uid c on c.uid = object -> 'metadata' ->> 'uid'
+    results:
+    - type: 'ADDED'
+  - name: new refresh
+    query: select
+           from refresh_configmap()
+    results: [ ]
+  - name: update through the view
+    query: |
+      update configmapv
+      set resource = jsonb_set(resource, '{data}', '{"new": "data"}')
+  - name: refresh
+    query: select type
+           from refresh_configmap()
+                    inner join cm_uid c on c.uid = object -> 'metadata' ->> 'uid'
+    results:
+    - type: 'MODIFIED'
+  - name: delete through the view
+    query: delete
+           from configmapv using cm_uid c
+           where c.uid = configmapv.uid
+  - name: refresh
+    query: select type
+           from refresh_configmap()
+                    inner join cm_uid c on c.uid = object -> 'metadata' ->> 'uid'
+    results:
+    - type: 'DELETED'

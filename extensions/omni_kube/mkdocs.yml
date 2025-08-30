@@ -3,4 +3,5 @@ site_name: omni_kube
 nav:
 - 'credentials.md'
 - 'resources.md'
+- 'paths.md'
 - 'internals_api.md'
