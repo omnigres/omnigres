@@ -7605,13 +7605,11 @@ template <typename Func> struct ffi_guard {
       ::PG_exception_stack = pbuf;
     });
 
-    auto ih = ::InterruptHoldoffCount;
     state = sigsetjmp(buf, 1);
 
     if (state == 0) {
       return func(std::forward<Args>(args)...);
     } else if (state == 1) {
-      ::InterruptHoldoffCount = ih;
       throw pg_exception(mcxt);
     }
     __builtin_unreachable();
