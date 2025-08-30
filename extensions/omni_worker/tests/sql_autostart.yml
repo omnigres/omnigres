@@ -1,0 +1,61 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+    max_worker_processes: 64
+    omni_worker.workers: 10
+  init:
+  - create extension if not exists omni_worker cascade
+  - restart: true
+    name: ensure empty autostart works
+
+tests:
+
+- name: add autostart operations
+  commit: true
+  query: |
+    insert into omni_worker.sql_autostart_stmt (stmt, position)
+    values ('create table if not exists test2 as select * from test1', 2),
+           ('create table if not exists test1 as select 1 as val', 1)
+
+- name: restart
+  restart: true
+
+- name: wait for completion and check results
+  query: |
+    do
+    $$
+        declare
+            max_attempts int := 50;
+            attempt      int := 0;
+            test1_exists boolean;
+            test2_exists boolean;
+        begin
+            loop
+                attempt := attempt + 1;
+                
+                select exists(select 1 from pg_tables where tablename = 'test1') into test1_exists;
+                select exists(select 1 from pg_tables where tablename = 'test2') into test2_exists;
+                
+                exit when (test1_exists and test2_exists) or attempt >= max_attempts;
+                
+                perform pg_sleep(0.1);
+            end loop;
+            
+            if not (test1_exists and test2_exists) then
+                raise exception 'Tables not created after % attempts', max_attempts;
+            end if;
+        end
+    $$;
+
+- name: check test1
+  query: select *
+         from test1
+  results:
+  - val: 1
+
+- name: check test2
+  query: select *
+         from test2
+  results:
+  - val: 1
