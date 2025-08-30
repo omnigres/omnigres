@@ -311,9 +311,10 @@ A collection of extensions that improve Postgres and turn it into a comprehensiv
 </details>
 
 <details>
-<summary><strong>System Integration</strong></summary>
+<summary><strong>Operating System Integration</strong></summary>
 
-- **[omni_os](extensions/omni_os/README.md)** - Access to the operating system
+- **[omni_os](extensions/omni_os/README.md)** - Access to the operating system utiltiies
+- **[omni_shmem](extensions/omni_shmem/README.md)** - Shared memory management
 
 </details>
 
