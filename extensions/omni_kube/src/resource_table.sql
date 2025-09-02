@@ -79,27 +79,36 @@ begin
     $table_resource_$, table_name || '_resource_path', ns, group_version, resource, label_selector,
                    field_selector);
 
-    execute format($resource_table_refresh$
-    create function %1$I() returns table (type text, object jsonb)
+
+    execute format($refresh_agg$
+    create function %3$I(jsonb) returns jsonb
     set omni_kube.refresh = true
     begin atomic;
-     with new as materialized (select
+    with new as materialized (select
      resource->'metadata'->>'uid' as uid,
      resource->'metadata'->>'name' as name,
      resource->'metadata'->>'namespace' as namespace,
-     resource from %3$I.resources(%4$L, %5$L, label_selector => %6$L, field_selector => %7$L) resource),
+     resource from jsonb_array_elements($1) resource),
        deletion as (delete from %2$I where not exists (select from new where new.uid = %2$I.uid) returning %2$I.*),
        insertion as (insert into %2$I select * from new where not exists (select from %2$I x where x.uid = new.uid) returning %2$I.*),
        updating as (update %2$I set uid = new.uid, name = new.name, namespace = new.namespace, resource = new.resource
           from new where new.uid = %2$I.uid and new.resource != %2$I.resource returning %2$I.*)
+       select coalesce(jsonb_agg(to_jsonb(t)),'[]') from (
        select 'DELETED' as type, od.resource as object from deletion od
        union all
        select 'ADDED' as type, oi.resource as object from insertion oi
        union all
-       select 'MODIFIED' as type, ou.resource as object from updating ou;
+       select 'MODIFIED' as type, ou.resource as object from updating ou) t;
     end;
-    $resource_table_refresh$, 'refresh_' || table_name, table_name, ns, group_version, resource, label_selector,
-                   field_selector);
+    create aggregate %1$I (jsonb) (sfunc = jsonb_concat, finalfunc = %3$I, stype = jsonb, initcond = '[]');
+    $refresh_agg$, 'refresh_' || table_name || '_agg', table_name, 'refresh_' || table_name || '_agg_sfunc');
+
+    execute format($resource_table_refresh$
+    create function %1$I() returns table (type text, object jsonb)
+    begin atomic; with updates as (select jsonb_array_elements(%2$I(api->'items')) r from %4$I.api(%3$I())) select r->>'type', r->'object' from updates; end;
+    $resource_table_refresh$, 'refresh_' || table_name, 'refresh_' || table_name || '_agg',
+                   table_name || '_resource_path', ns);
+
 
     execute format($resource_table_insert$
     create or replace function %1$I() returns trigger
