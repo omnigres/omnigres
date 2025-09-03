@@ -1,0 +1,53 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_kube cascade
+  - create extension omni_os cascade
+
+tests:
+
+- select omni_kube.load_kubeconfig((select value from omni_os.env where variable = 'HOME') || '/.kube/config')
+
+- name: watch smoke test
+  steps:
+  - name: establish a pod view
+    query: select omni_kube.resource_view('pods', 'v1', 'pods')
+  - name: clean up from previous failures
+    query: |
+      delete
+      from pods
+      where resource -> 'metadata' -> 'labels' -> 'omnigres.com/watch-test' is not null
+  - name: save the resource version
+    query: |
+      create table rv as
+      select omni_kube.resources_metadata('v1', 'pods') ->> 'resourceVersion' as resource_version
+  - name: insert into it
+    query: |
+      insert into pods (resource)
+      values ('{ "metadata": { "generateName": "nginx-pod-omni-kube-", "labels": {"omnigres.com/watch-test": "true"} }, "spec": { "containers": [{ "name": "test", "image": "nginx" }] } }')
+  - name: watch
+    query: |
+      select count(*)
+      from omni_kube.watch('v1', 'pods',
+                           resource_version => (select resource_version from rv)), lateral unnest(events) as event
+      where event -> 'object' -> 'metadata' -> 'labels' ->> 'omnigres.com/watch-test' = 'true'
+        and event ->> 'type' = 'ADDED'
+    results:
+    - count: 1
+  - name: update the meta resource version
+    query: |
+      create table rv1 as
+      select omni_kube.resources_metadata('v1', 'pods') ->> 'resourceVersion' as resource_version
+  - name: nothing should be added in the new version
+    query: |
+      select count(*)
+      from omni_kube.watch('v1', 'pods',
+                           resource_version => (select resource_version from rv1)), lateral unnest(events) as event
+      where event -> 'object' -> 'metadata' -> 'labels' ->> 'omnigres.com/watch-test' = 'true'
+        and event ->> 'type' = 'ADDED'
+    results:
+    - count: 0
+  - name: cleanup
+    query: delete
+           from pods
+           where resource -> 'metadata' -> 'labels' -> 'omnigres.com/watch-test' is not null

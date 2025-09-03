@@ -80,7 +80,7 @@ from omni_kube.group_resources('apps/v1')
 where name = 'deployments';
 ```
 
-### `omni_kube.resources(group_version text, resource text)`
+### `omni_kube.resources(group_version text, resource text[, label_selector text][, field_selector text])`
 
 Retrieves the actual resource instances from the Kubernetes API.
 
@@ -88,6 +88,8 @@ Retrieves the actual resource instances from the Kubernetes API.
 
 - `group_version`: The group/version identifier
 - `resource`: The resource type name
+- `label_selector`: Optional label selector (e.g., 'app=web-app')
+- `field_selector`: Optional field selector (e.g., 'metadata.name=web-app')
 
 **Returns:**
 
@@ -103,7 +105,9 @@ from omni_kube.resources('apps/v1', 'deployments') resource;
 
 ## Dynamic Resource Views
 
-### `omni_kube.resource_view(view_name name, group_version text, resource text)`
+###
+
+`omni_kube.resource_view(view_name name, group_version text, resource text[, label_selector text][, field_selector text])`
 
 Creates a dynamic view that provides a SQL interface for managing specific Kubernetes resources.
 
@@ -112,6 +116,8 @@ Creates a dynamic view that provides a SQL interface for managing specific Kuber
 - `view_name`: Name for the generated view
 - `group_version`: API group/version (e.g., 'v1', 'apps/v1')
 - `resource`: Resource type (e.g., 'pods', 'deployments')
+- `label_selector`: Optional label selector (e.g., 'app=web-app')
+- `field_selector`: Optional field selector (e.g., 'metadata.name=web-app')
 
 **Returns:**
 
@@ -198,6 +204,67 @@ The system includes comprehensive validation:
 - **Required Fields**: Validates that resources have required name field
 - **UID Restrictions**: Prevents manual UID assignment for new resources
 - **Resource Existence**: Validates resources exist before update/delete operations
+
+Add this section to your **Resource Discovery Functions** section, after the `omni_kube.resources()` function:
+
+### `omni_kube.resources_metadata(group_version text, resource text)`
+
+Retrieves only the metadata section from a Kubernetes resource collection, which is useful for getting information like
+resource versions without fetching the entire resource list.
+
+**Parameters:**
+
+- `group_version`: The group/version identifier (e.g., 'v1', 'apps/v1')
+- `resource`: The resource type name
+
+**Returns:**
+
+- `jsonb`: The metadata object from the Kubernetes API response, typically containing fields like `resourceVersion`.
+
+**Example:**
+
+```postgresql
+-- Get the current resource version for pods
+select omni_kube.resources_metadata('v1', 'pods') ->> 'resourceVersion' as current_version;
+```
+
+## Resource Tables
+
+The `omni_kube.resource_table()` function provides an alternative to dynamic views by creating materialized tables that
+cache Kubernetes resource data locally. Like `resource_view()`, it accepts the same parameters for specifying the target
+API group, version, and resource type. The key advantage of resource tables is performance and a stable view – they
+store resource data locally in the database rather than making API calls on each query.
+
+Each generated table has a corresponding `refresh_<table_name>()` function that synchronizes the local data with the
+current state of the Kubernetes cluster.
+
+This refresh mechanism allows you to control when expensive API calls occur, making resource tables ideal for scenarios
+where you need to perform complex queries, joins, or analytics on Kubernetes data without the latency of repeated API
+requests. The refresh function can be called manually or scheduled for automated data synchronization.
+
+Resource tables are particularly valuable for building Kubernetes operators and controllers, where you need to maintain
+local state, perform complex reconciliation logic across multiple resource types, or implement sophisticated filtering
+and aggregation operations that would be inefficient when executed against live API endpoints.
+
+The function returns a table of `(type text, object jsonb)` where type is `ADDED`, `MODIFIED` or `DELETED` and object
+is the object in question.
+
+### Transactional Resource Tables
+
+Resource tables can be made transactional by passing `transactional => true` to `omni_kube.resource_table()`. This
+**simulates** `read committed`-style isolation of changes to the cluster. That is, if you refresh a table within a
+transaction, it'll reflect current state of the cluster. All pending changes in the table are dry-run-verified but
+pooled until commit time. Subsequent changes to the same resource override the entry in the pool (so, for example, an
+update followed by another update is superseded; a deletion performed after update, wins, etc.)
+
+This enables an approximation of atomic operations – a best-effort approach.
+
+!!! warning "Important caveats"
+
+    Commits may still fail due to conflicts with the actual cluster (newer resource versions in the cluster, resource deleted, etc.)
+
+    Commit operation can also fail due to HTTP errors and leave transaction's pending changes in an inconsistent state.
+    A compensation mechanism can be devised (reconciling incomplete transaction). Future versions of this extension may provide tooling for this.
 
 ## Usage Examples
 

@@ -1,4 +1,5 @@
-create function resource_view(view_name name, group_version text, resource text)
+create function resource_view(view_name name, group_version text, resource text, label_selector text default null,
+                              field_selector text default null)
     returns regclass
     language plpgsql
 as
@@ -12,26 +13,19 @@ declare
 begin
     execute format('set search_path to %I, public', ns);
     select namespaced, kind into is_namespaced, resource_kind from group_resources(group_version) where name = resource;
+    url := resources_path(group_version, resource, namespace => case when is_namespaced then '%s' end);
     perform
         set_config('search_path', old_search_path, true);
 
-    if is_namespaced then
-        url := '/' ||
-               case when group_version in ('v1') then 'api/v1' else 'apis/' || group_version end || '/namespaces/%s/' ||
-               resource;
-    else
-        url := '/' ||
-               case when group_version in ('v1') then 'api/v1' else 'apis/' || group_version end || '/' ||
-               resource;
-    end if;
+
     execute format($resource_view_$
     create or replace view %I as
     select
      resource->'metadata'->>'uid' as uid,
      resource->'metadata'->>'name' as name,
      resource->'metadata'->>'namespace' as namespace,
-     * from %I.resources(%L, %L) resource
-    $resource_view_$, view_name, ns, group_version, resource);
+     * from %I.resources(%L, %L, label_selector => %L, field_selector => %L) resource
+    $resource_view_$, view_name, ns, group_version, resource, label_selector, field_selector);
 
     execute format($resource_view_insert$
     create or replace function %I() returns trigger
@@ -42,17 +36,20 @@ begin
       spec_ns text;
       name text;
       url text;
+      metadata jsonb;
+      result jsonb;
     begin
       if new.uid is not null then
          raise exception 'new resources can''t have uid';
       end if;
-      spec_ns := coalesce(coalesce(new.resource->'metadata','{"namespace": "default"}'::jsonb)->>'namespace', 'default');
+      metadata := coalesce(new.resource->'metadata','{"namespace": "default"}'::jsonb);
+      spec_ns := coalesce(metadata->>'namespace', 'default');
       if new.namespace is not null and spec_ns != new.namespace then
         raise exception 'namespace (%%) must match metadata (%%)', new.namespace, spec_ns;
       end if;
-      name := coalesce(coalesce(new.resource->'metadata','{}')->>'name', new.name);
+      name := coalesce(coalesce(metadata->>'name', metadata->>'generateName'), new.name);
       if name is null then
-        raise exception 'resource is required to have a name';
+        raise exception 'resource is required to have `name` or `generateName`';
       end if;
       if new.name is not null and name != new.name then
         raise exception 'name (%%) must match metadata (%%)', new.name, name;
@@ -60,7 +57,11 @@ begin
       new.resource := jsonb_set(new.resource, '{kind}', to_jsonb(%L::text));
       new.resource := jsonb_set(new.resource, '{apiVersion}', to_jsonb(%L::text));
       url := format(%L, spec_ns);
-      perform api(url, body => new.resource, method => 'POST');
+      select api(url, body => new.resource, method => 'POST') into result;
+      new.uid := result->'metadata'->>'uid';
+      new.name := result->'metadata'->>'name';
+      new.namespace := result->'metadata'->>'namespace';
+      new.resource := result;
       return new;
     end;
     $$
@@ -80,6 +81,7 @@ begin
       spec_ns text;
       name text;
       url text;
+      result jsonb;
     begin
       spec_ns := coalesce(coalesce(new.resource->'metadata','{"namespace": "default"}'::jsonb)->>'namespace', 'default');
       if new.namespace is not null and spec_ns != new.namespace then
@@ -93,7 +95,8 @@ begin
         raise exception 'name (%%) must match metadata (%%)', new.name, name;
       end if;
       url := format(%L, spec_ns);
-      perform api(url || '/' || name, body => new.resource, method => 'PUT');
+      select api(url || '/' || name, body => new.resource, method => 'PUT') into result;
+      new.resource := result;
       return new;
     end;
     $$
