@@ -219,7 +219,11 @@ static void shmem_hook() {
   }
 
   LWLockRelease(AddinShmemInitLock);
+#if PG_MAJORVERSION_NUM < 19
   OMNI_DSA_TRANCHE = LWLockNewTrancheId();
+#else
+  OMNI_DSA_TRANCHE = LWLockNewTrancheId("omni:dsa");
+#endif
 }
 
 /**
