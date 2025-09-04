@@ -1,3 +1,4 @@
+#pragma once
 
 #ifndef oink_hpp
 #define oink_hpp
@@ -5,6 +6,7 @@
 #include <atomic>
 #include <chrono>
 #include <map>
+#include <optional>
 #include <typeindex>
 
 #include <boost/interprocess/allocators/allocator.hpp>
@@ -65,12 +67,18 @@ struct arena {
   friend struct receiver;
   template <message M> friend struct message_envelope_receipt;
 
-  struct header {};
+  struct header {
+  };
 
   using header_t = shared_container<header, bip::interprocess_upgradable_mutex>;
 
+  arena(const char *segment_name) : name(segment_name), segment(bip::open_only, segment_name) {
+    auto [container, _b] = segment.find<header_t>("__header");
+    header_ = container;
+  }
+
   arena(const char *segment_name, size_t segment_size)
-      : segment(bip::open_or_create, segment_name, segment_size),
+      : name(segment_name), segment(bip::open_or_create, segment_name, segment_size),
         header_(segment.find_or_construct<header_t>("__header")()) {}
 
   auto get_segment_manager() { return segment.get_segment_manager(); }
@@ -97,10 +105,28 @@ struct arena {
     return ptr;
   }
 
+  operator bip::managed_shared_memory &() { return segment; }
+
+  std::size_t get_segment_size() { return segment.get_size(); }
+
 protected:
+  std::string name;
   bip::managed_shared_memory segment;
 
   header_t *header_;
+};
+
+struct transient_arena : arena {
+
+  // We use `name.c_str()` to make sure `removal_` has a pointer to a string with a valid
+  // lifetime. The one in the argument can go away at any time.
+  explicit transient_arena(const char *segment_name)
+      : arena(segment_name), removal_(name.c_str()) {}
+  transient_arena(const char *segment_name, size_t segment_size)
+      : arena(segment_name, segment_size), removal_(name.c_str()) {}
+
+private:
+  bip::remove_shared_memory_on_destroy removal_;
 };
 
 struct endpoint {
@@ -149,6 +175,7 @@ private:
 template <message M> struct message_envelope_receipt {
 
   M *operator->() { return &envelope->message; }
+
   operator M &() { return envelope->message; }
 
   ~message_envelope_receipt() {
@@ -173,6 +200,7 @@ template <message M> struct message_envelope_receipt {
       : envelope(other.envelope), arena_(other.arena_) {
     other.envelope = nullptr;
   }
+
   message_envelope_receipt &operator=(const message_envelope_receipt &other) {
     if (this == &other)
       return *this;
@@ -181,6 +209,7 @@ template <message M> struct message_envelope_receipt {
     other.envelope->counter.fetch_add(1);
     return *this;
   }
+
   message_envelope_receipt &operator=(message_envelope_receipt &&other) noexcept {
     if (this == &other)
       return *this;
@@ -230,6 +259,7 @@ struct receiver : endpoint {
         : hash(hash), message(std::string("unknown message ") + std::to_string(hash)) {}
 
     const char *what() const noexcept override { return message.c_str(); }
+
     std::size_t message_hash() const { return hash; }
 
   private:

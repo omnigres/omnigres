@@ -33,6 +33,6 @@ omni_var=0.3.0
 omni_vfs_types_v1=0.1.0
 omni_vfs=0.2.2
 omni_web=0.3.0
-omni_worker=0.1.3
+omni_worker=0.1.4
 omni_xml=0.1.2
 omni_yaml=0.1.0
