@@ -150,7 +150,9 @@ static bool ensure_backend_initialized(void) {
     return false;
   }
 
+#if PG_MAJORVERSION_NUM < 19
   LWLockRegisterTranche(OMNI_DSA_TRANCHE, "omni:dsa");
+#endif
 
   locks = GetNamedLWLockTranche("omni");
   LWLockAcquire(&(locks + OMNI_LOCK_DSA)->lock, LW_EXCLUSIVE);
@@ -203,8 +205,12 @@ static void request_bgworker_termination(const omni_handle *handle,
 static void register_lwlock(const omni_handle *handle, LWLock *lock, const char *name,
                             bool initialize) {
   // TODO: unused tranche id reuse
+#if PG_MAJORVERSION_NUM < 19
   int tranche_id = initialize ? LWLockNewTrancheId() : lock->tranche;
   LWLockRegisterTranche(tranche_id, name);
+#else
+  int tranche_id = initialize ? LWLockNewTrancheId(name) : lock->tranche;
+#endif
 
   if (initialize) {
     LWLockInitialize(lock, tranche_id);
