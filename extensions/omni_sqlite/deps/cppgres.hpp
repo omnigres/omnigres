@@ -7418,6 +7418,7 @@ extern "C" {
 #include <nodes/supportnodes.h>
 #include <nodes/tidbitmap.h>
 #include <parser/analyze.h>
+#include <parser/parse_func.h>
 #include <parser/parser.h>
 #include <storage/ipc.h>
 #include <utils/builtins.h>
@@ -7670,7 +7671,7 @@ struct abstract_memory_context {
 
   ::MemoryContextCallback *register_reset_callback(::MemoryContextCallbackFunction func,
                                                    void *arg) {
-    auto cb = alloc<::MemoryContextCallback>(sizeof(::MemoryContextCallback));
+    auto cb = alloc<::MemoryContextCallback>();
     cb->func = func;
     cb->arg = arg;
     ffi_guard{::MemoryContextRegisterResetCallback}(_memory_context(), cb);
@@ -7679,8 +7680,28 @@ struct abstract_memory_context {
 
   void delete_context() { ffi_guard{::MemoryContextDelete}(_memory_context()); }
 
+  /**
+   * Execute a callable within this memory context, respecting exceptions
+   */
+  auto operator()(auto thunk) { return memory_context_execution(thunk, *this)(); }
+
 protected:
   virtual ::MemoryContext _memory_context() = 0;
+
+  template <typename T> requires requires(T t) { t(); }
+  struct memory_context_execution {
+    memory_context_execution(T thunk, abstract_memory_context &ctx)
+        : _ctx(::CurrentMemoryContext), _thunk(thunk) {
+      ::CurrentMemoryContext = ctx;
+    }
+    ~memory_context_execution() { ::CurrentMemoryContext = _ctx; }
+
+    auto operator()() { return _thunk(); }
+
+  private:
+    MemoryContext _ctx;
+    T _thunk;
+  };
 };
 
 struct owned_memory_context : public abstract_memory_context {
@@ -7898,8 +7919,10 @@ struct pointer_gone_exception : public std::exception {
 namespace cppgres {
 
 struct oid {
+  oid() : oid_(InvalidOid) {}
   oid(::Oid oid) : oid_(oid) {}
   oid(oid &oid) : oid_(oid.oid_) {}
+  oid(const oid &oid) : oid_(oid.oid_) {}
 
   bool operator==(const oid &rhs) const { return oid_ == rhs.oid_; }
   bool operator!=(const oid &rhs) const { return !(rhs == *this); }
@@ -8398,6 +8421,12 @@ template <typename T, typename = void> struct type_traits {
   type type_for() = delete;
 };
 
+template <typename T>
+concept has_type_traits = requires(const type &t) {
+  { type_traits<T>().type_for() } -> std::same_as<type>;
+  { type_traits<T>().is(t) } -> std::same_as<bool>;
+};
+
 template <typename T> requires std::is_reference_v<T>
 struct type_traits<T> {
   type_traits() {}
@@ -8412,7 +8441,7 @@ template <typename T> struct type_traits<std::optional<T>> {
   constexpr type type_for() { return type_traits<T>().type_for(); }
 };
 
-struct non_by_value_type : public type {
+struct non_by_value_type {
   friend struct datum;
 
   non_by_value_type(std::pair<const struct datum &, std::optional<memory_context>> init)
@@ -8510,24 +8539,27 @@ template <flattenable T> struct expanded_varlena : public varlena {
   using varlena::varlena;
 
   expanded_varlena()
-      : varlena(([]() {
-          auto ctx = memory_context(std::move(alloc_set_memory_context()));
-          auto *e = new (ctx.alloc<expanded>()) expanded(T());
-          ctx.register_reset_callback(
-              [](void *arg) {
-                auto v = reinterpret_cast<expanded *>(arg);
-                v->inner.~T();
-              },
-              e);
-          init(&e->hdr, ctx);
-          return std::make_pair(datum(PointerGetDatum(e)), ctx);
-        })()),
+      : varlena(allocate_expanded()),
+        detoasted_value(reinterpret_cast<expanded *>(DatumGetPointer(value_datum))) {}
+
+  template <typename... Args>
+  explicit expanded_varlena(Args &&...args)
+      // avoid being copy/move constructor
+      requires(sizeof...(Args) > 0 &&
+               !(sizeof...(Args) == 1 &&
+                 std::is_same_v<std::decay_t<std::tuple_element_t<0, std::tuple<Args...>>>,
+                                expanded_varlena>))
+      : varlena(allocate_expanded(args...)),
         detoasted_value(reinterpret_cast<expanded *>(DatumGetPointer(value_datum))) {}
 
   operator T &() {
     if (detoasted_value.has_value()) {
       return detoasted_value.value()->inner;
     } else {
+      if (VARATT_IS_EXTERNAL_EXPANDED(ptr())) {
+        detoasted_value = reinterpret_cast<expanded *>(DatumGetEOHP(value_datum));
+        return detoasted_value.value()->inner;
+      }
       auto *ptr1 = reinterpret_cast<std::byte *>(varlena::operator void *());
       auto ctx = memory_context(std::move(alloc_set_memory_context()));
       auto *value = new (ctx.alloc<expanded>())
@@ -8553,10 +8585,27 @@ template <flattenable T> struct expanded_varlena : public varlena {
 
 private:
   struct expanded {
-    expanded(T &&t) : inner(std::move(t)) {}
+    expanded(auto &&...args) : inner(std::forward<decltype(args)...>(args)...) {}
     ::ExpandedObjectHeader hdr;
     T inner;
   };
+
+  template <typename... Args> static auto allocate_expanded(Args &&...args) {
+    auto ctx = memory_context(std::move(alloc_set_memory_context()));
+    return ctx([&]() {
+      auto *e = ctx.alloc<expanded>();
+      std::construct_at(e, args...);
+      init(&e->hdr, ctx);
+      ctx.register_reset_callback(
+          [](void *arg) {
+            auto v = reinterpret_cast<expanded *>(arg);
+            v->inner.~T();
+          },
+          e);
+      return std::make_pair(datum(PointerGetDatum(e)), ctx);
+    });
+  }
+
   std::optional<expanded *> detoasted_value = std::nullopt;
 
   static void init(ExpandedObjectHeader *hdr, memory_context &ctx) {
@@ -8929,11 +8978,21 @@ template <typename T> struct datum_conversion<T, std::enable_if_t<utils::is_opti
     return from_datum(d, oid, context);
   }
 
-  static T from_datum(const datum &d, oid oid, std::optional<memory_context> ctx) {
+  static T from_datum(const datum &d, oid oid, std::optional<memory_context> ctx = std::nullopt) {
     return datum_conversion<utils::remove_optional_t<T>>::from_datum(d, oid, ctx);
   }
 
-  static datum into_datum(const T &t) { return t.get_expanded_datum(); }
+  static datum into_datum(const T &t) {
+    return datum_conversion<utils::remove_optional_t<T>>::into_datum(t.value());
+  }
+
+  static nullable_datum into_nullable_datum(const T &d) {
+    if (d.has_value()) {
+      return nullable_datum(into_datum(d));
+    } else {
+      return nullable_datum();
+    }
+  }
 };
 
 /**
@@ -9007,6 +9066,18 @@ struct tuple_descriptor {
    */
   tuple_descriptor(TupleDesc tupdesc, bool blessed = true)
       : tupdesc(tupdesc), blessed(blessed), owned(false) {}
+
+  /**
+   * @brief Create a tuple description for a given composite type
+   */
+  tuple_descriptor(type t)
+      : tuple_descriptor([&]() {
+          syscache<Form_pg_type, oid> syscache(t.oid);
+          if ((*syscache).typtype != TYPTYPE_COMPOSITE) {
+            throw std::invalid_argument("not a composite type");
+          }
+          return ffi_guard{::lookup_rowtype_tupdesc_copy}(t.oid, (*syscache).typtypmod);
+        }()) {}
 
   /**
    * @brief Copy constructor
@@ -9329,6 +9400,7 @@ struct record {
   nullable_datum operator[](int n) { return get_attribute(n); }
 
   operator HeapTuple() const noexcept { return tuple; }
+  operator TupleDesc() const noexcept { return tupdesc; }
 
   /**
    * @brief Returns tuple descriptor
@@ -9387,6 +9459,49 @@ template <> struct type_traits<record> {
   constexpr type type_for() { return {.oid = RECORDOID}; }
 };
 
+template <typename T>
+concept composite_type = requires {
+  { T::composite_type() } -> std::same_as<type>;
+};
+
+template <composite_type T> struct datum_conversion<T> : default_datum_conversion<T> {
+  static T from_datum(const datum &d, oid oid_, std::optional<memory_context> ctx) {
+    if (oid_ != T::composite_type().oid) {
+      throw std::runtime_error(fmt::format("invalid type: expected composite type {} got {}",
+                                           T::composite_type().name(), type{.oid = oid_}.name()));
+    }
+    auto mctx = ctx.has_value() ? ctx.value() : memory_context();
+    record rec{reinterpret_cast<HeapTupleHeader>(ffi_guard{::pg_detoast_datum}(
+                   reinterpret_cast<struct ::varlena *>(d.operator const ::Datum &()))),
+               mctx};
+    return [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+      return T{([&] {
+        return from_nullable_datum<utils::tuple_element_t<Is, T>>(rec.get_attribute(Is),
+                                                                  rec.attribute_type(Is).oid, mctx);
+      }())...};
+    }(std::make_index_sequence<utils::tuple_size_v<T>>{});
+  }
+
+  static datum into_datum(const T &t) {
+    auto res = [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+      tuple_descriptor td(T::composite_type());
+      record rec{td, utils::get<Is>(t)...};
+      return datum(ffi_guard{::heap_copy_tuple_as_datum}(rec, rec));
+    }(std::make_index_sequence<utils::tuple_size_v<T>>{});
+    return res;
+  }
+};
+template <composite_type T> struct type_traits<T> {
+  bool is(const type &t) {
+    if (t == T::composite_type())
+      return true;
+    // Check if it is a composite type and therefore can be coerced to a record
+    syscache<Form_pg_type, oid> cache(t.oid);
+    return (*cache).typtype == 'c';
+  }
+  constexpr type type_for() { return T::composite_type(); }
+};
+
 } // namespace cppgres
 /**
 * \file
@@ -9436,7 +9551,7 @@ private:
 template <> struct datum_conversion<value> {
 
   static value from_nullable_datum(const nullable_datum &d, oid oid,
-                                   std::optional<memory_context>) {
+                                   std::optional<memory_context> = std::nullopt) {
     return {nullable_datum(d), type{.oid = oid}};
   }
 
@@ -9457,7 +9572,7 @@ template <> struct type_traits<value> {
     if (value_.has_value()) {
       return (*value_).get().get_type();
     }
-    throw std::runtime_error("can't determine type for an uninitialized value");
+    return {UNKNOWNOID};
   }
 
 private:
@@ -9492,12 +9607,8 @@ concept datumable_function =
     requires { typename utils::function_traits::function_traits<Func>::argument_types; } &&
     all_from_nullable_datum<
         typename utils::function_traits::function_traits<Func>::argument_types>::value &&
-    requires(Func f) {
-      {
-        std::apply(
-            f,
-            std::declval<typename utils::function_traits::function_traits<Func>::argument_types>())
-      } -> convertible_into_nullable_datum_or_set_iterator_or_void;
+    requires(Func f, utils::function_traits::function_traits<Func>::argument_types &&args) {
+      { std::apply(f, args) } -> convertible_into_nullable_datum_or_set_iterator_or_void;
     };
 
 struct function_call_info {
@@ -9804,6 +9915,155 @@ template <datumable_function Func> struct postgres_function {
     })();
     __builtin_unreachable();
   }
+};
+
+template <has_type_traits... Arg> struct function {
+
+  template <std::size_t... I>
+  static auto make_arg_tuple(std::index_sequence<I...>)
+      -> std::tuple<std::tuple_element_t<I, std::tuple<Arg...>>...>;
+
+  using arg_types = decltype(make_arg_tuple(std::make_index_sequence<sizeof...(Arg) - 1>{}));
+  using ret_type = std::tuple_element_t<sizeof...(Arg) - 1, std::tuple<Arg...>>;
+
+  function() = delete;
+
+  function(const char *schema, const char *name)
+      : function([schema, name]() -> oid {
+          return alloc_set_memory_context()([&schema, &name]() {
+            ::List *fname = list_make2(::makeString(const_cast<char *>(schema)),
+                                       ::makeString(const_cast<char *>(name)));
+            std::array<::Oid, sizeof...(Arg)> argtypes = {type_traits<Arg>().type_for().oid...};
+            return ffi_guard{::LookupFuncName}(fname, static_cast<int>(sizeof...(Arg) - 1),
+                                               argtypes.data(), false);
+          });
+        }()) {}
+  function(std::string &schema, std::string &name) : function(schema.c_str(), name.c_str()) {}
+  explicit function(const char *name)
+      : function([name]() -> oid {
+          return alloc_set_memory_context()([&name]() {
+            ::List *fname = list_make1(::makeString(const_cast<char *>(name)));
+            std::array<::Oid, sizeof...(Arg)> argtypes = {type_traits<Arg>().type_for().oid...};
+            return ffi_guard{::LookupFuncName}(fname, static_cast<int>(sizeof...(Arg) - 1),
+                                               argtypes.data(), false);
+          });
+        }()) {}
+  function(std::string &name) : function(name.c_str()) {}
+  function(oid oid) : oid_(oid) {
+    syscache<Form_pg_proc, decltype(oid)> p(oid_);
+    // Check arguments
+    auto &argtypes = (*p).proargtypes;
+    std::array<type, sizeof...(Arg)> types = {type_traits<Arg>().type_for()...};
+    for (int i = 0; i < argtypes.dim1; i++) {
+      cppgres::oid arg(argtypes.values[i]);
+      if (types[i] != type{UNKNOWNOID} /* FIXME: figure out how to avoid this special case */ &&
+          arg != types[i].oid) {
+        throw std::runtime_error(cppgres::fmt::format("expected type {} for argument {}, got {}",
+                                                      types[i].name(), i, type{.oid = arg}.name()));
+      }
+    }
+    // Check return type
+    rettype_ = (*p).prorettype;
+    if (type_traits<ret_type>().type_for().oid !=
+            UNKNOWNOID /* FIXME: figure out how to avoid this special case */
+        && rettype_ != type_traits<ret_type>().type_for().oid) {
+      throw std::runtime_error(cppgres::fmt::format("expected return type {}, got {}",
+                                                    type_traits<ret_type>().type_for().name(),
+                                                    type{.oid = rettype_}.name()));
+    }
+    strict_ = (*p).proisstrict;
+  }
+
+  using self = function<Arg...>;
+  template <typename... Args> static constexpr bool convertible_args() {
+    if constexpr (sizeof...(Args) != sizeof...(Arg) - 1) {
+      return false;
+    } else {
+      return []<std::size_t... I>(std::index_sequence<I...>) {
+        return (
+            std::convertible_to<std::decay_t<Args>, std::tuple_element_t<I, std::tuple<Arg...>>> &&
+            ...);
+      }(std::make_index_sequence<sizeof...(Args)>{});
+    }
+  }
+  ret_type operator()(auto... args) requires(self::convertible_args<decltype(args)...>())
+  {
+    bool any_nulls = false;
+    auto optval = []<std::size_t I>(auto arg) -> ::Datum {
+      using nth_type = std::tuple_element_t<I, std::tuple<Arg...>>;
+      if constexpr (std::same_as<std::nullopt_t, decltype(arg)>) {
+        return datum(0);
+      } else if constexpr (!utils::is_optional<decltype(arg)>) {
+        return datum_conversion<nth_type>().into_datum(arg);
+      } else {
+        return arg.has_value() ? datum_conversion<nth_type>().into_datum(arg.value()) : datum(0);
+      }
+      return datum(0);
+    };
+    auto isnull = [&any_nulls](auto arg) {
+      if constexpr (std::same_as<std::nullopt_t, decltype(arg)>) {
+        any_nulls = true;
+        return true;
+      } else if constexpr (!utils::is_optional<decltype(arg)>) {
+        return false;
+      } else {
+        any_nulls = !arg.has_value();
+        return !arg.has_value();
+      }
+      return false;
+    };
+    return [&]<std::size_t... I>(std::index_sequence<I...>) -> ret_type {
+      LOCAL_FCINFO(fcinfo, sizeof...(args));
+      ::FmgrInfo flinfo;
+
+      ffi_guard{::fmgr_info}(oid_, &flinfo);
+
+      InitFunctionCallInfoData(*fcinfo, &flinfo, sizeof...(args), InvalidOid, NULL, NULL);
+
+      ((fcinfo->args[I].value = optval.template operator()<I>(args)), ...);
+      ((fcinfo->args[I].isnull = isnull(args)), ...);
+
+      if (any_nulls && strict_) {
+        if constexpr (utils::is_optional<ret_type>) {
+          return std::nullopt;
+        } else {
+          throw null_datum_exception();
+        }
+      }
+
+      nullable_datum result(ffi_guard{[&fcinfo]() { return FunctionCallInvoke(fcinfo); }}());
+      if (fcinfo->isnull) {
+        result = nullable_datum();
+      }
+
+      return datum_conversion<ret_type>().from_nullable_datum(result, rettype_);
+    }(std::make_index_sequence<sizeof...(Arg) - 1>{});
+  }
+
+  const oid &function_oid() const { return oid_; }
+
+private:
+  oid oid_;
+  oid rettype_;
+  bool strict_;
+};
+
+template <has_type_traits... Args>
+struct datum_conversion<function<Args...>> : default_datum_conversion<function<Args...>> {
+  static function<Args...> from_datum(const datum &d, oid, std::optional<memory_context> ctx) {
+    return {oid(d)};
+  }
+
+  static datum into_datum(const function<Args...> &t) {
+    return datum_conversion<oid>::into_datum(t.function_oid());
+  }
+};
+
+template <has_type_traits... Args> struct type_traits<function<Args...>> {
+  static bool is(const type &t) {
+    return t.oid == REGPROCEDUREOID || t.oid == OIDOID || t.oid == REGPROCOID;
+  }
+  static constexpr type type_for() { return type{.oid = REGPROCEDUREOID}; }
 };
 
 } // namespace cppgres
@@ -10550,8 +10810,18 @@ struct spi_executor : public executor {
         return tuples.at(n).value();
       }
       if constexpr (convertible_from_datum<T>) {
-        if (tuptable->tupdesc->natts == 1) {
-          // if a special case of a directly convertible type
+        // if a special case of a directly convertible type
+        if constexpr (composite_type<T>) {
+          bool isnull;
+          ::Datum value =
+              ffi_guard{::SPI_getbinval}(tuptable->vals[n], tuptable->tupdesc, 1, &isnull);
+          ::NullableDatum datum = {.value = value, .isnull = isnull};
+          auto ret = from_nullable_datum<T>(nullable_datum(datum),
+                                            ffi_guard{::SPI_gettypeid}(tuptable->tupdesc, 1),
+                                            memory_context(tuptable->tuptabcxt));
+          tuples.emplace(std::next(tuples.begin(), n), std::in_place, ret);
+          return tuples.at(n).value();
+        } else if (tuptable->tupdesc->natts == 1) {
           bool isnull;
           ::Datum value =
               ffi_guard{::SPI_getbinval}(tuptable->vals[n], tuptable->tupdesc, 1, &isnull);
@@ -10723,11 +10993,17 @@ struct spi_executor : public executor {
     auto rc = ffi_guard{::SPI_execute_with_args}(utils::to_cstring(query), nargs, types.data(),
                                                  datums.data(), nulls.data(), opts.read_only(),
                                                  opts.count());
-    if (rc > 0) {
+    if (rc == SPI_OK_SELECT || rc == SPI_OK_INSERT_RETURNING || rc == SPI_OK_UPDATE_RETURNING ||
+        rc == SPI_OK_DELETE_RETURNING || (rc == SPI_OK_UTILITY && SPI_tuptable != nullptr)
+#if PG_MAJORVERSION_NUM >= 17
+        || rc == SPI_OK_MERGE_RETURNING
+#endif
+    ) {
       //      static_assert(std::random_access_iterator<result_iterator<Ret>>);
       return results<Ret>(SPI_tuptable);
     } else {
-      throw std::runtime_error("spi error");
+      throw std::runtime_error(
+          fmt::format("spi error in `{}`", std::string_view(utils::to_cstring(query))));
     }
   }
 
@@ -10761,7 +11037,7 @@ struct spi_executor : public executor {
       //      static_assert(std::random_access_iterator<result_iterator<Ret>>);
       return results<Ret>(SPI_tuptable);
     } else {
-      throw std::runtime_error("spi error");
+      throw std::runtime_error("spi error in a query plan");
     }
   }
 
@@ -10784,7 +11060,7 @@ struct spi_executor : public executor {
     if (rc >= 0) {
       return SPI_processed;
     } else {
-      throw std::runtime_error(cppgres::fmt::format("spi error"));
+      throw std::runtime_error(cppgres::fmt::format("spi error in `{}`", query));
     }
   }
 
