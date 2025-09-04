@@ -34,5 +34,11 @@ begin
         language c as
     'MODULE_PATHNAME';
 
+    create table sql_autostart_stmt
+    (
+        stmt     text not null,
+        position int  not null
+    );
+
 end;
 $$;
