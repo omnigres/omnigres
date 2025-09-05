@@ -140,13 +140,13 @@ jobs:
       with:
         tags:
           ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.pg }}-${{ github.sha }}
-        inputs: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.pg }}${{ github.sha }}-amd64,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.pg }}-${{ github.sha }}-arm64
+        inputs: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.pg }}-${{ github.sha }}-amd64,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.pg }}-${{ github.sha }}-arm64
         push: true
 
     - name: Create and push manifest images (latest)
       uses: Noelware/docker-manifest-action@v1
       with:
         tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.pg }}
-        inputs: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-amd64-${{ matrix.pg }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-arm64-${{ matrix.pg }}
+        inputs: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.pg }}-${{ github.sha }}-amd64,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.pg }}-${{ github.sha }}-arm64
 
         push: true
