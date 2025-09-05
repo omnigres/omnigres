@@ -87,7 +87,7 @@ jobs:
 
     # Build and push Docker image with Buildx (don't push on PR)
     # https://github.com/docker/build-push-action
-    - name: Build and push extra Docker image
+    - name: Build and push Docker image
       id: build-and-push
       uses: docker/build-push-action@v6
       with:
@@ -138,14 +138,14 @@ jobs:
     - name: Create and push manifest images (rev)
       uses: Noelware/docker-manifest-action@v1
       with:
-        inputs:
+        tags:
           ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.pg }}:${{ github.sha }}
-        tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.pg }}:${{ github.sha }}-amd64,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.pg }}:${{ github.sha }}-arm64
+        inputs: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.pg }}:${{ github.sha }}-amd64,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.pg }}:${{ github.sha }}-arm64
         push: true
 
     - name: Create and push manifest images (latest)
       uses: Noelware/docker-manifest-action@v1
       with:
-        inputs: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.pg }}:latest
-        tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.pg }}:${{ github.sha }}-amd64,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.pg }}:${{ github.sha }}-arm64
+        tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.pg }}:latest
+        inputs: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.pg }}:${{ github.sha }}-amd64,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.pg }}:${{ github.sha }}-arm64
         push: true
