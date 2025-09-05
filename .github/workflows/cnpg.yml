@@ -94,7 +94,7 @@ jobs:
         context: cnpg
         push: ${{ github.event_name != 'pull_request' }}
         tags: |
-          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.pg }}:${{ github.sha }}-${{ matrix.platform }}
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.pg }}-${{ github.sha }}-${{ matrix.platform }}
         provenance: false
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha,url=http://127.0.0.1:49160/
@@ -139,13 +139,14 @@ jobs:
       uses: Noelware/docker-manifest-action@v1
       with:
         tags:
-          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.pg }}:${{ github.sha }}
-        inputs: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.pg }}:${{ github.sha }}-amd64,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.pg }}:${{ github.sha }}-arm64
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.pg }}-${{ github.sha }}
+        inputs: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.pg }}${{ github.sha }}-amd64,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.pg }}-${{ github.sha }}-arm64
         push: true
 
     - name: Create and push manifest images (latest)
       uses: Noelware/docker-manifest-action@v1
       with:
-        tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.pg }}:latest
-        inputs: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.pg }}:${{ github.sha }}-amd64,${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.pg }}:${{ github.sha }}-arm64
+        tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ matrix.pg }}
+        inputs: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-amd64-${{ matrix.pg }},${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}-arm64-${{ matrix.pg }}
+
         push: true
