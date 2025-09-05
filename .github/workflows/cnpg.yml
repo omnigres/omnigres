@@ -26,7 +26,11 @@ jobs:
         platform: [ amd64, arm64 ]
         pg: [ 17.6 ]
 
-    if: github.repository == 'omnigres/omnigres'
+    if: |
+      github.repository == 'omnigres/omnigres' && (
+        github.event_name != 'pull_request' ||
+        github.event.pull_request.head.repo.full_name == 'omnigres/omnigres'
+      )
     runs-on: ${{ fromJSON('["warp-ubuntu-2404-x64-4x", "warp-ubuntu-2404-arm64-16x"]')[matrix.platform == 'arm64'] }}
 
     permissions:
