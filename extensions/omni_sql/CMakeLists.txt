@@ -27,6 +27,7 @@ if(NOT DEFINED ENV{OMNI_SQL_ALREADY_INCLUDED})
             SCHEMA omni_sql
             RELOCATABLE false
             SOURCES omni_sql.c
+            TESTS_REQUIRE omni_httpd
             DEPENDS_ON libpgaug
     )
 
