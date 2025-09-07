@@ -751,23 +751,39 @@ static inline void extract_information_json_types(ExecCtx *call_ctx, ArrayType *
       call_ctx->values[i] = OidInputFunctionCall(
           input_func, text_to_cstring(DatumGetTextPP(call_ctx->values[i])), typioparam, -1);
     }
+#if PG_MAJORVERSION_NUM >= 19
+    ErrorSaveContext escontext = {T_ErrorSaveContext};
+#endif
     // Handle numeric type specialization
     if (call_ctx->types[i] == NUMERICOID) {
       switch (id) {
       case INT2OID:
         call_ctx->values[i] =
+#if PG_MAJORVERSION_NUM < 19
             Int16GetDatum(numeric_int4_opt_error(DatumGetNumeric(call_ctx->values[i]), NULL));
+#else
+            Int16GetDatum(
+                numeric_int4_safe(DatumGetNumeric(call_ctx->values[i]), (Node *)&escontext));
+#endif
         break;
       case INT4OID:
         call_ctx->values[i] =
+#if PG_MAJORVERSION_NUM < 19
             Int32GetDatum(numeric_int4_opt_error(DatumGetNumeric(call_ctx->values[i]), NULL));
+#else
+            Int32GetDatum(
+                numeric_int4_safe(DatumGetNumeric(call_ctx->values[i]), (Node *)&escontext));
+#endif
         break;
       case INT8OID:
-#if PG_MAJORVERSION_NUM >= 17
         call_ctx->values[i] =
+#if PG_MAJORVERSION_NUM >= 19
+            Int64GetDatum(
+                numeric_int4_safe(DatumGetNumeric(call_ctx->values[i]), (Node *)&escontext));
+#elif PG_MAJORVERSION_NUM >= 17 && PG_MAJORVERSION_NUM < 19
             Int64GetDatum(numeric_int8_opt_error(DatumGetNumeric(call_ctx->values[i]), NULL));
 #else
-        call_ctx->values[i] = DirectFunctionCall1(numeric_int8, call_ctx->values[i]);
+            DirectFunctionCall1(numeric_int8, call_ctx->values[i]);
 #endif
         break;
       case FLOAT4OID:

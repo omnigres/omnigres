@@ -11,6 +11,12 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * SQL autostart functionality [#932](https://github.com/omnigres/omnigres/pull/932)
 
+## [0.1.4] - 2025-09-04
+
+### Fixed
+
+* Potential build failure (missing std::optional) [#938](https://github.com/omnigres/omnigres/pull/938)
+
 ## [0.1.3] - 2025-08-24
 
 ### Fixed
@@ -42,5 +48,7 @@ Initial release
 [0.1.2]: [https://github.com/omnigres/omnigres/pull/884]
 
 [0.1.3]: [https://github.com/omnigres/omnigres/pull/915]
+
+[0.1.4]: [https://github.com/omnigres/omnigres/pull/938]
 
 [0.2.0]: [https://github.com/omnigres/omnigres/pull/865]
