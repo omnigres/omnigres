@@ -61,5 +61,11 @@ begin
     'MODULE_PATHNAME',
     'sqlite_deserialize'
         language c strict;
+
+    create function sqlite(text default null)
+        returns sqlite
+        language c as
+    'MODULE_PATHNAME',
+    'sqlite_new';
 end;
 $$;

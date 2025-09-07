@@ -14,6 +14,21 @@ PG_MODULE_MAGIC;
 #include <utils/lsyscache.h>
 }
 
+postgres_function(sqlite_new, ([](std::optional<std::string> stmt) {
+                    cppgres::expanded_varlena<sqlite> db;
+                    sqlite sql = db;
+                    char *msg = nullptr;
+
+                    if (stmt.has_value()) {
+                      if (sqlite3_exec(sql, stmt->c_str(), nullptr, nullptr, &msg) != SQLITE_OK) {
+                        throw std::runtime_error(cppgres::fmt::format(
+                            "Failed to create SQLite in-memory database: {}", msg));
+                      }
+                    }
+
+                    return db;
+                  }));
+
 postgres_function(sqlite_in, ([](const char *query) -> cppgres::expanded_varlena<sqlite> {
                     cppgres::expanded_varlena<sqlite> db;
                     sqlite sql = db;
