@@ -37,6 +37,14 @@ Omnigres makes Postgres a developer-first application platform. You can deploy a
 The fastest way to try Omnigres out is by using its [container image](https://github.com/omnigres/omnigres/pkgs/container/omnigres):
 
 ```shell
+# First time only:
+PACMAN=apt  # or yum, dnf, homebrew...
+sudo $PACMAN install postgresql-client-16 postgresql-client-common # or 17, 18...
+sudo $PACMAN install docker.io
+
+newgrp docker
+sudo usermod -a -G docker $USER
+
 docker volume create omnigres
 docker run --name omnigres --mount source=omnigres,target=/var/lib/postgresql/data \
            -p 127.0.0.1:5432:5432 -p 127.0.0.1:8080:8080 -p 127.0.0.1:8081:8081 --rm ghcr.io/omnigres/omnigres-17:latest
@@ -57,6 +65,15 @@ You can access the default HTTP server at [localhost:8081](http://localhost:8081
 If you can't use the pre-built image (for example, you are running a fork or made changes), you can build the image yourself:
 
 ```shell
+# First time only:
+PACMAN=apt  # or yum, dnf, homebrew...
+sudo $PACMAN install postgresql-client-16 postgresql-client-common # or 17, 18...
+sudo $PACMAN install docker.io docker-buildx
+
+newgrp docker
+sudo usermod -a -G docker $USER
+
+
 # Build the image
 DOCKER_BUILDKIT=1 docker build . -t ghcr.io/omnigres/omnigres
 ```
