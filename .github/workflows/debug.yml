@@ -16,7 +16,7 @@ on:
         required: true
         type: choice
         options:
-        - warp-ubuntu-2404-x64-4x
+        - blacksmith-4vcpu-ubuntu-2404
         - warp-ubuntu-latest-x64-4x
         - warp-macos-14-arm64-6x
         - warp-ubuntu-2404-arm64-2x
@@ -24,7 +24,7 @@ on:
         - warp-ubuntu-latest-arm64-4x
         - ubuntu-latest
         - macos-13
-        default: warp-ubuntu-2404-x64-4x
+        default: blacksmith-4vcpu-ubuntu-2404
       build:
         description: 'Build Omnigres?'
         required: true
