@@ -1,0 +1,26 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instances:
+  default:
+    init:
+    - create extension omni_prolog
+
+tests:
+
+- name: fails on untrusted code in top-level
+  steps:
+  - |
+    create function val() returns integer as $$
+    :- shell(uname).
+    result(1).
+    $$ language plprolog
+  - query: select val()
+    error: true
+
+- name: fails on untrusted code in predicates
+  steps:
+  - |
+    create function val() returns integer as $$
+    result(1) :- shell(uname).
+    $$ language plprolog
+  - query: select val()
+    error: true
