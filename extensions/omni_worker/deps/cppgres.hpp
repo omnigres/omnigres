@@ -7421,6 +7421,7 @@ extern "C" {
 #include <parser/parse_func.h>
 #include <parser/parser.h>
 #include <storage/ipc.h>
+#include <utils/acl.h>
 #include <utils/builtins.h>
 #include <utils/expandeddatum.h>
 #include <utils/lsyscache.h>
@@ -7671,7 +7672,7 @@ struct abstract_memory_context {
 
   ::MemoryContextCallback *register_reset_callback(::MemoryContextCallbackFunction func,
                                                    void *arg) {
-    auto cb = alloc<::MemoryContextCallback>(sizeof(::MemoryContextCallback));
+    auto cb = alloc<::MemoryContextCallback>();
     cb->func = func;
     cb->arg = arg;
     ffi_guard{::MemoryContextRegisterResetCallback}(_memory_context(), cb);
@@ -7922,6 +7923,7 @@ struct oid {
   oid() : oid_(InvalidOid) {}
   oid(::Oid oid) : oid_(oid) {}
   oid(oid &oid) : oid_(oid.oid_) {}
+  oid(const oid &oid) : oid_(oid.oid_) {}
 
   bool operator==(const oid &rhs) const { return oid_ == rhs.oid_; }
   bool operator!=(const oid &rhs) const { return !(rhs == *this); }
@@ -7931,6 +7933,8 @@ struct oid {
 
   operator ::Oid() const { return oid_; }
   operator ::Oid &() { return oid_; }
+
+  bool is_valid() const { return oid_ != InvalidOid; }
 
 private:
   ::Oid oid_;
@@ -8415,7 +8419,7 @@ struct type {
 
 template <typename T, typename = void> struct type_traits {
   type_traits() {}
-  type_traits(const T &) {}
+  type_traits(T &) {}
   bool is(const type &t) { return false; }
   type type_for() = delete;
 };
@@ -8440,7 +8444,7 @@ template <typename T> struct type_traits<std::optional<T>> {
   constexpr type type_for() { return type_traits<T>().type_for(); }
 };
 
-struct non_by_value_type : public type {
+struct non_by_value_type {
   friend struct datum;
 
   non_by_value_type(std::pair<const struct datum &, std::optional<memory_context>> init)
@@ -8538,24 +8542,27 @@ template <flattenable T> struct expanded_varlena : public varlena {
   using varlena::varlena;
 
   expanded_varlena()
-      : varlena(([]() {
-          auto ctx = memory_context(std::move(alloc_set_memory_context()));
-          auto *e = new (ctx.alloc<expanded>()) expanded(T());
-          ctx.register_reset_callback(
-              [](void *arg) {
-                auto v = reinterpret_cast<expanded *>(arg);
-                v->inner.~T();
-              },
-              e);
-          init(&e->hdr, ctx);
-          return std::make_pair(datum(PointerGetDatum(e)), ctx);
-        })()),
+      : varlena(allocate_expanded()),
+        detoasted_value(reinterpret_cast<expanded *>(DatumGetPointer(value_datum))) {}
+
+  template <typename... Args>
+  explicit expanded_varlena(Args &&...args)
+      // avoid being copy/move constructor
+      requires(sizeof...(Args) > 0 &&
+               !(sizeof...(Args) == 1 &&
+                 std::is_same_v<std::decay_t<std::tuple_element_t<0, std::tuple<Args...>>>,
+                                expanded_varlena>))
+      : varlena(allocate_expanded(args...)),
         detoasted_value(reinterpret_cast<expanded *>(DatumGetPointer(value_datum))) {}
 
   operator T &() {
     if (detoasted_value.has_value()) {
       return detoasted_value.value()->inner;
     } else {
+      if (VARATT_IS_EXTERNAL_EXPANDED(ptr())) {
+        detoasted_value = reinterpret_cast<expanded *>(DatumGetEOHP(value_datum));
+        return detoasted_value.value()->inner;
+      }
       auto *ptr1 = reinterpret_cast<std::byte *>(varlena::operator void *());
       auto ctx = memory_context(std::move(alloc_set_memory_context()));
       auto *value = new (ctx.alloc<expanded>())
@@ -8581,10 +8588,27 @@ template <flattenable T> struct expanded_varlena : public varlena {
 
 private:
   struct expanded {
-    expanded(T &&t) : inner(std::move(t)) {}
+    expanded(auto &&...args) : inner(std::forward<decltype(args)...>(args)...) {}
     ::ExpandedObjectHeader hdr;
     T inner;
   };
+
+  template <typename... Args> static auto allocate_expanded(Args &&...args) {
+    auto ctx = memory_context(std::move(alloc_set_memory_context()));
+    return ctx([&]() {
+      auto *e = ctx.alloc<expanded>();
+      std::construct_at(e, args...);
+      init(&e->hdr, ctx);
+      ctx.register_reset_callback(
+          [](void *arg) {
+            auto v = reinterpret_cast<expanded *>(arg);
+            v->inner.~T();
+          },
+          e);
+      return std::make_pair(datum(PointerGetDatum(e)), ctx);
+    });
+  }
+
   std::optional<expanded *> detoasted_value = std::nullopt;
 
   static void init(ExpandedObjectHeader *hdr, memory_context &ctx) {
@@ -9047,6 +9071,18 @@ struct tuple_descriptor {
       : tupdesc(tupdesc), blessed(blessed), owned(false) {}
 
   /**
+   * @brief Create a tuple description for a given composite type
+   */
+  tuple_descriptor(type t)
+      : tuple_descriptor([&]() {
+          syscache<Form_pg_type, oid> syscache(t.oid);
+          if ((*syscache).typtype != TYPTYPE_COMPOSITE) {
+            throw std::invalid_argument("not a composite type");
+          }
+          return ffi_guard{::lookup_rowtype_tupdesc_copy}(t.oid, (*syscache).typtypmod);
+        }()) {}
+
+  /**
    * @brief Copy constructor
    *
    * Creates a copy instance of the tuple descriptor in the current memory contet
@@ -9367,6 +9403,7 @@ struct record {
   nullable_datum operator[](int n) { return get_attribute(n); }
 
   operator HeapTuple() const noexcept { return tuple; }
+  operator TupleDesc() const noexcept { return tupdesc; }
 
   /**
    * @brief Returns tuple descriptor
@@ -9425,6 +9462,49 @@ template <> struct type_traits<record> {
   constexpr type type_for() { return {.oid = RECORDOID}; }
 };
 
+template <typename T>
+concept composite_type = requires {
+  { T::composite_type() } -> std::same_as<type>;
+};
+
+template <composite_type T> struct datum_conversion<T> : default_datum_conversion<T> {
+  static T from_datum(const datum &d, oid oid_, std::optional<memory_context> ctx) {
+    if (oid_ != T::composite_type().oid) {
+      throw std::runtime_error(fmt::format("invalid type: expected composite type {} got {}",
+                                           T::composite_type().name(), type{.oid = oid_}.name()));
+    }
+    auto mctx = ctx.has_value() ? ctx.value() : memory_context();
+    record rec{reinterpret_cast<HeapTupleHeader>(ffi_guard{::pg_detoast_datum}(
+                   reinterpret_cast<struct ::varlena *>(d.operator const ::Datum &()))),
+               mctx};
+    return [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+      return T{([&] {
+        return from_nullable_datum<utils::tuple_element_t<Is, T>>(rec.get_attribute(Is),
+                                                                  rec.attribute_type(Is).oid, mctx);
+      }())...};
+    }(std::make_index_sequence<utils::tuple_size_v<T>>{});
+  }
+
+  static datum into_datum(const T &t) {
+    auto res = [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+      tuple_descriptor td(T::composite_type());
+      record rec{td, utils::get<Is>(t)...};
+      return datum(ffi_guard{::heap_copy_tuple_as_datum}(rec, rec));
+    }(std::make_index_sequence<utils::tuple_size_v<T>>{});
+    return res;
+  }
+};
+template <composite_type T> struct type_traits<T> {
+  bool is(const type &t) {
+    if (t == T::composite_type())
+      return true;
+    // Check if it is a composite type and therefore can be coerced to a record
+    syscache<Form_pg_type, oid> cache(t.oid);
+    return (*cache).typtype == 'c';
+  }
+  constexpr type type_for() { return T::composite_type(); }
+};
+
 } // namespace cppgres
 /**
 * \file
@@ -9474,7 +9554,7 @@ private:
 template <> struct datum_conversion<value> {
 
   static value from_nullable_datum(const nullable_datum &d, oid oid,
-                                   std::optional<memory_context>) {
+                                   std::optional<memory_context> = std::nullopt) {
     return {nullable_datum(d), type{.oid = oid}};
   }
 
@@ -9495,7 +9575,7 @@ template <> struct type_traits<value> {
     if (value_.has_value()) {
       return (*value_).get().get_type();
     }
-    throw std::runtime_error("can't determine type for an uninitialized value");
+    return {UNKNOWNOID};
   }
 
 private:
@@ -9530,12 +9610,8 @@ concept datumable_function =
     requires { typename utils::function_traits::function_traits<Func>::argument_types; } &&
     all_from_nullable_datum<
         typename utils::function_traits::function_traits<Func>::argument_types>::value &&
-    requires(Func f) {
-      {
-        std::apply(
-            f,
-            std::declval<typename utils::function_traits::function_traits<Func>::argument_types>())
-      } -> convertible_into_nullable_datum_or_set_iterator_or_void;
+    requires(Func f, utils::function_traits::function_traits<Func>::argument_types &&args) {
+      { std::apply(f, args) } -> convertible_into_nullable_datum_or_set_iterator_or_void;
     };
 
 struct function_call_info {
@@ -9846,13 +9922,14 @@ template <datumable_function Func> struct postgres_function {
 
 template <has_type_traits... Arg> struct function {
 
-  template <std::size_t N, typename... Args>
-  using take_n_types = decltype([]<std::size_t... I>(std::index_sequence<I...>) {
-    return std::tuple<std::tuple_element_t<I, std::tuple<Args...>>...>{};
-  }(std::make_index_sequence<N>{}));
+  template <std::size_t... I>
+  static auto make_arg_tuple(std::index_sequence<I...>)
+      -> std::tuple<std::tuple_element_t<I, std::tuple<Arg...>>...>;
 
-  using arg_types = take_n_types<sizeof...(Arg) - 1, Arg...>;
+  using arg_types = decltype(make_arg_tuple(std::make_index_sequence<sizeof...(Arg) - 1>{}));
   using ret_type = std::tuple_element_t<sizeof...(Arg) - 1, std::tuple<Arg...>>;
+
+  function() = delete;
 
   function(const char *schema, const char *name)
       : function([schema, name]() -> oid {
@@ -9877,8 +9954,22 @@ template <has_type_traits... Arg> struct function {
   function(std::string &name) : function(name.c_str()) {}
   function(oid oid) : oid_(oid) {
     syscache<Form_pg_proc, decltype(oid)> p(oid_);
+    // Check arguments
+    auto &argtypes = (*p).proargtypes;
+    std::array<type, sizeof...(Arg)> types = {type_traits<Arg>().type_for()...};
+    for (int i = 0; i < argtypes.dim1; i++) {
+      cppgres::oid arg(argtypes.values[i]);
+      if (types[i] != type{UNKNOWNOID} /* FIXME: figure out how to avoid this special case */ &&
+          arg != types[i].oid) {
+        throw std::runtime_error(cppgres::fmt::format("expected type {} for argument {}, got {}",
+                                                      types[i].name(), i, type{.oid = arg}.name()));
+      }
+    }
+    // Check return type
     rettype_ = (*p).prorettype;
-    if (rettype_ != type_traits<ret_type>().type_for().oid) {
+    if (type_traits<ret_type>().type_for().oid !=
+            UNKNOWNOID /* FIXME: figure out how to avoid this special case */
+        && rettype_ != type_traits<ret_type>().type_for().oid) {
       throw std::runtime_error(cppgres::fmt::format("expected return type {}, got {}",
                                                     type_traits<ret_type>().type_for().name(),
                                                     type{.oid = rettype_}.name()));
@@ -9952,11 +10043,59 @@ template <has_type_traits... Arg> struct function {
     }(std::make_index_sequence<sizeof...(Arg) - 1>{});
   }
 
+  const oid &function_oid() const { return oid_; }
+
 private:
   oid oid_;
   oid rettype_;
   bool strict_;
 };
+
+template <has_type_traits... Args>
+struct datum_conversion<function<Args...>> : default_datum_conversion<function<Args...>> {
+  static function<Args...> from_datum(const datum &d, oid, std::optional<memory_context> ctx) {
+    return {oid(d)};
+  }
+
+  static datum into_datum(const function<Args...> &t) {
+    return datum_conversion<oid>::into_datum(t.function_oid());
+  }
+};
+
+template <has_type_traits... Args> struct type_traits<function<Args...>> {
+  static bool is(const type &t) {
+    return t.oid == REGPROCEDUREOID || t.oid == OIDOID || t.oid == REGPROCOID;
+  }
+  static constexpr type type_for() { return type{.oid = REGPROCEDUREOID}; }
+};
+
+template <has_type_traits T> function<T, const char *> output_function() {
+  ::Oid foutoid;
+  bool typisvarlena;
+  ffi_guard{::getTypeOutputInfo}(type_traits<T>().type_for().oid, &foutoid, &typisvarlena);
+  return function<T, const char *>(foutoid);
+}
+
+template <has_type_traits T> function<T, const char *> output_function(T &&v) {
+  ::Oid foutoid;
+  bool typisvarlena;
+  ffi_guard{::getTypeOutputInfo}(type_traits<T>(v).type_for().oid, &foutoid, &typisvarlena);
+  return function<T, const char *>(foutoid);
+}
+
+template <has_type_traits T> function<T, const char *> output_function(T &v) {
+  ::Oid foutoid;
+  bool typisvarlena;
+  ffi_guard{::getTypeOutputInfo}(type_traits<T>(v).type_for().oid, &foutoid, &typisvarlena);
+  return function<T, const char *>(foutoid);
+}
+
+static function<cppgres::value, const char *> output_function(const type &t) {
+  ::Oid foutoid;
+  bool typisvarlena;
+  ffi_guard{::getTypeOutputInfo}(t.oid, &foutoid, &typisvarlena);
+  return function<cppgres::value, const char *>(foutoid);
+}
 
 } // namespace cppgres
 
@@ -10702,8 +10841,18 @@ struct spi_executor : public executor {
         return tuples.at(n).value();
       }
       if constexpr (convertible_from_datum<T>) {
-        if (tuptable->tupdesc->natts == 1) {
-          // if a special case of a directly convertible type
+        // if a special case of a directly convertible type
+        if constexpr (composite_type<T>) {
+          bool isnull;
+          ::Datum value =
+              ffi_guard{::SPI_getbinval}(tuptable->vals[n], tuptable->tupdesc, 1, &isnull);
+          ::NullableDatum datum = {.value = value, .isnull = isnull};
+          auto ret = from_nullable_datum<T>(nullable_datum(datum),
+                                            ffi_guard{::SPI_gettypeid}(tuptable->tupdesc, 1),
+                                            memory_context(tuptable->tuptabcxt));
+          tuples.emplace(std::next(tuples.begin(), n), std::in_place, ret);
+          return tuples.at(n).value();
+        } else if (tuptable->tupdesc->natts == 1) {
           bool isnull;
           ::Datum value =
               ffi_guard{::SPI_getbinval}(tuptable->vals[n], tuptable->tupdesc, 1, &isnull);
@@ -12366,6 +12515,81 @@ private:
 };
 
 #undef node_dispatch
+
+} // namespace cppgres
+/**
+ * \file
+ */
+
+#include <optional>
+#include <span>
+#include <string>
+#include <utility>
+
+
+namespace cppgres {
+
+struct role : oid {
+  using oid::oid;
+  role() : oid(::GetCurrentRoleId() != InvalidOid ? ::GetCurrentRoleId() : ::GetUserId()) {}
+  role(std::string role_name) : oid(ffi_guard{::get_role_oid}(role_name.c_str(), false)) {}
+
+  std::string_view name() const { return ffi_guard{::GetUserNameFromId}(*this, false); }
+
+  bool is_member(role &other, bool ignore_superuser = false) {
+    return ffi_guard{ignore_superuser ? ::is_member_of_role_nosuper : ::is_member_of_role}(*this,
+                                                                                           other);
+  }
+};
+
+template <> struct type_traits<role> {
+  static bool is(const type &t) { return t.oid == OIDOID || t.oid == REGROLEOID; }
+  static constexpr type type_for() { return type{.oid = REGROLEOID}; }
+};
+
+template <> struct datum_conversion<role> : default_datum_conversion<role> {
+  static role from_datum(const datum &d, oid, std::optional<memory_context>) {
+    return static_cast<role>(d.operator const ::Datum &());
+  }
+
+  static datum into_datum(const role &t) { return datum(static_cast<::Datum>(t)); }
+};
+
+enum security_context_flag : int {
+  security_none = 0x0000,
+  security_local_user_id_change = SECURITY_LOCAL_USERID_CHANGE,
+  security_restricted_operation = SECURITY_RESTRICTED_OPERATION,
+  security_noforce_rls = SECURITY_NOFORCE_RLS
+};
+
+constexpr security_context_flag operator|(security_context_flag a, security_context_flag b) {
+  return static_cast<security_context_flag>(static_cast<int>(a) | static_cast<int>(b));
+}
+
+constexpr security_context_flag operator&(security_context_flag a, security_context_flag b) {
+  return static_cast<security_context_flag>(static_cast<int>(a) & static_cast<int>(b));
+}
+
+constexpr security_context_flag &operator|=(security_context_flag &a, security_context_flag b) {
+  return a = a | b;
+}
+
+struct security_context {
+  security_context(role r, security_context_flag context = security_none) : role_(r) {
+    ::GetUserIdAndSecContext(&user, &ctx);
+    ::SetUserIdAndSecContext(role_, context);
+  }
+  ~security_context() { ::SetUserIdAndSecContext(user, ctx); }
+
+  static bool in_local_user_id_change() { return ::InLocalUserIdChange(); }
+  static bool in_security_restricted_operation() { return ::InSecurityRestrictedOperation(); }
+  static bool in_no_force_rls_operation() { return ::InNoForceRLSOperation(); }
+
+private:
+  role role_;
+  ::Oid user;
+  int ctx;
+};
 
 } // namespace cppgres
 

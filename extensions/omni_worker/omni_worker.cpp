@@ -61,7 +61,7 @@ std::string arena_name() {
   return cppgres::fmt::format("omni_worker_v1_{}_{}", cppgres::ffi_guard{::GetSystemIdentifier}(),
                               MyDatabaseId);
 }
-std::size_t arena_size() { return 1024 * 1024; }
+std::size_t arena_size() { return 10 * 1024 * 1024; }
 std::string mq_name() {
   return cppgres::fmt::format("omni_worker_v1_{}_{}_mq",
                               cppgres::ffi_guard{::GetSystemIdentifier}(), MyDatabaseId);
@@ -86,6 +86,8 @@ postgres_function(reload_handlers, ([]() -> cppgres::value {
                     }
                     throw std::runtime_error("must be called as a trigger");
                   }));
+
+cppgres::worker *main_worker = nullptr;
 
 static void worker(cppgres::datum main, bool leader) {
   cppgres::current_background_worker bgw;
@@ -121,30 +123,34 @@ static void worker(cppgres::datum main, bool leader) {
 
   oink::arena arena(arena_name().c_str(), arena_size());
   oink::receiver rcvr(arena, mq_name().c_str(), 8192);
-  cppgres::worker worker;
 
+  cppgres::worker main_thread_worker;
+  main_worker = &main_thread_worker;
   std::thread receiver([&]() {
     while (true) {
       rcvr.receive<reload>(
           overload{[&](reload &) {
                      cppgres::report(LOG, "Reloading omni_worker handlers");
-                     worker.post(do_reload).wait();
+                     main_thread_worker.post(do_reload).wait();
+                     return true;
                    },
                    [&](oink::endpoint::msg &msg) {
                      auto it = handlers.find(msg.hash);
                      if (it != handlers.end()) {
-                       worker
+                       return main_thread_worker
                            .post([&]() {
-                             reinterpret_cast<void (*)(const void *)>(it->second.ptr)(
+                             return reinterpret_cast<bool (*)(const void *)>(it->second.ptr)(
                                  static_cast<char *>(arena.get_address()) + msg.offset);
                            })
-                           .wait();
+                           .get();
                      }
+                     // Nobody responded, drop it
+                     return true;
                    }});
     }
   });
 
-  worker.run();
+  main_thread_worker.run();
 }
 
 extern "C" {
