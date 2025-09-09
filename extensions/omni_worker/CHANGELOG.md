@@ -10,6 +10,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 * SQL autostart functionality [#932](https://github.com/omnigres/omnigres/pull/932)
+* Timer handler for worker tasks [#943](https://github.com/omnigres/omnigres/pull/943)
 
 ## [0.1.4] - 2025-09-04
 
