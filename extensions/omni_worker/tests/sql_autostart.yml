@@ -11,12 +11,21 @@ instance:
 
 tests:
 
+- name: prepare a test role
+  transaction: false
+  tests:
+  - create role runner
+  - grant all on schema public to runner
+  - grant all on all tables in schema public to runner
+  - grant all on all sequences in schema public to runner
+
 - name: add autostart operations
   commit: true
   query: |
-    insert into omni_worker.sql_autostart_stmt (stmt, position)
-    values ('create table if not exists test2 as select * from test1', 2),
-           ('create table if not exists test1 as select 1 as val', 1)
+    insert into omni_worker.sql_autostart_stmt (stmt, role, position)
+    values ('create table if not exists test2 as select * from test1', current_role::regrole, 2),
+           ('create table if not exists test1 as select 1 as val', current_role::regrole, 1),
+           ('create table if not exists testr as select current_role::regrole', 'runner'::regrole, 3)
 
 - name: restart
   restart: true
@@ -30,19 +39,21 @@ tests:
             attempt      int := 0;
             test1_exists boolean;
             test2_exists boolean;
+            testr_exists boolean;
         begin
             loop
                 attempt := attempt + 1;
                 
                 select exists(select 1 from pg_tables where tablename = 'test1') into test1_exists;
                 select exists(select 1 from pg_tables where tablename = 'test2') into test2_exists;
-                
-                exit when (test1_exists and test2_exists) or attempt >= max_attempts;
+                select exists(select 1 from pg_tables where tablename = 'testr') into testr_exists;
+    
+                exit when (test1_exists and test2_exists and testr_exists) or attempt >= max_attempts;
                 
                 perform pg_sleep(0.1);
             end loop;
-            
-            if not (test1_exists and test2_exists) then
+    
+            if not (test1_exists and test2_exists and testr_exists) then
                 raise exception 'Tables not created after % attempts', max_attempts;
             end if;
         end
@@ -59,3 +70,8 @@ tests:
          from test2
   results:
   - val: 1
+
+- name: check testr
+  query: select * from testr
+  results:
+  - current_role: runner
