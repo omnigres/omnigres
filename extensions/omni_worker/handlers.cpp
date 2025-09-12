@@ -18,12 +18,13 @@ namespace bip = boost::interprocess;
 
 struct sql_message {
   bc::basic_string<char, std::char_traits<char>, oink::allocator<char>> stmt;
+  cppgres::role role;
   bip::interprocess_semaphore ready;
   volatile int rc;
   static const char *name() { return "sql_message"; }
 
-  sql_message(oink::arena &arena, std::string_view &sql_stmt)
-      : stmt(sql_stmt, arena.get_allocator<decltype(stmt)>()), ready(0), rc(0) {}
+  sql_message(oink::arena &arena, std::string_view &sql_stmt, cppgres::role role_)
+      : stmt(sql_stmt, arena.get_allocator<decltype(stmt)>()), role(role_), ready(0), rc(0) {}
 
   sql_message(sql_message &&other) : stmt(std::move(other.stmt)), ready(0) {}
 };
@@ -34,7 +35,8 @@ bool sql_handler(sql_message *msg) {
 
     cppgres::spi_executor spi;
     try {
-      spi.execute(cppgres::fmt::format("{}", msg->stmt.c_str()));
+      cppgres::security_context ctx(msg->role, cppgres::security_local_user_id_change);
+      spi.execute(msg->stmt.c_str());
     } catch (std::exception &e) {
       tx.rollback();
       cppgres::report(WARNING, "%s", e.what());
@@ -64,11 +66,12 @@ static void init_sql(bool leader) {
           cppgres::spi_executor spi;
           cppgres::internal_subtransaction tx;
           try {
-            auto stmts = spi.query<std::string>(
-                "select stmt from omni_worker.sql_autostart_stmt order by position asc");
-            for (auto &stmt : stmts) {
+            auto stmts = spi.query<std::tuple<std::string, cppgres::role>>(
+                "select stmt, role from omni_worker.sql_autostart_stmt order by position asc");
+            for (auto &[stmt, role] : stmts) {
               cppgres::report(LOG, "Autostart statement: %s", stmt.c_str());
               try {
+                cppgres::security_context ctx(role, cppgres::security_local_user_id_change);
                 auto res = spi.execute(stmt);
               } catch (std::exception &e) {
                 cppgres::report(WARNING, "Statement error %s: %s", stmt.c_str(), e.what());
@@ -123,13 +126,18 @@ private:
   void (*previous_handler_)(int);
 };
 
-postgres_function(sql, ([](std::string_view s,
-                           std::optional<std::int32_t> wait_ms) -> std::optional<bool> {
-                    oink::arena arena(arena_name().c_str(), arena_size());
-                    oink::sender snd(arena, mq_name().c_str(), 8192);
-                    auto msg = snd.send<sql_message>(arena, s);
-                    if (wait_ms.has_value()) {
-                      static bip::interprocess_semaphore *semaphore = nullptr;
+auto sql_impl(std::string_view s, std::optional<std::int32_t> wait_ms,
+              std::optional<cppgres::role> run_as) -> std::optional<bool> {
+  cppgres::role role = run_as.value_or(cppgres::role());
+  if (!cppgres::role().is_member(role)) {
+    throw std::runtime_error(
+        cppgres::fmt::format("Role {} is not a member of {}", cppgres::role().name(), role.name()));
+  }
+  oink::arena arena(arena_name().c_str(), arena_size());
+  oink::sender snd(arena, mq_name().c_str(), 8192);
+  auto msg = snd.send<sql_message>(arena, s, role);
+  if (wait_ms.has_value()) {
+    static bip::interprocess_semaphore *semaphore = nullptr;
 // This doesn't really work but basically if we're using a spin semaphore,
 // we're safe to use this in a signal handler:
 // static_assert(std::same_as<bip::interprocess_semaphore::internal_sem_t,
@@ -139,19 +147,20 @@ postgres_function(sql, ([](std::string_view s,
 #warning                                                                                           \
     "POSIX semaphores may present a problem, see: https://github.com/boostorg/interprocess/issues/262"
 #endif
-                      semaphore = &msg->ready;
-                      scoped_interrupt_handler ih{SIGINT, [](int) { semaphore->post(); }};
-                      if (msg->ready.timed_wait(std::chrono::system_clock::now() +
-                                                std::chrono::milliseconds(wait_ms.value()))) {
+    semaphore = &msg->ready;
+    scoped_interrupt_handler ih{SIGINT, [](int) { semaphore->post(); }};
+    if (msg->ready.timed_wait(std::chrono::system_clock::now() +
+                              std::chrono::milliseconds(wait_ms.value()))) {
 
-                        return msg->rc == 0;
-                      } else {
-                        return std::nullopt;
-                      }
-                    } else {
-                      return std::nullopt;
-                    }
-                  }));
+      return msg->rc == 0;
+    } else {
+      return std::nullopt;
+    }
+  } else {
+    return std::nullopt;
+  }
+}
+postgres_function(sql, sql_impl);
 
 struct timer_message {
 
