@@ -75,3 +75,18 @@ tests:
   query: select * from testr
   results:
   - current_role: runner
+
+- name: allow changing labels from null
+  commit: true
+  query: update omni_worker.sql_autostart_stmt set label = gen_random_uuid()
+
+- name: do not allow changing labels otherwise
+  query: update omni_worker.sql_autostart_stmt set label = gen_random_uuid()
+  error: sql_autostart_stmt labels are immutable
+
+- name: labels are unique
+  query: |
+    with l as (select label as old_label from omni_worker.sql_autostart_stmt limit 1)
+    insert into omni_worker.sql_autostart_stmt (stmt, label, position)
+    select 'select',old_label,1 from l
+  error: duplicate key value violates unique constraint "sql_autostart_stmt_label_key"
