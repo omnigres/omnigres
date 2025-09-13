@@ -61,7 +61,9 @@ tests:
   - grant all on schema public to runner
   - grant all on all tables in schema public to runner
   - grant all on all sequences in schema public to runner
-  - select omni_worker.sql('create table role_change as select current_role::regrole', wait_ms => 10000, run_as => 'runner')
+  - query: select omni_worker.sql('create table role_change as select current_role::regrole', wait_ms => 10000, run_as => 'runner')
+    results:
+    - sql: true
   - query: select  * from role_change
     results:
     - current_role: runner
