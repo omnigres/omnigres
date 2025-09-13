@@ -1,0 +1,143 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+    max_worker_processes: 64
+    omni_worker.workers: 10
+  init:
+  - create extension omni_worker cascade
+  - |
+    create table timer_report
+    (
+        id serial primary key,
+        timer_role regrole not null default current_role::regrole
+    )
+  - |
+    create or replace function timer_report() returns void
+    begin
+        atomic;
+        insert
+        into
+            timer_report default
+        values;
+    end;
+  - |
+    create or replace function _reset_role() returns void
+    language plpgsql as $$
+    begin
+    reset role;
+    insert into timer_report default values;
+    end;
+    $$
+  - |
+    create or replace function _set_role() returns void
+    language plpgsql as $$
+    begin
+    set role yregress;
+    insert into timer_report default values;
+    end;
+    $$
+  - select pg_sleep(1)
+
+tests:
+
+- name: Timer smoke test
+  transaction: false
+  tests:
+  - select omni_worker.timer_after(1000, 'timer_report')
+  - query: select
+               count(*)
+           from
+               timer_report
+    results:
+    - count: 0
+  - select pg_sleep(2)
+  - query: select
+               count(*)
+           from
+               timer_report
+    results:
+    - count: 1
+
+- name: cancellation
+  transaction: false
+  tests:
+  - delete from timer_report
+  - create table timer1 as select omni_worker.timer_after(2000, 'timer_report') as id, now() as time
+  - select pg_sleep(1)
+  - query: select omni_worker.timer_cancel(id) or now()-time >= '2 second' as timer_cancel from timer1
+    results:
+    - timer_cancel: true
+  - select pg_sleep(1.5)
+  - query: select count(*) from timer_report
+    results:
+    - count: 0
+  - drop table timer1
+
+- name: late cancellation
+  transaction: false
+  tests:
+  - delete from timer_report
+  - create table timer1 as select omni_worker.timer_after(1000, 'timer_report') as id
+  - select pg_sleep(3)
+  - query: select omni_worker.timer_cancel(id) from timer1
+    results:
+    - timer_cancel: false
+  - drop table timer1
+
+- name: bogus cancellation
+  query: select omni_worker.timer_cancel(999999999)
+  results:
+  - timer_cancel: false
+
+- name: role change
+  transaction: false
+  tests:
+  - delete from timer_report
+  - create role runner
+  - grant omni_worker_timer_user to runner
+  - grant usage on schema omni_worker to runner
+  - grant all on schema public to runner
+  - grant all on all tables in schema public to runner
+  - grant all on all sequences in schema public to runner
+  - select omni_worker.timer_after(1, 'timer_report', run_as => 'runner')
+  - select pg_sleep(0.25)
+  - query: select timer_role from timer_report
+    results:
+    - timer_role: runner
+
+- name: role escape prevention
+  transaction: false
+  tests:
+  - delete from timer_report
+  - select omni_worker.timer_after(1, '_set_role', run_as => 'runner')
+  - select omni_worker.timer_after(1, '_reset_role', run_as => 'runner')
+  - select pg_sleep(1)
+  - query: select timer_role from timer_report
+    results: [ ]
+
+- name: unauthorized cancellation prevention
+  transaction: false
+  tests:
+  - delete from timer_report
+  - create table timer1 as select omni_worker.timer_after(10000, 'timer_report') as id
+  - grant all on table timer1 to runner
+  - set role runner
+  - query: select omni_worker.timer_cancel(id) from timer1
+    results:
+    - timer_cancel: false
+  - reset role
+  - query: select omni_worker.timer_cancel(id) from timer1
+    results:
+    - timer_cancel: true
+  - drop table timer1
+
+- name: role escalation prevention
+  transaction: false
+  tests:
+  - create role restricted
+  - grant omni_worker_timer_user to restricted
+  - set role restricted
+  - query: select omni_worker.timer_after(1000, 'timer_report', run_as => 'yregress')
+    error: "exception: Role restricted is not a member of yregress"
+  - reset role

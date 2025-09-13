@@ -23,7 +23,7 @@ OMNI_MODULE_INFO(.name = "omni_worker", .version = EXT_VERSION,
                  .identity = "60d8114c-bce4-4e72-a278-694067a9ffb5");
 }
 
-static const omni_handle *backend_handle = nullptr;
+const omni_handle *backend_handle = nullptr;
 
 template <class... Ts> struct overload : Ts... {
   using Ts::operator()...;
@@ -35,13 +35,16 @@ concept message = oink::message<T> || std::same_as<T, std::any>;
 
 template <message T> struct omni_pool_handler {
   using signature = void(const T *);
-  omni_pool_handler(const std::string &library, const std::string &name)
+  omni_pool_handler(const std::string &library, const std::string &name, bool init, bool leader)
       : dl(dlopen(library.c_str(), RTLD_LAZY), dlclose),
-        ptr(reinterpret_cast<void *(*)(const char *, std::size_t *hash)>(
-            dlsym(dl.get(), "omni_worker_handler"))(name.c_str(), &hash)),
-        handler(reinterpret_cast<signature *>(ptr)) {}
+        ptr(reinterpret_cast<void *(*)(const char *, std::size_t *hash, bool, bool)>(
+            dlsym(dl.get(), "omni_worker_handler"))(name.c_str(), &hash, init, leader)),
+        handler(reinterpret_cast<signature *>(ptr)), library_(library), name_(name) {}
 
   void operator()(const T &t) { handler(t); }
+
+  const std::string &library() const noexcept { return library_; }
+  const std::string &name() const noexcept { return name_; }
 
 private:
   std::shared_ptr<void> dl;
@@ -50,13 +53,15 @@ public:
   void *ptr;
   boost::function<signature> handler;
   std::size_t hash;
+  std::string library_;
+  std::string name_;
 };
 
 std::string arena_name() {
   return cppgres::fmt::format("omni_worker_v1_{}_{}", cppgres::ffi_guard{::GetSystemIdentifier}(),
                               MyDatabaseId);
 }
-std::size_t arena_size() { return 1024 * 1024; }
+std::size_t arena_size() { return 10 * 1024 * 1024; }
 std::string mq_name() {
   return cppgres::fmt::format("omni_worker_v1_{}_{}_mq",
                               cppgres::ffi_guard{::GetSystemIdentifier}(), MyDatabaseId);
@@ -82,7 +87,9 @@ postgres_function(reload_handlers, ([]() -> cppgres::value {
                     throw std::runtime_error("must be called as a trigger");
                   }));
 
-static void worker(cppgres::datum main) {
+cppgres::worker *main_worker = nullptr;
+
+static void worker(cppgres::datum main, bool leader) {
   cppgres::current_background_worker bgw;
 
   bgw.connect(cppgres::from_nullable_datum<cppgres::oid>(cppgres::nullable_datum(main), OIDOID));
@@ -94,47 +101,66 @@ static void worker(cppgres::datum main) {
     std::string name;
   };
   auto do_reload = [&]() {
-    handlers.clear();
-    cppgres::transaction tx(false);
+    cppgres::transaction tx(true);
     cppgres::spi_executor spi;
+    decltype(handlers) new_handlers;
+    auto have_handler = [&handlers](auto library, auto name) {
+      for (auto &[_, h] : handlers) {
+        if (h.library() == library && h.name() == name) {
+          return true;
+        }
+      }
+      return false;
+    };
     for (const auto &h : spi.query<handler>("select library, name from omni_worker.handlers")) {
-      omni_pool_handler<std::any> hndl(h.library, h.name);
-      handlers.insert({hndl.hash, std::move(hndl)});
+      bool init = !have_handler(h.library, h.name);
+      omni_pool_handler<std::any> hndl(h.library, h.name, init, leader);
+      new_handlers.insert({hndl.hash, std::move(hndl)});
     }
+    handlers.swap(new_handlers);
   };
   do_reload();
 
   oink::arena arena(arena_name().c_str(), arena_size());
   oink::receiver rcvr(arena, mq_name().c_str(), 8192);
-  cppgres::worker worker;
 
+  cppgres::worker main_thread_worker;
+  main_worker = &main_thread_worker;
   std::thread receiver([&]() {
     while (true) {
       rcvr.receive<reload>(
           overload{[&](reload &) {
                      cppgres::report(LOG, "Reloading omni_worker handlers");
-                     do_reload();
+                     main_thread_worker.post(do_reload).wait();
+                     return true;
                    },
                    [&](oink::endpoint::msg &msg) {
                      auto it = handlers.find(msg.hash);
                      if (it != handlers.end()) {
-                       worker
+                       return main_thread_worker
                            .post([&]() {
-                             reinterpret_cast<void (*)(const void *)>(it->second.ptr)(
+                             return reinterpret_cast<bool (*)(const void *)>(it->second.ptr)(
                                  static_cast<char *>(arena.get_address()) + msg.offset);
                            })
-                           .wait();
+                           .get();
                      }
+                     // Nobody responded, drop it
+                     return true;
                    }});
     }
   });
 
-  worker.run();
+  main_thread_worker.run();
 }
 
 extern "C" {
 
-void omni_worker_bgw(::Datum main) { cppgres::exception_guard{worker}(cppgres::datum(main)); }
+void omni_worker_bgw(::Datum main) {
+  cppgres::exception_guard{worker}(cppgres::datum(main), false);
+}
+void omni_worker_bgw_leader(::Datum main) {
+  cppgres::exception_guard{worker}(cppgres::datum(main), true);
+}
 
 void _Omni_init(const omni_handle *handle) {
   cppgres::exception_guard([&]() {
@@ -166,7 +192,7 @@ void _Omni_init(const omni_handle *handle) {
                           cppgres::ffi_guard{::get_database_name}(MyDatabaseId)))
                       .type("omni_worker")
                       .library_name(handle->get_library_name(handle))
-                      .function_name("omni_worker_bgw")
+                      .function_name(i == 0 ? "omni_worker_bgw_leader" : "omni_worker_bgw")
                       .main_arg(cppgres::datum_conversion<cppgres::oid>::into_datum(MyDatabaseId))
                       .flags(BGWORKER_SHMEM_ACCESS | BGWORKER_BACKEND_DATABASE_CONNECTION)
                       .notify_pid(MyProcPid)

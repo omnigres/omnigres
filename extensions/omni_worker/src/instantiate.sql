@@ -18,7 +18,9 @@ begin
     insert
     into
         handlers
-    values ('MODULE_PATHNAME', 'sql');
+    values
+        ('MODULE_PATHNAME', 'sql'),
+        ('MODULE_PATHNAME', 'timer');
 
     create function reload_handlers() returns trigger
         language c as
@@ -30,9 +32,56 @@ begin
         for each statement
     execute function reload_handlers();
 
-    create function sql(stmt text, wait_ms int default null) returns bool
+
+    perform from pg_roles where rolname = 'omni_worker_sql_user';
+    if not found then
+        create role omni_worker_sql_user;
+    end if;
+
+    create function sql(stmt text, wait_ms int default null, run_as regrole default current_role::regrole) returns bool
         language c as
     'MODULE_PATHNAME';
+
+    revoke execute on function sql from public, current_user;
+    grant execute on function sql to omni_worker_sql_user;
+
+    execute format('grant all on schema %I to omni_worker_sql_user', schema);
+
+
+    perform from pg_roles where rolname = 'omni_worker_sql_autostart_admin';
+    if not found then
+        create role omni_worker_sql_autostart_admin;
+        grant omni_worker_sql_user to omni_worker_sql_autostart_admin;
+    end if;
+
+    create table sql_autostart_stmt
+    (
+        stmt     text    not null,
+        role     regrole not null default current_role::regrole,
+        position int     not null
+    );
+    revoke all on table sql_autostart_stmt from public, current_user;
+    grant all on table sql_autostart_stmt to omni_worker_sql_autostart_admin;
+
+    perform from pg_roles where rolname = 'omni_worker_timer_user';
+    if not found then
+        create role omni_worker_timer_user;
+    end if;
+
+    create function timer_after(delay_ms bigint, fun regproc,
+                                run_as regrole default current_role::regrole) returns bigint
+        language c as
+    'MODULE_PATHNAME';
+
+    create function timer_cancel(timer_id bigint) returns bool
+        language c as
+    'MODULE_PATHNAME';
+
+    revoke execute on function timer_after, timer_cancel from public, current_user;
+    grant execute on function timer_after, timer_cancel to omni_worker_timer_user;
+
+    execute format('grant all on schema %I to omni_worker_timer_user', schema);
+
 
 end;
 $$;
