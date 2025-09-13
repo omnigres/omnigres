@@ -57,9 +57,26 @@ begin
     create table sql_autostart_stmt
     (
         stmt     text    not null,
+        label text unique,
         role     regrole not null default current_role::regrole,
         position int     not null
     );
+    create function no_label_update() returns trigger
+        language plpgsql
+    as
+    $no_label_update$
+    begin
+        raise exception 'sql_autostart_stmt labels are immutable';
+    end;
+    $no_label_update$;
+
+    create trigger prevent_label_update
+        before update
+        on sql_autostart_stmt
+        for each row
+        when (old.label is not null and old.label is distinct from new.label)
+    execute function no_label_update();
+
     revoke all on table sql_autostart_stmt from public, current_user;
     grant all on table sql_autostart_stmt to omni_worker_sql_autostart_admin;
 
