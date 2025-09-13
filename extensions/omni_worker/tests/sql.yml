@@ -6,6 +6,24 @@ instance:
     omni_worker.workers: 10
   init:
   - create extension omni_worker cascade
+  - create table report ()
+  - |
+    create or replace function _reset_role() returns void
+    language plpgsql as $$
+    begin
+    reset role;
+    insert into report default values;
+    end;
+    $$
+  - |
+    create or replace function _set_role() returns void
+    language plpgsql as $$
+    begin
+    set role yregress;
+    insert into report default values;
+    end;
+    $$
+
 
 tests:
 
@@ -33,3 +51,44 @@ tests:
   query: select omni_worker.sql('wrong')
   results:
   - sql: false
+
+- name: SQL role change
+  transaction: false
+  tests:
+  - create role runner
+  - grant omni_worker_sql_user to runner
+  - grant usage on schema omni_worker to runner
+  - grant all on schema public to runner
+  - grant all on all tables in schema public to runner
+  - grant all on all sequences in schema public to runner
+  - query: select omni_worker.sql('create table role_change as select current_role::regrole', wait_ms => 10000, run_as => 'runner')
+    results:
+    - sql: true
+  - query: select  * from role_change
+    results:
+    - current_role: runner
+
+- name: role escape prevention
+  transaction: false
+  tests:
+  - delete from report
+  - query: select omni_worker.sql('select _set_role', run_as => 'runner', wait_ms => 10000)
+    results:
+    - sql: false
+  - query: select omni_worker.sql('select _reset_role', run_as => 'runner', wait_ms => 10000)
+    results:
+    - sql: false
+  - query: select count(*) from report
+    results:
+    - count: 0
+
+- name: SQL role escalation prevention
+  transaction: false
+  tests:
+  - create role restricted
+  - grant omni_worker_sql_user to restricted
+  - set role restricted
+  - query: select omni_worker.sql('select', run_as => 'yregress')
+    error: "exception: Role restricted is not a member of yregress"
+  - reset role
+
