@@ -7,6 +7,14 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [0.4.0] - TBD
 
+### Added
+
+* Full resource schema population (view or tables) [#949](https://github.com/omnigres/omnigres/pull/949)
+
+### Fixed
+
+* Restore search path upon resource table and view creation [#949](https://github.com/omnigres/omnigres/pull/949)
+
 ## [0.3.0] - 2025-09-03
 
 ### Added

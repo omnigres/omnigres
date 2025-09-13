@@ -70,6 +70,12 @@ begin
     /*{% include "watch_path.sql" %}*/
     /*{% include "watch.sql" %}*/
 
+    /*{% include "resource_views.sql" %}*/
+    execute format('alter function resource_views set omni_kube.search_path = %L', schema::text);
+    /*{% include "resource_tables.sql" %}*/
+    execute format('alter function resource_tables set omni_kube.search_path = %L', schema::text);
+
+
     -- Restore the path
     perform
         set_config('search_path', old_search_path, true);
