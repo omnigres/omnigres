@@ -1,5 +1,6 @@
 create function resource_table(table_name name, group_version text, resource text, label_selector text default null,
-                               field_selector text default null, transactional boolean default false)
+                               field_selector text default null, transactional boolean default false,
+                               schema name default null)
     returns regclass
     language plpgsql
 as
@@ -10,14 +11,26 @@ declare
     is_namespaced   boolean;
     resource_kind   text;
     old_search_path text := current_setting('search_path');
+    result regclass;
 begin
-    execute format('set search_path to %I, public', ns);
+    perform set_config('search_path', format('%I, public', ns), true);
     select namespaced, kind into is_namespaced, resource_kind from group_resources(group_version) where name = resource;
     url := resources_path(group_version, resource, namespace => case when is_namespaced then '%s' end);
 
-    perform
-        set_config('search_path', old_search_path, true);
-
+    if schema is not null then
+        perform
+        from
+            pg_namespace
+        where
+            nspname = schema;
+        if not found then
+            execute format('create schema %I', schema);
+        end if;
+        perform set_config('search_path', format('%I, public', schema), true);
+    else
+        perform
+            set_config('search_path', old_search_path, true);
+    end if;
 
     execute format($resource_table_$
     create table %I as
@@ -286,6 +299,10 @@ begin
     execute function %1$I()
     $resource_table_delete_t$, table_name || '_delete', table_name);
 
-    return table_name;
+    perform
+        set_config('search_path', old_search_path, true);
+
+    return result;
+
 end;
 $resource_table$;
