@@ -31,17 +31,20 @@ struct sql_message {
 
 bool sql_handler(sql_message *msg) {
   return cppgres::exception_guard([msg]() {
-    cppgres::transaction tx;
+    {
+      cppgres::transaction tx;
 
-    cppgres::spi_executor spi;
-    try {
-      cppgres::security_context ctx(msg->role, cppgres::security_local_user_id_change);
-      spi.execute(msg->stmt.c_str());
-    } catch (std::exception &e) {
-      tx.rollback();
-      cppgres::report(WARNING, "%s", e.what());
-      msg->rc = -1;
+      cppgres::spi_executor spi;
+      try {
+        cppgres::security_context ctx(msg->role, cppgres::security_local_user_id_change);
+        spi.execute(msg->stmt.c_str());
+      } catch (std::exception &e) {
+        tx.rollback();
+        cppgres::report(WARNING, "%s", e.what());
+        msg->rc = -1;
+      }
     }
+    // Ensure we post _after_ we commit
     msg->ready.post();
     return true;
   })();

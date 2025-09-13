@@ -15,6 +15,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Fixed
 
 * SQL execution role restriction [#945](https://github.com/omnigres/omnigres/pull/945)
+* SQL handler should return after committing [#946](https://github.com/omnigres/omnigres/pull/946)
 
 ## [0.1.4] - 2025-09-04
 
