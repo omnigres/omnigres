@@ -407,3 +407,13 @@ tests:
       inner join cm_uid c on c.uid = kube.config_map.uid
     results:
     - count: 1
+
+- name: user role
+  steps:
+  - create role rol
+  - grant create on database yregress to rol
+  - grant create on schema public to rol
+  - name: set the necessary role
+    query: grant omni_kube to rol
+  - set role rol
+  - select omni_kube.resource_tables('kube')
