@@ -10,6 +10,7 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 * Full resource schema population (view or tables) [#949](https://github.com/omnigres/omnigres/pull/949)
+* `omni_kube` role to simplify granting the capabilities to users [#951](https://github.com/omnigres/omnigres/pull/951)
 
 ### Fixed
 
