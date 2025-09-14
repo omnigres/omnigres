@@ -68,6 +68,10 @@ declare
     result          jsonb;
     response_status int2;
 begin
+    if cacert is null and clientcert is null and token is null then
+        raise exception 'no authentication methods available';
+    end if;
+
     if substring(path, 1, 1) != '/' then
         raise exception 'path must start with a leading slash';
     end if;

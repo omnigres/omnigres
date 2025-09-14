@@ -1,0 +1,13 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_kube cascade
+  - create extension omni_os cascade
+
+tests:
+
+- name: smoke test
+  query: select *
+    from omni_kube.api_group
+    where name in ('core', 'apps')
+  error: no authentication methods available
