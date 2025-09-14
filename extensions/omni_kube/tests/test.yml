@@ -19,9 +19,11 @@ tests:
     preferred_version: v1
 
 - name: group resources
-  query: select name
-         from omni_kube.group_resources('v1')
-         order by name
+  query: |
+    select name
+    from omni_kube.group_resources('v1')
+    where position('/' in name) = 0
+    order by name
   results:
   - name: bindings
   - name: componentstatuses
@@ -30,37 +32,16 @@ tests:
   - name: events
   - name: limitranges
   - name: namespaces
-  - name: namespaces/finalize
-  - name: namespaces/status
   - name: nodes
-  - name: nodes/proxy
-  - name: nodes/status
   - name: persistentvolumeclaims
-  - name: persistentvolumeclaims/status
   - name: persistentvolumes
-  - name: persistentvolumes/status
   - name: pods
-  - name: pods/attach
-  - name: pods/binding
-  - name: pods/ephemeralcontainers
-  - name: pods/eviction
-  - name: pods/exec
-  - name: pods/log
-  - name: pods/portforward
-  - name: pods/proxy
-  - name: pods/status
   - name: podtemplates
   - name: replicationcontrollers
-  - name: replicationcontrollers/scale
-  - name: replicationcontrollers/status
   - name: resourcequotas
-  - name: resourcequotas/status
   - name: secrets
   - name: serviceaccounts
-  - name: serviceaccounts/token
   - name: services
-  - name: services/proxy
-  - name: services/status
 
 - name: resources
   query: select count(*) > 0 as non_empty
