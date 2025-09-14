@@ -15,4 +15,5 @@ add_postgresql_extension(
         COMMENT "Kubernetes (k8s) integration"
         SCHEMA omni_kube
         RELOCATABLE false
+        SOURCES omni_kube.c
         REQUIRES omni_httpc omni_web omni_var omni_yaml)

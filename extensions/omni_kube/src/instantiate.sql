@@ -1,4 +1,4 @@
-create function instantiate(schema regnamespace) returns void
+create function instantiate(schema regnamespace, role name default 'omni_kube') returns void
     language plpgsql
 as
 $instantiate$
@@ -7,6 +7,12 @@ declare
 begin
     -- Set the search path to target schema and public
     perform set_config('search_path', schema::text || ',public', true);
+
+    -- Facilitates invoking _PG_init to define GUCs
+    create function dummy() returns void
+        language c as
+    'MODULE_PATHNAME';
+    drop function dummy();
 
     /*{% include "group_path.sql" %}*/
     /*{% include "resources_path.sql" %}*/
@@ -69,6 +75,20 @@ begin
     execute format('alter function resource_table set omni_kube.search_path = %L', schema::text);
     /*{% include "watch_path.sql" %}*/
     /*{% include "watch.sql" %}*/
+
+    /*{% include "resource_views.sql" %}*/
+    execute format('alter function resource_views set omni_kube.search_path = %L', schema::text);
+    /*{% include "resource_tables.sql" %}*/
+    execute format('alter function resource_tables set omni_kube.search_path = %L', schema::text);
+
+    perform from pg_roles where rolname = role;
+    if not found then
+        execute format('create role %I', role);
+    end if;
+    execute format('grant all on schema %I, omni_http, omni_httpc to %I', schema, role);
+    execute format('grant select on all tables in schema %I to %I', schema, role);
+    execute format('grant select, update, usage on all sequences in schema %I to %I', schema, role);
+    execute format('grant execute on all functions in schema %I to %I', schema, role);
 
     -- Restore the path
     perform

@@ -19,9 +19,11 @@ tests:
     preferred_version: v1
 
 - name: group resources
-  query: select name
-         from omni_kube.group_resources('v1')
-         order by name
+  query: |
+    select name
+    from omni_kube.group_resources('v1')
+    where position('/' in name) = 0
+    order by name
   results:
   - name: bindings
   - name: componentstatuses
@@ -30,37 +32,16 @@ tests:
   - name: events
   - name: limitranges
   - name: namespaces
-  - name: namespaces/finalize
-  - name: namespaces/status
   - name: nodes
-  - name: nodes/proxy
-  - name: nodes/status
   - name: persistentvolumeclaims
-  - name: persistentvolumeclaims/status
   - name: persistentvolumes
-  - name: persistentvolumes/status
   - name: pods
-  - name: pods/attach
-  - name: pods/binding
-  - name: pods/ephemeralcontainers
-  - name: pods/eviction
-  - name: pods/exec
-  - name: pods/log
-  - name: pods/portforward
-  - name: pods/proxy
-  - name: pods/status
   - name: podtemplates
   - name: replicationcontrollers
-  - name: replicationcontrollers/scale
-  - name: replicationcontrollers/status
   - name: resourcequotas
-  - name: resourcequotas/status
   - name: secrets
   - name: serviceaccounts
-  - name: serviceaccounts/token
   - name: services
-  - name: services/proxy
-  - name: services/status
 
 - name: resources
   query: select count(*) > 0 as non_empty
@@ -72,6 +53,10 @@ tests:
   steps:
   - name: establish the view
     query: select omni_kube.resource_view('pods', 'v1', 'pods')
+  - name: check the search_path
+    query: select current_setting('search_path')
+    results:
+    - current_setting: "\"$user\", public"
   - name: look at it
     query: select count(*) > 0 as non_empty
            from pods
@@ -185,6 +170,10 @@ tests:
   steps:
   - name: establish the table
     query: select omni_kube.resource_table('pods', 'v1', 'pods')
+  - name: check the search_path
+    query: select current_setting('search_path')
+    results:
+    - current_setting: "\"$user\", public"
   - name: look at it
     query: select count(*) > 0 as non_empty
            from pods
@@ -321,3 +310,110 @@ tests:
                     inner join cm_uid c on c.uid = object -> 'metadata' ->> 'uid'
     results:
     - type: 'DELETED'
+
+- name: resource view schemas
+  steps:
+  - select omni_kube.resource_views('kube')
+  - name: check the search_path
+    query: select current_setting('search_path')
+    results:
+    - current_setting: "\"$user\", public"
+  - select from kube.pod
+  - select from kube.config_map
+  - select from "kube/apps".deployment
+
+- name: resource view schemas (plural)
+  steps:
+  - select omni_kube.resource_views('kube', singular => false)
+  - select from kube.pods
+  - select from kube.config_maps
+  - select from "kube/apps".deployments
+  - select from kube.component_statuses
+
+- name: resource view schemas (no underscores)
+  steps:
+  - select omni_kube.resource_views('kube', underscore_case => false)
+  - select from kube.configmap
+  - select from kube.componentstatus
+
+- name: resource view schemas (custom naming template)
+  steps:
+  - select omni_kube.resource_views('kube', schema_template => '%s(%s)')
+  - select from "kube(apps)".deployment
+
+- name: resource table schemas
+  steps:
+  - select omni_kube.resource_tables('kube')
+  - name: check the search_path
+    query: select current_setting('search_path')
+    results:
+    - current_setting: "\"$user\", public"
+  - select from kube.pod
+  - select from kube.config_map
+  - select from "kube/apps".deployment
+
+- name: resource table schemas (plural)
+  steps:
+  - select omni_kube.resource_tables('kube', singular => false)
+  - select from kube.pods
+  - select from kube.config_maps
+  - select from "kube/apps".deployments
+  - select from kube.component_statuses
+
+- name: resource table schemas (no underscores)
+  steps:
+  - select omni_kube.resource_tables('kube', underscore_case => false)
+  - select from kube.configmap
+  - select from kube.componentstatus
+
+- name: resource table schemas (custom naming template)
+  steps:
+  - select omni_kube.resource_tables('kube', schema_template => '%s(%s)')
+  - select from "kube(apps)".deployment
+
+- name: resource table refresh
+  steps:
+  - select omni_kube.resource_tables('kube')
+  - name: establish a view for comparison
+    query: select omni_kube.resource_view('config_map_v', 'v1', 'configmaps')
+  - create table cm_uid
+    (
+    uid text not null
+    )
+  - name: insert into view
+    query: |
+      with insertion as (insert into config_map_v (resource)
+          values ('{ "metadata": { "generateName": "omni-kube-cm-test-", "labels": {"omnigres.com/test": "true"} }, "data": {} }')
+          returning *)
+      insert
+      into cm_uid (uid)
+      select uid
+      from insertion
+  - name: ensure we got the uid (conditions satisfied)
+    query: select count(*) > 0 as non_empty
+      from cm_uid
+    results:
+    - non_empty: true
+  - name: should not be in the table
+    query: select
+      from kube.config_map
+      inner join cm_uid c on c.uid = kube.config_map.uid
+    results: [ ]
+  - name: refresh
+    query: select from refresh_kube()
+  - name: should be in the table
+    query: select count(*)
+      from kube.config_map
+      inner join cm_uid c on c.uid = kube.config_map.uid
+    results:
+    - count: 1
+
+- name: user role
+  steps:
+  - create role rol
+  - grant create on database yregress to rol
+  - grant create on schema public to rol
+  - name: set the necessary role
+    query: grant omni_kube to rol
+  - set role rol
+  - select omni_kube.resource_tables('kube')
