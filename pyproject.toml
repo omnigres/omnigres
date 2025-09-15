@@ -1,0 +1,15 @@
+[project]
+name = "omnigres"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "click>=8.2.1",
+    "cookiecutter>=2.6.0",
+    "more-itertools>=10.8.0",
+    "pygit2>=1.18.2",
+    "rich>=14.1.0",
+    "semver>=3.0.4",
+    "textual>=6.1.0",
+]
