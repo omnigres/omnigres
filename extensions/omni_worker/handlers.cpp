@@ -3,11 +3,11 @@
 #include <oink.hpp>
 #include <type_traits>
 
+#include <cppgres.hpp>
+
 extern "C" {
 #include <omni/omni_v0.h>
 }
-
-#include <cppgres.hpp>
 
 #include "omni_worker.hpp"
 
