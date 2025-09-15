@@ -1281,7 +1281,7 @@ static int handler(handler_message_t *msg) {
         fcinfo->args[1].isnull = false;
         fcinfo->args[2].value = HeapTupleGetDatum(request_tuple);
         fcinfo->args[2].isnull = false;
-        fcinfo->context = (fmNodePtr)non_atomic_call_context;
+        fcinfo->context = (Node *)non_atomic_call_context;
         outcome = FunctionCallInvoke(fcinfo);
         isnull = fcinfo->isnull;
 
@@ -1360,7 +1360,7 @@ static int handler(handler_message_t *msg) {
             fcinfo->args[tuple_index].value = routes[i].tuple;
           }
           if (routes[i].proc->prokind == PROKIND_PROCEDURE) {
-            fcinfo->context = (fmNodePtr)non_atomic_call_context;
+            fcinfo->context = (Node *)non_atomic_call_context;
           }
           if (OidIsValid(routes[i].role)) {
             // FIXME: we want to do `security_ctx | SECURITY_LOCAL_USERID_CHANGE` here
@@ -1595,7 +1595,7 @@ static int handler(handler_message_t *msg) {
                                                 ? msg->payload.websocket_open.uuid
                                                 : msg->payload.websocket_close.uuid));
       fcinfo->args[0].isnull = false;
-      fcinfo->context = (fmNodePtr)non_atomic_call_context;
+      fcinfo->context = (Node *)non_atomic_call_context;
 
       Snapshot snapshot = GetTransactionSnapshot();
       PushActiveSnapshot(snapshot);
@@ -1643,7 +1643,7 @@ static int handler(handler_message_t *msg) {
           PointerGetDatum(cstring_to_text_with_len((char *)msg->payload.websocket_message.message,
                                                    msg->payload.websocket_message.message_len));
       fcinfo->args[1].isnull = false;
-      fcinfo->context = (fmNodePtr)non_atomic_call_context;
+      fcinfo->context = (Node *)non_atomic_call_context;
 
       Snapshot snapshot = GetTransactionSnapshot();
       PushActiveSnapshot(snapshot);
