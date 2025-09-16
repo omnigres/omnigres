@@ -63,12 +63,20 @@ static Datum function_signature_search(PG_FUNCTION_ARGS, char *input, bool missi
                                               escontext
 #endif
       );
+#if PG_MAJORVERSION_NUM > 18
+      int fgc_flags;
+#endif
 
       FuncCandidateList candidates = FuncnameGetCandidates(names, nargs, NIL, false, false,
 #if PG_MAJORVERSION_NUM > 13
                                                            false,
 #endif
-                                                           true);
+                                                           true
+#if PG_MAJORVERSION_NUM > 18
+                                                           ,
+                                                           &fgc_flags
+#endif
+      );
 
       while (candidates) {
         // Iterate through arguments
