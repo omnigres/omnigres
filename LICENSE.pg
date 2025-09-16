@@ -1,0 +1,29 @@
+As a special exception, the code in Omnigres project is dual-licensed as
+Apache-2.0 *and* PostgreSQL license (see below) for the purpose of
+inclusion in the following projects:
+
+* PostgreSQL (https://postgresql.org)
+* forks of PostgreSQL that are licensed under the the terms of the PostgreSQL license
+
+The intention behind this is to allow the inclusion of some of Omnigres functionality
+into PostgreSQL which will further improve its adoption.
+
+==============================================================================
+
+Copyright (c) 2022, 2023, Omnigres Contributors
+
+Permission to use, copy, modify, and distribute this software and its
+documentation for any purpose, without fee, and without a written agreement is
+hereby granted, provided that the above copyright notice and this paragraph and
+the following two paragraphs appear in all copies.
+
+IN NO EVENT SHALL OMNIGRES CONTRIBUTORS BE LIABLE TO ANY PARTY FOR DIRECT, INDIRECT,
+SPECIAL, INCIDENTAL, OR CONSEQUENTIAL DAMAGES, INCLUDING LOST PROFITS, ARISING
+OUT OF THE USE OF THIS SOFTWARE AND ITS DOCUMENTATION, EVEN IF OMNIGRES CONTRIBUTORS HAVE
+BEEN ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+OMNIGRES CONTRIBUTORS SPECIFICALLY DISCLAIM ANY WARRANTIES, INCLUDING, BUT NOT LIMITED
+TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE. THE SOFTWARE PROVIDED HEREUNDER IS ON AN "AS IS" BASIS, AND
+OMNIGRES CONTRIBUTORS HAVE NO OBLIGATIONS TO PROVIDE MAINTENANCE, SUPPORT, UPDATES,
+ENHANCEMENTS, OR MODIFICATIONS.
