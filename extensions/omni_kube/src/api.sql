@@ -24,6 +24,10 @@ begin
         select p.token into token from omni_kube.pod_credentials() p;
     end if;
 
+    if cacert is null and clientcert is null and token is null then
+        raise exception 'no authentication methods available';
+    end if;
+
     return query
         with request as (select (omni_httpc.http_request(
                 server || path,
@@ -68,10 +72,6 @@ declare
     result          jsonb;
     response_status int2;
 begin
-    if cacert is null and clientcert is null and token is null then
-        raise exception 'no authentication methods available';
-    end if;
-
     if substring(path, 1, 1) != '/' then
         raise exception 'path must start with a leading slash';
     end if;
