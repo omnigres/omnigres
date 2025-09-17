@@ -16,4 +16,7 @@ add_postgresql_extension(
         SCHEMA omni_kube
         RELOCATABLE false
         SOURCES omni_kube.c
+        DEPENDS_ON libomni
         REQUIRES omni_httpc omni_web omni_var omni_yaml)
+
+target_link_libraries(omni_kube libomni)
