@@ -573,7 +573,15 @@ static Oid lookup_operator(Oid type, char *name) {
   List *op = list_make1(makeString(name));
   Oid oid = OpernameGetOprid(op, type, type);
   if (!OidIsValid(oid)) {
-    FuncCandidateList clist = OpernameGetCandidates(op, 'b', false);
+#if PG_MAJORVERSION_NUM > 18
+    int fgc_flags;
+#endif
+    FuncCandidateList clist = OpernameGetCandidates(op, 'b', false
+#if PG_MAJORVERSION_NUM > 18
+                                                    ,
+                                                    &fgc_flags
+#endif
+    );
 
     if (clist != NULL) {
       oper_select_candidate(2, (Oid[2]){type, type}, clist, &oid);

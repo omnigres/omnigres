@@ -122,16 +122,13 @@ tests:
            (select json_agg(json_build_object(h.name, h.value))
             from unnest(response.headers) h
             where h.name in ('content-type')) as headers,
-           convert_from(response.body, 'utf-8')::json                       as body
+           (convert_from(response.body, 'utf-8')::json) ->> 'message' as body
     from response
   results:
   - status: 400
     headers:
     - content-type: application/json
-    body:
-      hint: "Could not choose a best candidate function. You might need to add explicit type casts."
-      detail: ""
-      message: "function app.two_or_three_parameters(a => integer, b => text) is not unique"
+    body: "function app.two_or_three_parameters(a => integer, b => text) is not unique"
 
 - name: Two mandatory parameters and one optional passed when function is overloaded
   query: |
