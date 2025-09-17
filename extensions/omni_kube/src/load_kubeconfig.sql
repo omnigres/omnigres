@@ -1,5 +1,7 @@
 create function load_kubeconfig(config jsonb, context text default null, local boolean default false)
-    returns void as
+    returns void
+    security definer
+as
 $$
 declare
     context_config jsonb;
@@ -101,10 +103,12 @@ $$ language plpgsql;
 
 create function load_kubeconfig(config json, context text default null, local boolean default false)
     returns void
+    security definer
     language sql
 return load_kubeconfig(config::jsonb, context, local);
 
 create function load_kubeconfig(filename text, context text default null, local boolean default false)
     returns void
+    security definer
     language sql
 return load_kubeconfig(omni_yaml.to_json(pg_read_file(filename)), context, local);

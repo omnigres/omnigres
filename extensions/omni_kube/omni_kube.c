@@ -1,19 +1,24 @@
 #include <postgres.h>
 #include <utils/guc.h>
 
+#include <omni/omni_v0.h>
+
 PG_MODULE_MAGIC;
+OMNI_MAGIC;
 
-static char *omni_kube_refresh = NULL;
+OMNI_MODULE_INFO(.name = "omni_kube", .version = EXT_VERSION,
+                 .identity = "adbfbf5b-c3c9-4c37-9eb5-8ba226c7e7a4");
 
-PG_FUNCTION_INFO_V1(dummy);
-Datum dummy(PG_FUNCTION_ARGS) { PG_RETURN_NULL(); }
-
-void _PG_init(void) {
+void _Omni_init(const omni_handle *handle) {
   // This is defined here because Postgres 14 does not allow us to
   // `grant set on parameter omni_kube.refresh to ...`, so we'll predefine it here
   // and make it user-settable
-  DefineCustomStringVariable("omni_kube.refresh",
-                             "Indicator of resource table refresh processing (internal)",
-                             "When set to 'true', resource table is being refreshed",
-                             &omni_kube_refresh, "", PGC_USERSET, 0, NULL, NULL, NULL);
+  omni_guc_variable guc_refresh = {
+      .name = "omni_kube.refresh",
+      .short_desc = "Indicator of resource table refresh processing (internal)",
+      .long_desc = "When set to 'true', resource table is being refreshed",
+      .type = PGC_STRING,
+      .typed = {.string_val = {.boot_value = ""}},
+      .context = PGC_USERSET};
+  handle->declare_guc_variable(handle, &guc_refresh);
 }

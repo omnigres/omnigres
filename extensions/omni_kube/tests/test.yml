@@ -1,5 +1,7 @@
 $schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
 instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
   init:
   - create extension omni_kube cascade
   - create extension omni_os cascade
@@ -417,3 +419,18 @@ tests:
     query: grant omni_kube to rol
   - set role rol
   - select omni_kube.resource_tables('kube')
+
+- name: user role (login)
+  transaction: false
+  tests:
+  - create user logrol with password 'password'
+  - grant create on database yregress to logrol
+  - grant create on schema public to logrol
+  - grant all on schema omni_os to logrol
+  - grant all on all tables in schema omni_os to logrol
+  - name: set the necessary role
+    query: grant omni_kube to logrol
+  - create extension if not exists dblink
+  - |
+    select from dblink('hostaddr=127.0.0.1 dbname=yregress user=logrol password=password port=' || current_setting('port'),
+    $$select omni_kube.load_kubeconfig((select value from omni_os.env where variable = 'HOME') || '/.kube/config'); select omni_kube.resource_tables('kube')$$) as t(n name)

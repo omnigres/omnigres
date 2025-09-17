@@ -8,12 +8,6 @@ begin
     -- Set the search path to target schema and public
     perform set_config('search_path', schema::text || ',public', true);
 
-    -- Facilitates invoking _PG_init to define GUCs
-    create function dummy() returns void
-        language c as
-    'MODULE_PATHNAME';
-    drop function dummy();
-
     /*{% include "group_path.sql" %}*/
     /*{% include "resources_path.sql" %}*/
     /*{% include "path_with.sql" %}*/
