@@ -34,7 +34,7 @@ jobs:
         pg: [ 17, 16, 15, 14 ]
 
     if: github.repository == 'omnigres/omnigres'
-    runs-on: ${{ fromJSON('["warp-ubuntu-2404-x64-4x", "warp-ubuntu-2404-arm64-16x"]')[matrix.platform == 'arm64'] }}
+    runs-on: ${{ fromJSON('["blacksmith-4vcpu-ubuntu-2404", "blacksmith-16vcpu-ubuntu-2404-arm"]')[matrix.platform == 'arm64'] }}
 
     permissions:
       contents: read
@@ -61,7 +61,7 @@ jobs:
 
       # Workaround: https://github.com/docker/build-push-action/issues/461
       - name: Setup Docker buildx
-        uses: docker/setup-buildx-action@v2
+        uses: useblacksmith/setup-docker-builder@v1
         with:
           driver-opts: network=host
 
@@ -94,7 +94,7 @@ jobs:
       # https://github.com/docker/build-push-action
       - name: Build and push extra Docker image
         id: build-and-push
-        uses: docker/build-push-action@v4
+        uses: useblacksmith/build-push-action@v2
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
@@ -103,8 +103,6 @@ jobs:
           provenance: false
           labels: ${{ steps.meta.outputs.labels }}
           # Currently using S3 in EU as BuildJet is in the EU and going to the U.S. may be slow
-          cache-from: type=gha,url=http://127.0.0.1:49160/
-          cache-to: type=gha,url=http://127.0.0.1:49160/
           build-args: |
             BUILD_PARALLEL_LEVEL=4
             PG=${{ matrix.pg }}
@@ -113,7 +111,7 @@ jobs:
 
       - name: Build and push normal Docker image
         id: build-and-push-slim
-        uses: docker/build-push-action@v4
+        uses: useblacksmith/build-push-action@v2
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
@@ -121,8 +119,6 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-${{ matrix.pg }}:${{ github.sha }}-${{ matrix.platform }}-${{ matrix.pg }}
           provenance: false
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,url=http://127.0.0.1:49160/
-          cache-to: type=gha,url=http://127.0.0.1:49160/
           build-args: |
             BUILD_PARALLEL_LEVEL=4
             PG=${{ matrix.pg }}
@@ -131,7 +127,7 @@ jobs:
 
       - name: Build and push dev Docker image
         id: build-and-push-dev
-        uses: docker/build-push-action@v4
+        uses: useblacksmith/build-push-action@v2
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
@@ -139,8 +135,6 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-dev-${{ matrix.pg }}:${{ github.sha }}-${{ matrix.platform }}-${{ matrix.pg }}
           provenance: false
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,url=http://127.0.0.1:49160/
-          cache-to: type=gha,url=http://127.0.0.1:49160/
           build-args: |
             BUILD_PARALLEL_LEVEL=4
             PG=${{ matrix.pg }}
@@ -149,7 +143,7 @@ jobs:
 
       - name: Build and push omnikube Docker image
         id: build-and-push-omnikube
-        uses: docker/build-push-action@v4
+        uses: useblacksmith/build-push-action@v2
         with:
           context: .
           push: ${{ github.event_name != 'pull_request' }}
@@ -157,8 +151,6 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-kube-${{ matrix.pg }}:${{ github.sha }}-${{ matrix.platform }}-${{ matrix.pg }}
           provenance: false
           labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,url=http://127.0.0.1:49160/
-          cache-to: type=gha,url=http://127.0.0.1:49160/
           build-args: |
             BUILD_PARALLEL_LEVEL=4
             PG=${{ matrix.pg }}
