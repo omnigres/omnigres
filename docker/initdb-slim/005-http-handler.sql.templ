@@ -1,4 +1,5 @@
 create extension omni_mimetypes;
+create extension pgcrypto;
 
 select omni_httpd.instantiate_static_file_handler(schema => 'public');
 
