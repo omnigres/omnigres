@@ -1,0 +1,67 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instances:
+  default:
+    init:
+    - create extension omni_prolog
+
+tests:
+
+- name: getting arg by number
+  steps:
+  - |
+    create function val(integer) returns integer as $$
+    result(N) :- arg(1, N).
+    $$ language plprolog
+  - query: select val(2)
+    results:
+    - val: 2
+
+- name: getting arg by name
+  steps:
+  - |
+    create function val(i integer) returns integer as $$
+    result(N) :- arg(i, N).
+    $$ language plprolog
+  - query: select val(2)
+    results:
+    - val: 2
+
+- name: getting int2 arg
+  steps:
+  - |
+    create function val(int2) returns int2 as $$
+    result(N) :- arg(1, N).
+    $$ language plprolog
+  - query: select val(2::int2)
+    results:
+    - val: 2
+
+- name: getting int4 arg
+  steps:
+  - |
+    create function val(int4) returns int4 as $$
+    result(N) :- arg(1, N).
+    $$ language plprolog
+  - query: select val(2)
+    results:
+    - val: 2
+
+- name: getting int8 arg
+  steps:
+  - |
+    create function val(int8) returns int8 as $$
+    result(N) :- arg(1, N).
+    $$ language plprolog
+  - query: select val(2)
+    results:
+    - val: 2
+
+- name: getting text arg
+  steps:
+  - |
+    create function val(text) returns text as $$
+    result(N) :- arg(1, N).
+    $$ language plprolog
+  - query: select val('text')
+    results:
+    - val: text
