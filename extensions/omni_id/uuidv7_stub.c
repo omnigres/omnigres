@@ -4,6 +4,6 @@
 // clang-format on
 
 PG_MODULE_MAGIC;
-PG_FUNCTION_INFO_V1(uuidv7);
+PG_FUNCTION_INFO_V1(_uuidv7);
 
-Datum uuidv7(PG_FUNCTION_ARGS) { PG_RETURN_NULL(); }
+Datum _uuidv7(PG_FUNCTION_ARGS) { PG_RETURN_NULL(); }

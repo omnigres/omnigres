@@ -1,7 +1,7 @@
 create function omni_id_uuidv7() returns uuid
     language c as
 'MODULE_PATHNAME',
-'uuidv7';
+'_uuidv7';
 
 do
 $$
