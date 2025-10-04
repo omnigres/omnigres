@@ -17,4 +17,4 @@ add_postgresql_extension(
         SCHEMA omni_schema
         RELOCATABLE false
         REQUIRES omni_sql omni_vfs omni_polyfill omni_yaml dblink postgres_fdw omni_types omni_cloudevents
-        TESTS_REQUIRE omni_python)
+        TESTS_REQUIRE omni_python dblink)
