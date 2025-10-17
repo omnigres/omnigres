@@ -1,0 +1,3388 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+      
+        <link rel="prev" href="../credentials/">
+      
+      
+        <link rel="next" href="../paths/">
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="mkdocs-1.4.2, mkdocs-material-9.1.5">
+    
+    
+      
+        <title>Resource Management - Omnigres documentation</title>
+      
+    
+    
+      <link rel="stylesheet" href="../../assets/stylesheets/main.7a7fce14.min.css">
+      
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/palette.a0c5b2b5.min.css">
+      
+      
+
+    
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Atkinson+Hyperlegible:300,300i,400,400i,700,700i%7CMartian+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Atkinson Hyperlegible";--md-code-font:"Martian Mono"}</style>
+      
+    
+    
+      <link rel="stylesheet" href="../../stylesheets/extra.css">
+    
+    <script>__md_scope=new URL("../..",location),__md_hash=e=>[...e].reduce((e,_)=>(e<<5)-e+_.charCodeAt(0),0),__md_get=(e,_=localStorage,t=__md_scope)=>JSON.parse(_.getItem(t.pathname+"."+e)),__md_set=(e,_,t=localStorage,a=__md_scope)=>{try{t.setItem(a.pathname+"."+e,JSON.stringify(_))}catch(e){}}</script>
+    
+      
+
+    
+    
+    
+   <link href="../../assets/stylesheets/glightbox.min.css" rel="stylesheet"/><style>
+        html.glightbox-open { overflow: initial; height: 100%; }
+        .gslide-title { margin-top: 0px; user-select: text; }
+        .gslide-desc { color: #666; user-select: text; }
+        .gslide-image img { background: white; }
+        
+            .gscrollbar-fixer { padding-right: 15px; }
+            .gdesc-inner { font-size: 0.75rem; }
+            body[data-md-color-scheme="slate"] .gdesc-inner { background: var(--md-default-bg-color);}
+            body[data-md-color-scheme="slate"] .gslide-title { color: var(--md-default-fg-color);}
+            body[data-md-color-scheme="slate"] .gslide-desc { color: var(--md-default-fg-color);}
+            </style> <script src="../../assets/javascripts/glightbox.min.js"></script></head>
+  
+  
+    
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="white" data-md-color-accent="">
+  
+    
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#resource-management" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="Omnigres documentation" class="md-header__button md-logo" aria-label="Omnigres documentation" data-md-component="logo">
+      
+  <img src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48c3ZnIGlkPSJMYXllcl8yIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNTggMTU4Ij48ZGVmcz48c3R5bGU+LmNscy0xe2ZpbGw6bm9uZTtzdHJva2U6IzNmYTlmNTtzdHJva2UtbWl0ZXJsaW1pdDoxMDtzdHJva2Utd2lkdGg6MjBweDt9PC9zdHlsZT48L2RlZnM+PGcgaWQ9IkxheWVyXzEtMiI+PGNpcmNsZSBjbGFzcz0iY2xzLTEiIGN4PSI3OSIgY3k9Ijc5IiByPSI2OSIvPjwvZz48L3N2Zz4=" alt="logo">
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M3 6h18v2H3V6m0 5h18v2H3v-2m0 5h18v2H3v-2Z"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            Omnigres documentation
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Resource Management
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+    
+    
+      <label class="md-header__button md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+      </label>
+      <div class="md-search" data-md-component="search" role="dialog">
+  <label class="md-search__overlay" for="__search"></label>
+  <div class="md-search__inner" role="search">
+    <form class="md-search__form" name="search">
+      <input type="text" class="md-search__input" name="query" aria-label="Search" placeholder="Search" autocapitalize="off" autocorrect="off" autocomplete="off" spellcheck="false" data-md-component="search-query" required>
+      <label class="md-search__icon md-icon" for="__search">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M9.5 3A6.5 6.5 0 0 1 16 9.5c0 1.61-.59 3.09-1.56 4.23l.27.27h.79l5 5-1.5 1.5-5-5v-.79l-.27-.27A6.516 6.516 0 0 1 9.5 16 6.5 6.5 0 0 1 3 9.5 6.5 6.5 0 0 1 9.5 3m0 2C7 5 5 7 5 9.5S7 14 9.5 14 14 12 14 9.5 12 5 9.5 5Z"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M20 11v2H8l5.5 5.5-1.42 1.42L4.16 12l7.92-7.92L13.5 5.5 8 11h12Z"/></svg>
+      </label>
+      <nav class="md-search__options" aria-label="Search">
+        
+        <button type="reset" class="md-search__icon md-icon" title="Clear" aria-label="Clear" tabindex="-1">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41Z"/></svg>
+        </button>
+      </nav>
+      
+    </form>
+    <div class="md-search__output">
+      <div class="md-search__scrollwrap" data-md-scrollfix>
+        <div class="md-search-result" data-md-component="search-result">
+          <div class="md-search-result__meta">
+            Initializing search
+          </div>
+          <ol class="md-search-result__list" role="presentation"></ol>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+    
+    
+      <div class="md-header__source">
+        <a href="https://github.com/omnigres/omnigres" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.3.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    omnigres/omnigres
+  </div>
+</a>
+      </div>
+    
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="Omnigres documentation" class="md-nav__button md-logo" aria-label="Omnigres documentation" data-md-component="logo">
+      
+  <img src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48c3ZnIGlkPSJMYXllcl8yIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxNTggMTU4Ij48ZGVmcz48c3R5bGU+LmNscy0xe2ZpbGw6bm9uZTtzdHJva2U6IzNmYTlmNTtzdHJva2UtbWl0ZXJsaW1pdDoxMDtzdHJva2Utd2lkdGg6MjBweDt9PC9zdHlsZT48L2RlZnM+PGcgaWQ9IkxheWVyXzEtMiI+PGNpcmNsZSBjbGFzcz0iY2xzLTEiIGN4PSI3OSIgY3k9Ijc5IiByPSI2OSIvPjwvZz48L3N2Zz4=" alt="logo">
+
+    </a>
+    Omnigres documentation
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/omnigres/omnigres" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.3.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2023 Fonticons, Inc.--><path d="M439.55 236.05 244 40.45a28.87 28.87 0 0 0-40.81 0l-40.66 40.63 51.52 51.52c27.06-9.14 52.68 16.77 43.39 43.68l49.66 49.66c34.23-11.8 61.18 31 35.47 56.69-26.49 26.49-70.21-2.87-56-37.34L240.22 199v121.85c25.3 12.54 22.26 41.85 9.08 55a34.34 34.34 0 0 1-48.55 0c-17.57-17.6-11.07-46.91 11.25-56v-123c-20.8-8.51-24.6-30.74-18.64-45L142.57 101 8.45 235.14a28.86 28.86 0 0 0 0 40.81l195.61 195.6a28.86 28.86 0 0 0 40.8 0l194.69-194.69a28.86 28.86 0 0 0 0-40.81z"/></svg>
+  </div>
+  <div class="md-source__repository">
+    omnigres/omnigres
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        Intro
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../quick_start/" class="md-nav__link">
+        Quick Start
+      </a>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_3" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+          Examples
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_3">
+          <span class="md-nav__icon md-icon"></span>
+          Examples
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/motd/" class="md-nav__link">
+        MOTD service
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+          Development
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_4">
+          <span class="md-nav__icon md-icon"></span>
+          Development
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_4_1" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_4_1" id="__nav_4_1_label" tabindex="0">
+          pg_yregress
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_4_1_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_4_1">
+          <span class="md-nav__icon md-icon"></span>
+          pg_yregress
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../pg_yregress/intro/" class="md-nav__link">
+        Intro
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../pg_yregress/install/" class="md-nav__link">
+        Installation
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../pg_yregress/usage/" class="md-nav__link">
+        Usage
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+      
+      
+      
+
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+          Extensions
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
+        <label class="md-nav__title" for="__nav_5">
+          <span class="md-nav__icon md-icon"></span>
+          Extensions
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_1" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_1" id="__nav_5_1_label" tabindex="0">
+          omni_auth
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_1_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_1">
+          <span class="md-nav__icon md-icon"></span>
+          omni_auth
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_auth/basics/" class="md-nav__link">
+        Basics
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_auth/password/" class="md-nav__link">
+        Password Authentication
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_2" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_2" id="__nav_5_2_label" tabindex="0">
+          omni_aws
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_2_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_2">
+          <span class="md-nav__icon md-icon"></span>
+          omni_aws
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_aws/s3/" class="md-nav__link">
+        S3
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_3" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_3" id="__nav_5_3_label" tabindex="0">
+          omni_cloudevents
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_3_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_3">
+          <span class="md-nav__icon md-icon"></span>
+          omni_cloudevents
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_cloudevents/cloud_events/" class="md-nav__link">
+        Using CloudEvents
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_4" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_4" id="__nav_5_4_label" tabindex="0">
+          omni_containers
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_4_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_4">
+          <span class="md-nav__icon md-icon"></span>
+          omni_containers
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_containers/intro/" class="md-nav__link">
+        Intro
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_5" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_5" id="__nav_5_5_label" tabindex="0">
+          omni_credentials
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_5_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_5">
+          <span class="md-nav__icon md-icon"></span>
+          omni_credentials
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_credentials/credentials/" class="md-nav__link">
+        Credential Management
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_6" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_6" id="__nav_5_6_label" tabindex="0">
+          omni_csv
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_6_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_6">
+          <span class="md-nav__icon md-icon"></span>
+          omni_csv
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_csv/" class="md-nav__link">
+        CSV Toolkit
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_7" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_7" id="__nav_5_7_label" tabindex="0">
+          omni_datasets
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_7_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_7">
+          <span class="md-nav__icon md-icon"></span>
+          omni_datasets
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_datasets/northwind/" class="md-nav__link">
+        Northwind
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_8" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_8" id="__nav_5_8_label" tabindex="0">
+          omni_email
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_8_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_8">
+          <span class="md-nav__icon md-icon"></span>
+          omni_email
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_email/reference/" class="md-nav__link">
+        Reference
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_9" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_9" id="__nav_5_9_label" tabindex="0">
+          omni_httpc
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_9_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_9">
+          <span class="md-nav__icon md-icon"></span>
+          omni_httpc
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_httpc/reference/" class="md-nav__link">
+        HTTP client
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_10" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_10" id="__nav_5_10_label" tabindex="0">
+          omni_httpd
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_10_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_10">
+          <span class="md-nav__icon md-icon"></span>
+          omni_httpd
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_httpd/install/" class="md-nav__link">
+        Installation
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_httpd/intro/" class="md-nav__link">
+        Intro
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_httpd/headers/" class="md-nav__link">
+        Headers
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_httpd/architecture/" class="md-nav__link">
+        Architecture
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_httpd/security/" class="md-nav__link">
+        Security
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_httpd/reverse_proxy/" class="md-nav__link">
+        Reverse Proxy
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_httpd/routing/" class="md-nav__link">
+        Routing
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_httpd/static_file/" class="md-nav__link">
+        Static File Server
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_11" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_11" id="__nav_5_11_label" tabindex="0">
+          omni_id
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_11_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_11">
+          <span class="md-nav__icon md-icon"></span>
+          omni_id
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_id/identity_type/" class="md-nav__link">
+        Identity Type
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_12" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_12" id="__nav_5_12_label" tabindex="0">
+          omni_json
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_12_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_12">
+          <span class="md-nav__icon md-icon"></span>
+          omni_json
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_json/table_mapping/" class="md-nav__link">
+        Table Mapping
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+  
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--nested">
+      
+      
+      
+      
+      <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5_13" checked>
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_13" id="__nav_5_13_label" tabindex="0">
+          omni_kube
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_13_label" aria-expanded="true">
+        <label class="md-nav__title" for="__nav_5_13">
+          <span class="md-nav__icon md-icon"></span>
+          omni_kube
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../credentials/" class="md-nav__link">
+        Credentials
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+    
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          Resource Management
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="./" class="md-nav__link md-nav__link--active">
+        Resource Management
+      </a>
+      
+        
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    Overview
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-group-views" class="md-nav__link">
+    API Group Views
+  </a>
+  
+    <nav class="md-nav" aria-label="API Group Views">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#omni_kubeapi_group" class="md-nav__link">
+    omni_kube.api_group
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#omni_kubeapi_group_version" class="md-nav__link">
+    omni_kube.api_group_version
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#omni_kubeapi_group_openapi_v3_url" class="md-nav__link">
+    omni_kube.api_group_openapi_v3_url
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resource-discovery-functions" class="md-nav__link">
+    Resource Discovery Functions
+  </a>
+  
+    <nav class="md-nav" aria-label="Resource Discovery Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#omni_kubegroup_resourcesgroup_version-text" class="md-nav__link">
+    omni_kube.group_resources(group_version text)
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#omni_kuberesourcesgroup_version-text-resource-text-label_selector-text-field_selector-text" class="md-nav__link">
+    omni_kube.resources(group_version text, resource text[, label_selector text][, field_selector text])
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dynamic-resource-views" class="md-nav__link">
+    Dynamic Resource Views
+  </a>
+  
+    <nav class="md-nav" aria-label="Dynamic Resource Views">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_1" class="md-nav__link">
+    
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#generated-view-operations" class="md-nav__link">
+    Generated View Operations
+  </a>
+  
+    <nav class="md-nav" aria-label="Generated View Operations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#insert-operations" class="md-nav__link">
+    Insert Operations
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#update-operation" class="md-nav__link">
+    Update Operation
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-operations" class="md-nav__link">
+    Delete Operations
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-handling" class="md-nav__link">
+    Error Handling
+  </a>
+  
+    <nav class="md-nav" aria-label="Error Handling">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#omni_kuberesources_metadatagroup_version-text-resource-text" class="md-nav__link">
+    omni_kube.resources_metadata(group_version text, resource text)
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resource-tables" class="md-nav__link">
+    Resource Tables
+  </a>
+  
+    <nav class="md-nav" aria-label="Resource Tables">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#transactional-resource-tables" class="md-nav__link">
+    Transactional Resource Tables
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#usage-examples" class="md-nav__link">
+    Usage Examples
+  </a>
+  
+    <nav class="md-nav" aria-label="Usage Examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#working-with-deployments" class="md-nav__link">
+    Working with Deployments
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#working-with-configmaps" class="md-nav__link">
+    Working with ConfigMaps
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../paths/" class="md-nav__link">
+        Composable Paths
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../internals_api/" class="md-nav__link">
+        Internals: Kubernetes API
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_14" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_14" id="__nav_5_14_label" tabindex="0">
+          omni_ledger
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_14_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_14">
+          <span class="md-nav__icon md-icon"></span>
+          omni_ledger
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_ledger/basics/" class="md-nav__link">
+        Ledger Basics
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_ledger/ledger_core/" class="md-nav__link">
+        Ledger Core
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_ledger/account_categories/" class="md-nav__link">
+        Account Categories
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_ledger/quickstart/" class="md-nav__link">
+        Quickstart
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_15" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_15" id="__nav_5_15_label" tabindex="0">
+          omni_manifest
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_15_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_15">
+          <span class="md-nav__icon md-icon"></span>
+          omni_manifest
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_manifest/usage/" class="md-nav__link">
+        Usage
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_16" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_16" id="__nav_5_16_label" tabindex="0">
+          omni_mimetypes
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_16_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_16">
+          <span class="md-nav__icon md-icon"></span>
+          omni_mimetypes
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_mimetypes/reference/" class="md-nav__link">
+        omni_mimetypes
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_17" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_17" id="__nav_5_17_label" tabindex="0">
+          omni_os
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_17_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_17">
+          <span class="md-nav__icon md-icon"></span>
+          omni_os
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_os/intro/" class="md-nav__link">
+        Intro
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_18" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_18" id="__nav_5_18_label" tabindex="0">
+          omni_polyfill
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_18_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_18">
+          <span class="md-nav__icon md-icon"></span>
+          omni_polyfill
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_polyfill/polyfills/" class="md-nav__link">
+        Polyfills
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_polyfill/uuidv7/" class="md-nav__link">
+        uuidv7
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_19" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_19" id="__nav_5_19_label" tabindex="0">
+          omni_python
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_19_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_19">
+          <span class="md-nav__icon md-icon"></span>
+          omni_python
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_python/intro/" class="md-nav__link">
+        Intro
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_20" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_20" id="__nav_5_20_label" tabindex="0">
+          omni_regex
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_20_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_20">
+          <span class="md-nav__icon md-icon"></span>
+          omni_regex
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_regex/regex/" class="md-nav__link">
+        Regex
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_21" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_21" id="__nav_5_21_label" tabindex="0">
+          omni_rest
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_21_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_21">
+          <span class="md-nav__icon md-icon"></span>
+          omni_rest
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_rest/protocols/" class="md-nav__link">
+        Protocols
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_rest/quickstart/" class="md-nav__link">
+        Quickstart
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_22" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_22" id="__nav_5_22_label" tabindex="0">
+          omni_schema
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_22_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_22">
+          <span class="md-nav__icon md-icon"></span>
+          omni_schema
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_schema/reference/" class="md-nav__link">
+        omni_schema
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_23" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_23" id="__nav_5_23_label" tabindex="0">
+          omni_seq
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_23_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_23">
+          <span class="md-nav__icon md-icon"></span>
+          omni_seq
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_seq/id/" class="md-nav__link">
+        Distributed IDs
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_24" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_24" id="__nav_5_24_label" tabindex="0">
+          omni_service
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_24_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_24">
+          <span class="md-nav__icon md-icon"></span>
+          omni_service
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_service/management/" class="md-nav__link">
+        Service Management
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_service/service_integration/" class="md-nav__link">
+        Service Integration
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_25" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_25" id="__nav_5_25_label" tabindex="0">
+          omni_session
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_25_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_25">
+          <span class="md-nav__icon md-icon"></span>
+          omni_session
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_session/session_management/" class="md-nav__link">
+        Session Management
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_26" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_26" id="__nav_5_26_label" tabindex="0">
+          omni_shmem
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_26_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_26">
+          <span class="md-nav__icon md-icon"></span>
+          omni_shmem
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_shmem/" class="md-nav__link">
+        Index
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_27" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_27" id="__nav_5_27_label" tabindex="0">
+          omni_sqlite
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_27_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_27">
+          <span class="md-nav__icon md-icon"></span>
+          omni_sqlite
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_sqlite/sqlite/" class="md-nav__link">
+        Native SQLite
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_28" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_28" id="__nav_5_28_label" tabindex="0">
+          omni_test
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_28_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_28">
+          <span class="md-nav__icon md-icon"></span>
+          omni_test
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_test/guide/" class="md-nav__link">
+        Testing Guide
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_29" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_29" id="__nav_5_29_label" tabindex="0">
+          omni_txn
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_29_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_29">
+          <span class="md-nav__icon md-icon"></span>
+          omni_txn
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_txn/linearize/" class="md-nav__link">
+        Transaction Linearization
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_txn/retry/" class="md-nav__link">
+        Transaction Retry
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_30" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_30" id="__nav_5_30_label" tabindex="0">
+          omni_types
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_30_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_30">
+          <span class="md-nav__icon md-icon"></span>
+          omni_types
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_types/function_signature_types/" class="md-nav__link">
+        Function Signature Types
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_types/sum_types/" class="md-nav__link">
+        Sum types
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_31" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_31" id="__nav_5_31_label" tabindex="0">
+          omni_var
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_31_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_31">
+          <span class="md-nav__icon md-icon"></span>
+          omni_var
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_var/variables/" class="md-nav__link">
+        Variables
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_32" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_32" id="__nav_5_32_label" tabindex="0">
+          omni_vfs
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_32_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_32">
+          <span class="md-nav__icon md-icon"></span>
+          omni_vfs
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_vfs/reference/" class="md-nav__link">
+        omni_vfs
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_33" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_33" id="__nav_5_33_label" tabindex="0">
+          omni_web
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_33_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_33">
+          <span class="md-nav__icon md-icon"></span>
+          omni_web
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_web/cookies/" class="md-nav__link">
+        Cookies
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_web/intro/" class="md-nav__link">
+        Intro
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_web/query_strings/" class="md-nav__link">
+        Query Strings
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_web/uri/" class="md-nav__link">
+        URI
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_34" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_34" id="__nav_5_34_label" tabindex="0">
+          omni_worker
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_34_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_34">
+          <span class="md-nav__icon md-icon"></span>
+          omni_worker
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_worker/intro/" class="md-nav__link">
+        Introduction
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_worker/sql_handler/" class="md-nav__link">
+        SQL handler
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_35" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_35" id="__nav_5_35_label" tabindex="0">
+          omni_xml
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_35_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_35">
+          <span class="md-nav__icon md-icon"></span>
+          omni_xml
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_xml/overview/" class="md-nav__link">
+        Overview
+      </a>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_xml/usage/" class="md-nav__link">
+        Usage
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+            
+              
+  
+  
+  
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+      
+      
+      
+        
+      
+      <input class="md-nav__toggle md-toggle md-toggle--indeterminate" type="checkbox" id="__nav_5_36" >
+      
+      
+      
+        <label class="md-nav__link" for="__nav_5_36" id="__nav_5_36_label" tabindex="0">
+          omni_yaml
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_5_36_label" aria-expanded="false">
+        <label class="md-nav__title" for="__nav_5_36">
+          <span class="md-nav__icon md-icon"></span>
+          omni_yaml
+        </label>
+        <ul class="md-nav__list" data-md-scrollfix>
+          
+            
+              
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../omni_yaml/yaml/" class="md-nav__link">
+        YAML
+      </a>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+            
+          
+        </ul>
+      </nav>
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+<nav class="md-nav md-nav--secondary" aria-label="Table of contents">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      Table of contents
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#overview" class="md-nav__link">
+    Overview
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#api-group-views" class="md-nav__link">
+    API Group Views
+  </a>
+  
+    <nav class="md-nav" aria-label="API Group Views">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#omni_kubeapi_group" class="md-nav__link">
+    omni_kube.api_group
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#omni_kubeapi_group_version" class="md-nav__link">
+    omni_kube.api_group_version
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#omni_kubeapi_group_openapi_v3_url" class="md-nav__link">
+    omni_kube.api_group_openapi_v3_url
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resource-discovery-functions" class="md-nav__link">
+    Resource Discovery Functions
+  </a>
+  
+    <nav class="md-nav" aria-label="Resource Discovery Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#omni_kubegroup_resourcesgroup_version-text" class="md-nav__link">
+    omni_kube.group_resources(group_version text)
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#omni_kuberesourcesgroup_version-text-resource-text-label_selector-text-field_selector-text" class="md-nav__link">
+    omni_kube.resources(group_version text, resource text[, label_selector text][, field_selector text])
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#dynamic-resource-views" class="md-nav__link">
+    Dynamic Resource Views
+  </a>
+  
+    <nav class="md-nav" aria-label="Dynamic Resource Views">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#_1" class="md-nav__link">
+    
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#generated-view-operations" class="md-nav__link">
+    Generated View Operations
+  </a>
+  
+    <nav class="md-nav" aria-label="Generated View Operations">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#insert-operations" class="md-nav__link">
+    Insert Operations
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#update-operation" class="md-nav__link">
+    Update Operation
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#delete-operations" class="md-nav__link">
+    Delete Operations
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#error-handling" class="md-nav__link">
+    Error Handling
+  </a>
+  
+    <nav class="md-nav" aria-label="Error Handling">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#omni_kuberesources_metadatagroup_version-text-resource-text" class="md-nav__link">
+    omni_kube.resources_metadata(group_version text, resource text)
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#resource-tables" class="md-nav__link">
+    Resource Tables
+  </a>
+  
+    <nav class="md-nav" aria-label="Resource Tables">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#transactional-resource-tables" class="md-nav__link">
+    Transactional Resource Tables
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#usage-examples" class="md-nav__link">
+    Usage Examples
+  </a>
+  
+    <nav class="md-nav" aria-label="Usage Examples">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#working-with-deployments" class="md-nav__link">
+    Working with Deployments
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#working-with-configmaps" class="md-nav__link">
+    Working with ConfigMaps
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+  
+  
+
+
+<h1 id="resource-management">Resource Management<a class="headerlink" href="#resource-management" title="Permanent link">&para;</a></h1>
+<p>omni_kube provides a comprehensive Postgres-based interface for managing Kubernetes resources through SQL views and
+functions. This system allows you to interact with Kubernetes API resources using standard SQL operations.</p>
+<h2 id="overview">Overview<a class="headerlink" href="#overview" title="Permanent link">&para;</a></h2>
+<p>The resource management system consists of several key components:</p>
+<ol>
+<li><strong>API Group Discovery</strong>: Views that expose Kubernetes API groups and versions</li>
+<li><strong>Resource Introspection</strong>: Functions to discover available resources within API groups</li>
+<li><strong>Dynamic Resource Views</strong>: Generated views that provide CRUD operations for specific Kubernetes resources</li>
+</ol>
+<h2 id="api-group-views">API Group Views<a class="headerlink" href="#api-group-views" title="Permanent link">&para;</a></h2>
+<h3 id="omni_kubeapi_group"><code>omni_kube.api_group</code><a class="headerlink" href="#omni_kubeapi_group" title="Permanent link">&para;</a></h3>
+<p>Lists all available Kubernetes API groups with their preferred versions.</p>
+<p><strong>Columns:</strong></p>
+<ul>
+<li><code>name</code> (text): API group name ('core' for core Kubernetes resources)</li>
+<li><code>preferred_version</code> (text): The preferred version for this API group</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">select</span><span class="w"> </span><span class="o">*</span>
+<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="k">from</span><span class="w"> </span><span class="n">omni_kube</span><span class="mf">.</span><span class="n">api_group</span><span class="p">;</span>
+</code></pre></div>
+<h3 id="omni_kubeapi_group_version"><code>omni_kube.api_group_version</code><a class="headerlink" href="#omni_kubeapi_group_version" title="Permanent link">&para;</a></h3>
+<p>Shows all available versions for each API group.</p>
+<p><strong>Columns:</strong></p>
+<ul>
+<li><code>name</code> (text): API group name</li>
+<li><code>version</code> (text): Version identifier (e.g., 'v1', 'v1beta1')</li>
+<li><code>group_version</code> (text): Full group/version identifier</li>
+</ul>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">select</span><span class="w"> </span><span class="o">*</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="k">from</span><span class="w"> </span><span class="n">omni_kube</span><span class="mf">.</span><span class="n">api_group_version</span>
+<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="k">where</span><span class="w"> </span><span class="k">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;apps&#39;</span><span class="p">;</span>
+</code></pre></div>
+<h3 id="omni_kubeapi_group_openapi_v3_url"><code>omni_kube.api_group_openapi_v3_url</code><a class="headerlink" href="#omni_kubeapi_group_openapi_v3_url" title="Permanent link">&para;</a></h3>
+<p>Maps API groups to their OpenAPI specification URLs.</p>
+<p><strong>Columns:</strong></p>
+<ul>
+<li><code>name</code> (text): API group name</li>
+<li><code>group_version</code> (text): Group/version identifier</li>
+<li><code>url</code> (text): Server-relative URL for the API specification</li>
+</ul>
+<h2 id="resource-discovery-functions">Resource Discovery Functions<a class="headerlink" href="#resource-discovery-functions" title="Permanent link">&para;</a></h2>
+<h3 id="omni_kubegroup_resourcesgroup_version-text"><code>omni_kube.group_resources(group_version text)</code><a class="headerlink" href="#omni_kubegroup_resourcesgroup_version-text" title="Permanent link">&para;</a></h3>
+<p>Returns detailed information about all resources available in a specific API group version.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>group_version</code>: The group/version identifier (e.g., 'v1', 'apps/v1')</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li><code>name</code> (text): Resource name (e.g., 'pods', 'deployments')</li>
+<li><code>singular_name</code> (text): Singular form of the resource name</li>
+<li><code>namespaced</code> (boolean): Whether the resource is namespace-scoped</li>
+<li><code>kind</code> (text): Kubernetes kind name (e.g., 'Pod', 'Deployment')</li>
+<li><code>verbs</code> (text[]): Supported operations (e.g., ['get', 'list', 'create', 'update', 'delete'])</li>
+<li><code>storage_version_hash</code> (text): Internal version hash</li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">select</span><span class="w"> </span><span class="k">name</span><span class="p">,</span><span class="w"> </span><span class="n">kind</span><span class="p">,</span><span class="w"> </span><span class="n">namespaced</span><span class="p">,</span><span class="w"> </span><span class="n">verbs</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="k">from</span><span class="w"> </span><span class="n">omni_kube</span><span class="mf">.</span><span class="n">group_resources</span><span class="p">(</span><span class="s1">&#39;apps/v1&#39;</span><span class="p">)</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="k">where</span><span class="w"> </span><span class="k">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;deployments&#39;</span><span class="p">;</span>
+</code></pre></div>
+<h3 id="omni_kuberesourcesgroup_version-text-resource-text-label_selector-text-field_selector-text"><code>omni_kube.resources(group_version text, resource text[, label_selector text][, field_selector text])</code><a class="headerlink" href="#omni_kuberesourcesgroup_version-text-resource-text-label_selector-text-field_selector-text" title="Permanent link">&para;</a></h3>
+<p>Retrieves the actual resource instances from the Kubernetes API.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>group_version</code>: The group/version identifier</li>
+<li><code>resource</code>: The resource type name</li>
+<li><code>label_selector</code>: Optional label selector (e.g., 'app=web-app')</li>
+<li><code>field_selector</code>: Optional field selector (e.g., 'metadata.name=web-app')</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li><code>jsonb</code>: Complete resource definition as returned by the Kubernetes API</li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">select</span><span class="w"> </span><span class="n">resource</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="s1">&#39;metadata&#39;</span><span class="w"> </span><span class="o">-&gt;&gt;</span><span class="w"> </span><span class="s1">&#39;name&#39;</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="k">name</span><span class="p">,</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">       </span><span class="n">resource</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="s1">&#39;spec&#39;</span><span class="w"> </span><span class="o">-&gt;&gt;</span><span class="w"> </span><span class="s1">&#39;replicas&#39;</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">replicas</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a><span class="k">from</span><span class="w"> </span><span class="n">omni_kube</span><span class="mf">.</span><span class="n">resources</span><span class="p">(</span><span class="s1">&#39;apps/v1&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;deployments&#39;</span><span class="p">)</span><span class="w"> </span><span class="n">resource</span><span class="p">;</span>
+</code></pre></div>
+<h2 id="dynamic-resource-views">Dynamic Resource Views<a class="headerlink" href="#dynamic-resource-views" title="Permanent link">&para;</a></h2>
+<h3 id="_1"><a class="headerlink" href="#_1" title="Permanent link">&para;</a></h3>
+<p><code>omni_kube.resource_view(view_name name, group_version text, resource text[, label_selector text][, field_selector text])</code></p>
+<p>Creates a dynamic view that provides a SQL interface for managing specific Kubernetes resources.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>view_name</code>: Name for the generated view</li>
+<li><code>group_version</code>: API group/version (e.g., 'v1', 'apps/v1')</li>
+<li><code>resource</code>: Resource type (e.g., 'pods', 'deployments')</li>
+<li><code>label_selector</code>: Optional label selector (e.g., 'app=web-app')</li>
+<li><code>field_selector</code>: Optional field selector (e.g., 'metadata.name=web-app')</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li><code>regclass</code>: The created view's object identifier</li>
+</ul>
+<p>The generated view includes:</p>
+<ul>
+<li><code>uid</code> (text): Kubernetes resource UID</li>
+<li><code>name</code> (text): Resource name</li>
+<li><code>namespace</code> (text): Resource namespace (null for cluster-scoped resources)</li>
+<li><code>resource</code> (jsonb): Complete resource specification</li>
+</ul>
+<h2 id="generated-view-operations">Generated View Operations<a class="headerlink" href="#generated-view-operations" title="Permanent link">&para;</a></h2>
+<h3 id="insert-operations">Insert Operations<a class="headerlink" href="#insert-operations" title="Permanent link">&para;</a></h3>
+<p>Create new resources by inserting into the view:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1">-- create a view for pods</span>
+<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="k">select</span><span class="w"> </span><span class="n">omni_kube</span><span class="mf">.</span><span class="n">resource_view</span><span class="p">(</span><span class="s1">&#39;my_pods&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;v1&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;pods&#39;</span><span class="p">);</span>
+<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a>
+<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="c1">-- insert a new pod</span>
+<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="k">insert</span><span class="w"> </span><span class="k">into</span><span class="w"> </span><span class="n">my_pods</span><span class="w"> </span><span class="p">(</span><span class="n">resource</span><span class="p">)</span>
+<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="k">values</span><span class="w"> </span><span class="p">(</span><span class="s1">&#39;{</span>
+<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a><span class="s1">  &quot;metadata&quot;: {</span>
+<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="s1">    &quot;name&quot;: &quot;nginx-pod-omni-kube&quot;</span>
+<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a><span class="s1">  },</span>
+<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="s1">  &quot;spec&quot;: {</span>
+<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a><span class="s1">    &quot;containers&quot;: [{</span>
+<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="s1">      &quot;name&quot;: &quot;test&quot;,</span>
+<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="s1">      &quot;image&quot;: &quot;nginx&quot;</span>
+<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a><span class="s1">    }]</span>
+<a id="__codelineno-4-15" name="__codelineno-4-15" href="#__codelineno-4-15"></a><span class="s1">  }</span>
+<a id="__codelineno-4-16" name="__codelineno-4-16" href="#__codelineno-4-16"></a><span class="s1">}&#39;</span><span class="p">);</span>
+</code></pre></div>
+<p><strong>Insert Requirements:</strong></p>
+<ul>
+<li><code>uid</code> must be null (auto-generated by Kubernetes)</li>
+<li><code>name</code> can be specified in the view column or within <code>resource.metadata.name</code></li>
+<li><code>namespace</code> must match <code>resource.metadata.namespace</code> if both are specified</li>
+<li><code>resource</code> must contain valid Kubernetes resource specification</li>
+</ul>
+<h3 id="update-operation">Update Operation<a class="headerlink" href="#update-operation" title="Permanent link">&para;</a></h3>
+<p>Modify existing resources:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="k">update</span><span class="w"> </span><span class="n">my_pods</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="k">set</span><span class="w"> </span><span class="n">resource</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">jsonb_set</span><span class="p">(</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">        </span><span class="n">resource</span><span class="p">,</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">        </span><span class="s1">&#39;{metadata,annotations}&#39;</span><span class="p">,</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">        </span><span class="k">coalesce</span><span class="p">(</span><span class="n">resource</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="s1">&#39;metadata&#39;</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="s1">&#39;annotations&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;{}&#39;</span><span class="o">::</span><span class="nb">jsonb</span><span class="p">)</span><span class="w"> </span><span class="o">||</span><span class="w"> </span><span class="s1">&#39;{&quot;test&quot;: &quot;passed&quot;}&#39;</span><span class="o">::</span><span class="nb">jsonb</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">               </span><span class="p">)</span>
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a><span class="k">where</span><span class="w"> </span><span class="k">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;nginx-pod-omni-kube&#39;</span><span class="p">;</span>
+</code></pre></div>
+<p><strong>Update Requirements:</strong></p>
+<ul>
+<li>Resource must exist (identified by name and namespace)</li>
+<li>Name and namespace consistency rules apply as with insert</li>
+</ul>
+<h3 id="delete-operations">Delete Operations<a class="headerlink" href="#delete-operations" title="Permanent link">&para;</a></h3>
+<p>Remove resources:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">delete</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="k">from</span><span class="w"> </span><span class="n">my_pods</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="k">where</span><span class="w"> </span><span class="k">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;nginx-pod-omni-kube&#39;</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="w">  </span><span class="k">and</span><span class="w"> </span><span class="n">namespace</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;default&#39;</span><span class="p">;</span>
+</code></pre></div>
+<p><strong>Delete Requirements:</strong></p>
+<ul>
+<li>Resource is identified by name and namespace from the view columns or resource metadata</li>
+</ul>
+<h2 id="error-handling">Error Handling<a class="headerlink" href="#error-handling" title="Permanent link">&para;</a></h2>
+<p>The system includes comprehensive validation:</p>
+<ul>
+<li><strong>Name/Namespace Consistency</strong>: Ensures view columns match resource metadata</li>
+<li><strong>Required Fields</strong>: Validates that resources have required name field</li>
+<li><strong>UID Restrictions</strong>: Prevents manual UID assignment for new resources</li>
+<li><strong>Resource Existence</strong>: Validates resources exist before update/delete operations</li>
+</ul>
+<p>Add this section to your <strong>Resource Discovery Functions</strong> section, after the <code>omni_kube.resources()</code> function:</p>
+<h3 id="omni_kuberesources_metadatagroup_version-text-resource-text"><code>omni_kube.resources_metadata(group_version text, resource text)</code><a class="headerlink" href="#omni_kuberesources_metadatagroup_version-text-resource-text" title="Permanent link">&para;</a></h3>
+<p>Retrieves only the metadata section from a Kubernetes resource collection, which is useful for getting information like
+resource versions without fetching the entire resource list.</p>
+<p><strong>Parameters:</strong></p>
+<ul>
+<li><code>group_version</code>: The group/version identifier (e.g., 'v1', 'apps/v1')</li>
+<li><code>resource</code>: The resource type name</li>
+</ul>
+<p><strong>Returns:</strong></p>
+<ul>
+<li><code>jsonb</code>: The metadata object from the Kubernetes API response, typically containing fields like <code>resourceVersion</code>.</li>
+</ul>
+<p><strong>Example:</strong></p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="c1">-- Get the current resource version for pods</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="k">select</span><span class="w"> </span><span class="n">omni_kube</span><span class="mf">.</span><span class="n">resources_metadata</span><span class="p">(</span><span class="s1">&#39;v1&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;pods&#39;</span><span class="p">)</span><span class="w"> </span><span class="o">-&gt;&gt;</span><span class="w"> </span><span class="s1">&#39;resourceVersion&#39;</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">current_version</span><span class="p">;</span>
+</code></pre></div>
+<h2 id="resource-tables">Resource Tables<a class="headerlink" href="#resource-tables" title="Permanent link">&para;</a></h2>
+<p>The <code>omni_kube.resource_table()</code> function provides an alternative to dynamic views by creating materialized tables that
+cache Kubernetes resource data locally. Like <code>resource_view()</code>, it accepts the same parameters for specifying the target
+API group, version, and resource type. The key advantage of resource tables is performance and a stable view – they
+store resource data locally in the database rather than making API calls on each query.</p>
+<p>Each generated table has a corresponding <code>refresh_&lt;table_name&gt;()</code> function that synchronizes the local data with the
+current state of the Kubernetes cluster.</p>
+<p>This refresh mechanism allows you to control when expensive API calls occur, making resource tables ideal for scenarios
+where you need to perform complex queries, joins, or analytics on Kubernetes data without the latency of repeated API
+requests. The refresh function can be called manually or scheduled for automated data synchronization.</p>
+<p>Resource tables are particularly valuable for building Kubernetes operators and controllers, where you need to maintain
+local state, perform complex reconciliation logic across multiple resource types, or implement sophisticated filtering
+and aggregation operations that would be inefficient when executed against live API endpoints.</p>
+<p>The function returns a table of <code>(type text, object jsonb)</code> where type is <code>ADDED</code>, <code>MODIFIED</code> or <code>DELETED</code> and object
+is the object in question.</p>
+<h3 id="transactional-resource-tables">Transactional Resource Tables<a class="headerlink" href="#transactional-resource-tables" title="Permanent link">&para;</a></h3>
+<p>Resource tables can be made transactional by passing <code>transactional =&gt; true</code> to <code>omni_kube.resource_table()</code>. This
+<strong>simulates</strong> <code>read committed</code>-style isolation of changes to the cluster. That is, if you refresh a table within a
+transaction, it'll reflect current state of the cluster. All pending changes in the table are dry-run-verified but
+pooled until commit time. Subsequent changes to the same resource override the entry in the pool (so, for example, an
+update followed by another update is superseded; a deletion performed after update, wins, etc.)</p>
+<p>This enables an approximation of atomic operations – a best-effort approach.</p>
+<div class="admonition warning">
+<p class="admonition-title">Important caveats</p>
+<p>Commits may still fail due to conflicts with the actual cluster (newer resource versions in the cluster, resource deleted, etc.)</p>
+<p>Commit operation can also fail due to HTTP errors and leave transaction's pending changes in an inconsistent state.
+A compensation mechanism can be devised (reconciling incomplete transaction). Future versions of this extension may provide tooling for this.</p>
+</div>
+<h2 id="usage-examples">Usage Examples<a class="headerlink" href="#usage-examples" title="Permanent link">&para;</a></h2>
+<h3 id="working-with-deployments">Working with Deployments<a class="headerlink" href="#working-with-deployments" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="c1">-- create a deployments view</span>
+<a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="k">select</span><span class="w"> </span><span class="n">omni_kube</span><span class="mf">.</span><span class="n">resource_view</span><span class="p">(</span><span class="s1">&#39;deployments&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;apps/v1&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;deployments&#39;</span><span class="p">);</span>
+<a id="__codelineno-8-3" name="__codelineno-8-3" href="#__codelineno-8-3"></a>
+<a id="__codelineno-8-4" name="__codelineno-8-4" href="#__codelineno-8-4"></a><span class="c1">-- list all deployments</span>
+<a id="__codelineno-8-5" name="__codelineno-8-5" href="#__codelineno-8-5"></a><span class="k">select</span><span class="w"> </span><span class="k">name</span><span class="p">,</span>
+<a id="__codelineno-8-6" name="__codelineno-8-6" href="#__codelineno-8-6"></a><span class="w">       </span><span class="n">namespace</span><span class="p">,</span>
+<a id="__codelineno-8-7" name="__codelineno-8-7" href="#__codelineno-8-7"></a><span class="w">       </span><span class="n">resource</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="s1">&#39;spec&#39;</span><span class="w"> </span><span class="o">-&gt;&gt;</span><span class="w"> </span><span class="s1">&#39;replicas&#39;</span><span class="w">   </span><span class="k">as</span><span class="w"> </span><span class="n">desired_replicas</span><span class="p">,</span>
+<a id="__codelineno-8-8" name="__codelineno-8-8" href="#__codelineno-8-8"></a><span class="w">       </span><span class="n">resource</span><span class="w"> </span><span class="o">-&gt;</span><span class="w"> </span><span class="s1">&#39;status&#39;</span><span class="w"> </span><span class="o">-&gt;&gt;</span><span class="w"> </span><span class="s1">&#39;replicas&#39;</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="n">current_replicas</span>
+<a id="__codelineno-8-9" name="__codelineno-8-9" href="#__codelineno-8-9"></a><span class="k">from</span><span class="w"> </span><span class="n">deployments</span><span class="p">;</span>
+<a id="__codelineno-8-10" name="__codelineno-8-10" href="#__codelineno-8-10"></a>
+<a id="__codelineno-8-11" name="__codelineno-8-11" href="#__codelineno-8-11"></a><span class="c1">-- create a new deployment</span>
+<a id="__codelineno-8-12" name="__codelineno-8-12" href="#__codelineno-8-12"></a><span class="k">insert</span><span class="w"> </span><span class="k">into</span><span class="w"> </span><span class="n">deployments</span><span class="w"> </span><span class="p">(</span><span class="n">resource</span><span class="p">)</span>
+<a id="__codelineno-8-13" name="__codelineno-8-13" href="#__codelineno-8-13"></a><span class="k">values</span><span class="w"> </span><span class="p">(</span><span class="s1">&#39;{</span>
+<a id="__codelineno-8-14" name="__codelineno-8-14" href="#__codelineno-8-14"></a><span class="s1">  &quot;metadata&quot;: {</span>
+<a id="__codelineno-8-15" name="__codelineno-8-15" href="#__codelineno-8-15"></a><span class="s1">    &quot;name&quot;: &quot;web-app&quot;,</span>
+<a id="__codelineno-8-16" name="__codelineno-8-16" href="#__codelineno-8-16"></a><span class="s1">    &quot;labels&quot;: {</span>
+<a id="__codelineno-8-17" name="__codelineno-8-17" href="#__codelineno-8-17"></a><span class="s1">      &quot;app&quot;: &quot;web-app&quot;,</span>
+<a id="__codelineno-8-18" name="__codelineno-8-18" href="#__codelineno-8-18"></a><span class="s1">      &quot;version&quot;: &quot;1.0&quot;</span>
+<a id="__codelineno-8-19" name="__codelineno-8-19" href="#__codelineno-8-19"></a><span class="s1">    }</span>
+<a id="__codelineno-8-20" name="__codelineno-8-20" href="#__codelineno-8-20"></a><span class="s1">  },</span>
+<a id="__codelineno-8-21" name="__codelineno-8-21" href="#__codelineno-8-21"></a><span class="s1">  &quot;spec&quot;: {</span>
+<a id="__codelineno-8-22" name="__codelineno-8-22" href="#__codelineno-8-22"></a><span class="s1">    &quot;replicas&quot;: 3,</span>
+<a id="__codelineno-8-23" name="__codelineno-8-23" href="#__codelineno-8-23"></a><span class="s1">    &quot;selector&quot;: {</span>
+<a id="__codelineno-8-24" name="__codelineno-8-24" href="#__codelineno-8-24"></a><span class="s1">      &quot;matchLabels&quot;: {</span>
+<a id="__codelineno-8-25" name="__codelineno-8-25" href="#__codelineno-8-25"></a><span class="s1">        &quot;app&quot;: &quot;web-app&quot;</span>
+<a id="__codelineno-8-26" name="__codelineno-8-26" href="#__codelineno-8-26"></a><span class="s1">      }</span>
+<a id="__codelineno-8-27" name="__codelineno-8-27" href="#__codelineno-8-27"></a><span class="s1">    },</span>
+<a id="__codelineno-8-28" name="__codelineno-8-28" href="#__codelineno-8-28"></a><span class="s1">    &quot;template&quot;: {</span>
+<a id="__codelineno-8-29" name="__codelineno-8-29" href="#__codelineno-8-29"></a><span class="s1">      &quot;metadata&quot;: {</span>
+<a id="__codelineno-8-30" name="__codelineno-8-30" href="#__codelineno-8-30"></a><span class="s1">        &quot;labels&quot;: {</span>
+<a id="__codelineno-8-31" name="__codelineno-8-31" href="#__codelineno-8-31"></a><span class="s1">          &quot;app&quot;: &quot;web-app&quot;,</span>
+<a id="__codelineno-8-32" name="__codelineno-8-32" href="#__codelineno-8-32"></a><span class="s1">          &quot;version&quot;: &quot;1.0&quot;</span>
+<a id="__codelineno-8-33" name="__codelineno-8-33" href="#__codelineno-8-33"></a><span class="s1">        }</span>
+<a id="__codelineno-8-34" name="__codelineno-8-34" href="#__codelineno-8-34"></a><span class="s1">      },</span>
+<a id="__codelineno-8-35" name="__codelineno-8-35" href="#__codelineno-8-35"></a><span class="s1">      &quot;spec&quot;: {</span>
+<a id="__codelineno-8-36" name="__codelineno-8-36" href="#__codelineno-8-36"></a><span class="s1">        &quot;containers&quot;: [{</span>
+<a id="__codelineno-8-37" name="__codelineno-8-37" href="#__codelineno-8-37"></a><span class="s1">          &quot;name&quot;: &quot;web&quot;,</span>
+<a id="__codelineno-8-38" name="__codelineno-8-38" href="#__codelineno-8-38"></a><span class="s1">          &quot;image&quot;: &quot;nginx:1.21&quot;,</span>
+<a id="__codelineno-8-39" name="__codelineno-8-39" href="#__codelineno-8-39"></a><span class="s1">          &quot;ports&quot;: [{</span>
+<a id="__codelineno-8-40" name="__codelineno-8-40" href="#__codelineno-8-40"></a><span class="s1">            &quot;containerPort&quot;: 80</span>
+<a id="__codelineno-8-41" name="__codelineno-8-41" href="#__codelineno-8-41"></a><span class="s1">          }],</span>
+<a id="__codelineno-8-42" name="__codelineno-8-42" href="#__codelineno-8-42"></a><span class="s1">          &quot;resources&quot;: {</span>
+<a id="__codelineno-8-43" name="__codelineno-8-43" href="#__codelineno-8-43"></a><span class="s1">            &quot;requests&quot;: {</span>
+<a id="__codelineno-8-44" name="__codelineno-8-44" href="#__codelineno-8-44"></a><span class="s1">              &quot;memory&quot;: &quot;64Mi&quot;,</span>
+<a id="__codelineno-8-45" name="__codelineno-8-45" href="#__codelineno-8-45"></a><span class="s1">              &quot;cpu&quot;: &quot;250m&quot;</span>
+<a id="__codelineno-8-46" name="__codelineno-8-46" href="#__codelineno-8-46"></a><span class="s1">            },</span>
+<a id="__codelineno-8-47" name="__codelineno-8-47" href="#__codelineno-8-47"></a><span class="s1">            &quot;limits&quot;: {</span>
+<a id="__codelineno-8-48" name="__codelineno-8-48" href="#__codelineno-8-48"></a><span class="s1">              &quot;memory&quot;: &quot;128Mi&quot;, </span>
+<a id="__codelineno-8-49" name="__codelineno-8-49" href="#__codelineno-8-49"></a><span class="s1">              &quot;cpu&quot;: &quot;500m&quot;</span>
+<a id="__codelineno-8-50" name="__codelineno-8-50" href="#__codelineno-8-50"></a><span class="s1">            }</span>
+<a id="__codelineno-8-51" name="__codelineno-8-51" href="#__codelineno-8-51"></a><span class="s1">          }</span>
+<a id="__codelineno-8-52" name="__codelineno-8-52" href="#__codelineno-8-52"></a><span class="s1">        }]</span>
+<a id="__codelineno-8-53" name="__codelineno-8-53" href="#__codelineno-8-53"></a><span class="s1">      }</span>
+<a id="__codelineno-8-54" name="__codelineno-8-54" href="#__codelineno-8-54"></a><span class="s1">    }</span>
+<a id="__codelineno-8-55" name="__codelineno-8-55" href="#__codelineno-8-55"></a><span class="s1">  }</span>
+<a id="__codelineno-8-56" name="__codelineno-8-56" href="#__codelineno-8-56"></a><span class="s1">}&#39;</span><span class="p">);</span>
+<a id="__codelineno-8-57" name="__codelineno-8-57" href="#__codelineno-8-57"></a>
+<a id="__codelineno-8-58" name="__codelineno-8-58" href="#__codelineno-8-58"></a><span class="c1">-- scale the deployment</span>
+<a id="__codelineno-8-59" name="__codelineno-8-59" href="#__codelineno-8-59"></a><span class="k">update</span><span class="w"> </span><span class="n">deployments</span>
+<a id="__codelineno-8-60" name="__codelineno-8-60" href="#__codelineno-8-60"></a><span class="k">set</span><span class="w"> </span><span class="n">resource</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">jsonb_set</span><span class="p">(</span><span class="n">resource</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;{spec,replicas}&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;5&#39;</span><span class="o">::</span><span class="nb">jsonb</span><span class="p">)</span>
+<a id="__codelineno-8-61" name="__codelineno-8-61" href="#__codelineno-8-61"></a><span class="k">where</span><span class="w"> </span><span class="k">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;web-app&#39;</span><span class="p">;</span>
+</code></pre></div>
+<h3 id="working-with-configmaps">Working with ConfigMaps<a class="headerlink" href="#working-with-configmaps" title="Permanent link">&para;</a></h3>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="c1">-- create a configmaps view</span>
+<a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="k">select</span><span class="w"> </span><span class="n">omni_kube</span><span class="mf">.</span><span class="n">resource_view</span><span class="p">(</span><span class="s1">&#39;configmaps&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;v1&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;configmaps&#39;</span><span class="p">);</span>
+<a id="__codelineno-9-3" name="__codelineno-9-3" href="#__codelineno-9-3"></a>
+<a id="__codelineno-9-4" name="__codelineno-9-4" href="#__codelineno-9-4"></a><span class="c1">-- create a configuration</span>
+<a id="__codelineno-9-5" name="__codelineno-9-5" href="#__codelineno-9-5"></a><span class="k">insert</span><span class="w"> </span><span class="k">into</span><span class="w"> </span><span class="n">configmaps</span><span class="w"> </span><span class="p">(</span><span class="n">resource</span><span class="p">)</span>
+<a id="__codelineno-9-6" name="__codelineno-9-6" href="#__codelineno-9-6"></a><span class="k">values</span><span class="w"> </span><span class="p">(</span><span class="s1">&#39;{</span>
+<a id="__codelineno-9-7" name="__codelineno-9-7" href="#__codelineno-9-7"></a><span class="s1">  &quot;metadata&quot;: {</span>
+<a id="__codelineno-9-8" name="__codelineno-9-8" href="#__codelineno-9-8"></a><span class="s1">    &quot;name&quot;: &quot;app-config&quot;</span>
+<a id="__codelineno-9-9" name="__codelineno-9-9" href="#__codelineno-9-9"></a><span class="s1">  },</span>
+<a id="__codelineno-9-10" name="__codelineno-9-10" href="#__codelineno-9-10"></a><span class="s1">  &quot;data&quot;: {</span>
+<a id="__codelineno-9-11" name="__codelineno-9-11" href="#__codelineno-9-11"></a><span class="s1">    &quot;database_url&quot;: &quot;postgres://localhost:5432/mydb&quot;,</span>
+<a id="__codelineno-9-12" name="__codelineno-9-12" href="#__codelineno-9-12"></a><span class="s1">    &quot;debug&quot;: &quot;true&quot;</span>
+<a id="__codelineno-9-13" name="__codelineno-9-13" href="#__codelineno-9-13"></a><span class="s1">  }</span>
+<a id="__codelineno-9-14" name="__codelineno-9-14" href="#__codelineno-9-14"></a><span class="s1">}&#39;</span><span class="p">);</span>
+<a id="__codelineno-9-15" name="__codelineno-9-15" href="#__codelineno-9-15"></a>
+<a id="__codelineno-9-16" name="__codelineno-9-16" href="#__codelineno-9-16"></a><span class="c1">-- update it</span>
+<a id="__codelineno-9-17" name="__codelineno-9-17" href="#__codelineno-9-17"></a><span class="k">update</span><span class="w"> </span><span class="n">configmaps</span>
+<a id="__codelineno-9-18" name="__codelineno-9-18" href="#__codelineno-9-18"></a><span class="k">set</span><span class="w"> </span><span class="n">resource</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">jsonb_set</span><span class="p">(</span><span class="n">resource</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;{data,debug}&#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;&quot;false&quot;&#39;</span><span class="o">::</span><span class="nb">jsonb</span><span class="p">)</span>
+<a id="__codelineno-9-19" name="__codelineno-9-19" href="#__codelineno-9-19"></a><span class="k">where</span><span class="w"> </span><span class="k">name</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">&#39;app-config&#39;</span><span class="p">;</span>
+</code></pre></div>
+<p>This system provides a powerful SQL interface to Kubernetes resources while maintaining full compatibility with the
+Kubernetes API and its validation rules.</p>
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12Z"/></svg>
+            Back to top
+          </button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://squidfunk.github.io/mkdocs-material/" target="_blank" rel="noopener">
+      Material for MkDocs
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    <script id="__config" type="application/json">{"base": "../..", "features": ["content.code.copy", "navigation.instant", "navigation.tracking", "navigation.expand", "navigation.top", "content.code.annotate"], "search": "../../assets/javascripts/workers/search.208ed371.min.js", "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.407015b8.min.js"></script>
+      
+    
+  <script>document$.subscribe(() => {const lightbox = GLightbox({"touchNavigation": true, "loop": false, "zoomable": true, "draggable": true, "openEffect": "zoom", "closeEffect": "zoom", "slideEffect": "slide"});})</script></body>
+</html>

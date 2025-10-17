@@ -1,0 +1,11 @@
+.md-annotation__index {
+    font-family: monospace !important;
+}
+
+.md-nav__link--active {
+    background-color: #5EA7EF;
+    color: white !important;
+    padding-top: 0.3em;
+    padding-bottom: 0.3em;
+    padding-left: 0.3em;
+}
