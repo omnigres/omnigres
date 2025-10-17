@@ -25,6 +25,7 @@ omni_schema=0.3.0
 omni_seq=0.1.1
 omni_service=0.1.0
 omni_session=0.2.0
+omni_signal=0.1.0
 omni_sql=0.5.3
 omni_sqlite=0.2.2
 omni_test=0.4.0
