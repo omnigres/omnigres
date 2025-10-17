@@ -1,0 +1,99 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+    max_worker_processes: 64
+    omni_worker.workers: 10
+  init:
+  - create extension omni_shmem cascade
+  - create role nonadmin noinherit
+  - grant usage on schema omni_shmem to nonadmin
+
+tests:
+
+- name: cleanup
+  query: select omni_shmem.shmem_delete_arena('_omni_test_shmem_arena');
+
+- select omni_shmem.shmem_arena('_omni_test_shmem_arena', 65535)
+
+- name: construct on first attempt
+  query: select * from omni_shmem.shmem_find_or_construct('_omni_test_shmem_arena', 'test', 1024)
+  results:
+  - constructed: true
+    size: 1024
+
+- name: find on second attempt
+  query: select * from omni_shmem.shmem_find_or_construct('_omni_test_shmem_arena', 'test', 100)
+  results:
+  - constructed: false
+    size: 1024
+
+- name: construct with data
+  query: select * from omni_shmem.shmem_find_or_construct('_omni_test_shmem_arena', 'test1', convert_to('hello','utf8'))
+  results:
+  - constructed: true
+    size: 5
+
+- name: read it
+  tests:
+  - query: select convert_from(omni_shmem.shmem_read('_omni_test_shmem_arena', 'test1'), 'utf8') data
+    results:
+    - data: hello
+  - query: select convert_from(omni_shmem.shmem_read('_omni_test_shmem_arena', 'test1', start => 1), 'utf8') data
+    results:
+    - data: ello
+  - query: select convert_from(omni_shmem.shmem_read('_omni_test_shmem_arena', 'test1', size => 2), 'utf8') data
+    results:
+    - data: he
+  - query: select convert_from(omni_shmem.shmem_read('_omni_test_shmem_arena', 'test1', start => 2, size => 100), 'utf8') data
+    results:
+    - data: llo
+  - query: select convert_from(omni_shmem.shmem_read('_omni_test_shmem_arena', 'test1', start => 5, size => 1), 'utf8') data
+    error: "exception: start can only be within the allocation"
+
+- query: select * from omni_shmem.shmem_arenas
+  results:
+  - name: _omni_test_shmem_arena
+    size: 65535
+
+- name: can't access as a member of public
+  steps:
+  - set role nonadmin
+  - query: select * from omni_shmem.shmem_arenas
+    error: permission denied for view shmem_arenas
+
+- name: can't access as a member of public
+  steps:
+  - set role nonadmin
+  - query: select omni_shmem.shmem_arena('aaa',1000)
+    error: permission denied for function shmem_arena
+
+- name: can't access as a member of public
+  steps:
+  - set role nonadmin
+  - query: select omni_shmem.shmem_find_or_construct('aaa','test', 1000)
+    error: permission denied for function shmem_find_or_construct
+
+- name: can't access as a member of public
+  steps:
+  - set role nonadmin
+  - query: select omni_shmem.shmem_find_or_construct('aaa','test', convert_to('', 'utf8'))
+    error: permission denied for function shmem_find_or_construct
+
+- name: can't access as a member of public
+  steps:
+  - set role nonadmin
+  - query: select omni_shmem.shmem_read('aaa','test')
+    error: permission denied for function shmem_read
+
+- name: can't access as a member of public
+  steps:
+  - set role nonadmin
+  - query: select omni_shmem.shmem_destroy('aaa','test')
+    error: permission denied for function shmem_destroy
+
+- name: can't access as a member of public
+  steps:
+  - set role nonadmin
+  - query: select omni_shmem.shmem_delete_arena('aaa')
+    error: permission denied for function shmem_delete_arena
