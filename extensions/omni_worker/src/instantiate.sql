@@ -99,6 +99,10 @@ begin
 
     execute format('grant all on schema %I to omni_worker_timer_user', schema);
 
+    create procedure stop()
+        language c as
+    'MODULE_PATHNAME';
+
 
 end;
 $$;
