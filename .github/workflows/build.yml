@@ -23,7 +23,7 @@ jobs:
     strategy:
       matrix:
         pgver: [ 18, 17, 16, 15, 14, master ]
-        os: [ warp-ubuntu-2404-x64-4x, warp-macos-14-arm64-6x ]
+        os: [ blacksmith-4vcpu-ubuntu-2404, warp-macos-14-arm64-6x ]
         build_type: [Debug, Release]
         exclude:
         - os: warp-macos-14-arm64-6x
@@ -48,7 +48,7 @@ jobs:
 
     # Ada URL library requires a relatively modern compiler
     - name: Prepare dependencies
-      if: matrix.os == 'warp-ubuntu-2404-x64-4x'
+      if: matrix.os == 'blacksmith-4vcpu-ubuntu-2404'
       run: |
         sudo apt-get update
         sudo apt-get install libreadline-dev
@@ -114,7 +114,7 @@ jobs:
 
   # Ensure it can be built against externally-supplied Postgres
   build-external-pg:
-    runs-on: warp-ubuntu-2404-x64-4x
+    runs-on: blacksmith-4vcpu-ubuntu-2404
 
     steps:
     - uses: actions/checkout@v3
@@ -142,7 +142,7 @@ jobs:
     strategy:
       matrix:
         pgver: [ 17 ]
-        os: [ warp-ubuntu-2404-x64-4x ]
+        os: [ blacksmith-4vcpu-ubuntu-2404 ]
         build_type: [ Debug ]
       fail-fast: false
 
@@ -153,7 +153,7 @@ jobs:
 
     # Ada URL library requires a relatively modern compiler
     - name: Prepare dependencies
-      if: matrix.os == 'warp-ubuntu-2404-x64-4x'
+      if: matrix.os == 'blacksmith-4vcpu-ubuntu-2404'
       run: |
         sudo apt-get update
         sudo apt-get install libreadline-dev
