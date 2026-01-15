@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.1] - 2026-01-15
+
+### Fixed
+
+* Fixed cartesian product bug in operator namespace joins in dependency view [#823](https://github.com/omnigres/omnigres/issues/823)
+* Improved dependency view performance with early deptype filtering and minimal column selection
+* Optimized acl view callable section with CTE for function signatures
+
 ## [0.3.0] - 2025-03-01
 
 ### Added

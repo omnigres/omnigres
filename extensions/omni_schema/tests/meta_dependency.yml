@@ -94,3 +94,28 @@ tests:
       and omni_types.variant(id) = 'omni_schema.language_id'::regtype
   results:
   - result: true
+
+- name: operator with cross-schema types has correct namespace
+  steps:
+  - create schema test_schema_a
+  - create schema test_schema_b
+  - create type test_schema_a.left_type as (val int)
+  - create type test_schema_b.right_type as (val int)
+  - |
+    create function test_schema_a.test_op_func(test_schema_a.left_type, test_schema_b.right_type) 
+    returns boolean language sql immutable as $$ select ($1).val = ($2).val $$
+  - |
+    create operator test_schema_a.=== (
+      leftarg = test_schema_a.left_type,
+      rightarg = test_schema_b.right_type,
+      function = test_schema_a.test_op_func
+    )
+  - query: |
+      select id::text from omni_schema.dependency
+      where omni_types.variant(id) = 'omni_schema.operator_id'::regtype
+        and id::text like '%test_schema_a%'
+        and id::text like '%test_schema_b%'
+    results:
+    - id: "operator_id((test_schema_a,===,test_schema_a,left_type,test_schema_b,right_type))"
+  - drop schema test_schema_a cascade
+  - drop schema test_schema_b cascade
