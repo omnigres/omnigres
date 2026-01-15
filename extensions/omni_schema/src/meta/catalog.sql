@@ -2294,33 +2294,21 @@ create view dependency as
 --- ACL
 
 create view acl as
-with callable_sigs as (
-    select
-        ns.nspname,
-        p.proname,
-        coalesce(array_agg(format_type(typ, null) order by ordinality) filter (where typ is not null), '{}') as type_sig,
-        p.proacl,
-        p.proowner
-    from
-        pg_proc                 p
-        inner join pg_namespace ns on ns.oid = p.pronamespace
-        left join lateral unnest(p.proargtypes) with ordinality as t(typ, ordinality) on true
-    group by ns.nspname, p.proname, p.proacl, p.proowner, p.oid
-)
     -- callable
     select
-        function_id(callable_sigs.nspname, callable_sigs.proname, callable_sigs.type_sig)::object_id as id,
+        function_id(ns.nspname, p.proname, _get_function_type_sig_array(p))::object_id as id,
         acl.*
     from
-        callable_sigs
+        pg_proc                                                                                   p
+        inner join pg_namespace                                                                   ns on ns.oid = p.pronamespace
         join       lateral ( select
                                  role_id(grantor::regrole::name) as grantor,
                                  role_id(grantee::regrole::name) as grantee,
                                  privilege_type,
                                  is_grantable,
-                                 callable_sigs.proacl is null    as "default"
+                                 p.proacl is null                as "default"
                              from
-                                 aclexplode(coalesce(callable_sigs.proacl, acldefault('f', callable_sigs.proowner))) ) as acl on true
+                                 aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) ) as acl on true
 -- type
     union all
     select

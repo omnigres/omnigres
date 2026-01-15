@@ -11,7 +11,6 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 * Fixed cartesian product bug in operator namespace joins in dependency view [#823](https://github.com/omnigres/omnigres/issues/823)
 * Improved dependency view performance with early deptype filtering and minimal column selection
-* Optimized acl view callable section with CTE for function signatures
 
 ## [0.3.0] - 2025-03-01
 
