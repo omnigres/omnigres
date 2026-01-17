@@ -144,7 +144,7 @@ begin
         while true
             loop
                 <<file>>
-                for current_filename in select distinct filepath from omni_schema_execution_status order by filepath
+                for current_filename in select filepath from omni_schema_execution_status group by filepath order by min(id)
                     loop
                         <<statement>>
                         for rec in select *
