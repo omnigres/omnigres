@@ -8,6 +8,7 @@
 #include <tcop/pquery.h>
 #include <utils/builtins.h>
 #include <utils/snapmgr.h>
+#include <utils/timestamp.h>
 #if PG_MAJORVERSION_NUM < 17
 #include <utils/typcache.h>
 #endif
@@ -67,6 +68,18 @@ static int64 backoff_jitter(int64 cap, int64 base, int32 attempt) {
  */
 static float8 to_secs(int64 secs) { return (float8)secs / 1000000.0; }
 
+/**
+ * Converts a PostgreSQL Interval to microseconds.
+ * Uses the standard PostgreSQL assumption of 30 days per month
+ * and 24 hours per day.
+ */
+static int64 interval_to_microsecs(const Interval *interval) {
+  int64 total_usecs = interval->time;
+  total_usecs += (int64)interval->day * USECS_PER_DAY;
+  total_usecs += (int64)interval->month * INT64CONST(30) * USECS_PER_DAY;
+  return total_usecs;
+}
+
 typedef struct {
   char *stmt;
   uint32 status;
@@ -115,6 +128,16 @@ Datum retry(PG_FUNCTION_ARGS) {
   bool collect_backoff_values = false;
   if (!PG_ARGISNULL(3)) {
     collect_backoff_values = PG_GETARG_BOOL(3);
+  }
+
+  bool has_timeout = !PG_ARGISNULL(6);
+  int64 timeout_usecs = 0;
+  if (has_timeout) {
+    Interval *timeout = PG_GETARG_INTERVAL_P(6);
+    timeout_usecs = interval_to_microsecs(timeout);
+    if (timeout_usecs <= 0) {
+      ereport(ERROR, errmsg("timeout must be positive"));
+    }
   }
 
   text *stmts = PG_GETARG_TEXT_PP(0);
@@ -201,6 +224,8 @@ Datum retry(PG_FUNCTION_ARGS) {
   bool retry = true;
   retry_attempts = 0;
 
+  TimestampTz start_time = GetCurrentTimestamp();
+
   bool found;
   PreparedStatementEntry *entry = preparedstmthash_insert(stmthash, cstmts, &found);
   if (!found) {
@@ -230,7 +255,18 @@ Datum retry(PG_FUNCTION_ARGS) {
       if (sqlerrcode == ERRCODE_T_R_SERIALIZATION_FAILURE) {
         error_context_stack = previous_error_context;
         FlushErrorState();
-        if (++retry_attempts <= max_attempts) {
+
+        // Check if the timeout has been exceeded
+        bool timed_out = false;
+        if (has_timeout) {
+          TimestampTz now = GetCurrentTimestamp();
+          int64 elapsed_usecs = now - start_time;
+          if (elapsed_usecs >= timeout_usecs) {
+            timed_out = true;
+          }
+        }
+
+        if (!timed_out && ++retry_attempts <= max_attempts) {
 
           int64 backoff_with_jitter_in_microsecs =
               backoff_jitter(cap_sleep_microsecs, base_sleep_microsecs, retry_attempts);
@@ -265,8 +301,13 @@ Datum retry(PG_FUNCTION_ARGS) {
           MemoryContextSwitchTo(current_mcxt);
           CurrentResourceOwner = oldowner;
           SPI_rollback();
-          ereport(ERROR, errcode(sqlerrcode),
-                  errmsg("maximum number of retries (%d) has been attempted", max_attempts));
+          if (timed_out) {
+            ereport(ERROR, errcode(sqlerrcode),
+                    errmsg("retry timeout has been reached"));
+          } else {
+            ereport(ERROR, errcode(sqlerrcode),
+                    errmsg("maximum number of retries (%d) has been attempted", max_attempts));
+          }
         }
       } else {
         retry_attempts = 0;

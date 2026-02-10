@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project adheres
 to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0]
+
+### Added
+
+* `omni_txn.retry` now accepts an optional `timeout` interval parameter [#973](https://github.com/omnigres/omnigres/pull/973)
+
 ## [0.5.0] - 2024-12-09
 
 ### Fixed
@@ -75,3 +81,5 @@ Initial release following a few months of iterative development.
 [0.4.1]: [https://github.com/omnigres/omnigres/pull/691]
 
 [0.5.0]: [https://github.com/omnigres/omnigres/pull/695]
+
+[0.6.0]: [https://github.com/omnigres/omnigres/pull/973]
