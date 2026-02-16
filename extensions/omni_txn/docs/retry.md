@@ -13,6 +13,7 @@ to handle such typical cases.
 | **collect_backoff_values** | boolean | Collect actual backoff values for inspection. False by default.                           |
 |                 **params** | record  | A record of parameters to pass to the statement. NULL by default                          |
 |              **linearize** | boolean | If a transaction should be [linearized](linearize.md) (_experimental_). False by default. |
+|             **timeout_ms** | int     | Maximum retry duration in milliseconds. `NULL` means no timeout.                          |
 
 ## Retry attempt
 
@@ -85,6 +86,18 @@ Statement(s) passed to `omni_txn.retry` can be parameterized with the `params` a
 
 ```postgresql
 call omni_txn.retry($$ insert into tab values ($1) $$, params => row (1));
+```
+
+## Timeout
+
+Use `timeout_ms` to stop retrying after a time budget:
+
+```postgresql
+call omni_txn.retry(
+  $$ update inventory set quantity = quantity + 20 where product_name = 'Widget' $$,
+  max_attempts => 1000,
+  timeout_ms => 250
+);
 ```
 
 ## Debugging
