@@ -8,6 +8,7 @@
 #include <tcop/pquery.h>
 #include <utils/builtins.h>
 #include <utils/snapmgr.h>
+#include <utils/timestamp.h>
 #if PG_MAJORVERSION_NUM < 17
 #include <utils/typcache.h>
 #endif
@@ -111,6 +112,18 @@ Datum retry(PG_FUNCTION_ARGS) {
   int max_attempts = 10;
   if (!PG_ARGISNULL(1)) {
     max_attempts = PG_GETARG_INT32(1);
+  }
+  int timeout_ms = -1;
+  if (!PG_ARGISNULL(6)) {
+    timeout_ms = PG_GETARG_INT32(6);
+    if (timeout_ms < 0) {
+      ereport(ERROR, errmsg("timeout_ms can't be negative"));
+    }
+  }
+  bool timeout_enabled = timeout_ms >= 0;
+  TimestampTz timeout_deadline = 0;
+  if (timeout_enabled) {
+    timeout_deadline = GetCurrentTimestamp() + (int64)timeout_ms * 1000;
   }
   bool collect_backoff_values = false;
   if (!PG_ARGISNULL(3)) {
@@ -231,9 +244,35 @@ Datum retry(PG_FUNCTION_ARGS) {
         error_context_stack = previous_error_context;
         FlushErrorState();
         if (++retry_attempts <= max_attempts) {
+          if (timeout_enabled) {
+            int64 timeout_remaining_microsecs = timeout_deadline - GetCurrentTimestamp();
+            if (timeout_remaining_microsecs <= 0) {
+              if (GetCurrentTransactionNestLevel() >= 2) {
+                RollbackAndReleaseCurrentSubTransaction();
+              }
+              MemoryContextSwitchTo(current_mcxt);
+              CurrentResourceOwner = oldowner;
+              SPI_rollback();
+              ereport(ERROR, errcode(sqlerrcode),
+                      errmsg("retry timeout (%d ms) has been reached", timeout_ms));
+            }
+          }
 
           int64 backoff_with_jitter_in_microsecs =
               backoff_jitter(cap_sleep_microsecs, base_sleep_microsecs, retry_attempts);
+          if (timeout_enabled) {
+            int64 timeout_remaining_microsecs = timeout_deadline - GetCurrentTimestamp();
+            if (backoff_with_jitter_in_microsecs >= timeout_remaining_microsecs) {
+              if (GetCurrentTransactionNestLevel() >= 2) {
+                RollbackAndReleaseCurrentSubTransaction();
+              }
+              MemoryContextSwitchTo(current_mcxt);
+              CurrentResourceOwner = oldowner;
+              SPI_rollback();
+              ereport(ERROR, errcode(sqlerrcode),
+                      errmsg("retry timeout (%d ms) has been reached", timeout_ms));
+            }
+          }
 
           if (collect_backoff_values) {
             // make sure to store the backoff values in a way that
