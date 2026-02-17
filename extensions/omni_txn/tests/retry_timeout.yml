@@ -1,0 +1,78 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_txn cascade
+  - create extension dblink
+  - select dblink_connect('another_session', 'hostaddr=127.0.0.1 dbname=yregress user=yregress port=' || (select setting
+                                                                                                          from pg_settings
+                                                                                                          where name = 'port'))
+  - create table inventory
+    (
+        id           serial primary key,
+        product_name text,
+        quantity     int
+    )
+  - insert into inventory (product_name, quantity)
+    values ('Widget', 100)
+  - |
+    create or replace function call_other_session() returns void
+        language plpgsql as
+    $$
+    begin
+        perform dblink_exec('another_session',
+                            'call omni_txn.retry($other$update inventory set quantity = quantity - 10$other$)');
+        return;
+    end;
+    $$
+
+tests:
+
+- name: timeout exceeded
+  transaction: false
+  tests:
+  - query: |
+      call omni_txn.retry($$select quantity from inventory where product_name = 'Widget';
+      select call_other_session();
+      update inventory set quantity = quantity + 20 where product_name = 'Widget';
+      $$, max_attempts => 1000, timeout => 0.001);
+    transaction: false
+    error: retry timeout
+  - rollback
+
+- name: negative timeout rejected
+  transaction: false
+  tests:
+  - query: call omni_txn.retry($$select 1$$, timeout => -1.0)
+    transaction: false
+    error: timeout must be non-negative
+  - rollback
+
+- name: zero timeout means no timeout (default behavior)
+  transaction: false
+  tests:
+  - query: |
+      call omni_txn.retry($$select quantity from inventory where product_name = 'Widget';
+      select call_other_session() where omni_txn.current_retry_attempt() = 0;
+      update inventory set quantity = quantity + 20 where product_name = 'Widget';
+      $$, timeout => 0);
+    transaction: false
+  - query: select quantity
+           from inventory
+           where product_name = 'Widget'
+    results:
+    - quantity: 110
+
+- name: sufficient timeout allows completion
+  transaction: false
+  tests:
+  - query: |
+      call omni_txn.retry($$select quantity from inventory where product_name = 'Widget';
+      select call_other_session() where omni_txn.current_retry_attempt() = 0;
+      update inventory set quantity = quantity + 20 where product_name = 'Widget';
+      $$, timeout => 30.0);
+    transaction: false
+  - query: select quantity
+           from inventory
+           where product_name = 'Widget'
+    results:
+    - quantity: 110

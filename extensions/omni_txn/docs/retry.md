@@ -13,6 +13,7 @@ to handle such typical cases.
 | **collect_backoff_values** | boolean | Collect actual backoff values for inspection. False by default.                           |
 |                 **params** | record  | A record of parameters to pass to the statement. NULL by default                          |
 |              **linearize** | boolean | If a transaction should be [linearized](linearize.md) (_experimental_). False by default. |
+|                **timeout** | float   | Maximum duration in seconds to keep retrying. 0 means no timeout (default). When both `max_attempts` and `timeout` are specified, whichever limit is reached first stops the retries. |
 
 ## Retry attempt
 
@@ -77,6 +78,26 @@ call omni_txn.retry($$
 update inventory set quantity = quantity - 10
        where product_name = 'Widgert'
 $$);
+```
+
+## Timeout
+
+Instead of (or in addition to) limiting by number of attempts, you can limit by wall-clock time:
+
+```postgresql
+--- Retry for at most 5 seconds
+call omni_txn.retry($$
+  update inventory set quantity = quantity + 1 where product_name = 'Widget'
+$$, timeout => 5.0);
+```
+
+When both `max_attempts` and `timeout` are specified, whichever limit is reached first will stop the retries:
+
+```postgresql
+--- Stop after 10 attempts OR 2 seconds, whichever comes first
+call omni_txn.retry($$
+  update inventory set quantity = quantity + 1 where product_name = 'Widget'
+$$, max_attempts => 10, timeout => 2.0);
 ```
 
 ## Parameterized statements

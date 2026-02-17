@@ -20,6 +20,8 @@
 #include <nodes/pg_list.h>
 #include <utils/memutils.h>
 
+#include <utils/timestamp.h>
+
 #include <omni/omni_v0.h>
 
 #include "omni_txn.h"
@@ -116,6 +118,15 @@ Datum retry(PG_FUNCTION_ARGS) {
   if (!PG_ARGISNULL(3)) {
     collect_backoff_values = PG_GETARG_BOOL(3);
   }
+
+  float8 timeout_secs = 0;
+  if (!PG_ARGISNULL(6)) {
+    timeout_secs = PG_GETARG_FLOAT8(6);
+    if (timeout_secs < 0) {
+      ereport(ERROR, errmsg("timeout must be non-negative"));
+    }
+  }
+  TimestampTz start_time = GetCurrentTimestamp();
 
   text *stmts = PG_GETARG_TEXT_PP(0);
   char *cstmts = MemoryContextStrdup(RetryPreparedStatementMemoryContext, text_to_cstring(stmts));
@@ -231,6 +242,24 @@ Datum retry(PG_FUNCTION_ARGS) {
         error_context_stack = previous_error_context;
         FlushErrorState();
         if (++retry_attempts <= max_attempts) {
+          // Check timeout
+          if (timeout_secs > 0) {
+            TimestampTz now = GetCurrentTimestamp();
+            long elapsed_secs;
+            int elapsed_microsecs;
+            TimestampDifference(start_time, now, &elapsed_secs, &elapsed_microsecs);
+            float8 elapsed = (float8)elapsed_secs + (float8)elapsed_microsecs / 1000000.0;
+            if (elapsed >= timeout_secs) {
+              if (GetCurrentTransactionNestLevel() >= 2) {
+                RollbackAndReleaseCurrentSubTransaction();
+              }
+              MemoryContextSwitchTo(current_mcxt);
+              CurrentResourceOwner = oldowner;
+              SPI_rollback();
+              ereport(ERROR, errcode(sqlerrcode),
+                      errmsg("retry timeout (%.3f seconds) has been exceeded", timeout_secs));
+            }
+          }
 
           int64 backoff_with_jitter_in_microsecs =
               backoff_jitter(cap_sleep_microsecs, base_sleep_microsecs, retry_attempts);
