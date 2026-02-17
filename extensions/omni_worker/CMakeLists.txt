@@ -25,6 +25,7 @@ add_postgresql_extension(
         SOURCES omni_worker.cpp handlers.cpp
         SCHEMA omni_worker
         DEPENDS_ON omni libomni
+        TESTS_REQUIRE dblink
         RELOCATABLE false)
 
 target_compile_features(omni_worker PUBLIC cxx_std_20)

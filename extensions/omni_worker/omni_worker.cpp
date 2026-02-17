@@ -25,6 +25,8 @@ OMNI_MODULE_INFO(.name = "omni_worker", .version = EXT_VERSION,
 
 const omni_handle *backend_handle = nullptr;
 
+volatile std::atomic_uint64_t worker_ready_flags(0);
+
 template <class... Ts> struct overload : Ts... {
   using Ts::operator()...;
 };
@@ -76,6 +78,15 @@ struct reload {
 
 static bool reload_upon_commit = false;
 
+struct exit_request {
+  exit_request(bool local = false) : local_(local) {}
+  static const char *name() { return "omni_worker:exit"; }
+  bool local() const { return local_; }
+
+private:
+  bool local_;
+};
+
 postgres_function(reload_handlers, ([]() -> cppgres::value {
                     if (CALLED_AS_TRIGGER(cppgres::current_postgres_function::call_info().value().
                                           operator ::FunctionCallInfo())) {
@@ -89,11 +100,13 @@ postgres_function(reload_handlers, ([]() -> cppgres::value {
 
 cppgres::worker *main_worker = nullptr;
 
-static void worker(cppgres::datum main, bool leader) {
+static void worker(cppgres::datum main, uint64_t n, bool leader) {
+  worker_ready_flags.fetch_and(~n); // clear presence flag
   cppgres::current_background_worker bgw;
 
   bgw.connect(cppgres::from_nullable_datum<cppgres::oid>(cppgres::nullable_datum(main), OIDOID));
   bgw.unblock_signals();
+  worker_ready_flags.fetch_or(n); // set presence flag
 
   std::map<std::uint64_t, omni_pool_handler<std::any>> handlers;
   struct handler {
@@ -126,13 +139,23 @@ static void worker(cppgres::datum main, bool leader) {
 
   cppgres::worker main_thread_worker;
   main_worker = &main_thread_worker;
+
+  auto do_exit = [&]() { main_thread_worker.terminate(); };
+
+  bool should_exit = false;
   std::thread receiver([&]() {
-    while (true) {
-      rcvr.receive<reload>(
+    while (!should_exit) {
+      rcvr.receive<reload, exit_request>(
           overload{[&](reload &) {
                      cppgres::report(LOG, "Reloading omni_worker handlers");
                      main_thread_worker.post(do_reload).wait();
                      return true;
+                   },
+                   [&](exit_request &req) {
+                     main_thread_worker.post(do_exit).wait();
+                     should_exit = true;
+                     // propagate request only if it is not local
+                     return req.local();
                    },
                    [&](oink::endpoint::msg &msg) {
                      auto it = handlers.find(msg.hash);
@@ -151,23 +174,36 @@ static void worker(cppgres::datum main, bool leader) {
   });
 
   main_thread_worker.run();
+  receiver.join();
+  worker_ready_flags.fetch_and(~n); // clear presence flag
 }
 
 extern "C" {
 
 void omni_worker_bgw(::Datum main) {
-  cppgres::exception_guard{worker}(cppgres::datum(main), false);
+  int64_t db_id = static_cast<int64_t>(main) >> 32;
+  int64_t i = (static_cast<int64_t>(main) << 32) >> 32;
+  cppgres::exception_guard{worker}(cppgres::datum(db_id), i, false);
 }
 void omni_worker_bgw_leader(::Datum main) {
-  cppgres::exception_guard{worker}(cppgres::datum(main), true);
+  int64_t db_id = static_cast<int64_t>(main) >> 32;
+  int64_t i = (static_cast<int64_t>(main) << 32) >> 32;
+  cppgres::exception_guard{worker}(cppgres::datum(db_id), i, true);
 }
 
 void _Omni_init(const omni_handle *handle) {
   cppgres::exception_guard([&]() {
+    {
+      // Clean up exit requests
+      oink::arena arena(arena_name().c_str(), arena_size());
+      oink::receiver rcvr(arena, mq_name().c_str(), 8192);
+      while (rcvr.receive<exit_request>([](exit_request &) { return true; })) {
+      }
+    }
     backend_handle = handle;
     bool worker_bgw_found;
     handle->allocate_shmem(
-        handle, cppgres::fmt::format("omni_pool_worker_{}", MyDatabaseId).c_str(), sizeof(void *),
+        handle, cppgres::fmt::format("omni_pool_worker_{}", MyDatabaseId).c_str(), sizeof(64),
         [](const omni_handle *handle, void *ptr, void *arg, bool allocated) {
           if (allocated) {
             int default_num_workers = 2;
@@ -185,18 +221,21 @@ void _Omni_init(const omni_handle *handle) {
             handle->declare_guc_variable(handle, &guc_num_workers);
 
             for (int i = 0; i < *guc_num_workers.typed.int_val.value; i++) {
-              auto bgw =
-                  cppgres::background_worker()
-                      .name(cppgres::fmt::format(
-                          "omni_worker #{} [{}]", i,
-                          cppgres::ffi_guard{::get_database_name}(MyDatabaseId)))
-                      .type("omni_worker")
-                      .library_name(handle->get_library_name(handle))
-                      .function_name(i == 0 ? "omni_worker_bgw_leader" : "omni_worker_bgw")
-                      .main_arg(cppgres::datum_conversion<cppgres::oid>::into_datum(MyDatabaseId))
-                      .flags(BGWORKER_SHMEM_ACCESS | BGWORKER_BACKEND_DATABASE_CONNECTION)
-                      .notify_pid(MyProcPid)
-                      .start_time(BgWorkerStart_RecoveryFinished);
+              int64_t db_id = static_cast<int64_t>(MyDatabaseId) << 32;
+              int64_t param_id = i;
+              auto param = cppgres::datum_conversion<int64_t>::into_datum(db_id + param_id);
+
+              auto bgw = cppgres::background_worker()
+                             .name(cppgres::fmt::format(
+                                 "omni_worker #{} [{}]", i,
+                                 cppgres::ffi_guard{::get_database_name}(MyDatabaseId)))
+                             .type("omni_worker")
+                             .library_name(handle->get_library_name(handle))
+                             .function_name(i == 0 ? "omni_worker_bgw_leader" : "omni_worker_bgw")
+                             .main_arg(param)
+                             .flags(BGWORKER_SHMEM_ACCESS | BGWORKER_BACKEND_DATABASE_CONNECTION)
+                             .notify_pid(MyProcPid)
+                             .start_time(BgWorkerStart_RecoveryFinished);
               omni_bgworker_handle bgw_handle;
               handle->request_bgworker_start(handle, bgw, &bgw_handle,
                                              {.timing = omni_timing_after_commit});
@@ -221,3 +260,25 @@ void _Omni_init(const omni_handle *handle) {
   })();
 }
 }
+
+static void stop(bool local) {
+  oink::arena arena(arena_name().c_str(), arena_size());
+  oink::sender snd(arena, mq_name().c_str(), 8192);
+  oink::receiver rcvr(arena, mq_name().c_str(), 8192);
+  snd.send<exit_request>(local);
+  if (!local) {
+    while (worker_ready_flags.load() != 0) {
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+      CHECK_FOR_INTERRUPTS();
+    }
+  }
+}
+
+void _Omni_deinit(const omni_handle *handle) {
+  stop(true);
+  bool found = false;
+  handle->deallocate_shmem(
+      handle, cppgres::fmt::format("omni_pool_worker_{}", MyDatabaseId).c_str(), &found);
+}
+
+postgres_function(stop, []() { stop(false); });
