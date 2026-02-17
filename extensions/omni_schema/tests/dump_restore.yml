@@ -1,0 +1,119 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_schema cascade
+
+tests:
+
+- name: smoke test
+  transaction: false
+  tests:
+  - create database source
+  - create database target
+  - name: prepare source
+    database: source
+    query: |
+      create table example as
+      select 1 as i
+  - |
+    create table src as
+    select omni_schema.dump('host=127.0.0.1 dbname=source user=yregress port=' ||
+                            current_setting('port'))
+  - |
+    select omni_schema.restore(
+                   'host=127.0.0.1 dbname=target user=yregress port=' || current_setting('port'),
+                   dump)
+    from src
+  - name: check target
+    database: target
+    query: select *
+           from example
+    results:
+    - i: 1
+  - drop database source
+  - drop database target
+  - drop table src
+
+- name: smoke test (no data)
+  transaction: false
+  tests:
+  - create database source
+  - create database target
+  - name: prepare source
+    database: source
+    query: |
+      create table example as
+      select 1 as i
+  - |
+    create table src as
+    select omni_schema.dump(
+                   'host=127.0.0.1 dbname=source user=yregress port=' || current_setting('port'),
+                            data => false)
+  - |
+    select omni_schema.restore(
+                   'host=127.0.0.1 dbname=target user=yregress port=' || current_setting('port'),
+                   dump)
+    from src
+  - name: check target
+    database: target
+    query: select *
+           from example
+    results: [ ]
+  - drop database source
+  - drop database target
+  - drop table src
+
+- name: smoke test (no schema)
+  transaction: false
+  tests:
+  - create database source
+  - create database target
+  - name: prepare source
+    database: source
+    query: |
+      create table example as
+      select 1 as i
+  - |
+    create table src as
+    select omni_schema.dump(
+                   'host=127.0.0.1 dbname=source user=yregress port=' || current_setting('port'),
+                            data => false)
+  - |
+    select omni_schema.restore(
+                   'host=127.0.0.1 dbname=target user=yregress port=' || current_setting('port'),
+                   dump)
+    from src
+  - name: check target
+    database: target
+    query: select *
+           from example
+    results: [ ]
+  - drop table src
+  - |
+    create table src as
+    select omni_schema.dump(
+                   'host=127.0.0.1 dbname=source user=yregress port=' || current_setting('port'),
+                            schema => false)
+  - |
+    select omni_schema.restore(
+                   'host=127.0.0.1 dbname=target user=yregress port=' || current_setting('port'),
+                   dump)
+    from src
+  - name: check target
+    database: target
+    query: select *
+           from example
+    results:
+    - i: 1
+  - drop database source
+  - drop database target
+  - drop table src
+
+- name: injection attacks
+  tests:
+  - query: select omni_schema.dump('host=127.0.0.1 dbname=source user=yregress port=; touch /')
+    error: "Invalid connection string: could not establish connection"
+  - query: select omni_schema.dump('host=127.0.0.1 dbname=source user=yregress port=''; touch /')
+    error: "Invalid connection string: could not establish connection"
+  - query: select omni_schema.dump('host=127.0.0.1 dbname=source user=yregress port="; touch /')
+    error: "Invalid connection string: could not establish connection"
