@@ -658,7 +658,7 @@ int create_listening_socket(sa_family_t family, in_port_t port, char *address,
     socksize = sizeof(addr);
   } else if (family == AF_INET6) {
     memset(&addr6, 0, sizeof(addr6));
-    addr6.sin6_family = AF_INET;
+    addr6.sin6_family = AF_INET6;
     inet_pton(AF_INET6, address, &addr6.sin6_addr);
     addr6.sin6_port = htons(port);
     sockaddr = &addr6;
@@ -667,7 +667,7 @@ int create_listening_socket(sa_family_t family, in_port_t port, char *address,
     return -1;
   }
 
-  if ((fd = socket(AF_INET, SOCK_STREAM, 0)) == -1 ||
+  if ((fd = socket(family, SOCK_STREAM, 0)) == -1 ||
       setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &reuseaddr_flag, sizeof(reuseaddr_flag)) != 0 ||
       bind(fd, (struct sockaddr *)sockaddr, socksize) != 0 || listen(fd, SOMAXCONN) != 0) {
     return -1;
@@ -682,7 +682,7 @@ int create_listening_socket(sa_family_t family, in_port_t port, char *address,
       Assert(addr.sin_family == AF_INET);
       *out_port = ntohs(addr.sin_port);
     } else if (family == AF_INET6) {
-      Assert(addr.sin_family == AF_INET6);
+      Assert(addr6.sin6_family == AF_INET6);
       *out_port = ntohs(addr6.sin6_port);
     } else {
       return -1;
