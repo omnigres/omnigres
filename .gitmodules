@@ -1,0 +1,3 @@
+[submodule "extensions/omni_codon/codon-releases"]
+	path = extensions/omni_codon/codon-releases
+	url = https://github.com/omnigres/codon-releases

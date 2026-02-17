@@ -1,0 +1,2 @@
+omni_python
+hypothesis ~= 6.135.0

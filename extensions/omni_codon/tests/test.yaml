@@ -1,0 +1,21 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create extension omni_codon cascade
+
+tests:
+
+- name: param & return some test (int8)
+  steps:
+  - |
+    create function f(int8) returns int
+        language 'plcodon' as
+    $$
+    @pg
+    def f(i: int) -> int:
+      return i+1
+    $$
+  - query: select f(1)
+    results:
+    - f: 2
+
