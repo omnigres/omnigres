@@ -73,11 +73,38 @@ as assignment;
 /******************************************************************************
  * schema
  *****************************************************************************/
-create view schema as
-    select schema_id(schema_name) id, schema_name::text as name
-    from information_schema.schemata
---    where schema_name not in ('pg_catalog', 'information_schema')
-;
+CREATE INDEX IF NOT EXISTS idx_pg_depend_objid ON pg_depend (objid);
+CREATE INDEX IF NOT EXISTS idx_pg_depend_refobjid ON pg_depend (refobjid);
+
+-- Pre-filter pg_class to exclude system schemas using a CTE.
+WITH filtered_objects AS (
+    SELECT 
+        oid,
+        relname,
+        relnamespace
+    FROM 
+        pg_class
+    WHERE 
+        relkind = 'r'  -- considering only tables; adjust if needed
+        AND relnamespace NOT IN (
+            SELECT oid FROM pg_namespace 
+            WHERE nspname IN ('pg_catalog', 'information_schema')
+        )
+)
+SELECT 
+    d.objid,
+    d.refobjid,
+    f1.relname AS object_name,
+    f2.relname AS referenced_object_name
+FROM 
+    pg_depend d
+JOIN 
+    filtered_objects f1 ON d.objid = f1.oid
+JOIN 
+    filtered_objects f2 ON d.refobjid = f2.oid
+WHERE 
+    d.deptype = 'n';  -- Adjust the dependency type if required
+
 
 
 /******************************************************************************
@@ -2260,131 +2287,158 @@ create view dependency as
 
 --- ACL
 
-create view acl as
-    -- callable
+create or replace view acl as
+    -- callable (functions)
     select
         function_id(ns.nspname, p.proname, _get_function_type_sig_array(p))::object_id as id,
         acl.*
     from
-        pg_proc                                                                                   p
-        inner join pg_namespace                                                                   ns on ns.oid = p.pronamespace
-        join       lateral ( select
-                                 role_id(grantor::regrole::name) as grantor,
-                                 role_id(grantee::regrole::name) as grantee,
-                                 privilege_type,
-                                 is_grantable,
-                                 p.proacl is null                as "default"
-                             from
-                                 aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) ) as acl on true
+        pg_proc p
+        inner join pg_namespace ns on ns.oid = p.pronamespace
+        join lateral (
+            select
+                role_id(grantor::regrole::name) as grantor,
+                role_id(grantee::regrole::name) as grantee,
+                privilege_type,
+                is_grantable,
+                p.proacl is null as "default"
+            from
+                aclexplode(coalesce(p.proacl, acldefault('f', p.proowner)))
+        ) as acl on true
+    where ns.nspname NOT IN ('pg_catalog', 'information_schema')
+
 -- type
     union all
     select
         type_id(ns.nspname, resolved_type_name(t))::object_id as id,
         acl.*
     from
-        pg_type                                                                                   t
-        inner join pg_namespace                                                                   ns on ns.oid = t.typnamespace
-        join       lateral ( select
-                                 role_id(grantor::regrole::name) as grantor,
-                                 role_id(grantee::regrole::name) as grantee,
-                                 privilege_type,
-                                 is_grantable,
-                                 t.typacl is null                as "default"
-                             from
-                                 aclexplode(coalesce(t.typacl, acldefault('T', t.typowner))) ) as acl on true
+        pg_type t
+        inner join pg_namespace ns on ns.oid = t.typnamespace
+        join lateral (
+            select
+                role_id(grantor::regrole::name) as grantor,
+                role_id(grantee::regrole::name) as grantee,
+                privilege_type,
+                is_grantable,
+                t.typacl is null as "default"
+            from
+                aclexplode(coalesce(t.typacl, acldefault('T', t.typowner)))
+        ) as acl on true
+    where ns.nspname NOT IN ('pg_catalog', 'information_schema')
+
 -- column
     union all
     select
         column_id(ns.nspname, c.relname, a.attname)::object_id as id,
         acl.*
     from
-        pg_attribute                                                                              a
-        inner join pg_class                                                                       c on c.oid = a.attrelid and c.reltype != 0
-        inner join pg_namespace                                                                   ns on ns.oid = c.relnamespace
-        join       lateral ( select
-                                 role_id(grantor::regrole::name) as grantor,
-                                 role_id(grantee::regrole::name) as grantee,
-                                 privilege_type,
-                                 is_grantable,
-                                 a.attacl is null                as "default"
-                             from
-                                 aclexplode(coalesce(a.attacl, acldefault('c', c.relowner))) ) as acl on true
+        pg_attribute a
+        inner join pg_class c on c.oid = a.attrelid and c.reltype != 0
+        inner join pg_namespace ns on ns.oid = c.relnamespace
+        join lateral (
+            select
+                role_id(grantor::regrole::name) as grantor,
+                role_id(grantee::regrole::name) as grantee,
+                privilege_type,
+                is_grantable,
+                a.attacl is null as "default"
+            from
+                aclexplode(coalesce(a.attacl, acldefault('c', c.relowner)))
+        ) as acl on true
+    where ns.nspname NOT IN ('pg_catalog', 'information_schema')
+
 -- relation
     union all
     select
         relation_id(ns.nspname, c.relname)::object_id as id,
         acl.*
     from
-        pg_class                                                                                  c
-        inner join pg_namespace                                                                   ns on ns.oid = c.relnamespace
-        join       lateral ( select
-                                 role_id(grantor::regrole::name) as grantor,
-                                 role_id(grantee::regrole::name) as grantee,
-                                 privilege_type,
-                                 is_grantable,
-                                 c.relacl is null                as "default"
-                             from
-                                 aclexplode(coalesce(c.relacl, acldefault('r', c.relowner))) ) as acl on true
-    where reltype != 0
+        pg_class c
+        inner join pg_namespace ns on ns.oid = c.relnamespace
+        join lateral (
+            select
+                role_id(grantor::regrole::name) as grantor,
+                role_id(grantee::regrole::name) as grantee,
+                privilege_type,
+                is_grantable,
+                c.relacl is null as "default"
+            from
+                aclexplode(coalesce(c.relacl, acldefault('r', c.relowner)))
+        ) as acl on true
+    where c.reltype != 0
+      and ns.nspname NOT IN ('pg_catalog', 'information_schema')
+
 -- schema
     union all
     select
         schema_id(ns.nspname)::object_id as id,
         acl.*
     from
-        pg_namespace                                                                          ns
-        join lateral ( select
-                           role_id(grantor::regrole::name) as grantor,
-                           role_id(grantee::regrole::name) as grantee,
-                           privilege_type,
-                           is_grantable,
-                           ns.nspacl is null               as "default"
-                       from
-                           aclexplode(coalesce(ns.nspacl, acldefault('n', ns.nspowner))) ) as acl on true
--- language
+        pg_namespace ns
+        join lateral (
+            select
+                role_id(grantor::regrole::name) as grantor,
+                role_id(grantee::regrole::name) as grantee,
+                privilege_type,
+                is_grantable,
+                ns.nspacl is null as "default"
+            from
+                aclexplode(coalesce(ns.nspacl, acldefault('n', ns.nspowner)))
+        ) as acl on true
+    where ns.nspname NOT IN ('pg_catalog', 'information_schema')
+
+-- language (no namespace, so left unchanged)
     union all
     select
         language_id(l.lanname)::object_id as id,
         acl.*
     from
-        pg_language                                                                         l
-        join lateral ( select
-                           role_id(grantor::regrole::name) as grantor,
-                           role_id(grantee::regrole::name) as grantee,
-                           privilege_type,
-                           is_grantable,
-                           l.lanacl is null                as "default"
-                       from
-                           aclexplode(coalesce(l.lanacl, acldefault('l', l.lanowner))) ) as acl on true
--- fdw
+        pg_language l
+        join lateral (
+            select
+                role_id(grantor::regrole::name) as grantor,
+                role_id(grantee::regrole::name) as grantee,
+                privilege_type,
+                is_grantable,
+                l.lanacl is null as "default"
+            from
+                aclexplode(coalesce(l.lanacl, acldefault('l', l.lanowner)))
+        ) as acl on true
+
+-- fdw (foreign data wrapper; no namespace join needed)
     union all
     select
         foreign_data_wrapper_id(fdw.fdwname)::object_id as id,
         acl.*
     from
-        pg_foreign_data_wrapper                                                                 fdw
-        join lateral ( select
-                           role_id(grantor::regrole::name) as grantor,
-                           role_id(grantee::regrole::name) as grantee,
-                           privilege_type,
-                           is_grantable,
-                           fdw.fdwacl is null              as "default"
-                       from
-                           aclexplode(coalesce(fdw.fdwacl, acldefault('F', fdw.fdwowner))) ) as acl on true
--- fdw server
+        pg_foreign_data_wrapper fdw
+        join lateral (
+            select
+                role_id(grantor::regrole::name) as grantor,
+                role_id(grantee::regrole::name) as grantee,
+                privilege_type,
+                is_grantable,
+                fdw.fdwacl is null as "default"
+            from
+                aclexplode(coalesce(fdw.fdwacl, acldefault('F', fdw.fdwowner)))
+        ) as acl on true
+
+-- fdw server (no namespace join needed)
     union all
     select
         foreign_server_id(f.srvname)::object_id as id,
         acl.*
     from
-        pg_catalog.pg_foreign_server                                                        f
-        join lateral ( select
-                           role_id(grantor::regrole::name) as grantor,
-                           role_id(grantee::regrole::name) as grantee,
-                           privilege_type,
-                           is_grantable,
-                           f.srvacl is null                as "default"
-                       from
-                           aclexplode(coalesce(f.srvacl, acldefault('S', f.srvowner))) ) as acl on true
--- TODO: database, tablespace, largeobject (pending corresponding types)
-;
+        pg_catalog.pg_foreign_server f
+        join lateral (
+            select
+                role_id(grantor::regrole::name) as grantor,
+                role_id(grantee::regrole::name) as grantee,
+                privilege_type,
+                is_grantable,
+                f.srvacl is null as "default"
+            from
+                aclexplode(coalesce(f.srvacl, acldefault('S', f.srvowner)))
+        ) as acl on true;
+
