@@ -2093,298 +2093,475 @@ create view obj_object_id as
         pg_language l;
 --- TODO: handle the rest of the cases (^^)
 
-create view dependency as
-    with
-        pre as materialized (
-            -- relation
-            select
-                relation_id(ns.nspname, c.relname)::object_id as id,
-                d                                             as dependency
-            from
-                pg_depend               d
-                inner join pg_class     c
-                           on c.oid = d.objid and d.classid = 'pg_class'::regclass and c.relkind != 't'
-                inner join pg_namespace ns on ns.oid = c.relnamespace
-            where
-                d.objsubid = 0
-            union all
-            -- callable
-            select
-                function_id(ns.nspname, p.proname, _get_function_type_sig_array(p))::object_id as id,
-                d                                                                              as dependency
-            from
-                pg_depend               d
-                inner join pg_proc      p on p.oid = d.objid and d.classid = 'pg_proc'::regclass
-                inner join pg_namespace ns on ns.oid = p.pronamespace
-            where
-                d.objsubid = 0
-            union all
-            -- column
-            select
-                column_id(ns.nspname, c.relname, a.attname)::object_id as id,
-                d                                                      as dependency
-            from
-                pg_depend               d
-                inner join pg_class     c on c.oid = d.objid and d.classid = 'pg_class'::regclass
-                inner join pg_attribute a on a.attrelid = c.oid and a.attnum > 0
-                inner join pg_namespace ns on ns.oid = c.relnamespace
-            where
-                d.objsubid != 0
-            union all
-            --- columns also depend on what tables depend on
-            select
-                column_id(ns.nspname, c.relname, a.attname)::object_id as id,
-                (('pg_attribute'::regclass, c.oid, a.attnum, d.refclassid, d.refobjid, d.refobjsubid,
-                  d.deptype)::pg_depend)                               as dependency
-            from
-                pg_attribute            a
-                inner join pg_class     c on c.oid = a.attrelid and c.reltype != 0
-                inner join pg_namespace ns on ns.oid = c.relnamespace
-                inner join pg_depend    d on d.objid = c.oid and d.classid = 'pg_class'::regclass
-            where
-                a.attnum > 0
-            union all
-            -- cast
-            select
-                cast_id(st_ns.nspname, st.typname, tt_ns.nspname, tt.typname)::object_id as id,
-                d                                                                        as dependency
-            from
-                pg_depend               d
-                inner join pg_cast      c on c.oid = d.objid and d.classid = 'pg_cast'::regclass
-                inner join pg_type      st on st.oid = c.castsource
-                inner join pg_type      tt on tt.oid = c.casttarget
-                inner join pg_namespace st_ns on st_ns.oid = st.typnamespace
-                inner join pg_namespace tt_ns on tt_ns.oid = tt.typnamespace
-            where
-                d.objsubid = 0
-            -- type
-            union all
-            select
-                type_id(ns.nspname, resolved_type_name(t))::object_id as id,
-                d                                                     as dependency
-            from
-                pg_depend               d
-                inner join pg_type      t on t.oid = d.objid and d.classid = 'pg_type'::regclass
-                inner join pg_namespace ns on ns.oid = t.typnamespace
-            ---- not all types were properly connected before Postgres 17 (arrays)
-            union all
-            select
-                type_id(ns.nspname, resolved_type_name(t))::object_id as id,
-                d                                                     as dependency
-            from
-                pg_type                 t
-                inner join pg_namespace ns on ns.oid = t.typnamespace
-                inner join pg_depend    d on d.objid = t.typelem and d.classid = 'pg_type'::regclass
-            where
-                (current_setting('server_version_num')::int / 10000) < 17 and
-                t.typelem != 0
-            ---- not all types were properly connected before Postgres 17 (relations)
-            union all
-            select
-                type_id(ns.nspname, resolved_type_name(t))::object_id as id,
-                d                                                     as dependency
-            from
-                pg_type                 t
-                inner join pg_namespace ns on ns.oid = t.typnamespace
-                inner join pg_depend    d on d.objid = t.typrelid and d.classid = 'pg_class'::regclass
-            where
-                (current_setting('server_version_num')::int / 10000) < 17 and
-                t.typrelid != 0
-            ---- not all types were properly connected before Postgres 17 (relation arrays)
-            union all
-            select
-                type_id(ns.nspname, resolved_type_name(t))::object_id as id,
-                d                                                     as dependency
-            from
-                pg_type                 t
-                inner join pg_type      tr on tr.oid = t.typelem and tr.typrelid != 0
-                inner join pg_namespace ns on ns.oid = t.typnamespace
-                inner join pg_depend    d on d.objid = tr.typrelid and d.classid = 'pg_class'::regclass
-            where
-                (current_setting('server_version_num')::int / 10000) < 17 and
-                t.typelem != 0
-            -- TODO: add support for multirange types
-            -- operator
-            union all
-            select
-                operator_id(ns.nspname, o.oprname, lns.nspname, resolved_type_name(lt), rns.nspname,
-                            resolved_type_name(rt))::object_id as id,
-                d                                              as dependency
-            from
-                pg_depend               d
-                inner join pg_operator  o on o.oid = d.objid and d.classid = 'pg_operator'::regclass
-                inner join pg_namespace ns on ns.oid = o.oprnamespace
-                left join  pg_type      lt on lt.oid = o.oprleft
-                left join  pg_type      rt on rt.oid = o.oprright
-                left join  pg_namespace lns on ns.oid = lt.typnamespace
-                left join  pg_namespace rns on ns.oid = rt.typnamespace
-            -- sequence
-            union all
-            select
-                sequence_id(ns.nspname, r.relname)::object_id as id,
-                d                                             as dependency
-            from
-                pg_depend               d
-                inner join pg_sequence  s on s.seqrelid = d.objid and d.classid = 'pg_class'::regclass
-                inner join pg_class     r on r.oid = s.seqrelid
-                inner join pg_namespace ns on ns.oid = r.relnamespace
-            -- index
-            union all
-            select
-                index_id(ns.nspname, r.relname)::object_id as id,
-                d                                          as dependency
-            from
-                pg_depend               d
-                inner join pg_index     i on i.indrelid = d.objid and d.classid = 'pg_class'::regclass
-                inner join pg_class     r on r.oid = i.indrelid
-                inner join pg_namespace ns on ns.oid = r.relnamespace
-            -- language
-            union all
-            select
-                language_id(l.lanname)::object_id as id,
-                d                                 as dependency
-            from
-                pg_depend              d
-                inner join pg_language l on l.oid = d.objid and d.classid = 'pg_language'::regclass)
+CREATE TABLE mv_refresh_log (
+	view_name text NOT NULL,
+	refresh_time timestamp DEFAULT CURRENT_TIMESTAMP NULL,
+	last_max_xid int8 NULL,
+	CONSTRAINT mv_refresh_log_pkey PRIMARY KEY (view_name)
+);
 
-    select
-        pre.id,
-        oo.object_id as dependent_on
-    from
-        pre
-        inner join obj_object_id oo
-                   on oo.classid = (pre.dependency).refclassid and oo.objid = (pre.dependency).refobjid and
-                      oo.objsubid = (pre.dependency).refobjsubid
-    where
-        (pre.dependency).deptype != 'i';
+CREATE TYPE pg_depend_type AS (
+	classid oid,
+	objid oid,
+	objsubid int4,
+	refclassid oid,
+	refobjid oid,
+	refobjsubid int4,
+	deptype char);
 
---- ACL
 
-create view acl as
-    -- callable
-    select
-        function_id(ns.nspname, p.proname, _get_function_type_sig_array(p))::object_id as id,
-        acl.*
-    from
-        pg_proc                                                                                   p
-        inner join pg_namespace                                                                   ns on ns.oid = p.pronamespace
-        join       lateral ( select
-                                 role_id(grantor::regrole::name) as grantor,
-                                 role_id(grantee::regrole::name) as grantee,
-                                 privilege_type,
-                                 is_grantable,
-                                 p.proacl is null                as "default"
-                             from
-                                 aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) ) as acl on true
--- type
-    union all
-    select
-        type_id(ns.nspname, resolved_type_name(t))::object_id as id,
-        acl.*
-    from
-        pg_type                                                                                   t
-        inner join pg_namespace                                                                   ns on ns.oid = t.typnamespace
-        join       lateral ( select
-                                 role_id(grantor::regrole::name) as grantor,
-                                 role_id(grantee::regrole::name) as grantee,
-                                 privilege_type,
-                                 is_grantable,
-                                 t.typacl is null                as "default"
-                             from
-                                 aclexplode(coalesce(t.typacl, acldefault('T', t.typowner))) ) as acl on true
--- column
-    union all
-    select
-        column_id(ns.nspname, c.relname, a.attname)::object_id as id,
-        acl.*
-    from
-        pg_attribute                                                                              a
-        inner join pg_class                                                                       c on c.oid = a.attrelid and c.reltype != 0
-        inner join pg_namespace                                                                   ns on ns.oid = c.relnamespace
-        join       lateral ( select
-                                 role_id(grantor::regrole::name) as grantor,
-                                 role_id(grantee::regrole::name) as grantee,
-                                 privilege_type,
-                                 is_grantable,
-                                 a.attacl is null                as "default"
-                             from
-                                 aclexplode(coalesce(a.attacl, acldefault('c', c.relowner))) ) as acl on true
--- relation
-    union all
-    select
-        relation_id(ns.nspname, c.relname)::object_id as id,
-        acl.*
-    from
-        pg_class                                                                                  c
-        inner join pg_namespace                                                                   ns on ns.oid = c.relnamespace
-        join       lateral ( select
-                                 role_id(grantor::regrole::name) as grantor,
-                                 role_id(grantee::regrole::name) as grantee,
-                                 privilege_type,
-                                 is_grantable,
-                                 c.relacl is null                as "default"
-                             from
-                                 aclexplode(coalesce(c.relacl, acldefault('r', c.relowner))) ) as acl on true
-    where reltype != 0
--- schema
-    union all
-    select
-        schema_id(ns.nspname)::object_id as id,
-        acl.*
-    from
-        pg_namespace                                                                          ns
-        join lateral ( select
-                           role_id(grantor::regrole::name) as grantor,
-                           role_id(grantee::regrole::name) as grantee,
-                           privilege_type,
-                           is_grantable,
-                           ns.nspacl is null               as "default"
-                       from
-                           aclexplode(coalesce(ns.nspacl, acldefault('n', ns.nspowner))) ) as acl on true
--- language
-    union all
-    select
-        language_id(l.lanname)::object_id as id,
-        acl.*
-    from
-        pg_language                                                                         l
-        join lateral ( select
-                           role_id(grantor::regrole::name) as grantor,
-                           role_id(grantee::regrole::name) as grantee,
-                           privilege_type,
-                           is_grantable,
-                           l.lanacl is null                as "default"
-                       from
-                           aclexplode(coalesce(l.lanacl, acldefault('l', l.lanowner))) ) as acl on true
--- fdw
-    union all
-    select
-        foreign_data_wrapper_id(fdw.fdwname)::object_id as id,
-        acl.*
-    from
-        pg_foreign_data_wrapper                                                                 fdw
-        join lateral ( select
-                           role_id(grantor::regrole::name) as grantor,
-                           role_id(grantee::regrole::name) as grantee,
-                           privilege_type,
-                           is_grantable,
-                           fdw.fdwacl is null              as "default"
-                       from
-                           aclexplode(coalesce(fdw.fdwacl, acldefault('F', fdw.fdwowner))) ) as acl on true
--- fdw server
-    union all
-    select
-        foreign_server_id(f.srvname)::object_id as id,
-        acl.*
-    from
-        pg_catalog.pg_foreign_server                                                        f
-        join lateral ( select
-                           role_id(grantor::regrole::name) as grantor,
-                           role_id(grantee::regrole::name) as grantee,
-                           privilege_type,
-                           is_grantable,
-                           f.srvacl is null                as "default"
-                       from
-                           aclexplode(coalesce(f.srvacl, acldefault('S', f.srvowner))) ) as acl on true
--- TODO: database, tablespace, largeobject (pending corresponding types)
+CREATE MATERIALIZED VIEW dependency_pre_mv
+AS WITH depend_data AS (
+    SELECT pg_depend.classid,
+           pg_depend.objid,
+           pg_depend.objsubid,
+           pg_depend.refclassid,
+           pg_depend.refobjid,
+           pg_depend.refobjsubid,
+           pg_depend.deptype
+    FROM pg_depend
+    WHERE pg_depend.deptype <> 'i'::"char"
+)
+ SELECT DISTINCT id,
+    classid,
+    objid,
+    objsubid,
+    refclassid,
+    refobjid,
+    refobjsubid,
+    deptype
+FROM (    
+    -- Relations (tables, columns, etc.)
+    SELECT DISTINCT
+        COALESCE(
+            CASE WHEN d.objsubid = 0 AND c.relkind != 't' THEN relation_id(ns.nspname, c.relname)::object_id END,
+            column_id(ns.nspname, c.relname, a.attname)::object_id
+        ) AS id,
+        d.classid, d.objid, d.objsubid, d.refclassid, d.refobjid, d.refobjsubid, d.deptype
+    FROM
+        depend_data d
+        INNER JOIN pg_class c ON c.oid = d.objid
+        LEFT JOIN pg_attribute a ON a.attrelid = c.oid AND a.attnum > 0
+        INNER JOIN pg_namespace ns ON ns.oid = c.relnamespace
+    WHERE
+        d.classid = 'pg_class'::regclass
+        AND (
+            (d.objsubid = 0 AND c.relkind != 't')
+            OR (d.objsubid != 0)
+            OR (a.attnum > 0)
+        )
+
+    UNION ALL
+
+    -- Columns also depend on what tables depend on
+    SELECT DISTINCT
+        column_id(ns.nspname, c.relname, a.attname)::object_id AS id,
+        d.classid, d.objid, d.objsubid, d.refclassid, d.refobjid, d.refobjsubid, d.deptype
+    FROM
+        pg_attribute a
+        INNER JOIN pg_class c ON c.oid = a.attrelid AND c.reltype != 0
+        INNER JOIN pg_namespace ns ON ns.oid = c.relnamespace
+        INNER JOIN pg_depend d ON d.objid = c.oid AND d.classid = 'pg_class'::regclass
+    WHERE
+        a.attnum > 0
+
+    UNION ALL
+
+    -- Functions and procedures
+    SELECT DISTINCT
+        function_id(ns.nspname, p.proname, _get_function_type_sig_array(p))::object_id AS id,
+        d.classid, d.objid, d.objsubid, d.refclassid, d.refobjid, d.refobjsubid, d.deptype
+    FROM
+        depend_data d
+        INNER JOIN pg_proc p ON p.oid = d.objid
+        INNER JOIN pg_namespace ns ON ns.oid = p.pronamespace
+    WHERE
+        d.classid = 'pg_proc'::regclass
+        AND d.objsubid = 0
+
+    UNION ALL
+
+    -- Type casts
+    SELECT DISTINCT
+        cast_id(st_ns.nspname, st.typname, tt_ns.nspname, tt.typname)::object_id AS id,
+        d.classid, d.objid, d.objsubid, d.refclassid, d.refobjid, d.refobjsubid, d.deptype
+    FROM
+        depend_data d
+        INNER JOIN pg_cast c ON c.oid = d.objid
+        INNER JOIN pg_type st ON st.oid = c.castsource
+        INNER JOIN pg_type tt ON tt.oid = c.casttarget
+        INNER JOIN pg_namespace st_ns ON st_ns.oid = st.typnamespace
+        INNER JOIN pg_namespace tt_ns ON tt_ns.oid = tt.typnamespace
+    WHERE
+        d.classid = 'pg_cast'::regclass
+        AND d.objsubid = 0
+
+    UNION ALL
+
+    -- Types (direct dependencies, arrays, relation arrays, etc.)
+    SELECT DISTINCT
+        type_id(ns.nspname, resolved_type_name(t))::object_id AS id,
+        d.classid, d.objid, d.objsubid, d.refclassid, d.refobjid, d.refobjsubid, d.deptype
+    FROM
+        depend_data d
+        INNER JOIN pg_type t ON t.oid = d.objid
+        INNER JOIN pg_namespace ns ON ns.oid = t.typnamespace
+    WHERE
+        d.classid = 'pg_type'::regclass
+        AND (t.typelem != 0 OR t.typrelid != 0)
+
+    UNION ALL
+
+    -- Operators
+    SELECT DISTINCT
+        operator_id(ns.nspname, o.oprname, lns.nspname, resolved_type_name(lt), rns.nspname, resolved_type_name(rt))::object_id AS id,
+        d.classid, d.objid, d.objsubid, d.refclassid, d.refobjid, d.refobjsubid, d.deptype
+    FROM
+        depend_data d
+        INNER JOIN pg_operator o ON o.oid = d.objid
+        INNER JOIN pg_namespace ns ON ns.oid = o.oprnamespace
+        LEFT JOIN pg_type lt ON lt.oid = o.oprleft
+        LEFT JOIN pg_namespace lns ON lns.oid = lt.typnamespace
+        LEFT JOIN pg_type rt ON rt.oid = o.oprright
+        LEFT JOIN pg_namespace rns ON rns.oid = rt.typnamespace
+    WHERE
+        d.classid = 'pg_operator'::regclass
+
+    UNION ALL
+
+    -- Sequences, indexes, and languages
+    SELECT DISTINCT
+        CASE
+            WHEN s.seqrelid IS NOT NULL THEN sequence_id(ns.nspname, r.relname)::object_id
+            WHEN i.indrelid IS NOT NULL THEN index_id(ns.nspname, r.relname)::object_id
+            WHEN l.oid IS NOT NULL THEN language_id(l.lanname)::object_id
+        END AS id,
+        d.classid, d.objid, d.objsubid, d.refclassid, d.refobjid, d.refobjsubid, d.deptype
+    FROM
+        depend_data d
+        LEFT JOIN pg_sequence s ON s.seqrelid = d.objid AND d.classid = 'pg_class'::regclass
+        LEFT JOIN pg_index i ON i.indrelid = d.objid AND d.classid = 'pg_class'::regclass
+        LEFT JOIN pg_language l ON l.oid = d.objid AND d.classid = 'pg_language'::regclass
+        LEFT JOIN pg_class r ON r.oid = d.objid
+        LEFT JOIN pg_namespace ns ON ns.oid = r.relnamespace
+    WHERE
+        (s.seqrelid IS NOT NULL AND d.classid = 'pg_class'::regclass) -- Sequences
+        OR (i.indrelid IS NOT NULL AND d.classid = 'pg_class'::regclass) -- Indexes
+        OR (l.oid IS NOT NULL AND d.classid = 'pg_language'::regclass) -- Languages
+    ) union_results
+WITH DATA;
+
+CREATE UNIQUE INDEX idx_dependency_pre_mv_unique ON dependency_pre_mv USING btree (id, classid, objid, objsubid, refclassid, refobjid, refobjsubid, deptype);
+
+CREATE OR REPLACE FUNCTION check_and_refresh_mv(mv_name TEXT)
+RETURNS void
+LANGUAGE plpgsql
+AS $function$
+DECLARE
+    current_max_xid BIGINT;
+    last_max_xid BIGINT;
+    current_max_xmin BIGINT;
+    is_refresh_in_progress BOOLEAN;
+    dblink_connection TEXT;
+    is_running BOOLEAN;
+BEGIN
+    -- Ensure we have fresh visibility of catalog changes
+    PERFORM pg_stat_clear_snapshot();
+
+    -- Fetch the last stored max XID from the log table for the specified mv_name
+    SELECT COALESCE(mv_refresh_log.last_max_xid, 0)
+    INTO last_max_xid
+    FROM mv_refresh_log
+    WHERE view_name = mv_name
+    FOR UPDATE;  -- Prevent race conditions
+
+    -- If no record exists, initialize and insert a default entry
+    IF last_max_xid = 0 THEN
+        INSERT INTO mv_refresh_log (view_name, last_max_xid)
+        VALUES (mv_name, last_max_xid)
+        ON CONFLICT(view_name) DO UPDATE
+        SET last_max_xid = EXCLUDED.last_max_xid;
+    END IF;
+
+    -- Determine how to track changes based on mv_name
+    IF mv_name = 'acl_mv' THEN
+        WITH base_objects AS (
+            -- Tables, views, materialized views, sequences, indices
+            SELECT c.xmin::text::BIGINT AS obj_xmin
+            FROM pg_class c
+            WHERE c.relacl IS NOT NULL
+            
+            UNION ALL
+            
+            -- Schemas
+            SELECT n.xmin::text::BIGINT AS obj_xmin
+            FROM pg_namespace n
+            WHERE n.nspacl IS NOT NULL
+            
+            UNION ALL
+            
+            -- Databases
+            SELECT d.xmin::text::BIGINT AS obj_xmin
+            FROM pg_database d
+            WHERE d.datacl IS NOT NULL
+            
+            UNION ALL
+            
+            -- Functions and procedures
+            SELECT p.xmin::text::BIGINT AS obj_xmin
+            FROM pg_proc p
+            WHERE p.proacl IS NOT NULL
+            
+            UNION ALL
+            
+            -- Types
+            SELECT t.xmin::text::BIGINT AS obj_xmin
+            FROM pg_type t
+            WHERE t.typacl IS NOT NULL
+            
+            UNION ALL
+            
+            -- Foreign servers
+            SELECT s.xmin::text::BIGINT AS obj_xmin
+            FROM pg_foreign_server s
+            WHERE s.srvacl IS NOT NULL
+            
+            UNION ALL
+            
+            -- Foreign data wrappers
+            SELECT f.xmin::text::BIGINT AS obj_xmin
+            FROM pg_foreign_data_wrapper f
+            WHERE f.fdwacl IS NOT NULL
+            
+            UNION ALL
+            
+            -- Languages
+            SELECT l.xmin::text::BIGINT AS obj_xmin
+            FROM pg_language l
+            WHERE l.lanacl IS NOT NULL
+            
+            UNION ALL
+            
+            -- Large objects
+            SELECT lo.xmin::text::BIGINT AS obj_xmin
+            FROM pg_largeobject_metadata lo
+            WHERE lo.lomacl IS NOT NULL
+            
+            UNION ALL
+            
+            -- Tablespaces
+            SELECT t.xmin::text::BIGINT AS obj_xmin
+            FROM pg_tablespace t
+            WHERE t.spcacl IS NOT NULL
+            
+            UNION ALL
+            
+            -- Default ACLs
+            SELECT d.xmin::text::BIGINT AS obj_xmin
+            FROM pg_default_acl d
+            
+            UNION ALL
+            
+            -- Role membership changes
+            SELECT a.xmin::text::BIGINT AS obj_xmin
+            FROM pg_auth_members a
+        )
+        SELECT COALESCE(MAX(obj_xmin), 0)  INTO current_max_xmin
+        FROM base_objects;
+    ELSIF mv_name = 'dependency_pre_mv' THEN
+        -- Use xmin from pg_depend for dependency_pre_mv
+        SELECT COALESCE(MAX(xmin::text::BIGINT), 0)
+        INTO current_max_xmin
+        FROM pg_depend;
+    ELSE
+        RAISE EXCEPTION 'Unknown materialized view name: %', mv_name;
+    END IF;
+
+    -- Debugging output
+    RAISE NOTICE 'Checking materialized view: %, last_max_xid: %, current_max_xmin: %', mv_name, last_max_xid, current_max_xmin;
+
+    -- Check if another refresh operation is already in progress
+    SELECT EXISTS (
+        SELECT 1
+        FROM pg_stat_activity
+        WHERE state = 'active' 
+          AND query LIKE 'REFRESH MATERIALIZED VIEW%'
+          AND query LIKE '%' || mv_name || '%'
+    ) INTO is_refresh_in_progress;
+
+    IF is_refresh_in_progress THEN
+        RAISE NOTICE 'Refresh already in progress for materialized view %, skipping.', mv_name;
+        RETURN;  -- Skip refresh
+    END IF;
+
+    BEGIN
+        -- Only refresh if the new max_xmin is greater than the last recorded XID
+        IF current_max_xmin > last_max_xid THEN
+            RAISE NOTICE 'Materialized view % is stale. Refreshing...', mv_name;
+
+            -- Connect to the remote database using dblink
+            PERFORM dblink_connect(format('dbname=%s user=%s', current_database(), current_user));
+
+            -- Perform the refresh
+            EXECUTE format('SELECT dblink_exec($$REFRESH MATERIALIZED VIEW CONCURRENTLY omni_schema.%I$$)', mv_name);
+
+            -- Poll the system catalog to check if the refresh is still running
+            LOOP
+                SELECT EXISTS (
+                    SELECT 1 FROM pg_stat_activity 
+                    WHERE query LIKE format('REFRESH MATERIALIZED VIEW CONCURRENTLY omni_schema.%I%%', mv_name) 
+                    AND state != 'idle'
+                ) INTO is_running;
+                
+                EXIT WHEN NOT is_running;  -- Exit loop when the refresh is done
+
+                PERFORM pg_sleep(1);  -- Wait 1 second before checking again
+            END LOOP;
+
+            -- Update refresh log
+            UPDATE mv_refresh_log
+            SET last_max_xid = current_max_xmin
+            WHERE view_name = mv_name;
+
+            RAISE NOTICE 'Materialized view % refreshed successfully.', mv_name;
+
+            PERFORM dblink_disconnect();  -- Close the dblink connection
+        ELSE
+            RAISE NOTICE 'Materialized view % is up to date. No refresh needed.', mv_name;
+        END IF;
+    EXCEPTION
+        WHEN OTHERS THEN
+            -- In case of error during refresh, release the lock and re-raise the error
+            RAISE WARNING 'Error during refresh: %', SQLERRM;
+            PERFORM dblink_disconnect();  -- Close the dblink connection
+            RAISE;
+    END;
+
+END;
+$function$;
+
+
+CREATE OR REPLACE FUNCTION check_and_refresh_mv_once(mv_name text)
+ RETURNS boolean
+ LANGUAGE plpgsql
+AS $function$
+BEGIN
+    -- Acquire a lock to prevent multiple executions
+    PERFORM pg_advisory_lock(hashtext(mv_name));
+
+    -- Run the refresh only if the lock is acquired
+    PERFORM check_and_refresh_mv(mv_name);
+
+    -- Release the lock
+    PERFORM pg_advisory_unlock(hashtext(mv_name));
+
+    RETURN true;
+END;
+$function$
 ;
+
+-- dependency
+CREATE OR REPLACE VIEW dependency
+AS WITH refresh AS (
+         SELECT check_and_refresh_mv_once('dependency_pre_mv') AS refreshed
+        )
+ SELECT sub.id,
+    oo.object_id AS dependent_on
+   FROM dependency_pre_mv sub
+     JOIN obj_object_id oo ON oo.classid = sub.refclassid AND oo.objid = sub.refobjid AND oo.objsubid = sub.refobjsubid::oid
+     JOIN refresh ON true;
+
+-- ACL
+CREATE MATERIALIZED VIEW acl_mv
+AS WITH dedup AS (
+         SELECT function_id(ns.nspname, p.proname, _get_function_type_sig_array(p.*)::name[])::object_id AS id,
+            acl.grantor,
+            acl.grantee,
+            acl.privilege_type,
+            acl.is_grantable,
+            acl."default",
+            row_number() OVER (PARTITION BY (function_id(ns.nspname, p.proname, _get_function_type_sig_array(p.*)::name[])::object_id), acl.grantor, acl.grantee, acl.privilege_type ORDER BY p.proowner) AS rn
+           FROM pg_proc p
+             JOIN pg_namespace ns ON ns.oid = p.pronamespace
+             JOIN LATERAL ( SELECT role_id(aclexplode.grantor::regrole::name) AS grantor,
+                    role_id(aclexplode.grantee::regrole::name) AS grantee,
+                    aclexplode.privilege_type,
+                    aclexplode.is_grantable,
+                    p.proacl IS NULL AS "default"
+                   FROM aclexplode(COALESCE(p.proacl, acldefault('f'::"char", p.proowner))) aclexplode(grantor, grantee, privilege_type, is_grantable)) acl ON true
+        UNION ALL
+         SELECT type_id(ns.nspname, resolved_type_name(t.*))::object_id AS id,
+            acl.grantor,
+            acl.grantee,
+            acl.privilege_type,
+            acl.is_grantable,
+            acl."default",
+            row_number() OVER (PARTITION BY (type_id(ns.nspname, resolved_type_name(t.*))::object_id), acl.grantor, acl.grantee, acl.privilege_type ORDER BY t.typowner) AS rn
+           FROM pg_type t
+             JOIN pg_namespace ns ON ns.oid = t.typnamespace
+             JOIN LATERAL ( SELECT role_id(aclexplode.grantor::regrole::name) AS grantor,
+                    role_id(aclexplode.grantee::regrole::name) AS grantee,
+                    aclexplode.privilege_type,
+                    aclexplode.is_grantable,
+                    t.typacl IS NULL AS "default"
+                   FROM aclexplode(COALESCE(t.typacl, acldefault('T'::"char", t.typowner))) aclexplode(grantor, grantee, privilege_type, is_grantable)) acl ON true
+        UNION ALL
+         SELECT column_id(ns.nspname, c.relname, a.attname)::object_id AS id,
+            acl.grantor,
+            acl.grantee,
+            acl.privilege_type,
+            acl.is_grantable,
+            acl."default",
+            row_number() OVER (PARTITION BY (column_id(ns.nspname, c.relname, a.attname)::object_id), acl.grantor, acl.grantee, acl.privilege_type ORDER BY a.attrelid) AS rn
+           FROM pg_attribute a
+             JOIN pg_class c ON c.oid = a.attrelid AND c.reltype <> 0::oid
+             JOIN pg_namespace ns ON ns.oid = c.relnamespace
+             JOIN LATERAL ( SELECT role_id(aclexplode.grantor::regrole::name) AS grantor,
+                    role_id(aclexplode.grantee::regrole::name) AS grantee,
+                    aclexplode.privilege_type,
+                    aclexplode.is_grantable,
+                    a.attacl IS NULL AS "default"
+                   FROM aclexplode(COALESCE(a.attacl, acldefault('c'::"char", c.relowner))) aclexplode(grantor, grantee, privilege_type, is_grantable)) acl ON true
+        UNION ALL
+         SELECT relation_id(ns.nspname, c.relname)::object_id AS id,
+            acl.grantor,
+            acl.grantee,
+            acl.privilege_type,
+            acl.is_grantable,
+            acl."default",
+            row_number() OVER (PARTITION BY (relation_id(ns.nspname, c.relname)::object_id), acl.grantor, acl.grantee, acl.privilege_type ORDER BY c.relowner) AS rn
+           FROM pg_class c
+             JOIN pg_namespace ns ON ns.oid = c.relnamespace
+             JOIN LATERAL ( SELECT role_id(aclexplode.grantor::regrole::name) AS grantor,
+                    role_id(aclexplode.grantee::regrole::name) AS grantee,
+                    aclexplode.privilege_type,
+                    aclexplode.is_grantable,
+                    c.relacl IS NULL AS "default"
+                   FROM aclexplode(COALESCE(c.relacl, acldefault('r'::"char", c.relowner))) aclexplode(grantor, grantee, privilege_type, is_grantable)) acl ON true
+          WHERE c.reltype <> 0::oid
+        )
+ SELECT id,
+    grantor,
+    grantee,
+    privilege_type,
+    is_grantable,
+    "default",
+    rn
+   FROM dedup
+  WHERE rn = 1
+WITH DATA;
+
+CREATE UNIQUE INDEX acl_mv_id_idx ON acl_mv USING btree (id, grantor, grantee, privilege_type);
+
+CREATE OR REPLACE VIEW acl
+AS WITH refresh AS (
+         SELECT check_and_refresh_mv_once('acl_mv') AS refreshed
+        )
+ SELECT sub.id,
+    sub.grantor,
+    sub.grantee,
+    sub.privilege_type,
+    sub.is_grantable,
+    sub."default"
+   FROM acl_mv sub
+     JOIN refresh ON true;
