@@ -1,0 +1,102 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+  - create extension omni_python cascade
+  - insert
+    into
+        omni_python.config (name, value)
+    values
+        ('pip_find_links', '../../../python-wheels'),
+        ('site_packages', 'omni_python_test_functions')
+  - select omni_python.install_requirements('omni_python')
+  - create
+      table
+      employees (
+        id integer primary key generated always as identity,
+        name text not null,
+        department text not null,
+        salary integer not null)
+
+tests:
+- name: simple connect
+  steps:
+  - query: select * from omni_python.create_functions($1)
+    params:
+    #language=Python
+    - |
+      from omni_python import pg, dbapi
+
+      @pg
+      def get_one() -> int:
+          conn = dbapi.connect();
+          cur = conn.cursor()
+          cur.execute('SELECT 1')
+          res = cur.fetchone()
+          conn.close()
+          return res[0]
+  - query: select get_one() as res
+    results:
+     - res: 1
+
+
+- name: autocommit
+  steps:
+  - query: select * from omni_python.create_functions($1)
+    params:
+    #language=Python
+    - |
+      from omni_python import pg, dbapi
+
+      @pg
+      def insert_employee_no_autocommit(name: str, deparment: str, salary: int) -> str:
+          conn = dbapi.connect()
+          conn.autocommit = False
+          cur = conn.cursor()
+          try:
+              cur.execute("INSERT INTO employees (name, department, salary) VALUES ($1, $2, $3)", [name, deparment, salary])
+          except:
+              con.rollback()
+              return "Failed"
+          conn.commit()
+          cur.close()
+          conn.close()
+          return "Success"
+  - query: select * from omni_python.create_functions($1)
+    params:
+    #language=Python
+    - |
+      from omni_python import pg, dbapi
+
+      @pg
+      def insert_employee_autocommit(name: str, deparment: str, salary: int) -> str:
+          conn = dbapi.connect()
+          conn.autocommit = True
+          cur = conn.cursor()
+          try:
+              cur.execute("INSERT INTO employees (name, department, salary) VALUES ($1, $2, $3)", [name, deparment, salary])
+          except:
+              con.rollback()
+              return "Failed"
+          cur.close()
+          conn.close()
+
+          return "Success"
+  - query: select insert_employee_no_autocommit('Bill', 'Accounting', 80) as res
+    results:
+      - res: 'Success'
+  - query: select insert_employee_autocommit('Tony', 'Marketing', 60) as res
+    results:
+      - res: 'Success'
+  - query: select * from employees
+    results:
+      - id: 1
+        name: 'Bill'
+        department: 'Accounting'
+        salary: 80
+      - id: 2
+        name: 'Tony'
+        department: 'Marketing'
+        salary: 60
+        
+        
+
