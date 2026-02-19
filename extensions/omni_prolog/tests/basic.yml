@@ -1,0 +1,100 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instances:
+  default:
+    init:
+    - create extension omni_prolog
+
+tests:
+
+- name: return an integer value
+  steps:
+  - |
+    create function val() returns integer as $$
+    result(1).
+    $$ language plprolog
+  - query: select val()
+    results:
+    - val: 1
+
+- name: return an int2 value
+  steps:
+  - |
+    create function val() returns int2 as $$
+    result(1).
+    $$ language plprolog
+  - query: select val()
+    results:
+    - val: 1
+
+- name: return an int8 value
+  steps:
+  - |
+    create function val() returns int8 as $$
+    result(1).
+    $$ language plprolog
+  - query: select val()
+    results:
+    - val: 1
+
+- name: return an text value
+  steps:
+  - |
+    create function val() returns text as $$
+    result("a").
+    $$ language plprolog
+  - query: select val()
+    results:
+    - val: a
+
+- name: return an atom value as text
+  steps:
+  - |
+    create function val() returns text as $$
+    result(a).
+    $$ language plprolog
+  - query: select val()
+    results:
+    - val: a
+
+- name: returning a set where none is expected
+  steps:
+  - |
+    create function val() returns text as $$
+    result(a).
+    result(b).
+    $$ language plprolog
+  - query: select * from val()
+    notices:
+    - Multiple results given, only a single one expected
+    results:
+    - val: a
+
+- name: return a set
+  steps:
+  - |
+    create function val() returns setof text as $$
+    result(a).
+    result(b).
+    $$ language plprolog
+  - query: select * from val()
+    results:
+    - val: a
+    - val: b
+
+- name: handle type mismatch
+  steps:
+  - |
+    create function val() returns text as $$
+    result(1).
+    $$ language plprolog
+  - query: select val()
+    error: result type mismatch, expected text, got integer
+
+- name: handle errors
+  steps:
+  - |
+    create function val() returns text as $$
+    :- throw(error(test_error)).
+    $$ language plprolog
+  - query: select val()
+    error: "Unhandled exception: Unknown message: error(test_error)"

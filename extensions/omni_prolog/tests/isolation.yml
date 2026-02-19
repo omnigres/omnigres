@@ -1,0 +1,50 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instances:
+  default:
+    init:
+    - create extension omni_prolog
+
+tests:
+
+- name: dynamic predicates
+  todo: true # TODO: figure out what to do with this
+  steps:
+  - name: assert + require
+    query: |
+      create or replace function val() returns integer as
+      $$
+        :- assert(pred).
+        result(1) :- pred.
+        $$ language plprolog
+  - query: select val()
+    results:
+    - val: 1
+  - name: require
+    query: |
+      create or replace function val() returns integer as
+      $$
+      result(1) :- pred.
+      $$ language plprolog
+  - query: select val()
+    error: "Unknown message: existence_error(procedure,user:pred)"
+
+- name: static predicates
+  steps:
+  - name: with predicate
+    query: |
+      create or replace function val() returns integer as
+      $$
+        pred.
+        result(1) :- pred.
+        $$ language plprolog
+  - query: select val()
+    results:
+    - val: 1
+  - name: without the predicate
+    query: |
+      create or replace function val() returns integer as
+      $$
+      result(1) :- pred.
+      $$ language plprolog
+  - query: select val()
+    error: "Unknown message: existence_error(procedure,user:pred)"
