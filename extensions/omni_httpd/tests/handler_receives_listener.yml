@@ -1,0 +1,45 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  config:
+    shared_preload_libraries: */env/OMNI_SO
+    max_worker_processes: 64
+  init:
+  - set session omni_httpd.no_init = true
+  - create extension omni_httpd cascade
+  - create extension omni_httpc cascade
+  - call omni_httpd.wait_for_configuration_reloads(1)
+  - insert into omni_httpd.listeners (address, port) values ('127.0.0.1', 8080) returning id;
+  - insert into omni_httpd.listeners (address, port) values ('127.0.0.1', 8081) returning id;
+  - | 
+    create or replace function public.test_handler(listener_id int, request omni_httpd.http_request)
+     returns omni_httpd.http_outcome
+     language sql
+    return omni_httpd.http_response(body => listener_id::text);
+  - create table test_router (like omni_httpd.urlpattern_router);
+  - insert into test_router (match, handler) values (omni_httpd.urlpattern('/test'), 'test_handler'::regproc);
+  - call omni_httpd.wait_for_configuration_reloads(1)
+
+tests:
+- name: handler receives listener id as parameter
+  query: |
+    with 
+    response_8080_listener as (
+      select * from omni_httpc.http_execute(
+      omni_httpc.http_request('http://127.0.0.1:' ||
+      (select effective_port from omni_httpd.listeners where port = 8080) || '/test'))),
+    response_8081_listener as (
+      select * from omni_httpc.http_execute(
+      omni_httpc.http_request('http://127.0.0.1:' ||
+      (select effective_port from omni_httpd.listeners where port = 8081) || '/test')))
+
+    select
+    response_8080_listener.status as status_8080,
+    response_8081_listener.status as status_8081,
+    (select port from omni_httpd.listeners l where l.id = convert_from(response_8080_listener.body, 'utf-8')::int) = 8080 as port_8080,
+    (select port from omni_httpd.listeners l where l.id = convert_from(response_8081_listener.body, 'utf-8')::int) = 8081 as port_8081
+    from response_8080_listener, response_8081_listener
+  results:
+  - status_8080: 200
+    status_8081: 200
+    port_8080: true
+    port_8081: true

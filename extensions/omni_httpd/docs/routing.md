@@ -37,6 +37,7 @@ with a non-atomic context [^nonatomic]
 
 Following parameters may be specified, at any position:
 
+* `int` – will pass the `id` on `omni_httpd.listeners` that received the request.
 * `omni_httpd.http_request` – will pass the request
 * `omni_httpd.http_outcome` – for procedural handlers and middleware 
   * For handlers, this parameter must use the **out** mode.
@@ -53,6 +54,16 @@ Note: The function must return a value of type omni_httpd.httpd_outcome.
 create function normal_handler(request omni_httpd.http_request)
   returns omni_httpd.http_outcome
   return omni_httpd.http_response(request.path);
+```
+
+This function will return a response with the request's path.
+
+##### Request passing function handler with listener id
+
+```postgresql
+create function handler_with_listener_id(listener_id int, request omni_httpd.http_request)
+  returns omni_httpd.http_outcome
+  return omni_httpd.http_response(body => format('%s called on listener %s', request.path, listener_id));
 ```
 
 This function will return a response with the request's path.
