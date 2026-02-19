@@ -1,0 +1,86 @@
+$schema: "https://raw.githubusercontent.com/omnigres/omnigres/master/pg_yregress/schema.json"
+instance:
+  init:
+    - create schema if not exists http_router_test
+    - set search_path to http_router_test, public
+
+    # Include the required extensions
+    - create extension if not exists omni_httpd cascade;
+    - create extension if not exists omni_regex;
+    
+    - |
+      create type product_path as (
+          request omni_httpd.http_request,
+          product_id text
+      )
+    - |
+      create type user_post_path as (
+          request omni_httpd.http_request,
+          user_id text,
+          post_id text
+      )
+
+tests:
+  - name: "Test make_router basic functionality"
+    query: |
+      select make_router(
+          'product_path',
+          'product_path',
+          '/product/(\d+)',
+          'get'
+      );
+    results: []
+
+  - name: "Test router with valid request"
+    query: |
+      with test_request as (
+          select row(
+              'get',
+              '/product/123',
+              'example.com',
+              array[]::text[],
+              '{}'::jsonb,
+              null::bytea
+          )::omni_httpd.http_request as req
+      )
+      select (product_path(req)).product_id = '123' as matches
+      from test_request;
+    results:
+      - matches: true
+
+  - name: "Test router with invalid method"
+    query: |
+      with test_request as (
+          select row(
+              'post',
+              '/product/123',
+              'example.com',
+              array[]::text[],
+              '{}'::jsonb,
+              null::bytea
+          )::omni_httpd.http_request as req
+      )
+      select product_path(req) is null as is_null
+      from test_request;
+    results:
+      - is_null: true
+
+  - name: "Test url_pattern_to_regex conversion"
+    query: |
+      select 
+        url_pattern_to_regex('/product/:id') = '^/product/([^/]+)$' as test1,
+        url_pattern_to_regex('/users/:userid/posts/:postid') = '^/users/([^/]+)/posts/([^/]+)$' as test2,
+        url_pattern_to_regex('/static/file.txt') = '^/static/file\.txt$' as test3;
+    results:
+      - test1: true
+        test2: true
+        test3: true
+
+  - name: "Test regex matching with generated patterns"
+    query: |
+      select 
+        '/product/123' ~ url_pattern_to_regex('/product/:id') as should_match,
+        '/product/' ~ url_pattern_to_regex('/product/:id') as should_not_match;
+    results:
+      - should_match: true
+        should_not_match: false
